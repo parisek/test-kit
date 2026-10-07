@@ -1,0 +1,7 @@
+node_modules/
+coverage/
+.DS_Store
+*.log
+# Captures and runs never belong in git. A project keeps them under tests/visual/runs/.
+runs/
+.test-kit/
