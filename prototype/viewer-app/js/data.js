@@ -4,6 +4,7 @@ import { adaptV1 } from './adapt-v1.js';
 import { VIEW_IDS, PAIR_KINDS } from './pairs.js';
 import { normalizeRules, RULE_ARTIFACTS } from './rules.js';
 import { composedIds } from './classify.js';
+import { sameOriginUrl } from './safe.js';
 
 const STEP_STATUS = ['same', 'changed', 'failed'];
 const EVIDENCE_KINDS = ['screenshot', 'console', 'network', 'datalayer', 'dom'];
@@ -18,7 +19,10 @@ export class ReportError extends Error {
 	}
 }
 
-export async function loadReport(url, fetchImpl = globalThis.fetch) {
+// `?data=` comes from a link, so the address must stay on the page's own origin. A report from another origin is untrusted.
+export async function loadReport(requested, fetchImpl = globalThis.fetch, base = globalThis.location?.href ?? 'http://localhost/') {
+	const url = sameOriginUrl(requested, base);
+	if (!url) throw new ReportError('Adresa reportu musí být na stejném původu jako aplikace (relativní cesta).', [String(requested)]);
 	let response;
 	try {
 		response = await fetchImpl(url, { cache: 'no-store' });

@@ -1,4 +1,6 @@
 // Tiny DOM helper. Strings become text nodes, never HTML, so report data cannot inject markup.
+// URL attributes (src, href, poster) must stay on the page's origin: a report is untrusted data (js/safe.js).
+import { sameOriginUrl, URL_ATTRIBUTES } from './safe.js';
 const BOOLEAN = new Set(['disabled', 'hidden', 'checked', 'selected', 'open', 'readOnly']);
 
 /**
@@ -18,6 +20,7 @@ export function h(tag, props = {}, ...children) {
 		else if (key === 'dataset') Object.assign(el.dataset, value);
 		else if (key === 'on') for (const [type, fn] of Object.entries(value)) el.addEventListener(type, fn);
 		else if (BOOLEAN.has(key)) el[key] = Boolean(value);
+		else if (URL_ATTRIBUTES.has(key)) { const url = sameOriginUrl(String(value), location.href); if (url) el.setAttribute(key, url); }
 		else el.setAttribute(key, value === true ? '' : String(value));
 	}
 	append(el, children);

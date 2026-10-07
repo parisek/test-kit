@@ -159,3 +159,12 @@ Rules for all of them: build nodes with `h()` (no `innerHTML`); give any control
 - **A package.** A later package, like parisek/styleguide, is the long-term home; not now.
 
 The 3 % threshold is a compass, not a verdict for every pair. `matchBelow` is per report for that reason.
+
+## Untrusted data
+
+A report can come from a link, a shared folder or a CI artefact, so the viewer treats it as untrusted (`js/safe.js`).
+
+- `?data=` and every `src`, `href` and `poster` must stay on the origin of the page. Script URLs, `data:` URLs and other origins are dropped.
+- The command that opens a Playwright trace goes to the clipboard and then to a shell. It appears only for a plain relative path.
+  A path with a space, a quote, `;`, `$`, a leading `-` or `..` shows a notice and no command.
+- Text always goes in as text nodes. No code path writes report data as markup.

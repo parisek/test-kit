@@ -4,12 +4,15 @@
 // how to open them and never embeds them.
 import { h } from '../dom.js';
 import { causeIsKnown } from '../classify.js';
+import { safeRunPath } from '../safe.js';
 
 const STATUS_TEXT = { same: 'Shodné', changed: 'Liší se', failed: 'Selhalo' };
 const KIND_TEXT = { screenshot: 'Snímek', console: 'Konzole', network: 'Síť', datalayer: 'dataLayer', dom: 'DOM' };
 
+// The path comes from the report. It goes to a clipboard and then to a shell, so only plain relative paths pass.
 export function traceCommand(path) {
-	return `npx playwright show-trace ${path}`;
+	const safe = safeRunPath(path);
+	return safe ? `npx playwright show-trace ${safe}` : null;
 }
 
 function copyButton(text) {
@@ -70,6 +73,7 @@ function recordings(list) {
 			const side = h('span', { class: `steps-side steps-side-${rec.side}` }, rec.side === 'a' ? 'A' : 'B');
 			if (rec.kind === 'trace') {
 				const command = traceCommand(rec.path);
+				if (!command) return h('div', { class: 'steps-rec-row' }, side, h('span', { class: 'steps-kind' }, 'Trace'), h('span', { class: 'steps-label' }, rec.label ?? ''), h('span', { class: 'muted' }, 'Cesta záznamu není bezpečná, příkaz se nezobrazí.'));
 				return h('div', { class: 'steps-rec-row' }, side, h('span', { class: 'steps-kind' }, 'Trace'), h('span', { class: 'steps-label' }, rec.label ?? ''),
 					h('code', { class: 'steps-cmd' }, command), copyButton(command));
 			}
