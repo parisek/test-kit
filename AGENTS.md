@@ -21,7 +21,7 @@ PLAN: "docs/specification.md section 14"
 
 ```bash
 npm test                        # node --test (finds *.test.js; no dependency, no browser)
-node bin/test-kit.js --help     # the command line
+node bin/cli.js --help     # the command line
 ```
 
 ## Layout

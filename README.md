@@ -12,7 +12,7 @@ It takes over the testing tools of `tailwind-base` step by step.
 
 ```bash
 npm test                      # node --test, no dependency
-node bin/test-kit.js --help
+node bin/cli.js --help
 ```
 
 Related: [`lint-kit`](https://github.com/parisek/lint-kit), the lint rules.

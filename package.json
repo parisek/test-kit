@@ -5,7 +5,7 @@
   "description": "Testing and comparison tool for sites: pairs of runs, pluggable checks, one viewer, one query interface for agents.",
   "type": "module",
   "bin": {
-    "test-kit": "bin/test-kit.js"
+    "test-kit": "bin/cli.js"
   },
   "exports": {
     ".": "./src/index.js"
