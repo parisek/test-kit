@@ -1,0 +1,20 @@
+# Global configuration of test-kit for one project. `test-kit init` will copy this file.
+# Specification: docs/specification.md, section 5.
+
+sides:
+  local:      { origin: "${LOCAL_URL}" }
+  production: { origin: "${PRODUCTION_URL}" }
+
+targets:
+  source: list            # manifest | styleguide | list
+  list: []
+
+# Small by default. Everything else is on request: --artifacts, --checks.
+artifacts: [screenshot, html, status]
+checks: [heading-outline, lang, empty-alt]
+
+# Speed limits per target. A breach is a finding. The exit code changes only with --fail-on-budget.
+budgets: {}
+
+# Known differences belong to a pair, not to a side. Writing one is a command that records evidence.
+known_diffs: {}
