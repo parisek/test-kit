@@ -1,0 +1,14 @@
+[
+ {
+  "label": "Stránky (ukázka)",
+  "url": "data/report.json"
+ },
+ {
+  "label": "Komponenty (ukázka)",
+  "url": "data/report.components.json"
+ },
+ {
+  "label": "Starý formát (verze 1)",
+  "url": "data/report.v1.json"
+ }
+]

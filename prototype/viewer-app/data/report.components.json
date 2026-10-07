@@ -1,0 +1,2185 @@
+{
+ "schemaVersion": 2,
+ "meta": {
+  "project": "example-site",
+  "title": "Komponenty proti referenci",
+  "generated": "2026-10-07",
+  "matchBelow": 0.5,
+  "primaryViewport": "desktop-1280",
+  "sample": true,
+  "groups": {
+   "basic": "Základní prvky",
+   "parts": "Části",
+   "blocks": "Bloky",
+   "pages": "Stránky"
+  },
+  "viewports": [
+   {
+    "id": "mobile-390",
+    "label": "390",
+    "width": 390,
+    "height": 844
+   },
+   {
+    "id": "tablet-768",
+    "label": "768",
+    "width": 768,
+    "height": 1024
+   },
+   {
+    "id": "notebook-1024",
+    "label": "1024",
+    "width": 1024,
+    "height": 768
+   },
+   {
+    "id": "desktop-1280",
+    "label": "1280",
+    "width": 1280,
+    "height": 900
+   },
+   {
+    "id": "wide-1920",
+    "label": "1920",
+    "width": 1920,
+    "height": 1080
+   }
+  ],
+  "note": "Ukázková data na úrovni komponent. Všechna čísla jsou ilustrativní. Stejný prohlížeč čte stránky i komponenty."
+ },
+ "runs": [
+  {
+   "id": "reference",
+   "side": "reference",
+   "label": "živý web (reference)",
+   "at": "2026-10-06 09:00",
+   "captures": 80
+  },
+  {
+   "id": "styleguide",
+   "side": "styleguide",
+   "label": "styleguide · render",
+   "at": "2026-10-07 08:15",
+   "captures": 80
+  }
+ ],
+ "pair": {
+  "kind": "reference-styleguide",
+  "aRunId": "reference",
+  "bRunId": "styleguide"
+ },
+ "entries": [
+  {
+   "id": "button",
+   "kind": "component",
+   "title": "Button",
+   "path": "Button",
+   "group": "basic",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.9,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.9,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.8,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.8,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.7,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.7,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.8,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.8,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "html": {
+     "rows": [
+      {
+       "k": " ",
+       "n": 1,
+       "s": "<button class=\"btn btn--primary\" type=\"button\">"
+      },
+      {
+       "k": " ",
+       "n": 2,
+       "s": "<span class=\"btn__label\">Odeslat</span>"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "input",
+   "kind": "component",
+   "title": "Input",
+   "path": "Input",
+   "group": "basic",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 1.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.1,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.9,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.9,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.8,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.8,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.7,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.7,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.9,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.9,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "badge",
+   "kind": "component",
+   "title": "Badge",
+   "path": "Badge",
+   "group": "basic",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.5,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.5,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.5,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.5,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "header",
+   "kind": "component",
+   "title": "Header",
+   "path": "Header",
+   "group": "parts",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "footer",
+   "kind": "component",
+   "title": "Footer",
+   "path": "Footer",
+   "group": "parts",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "breadcrumb",
+   "kind": "component",
+   "title": "Breadcrumb",
+   "path": "Breadcrumb",
+   "group": "parts",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.7,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.7,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.5,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.5,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.5,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.5,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "pagination",
+   "kind": "component",
+   "title": "Pagination",
+   "path": "Pagination",
+   "group": "parts",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "accordion",
+   "kind": "component",
+   "title": "Accordion",
+   "path": "Accordion",
+   "group": "parts",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "behavior": {
+     "note": "Postup přístupnosti panelu. Vzorek.",
+     "rows": [],
+     "steps": [
+      {
+       "id": "open",
+       "title": "Otevřít panel kliknutím",
+       "status": "same",
+       "a": {
+        "text": "aria-expanded=\"true\", panel viditelný."
+       },
+       "b": {
+        "text": "aria-expanded=\"true\", panel viditelný."
+       },
+       "evidence": [
+        {
+         "kind": "dom",
+         "side": "a",
+         "label": "Po kliknutí",
+         "text": "<button aria-expanded=\"true\">"
+        },
+        {
+         "kind": "dom",
+         "side": "b",
+         "label": "Po kliknutí",
+         "text": "<button aria-expanded=\"true\">"
+        }
+       ]
+      },
+      {
+       "id": "close",
+       "title": "Zavřít panel kliknutím",
+       "status": "same",
+       "a": {
+        "text": "aria-expanded=\"false\", panel skrytý."
+       },
+       "b": {
+        "text": "aria-expanded=\"false\", panel skrytý."
+       },
+       "evidence": []
+      },
+      {
+       "id": "enter",
+       "title": "Enter otevře panel",
+       "status": "same",
+       "a": {
+        "text": "Panel se otevře, fokus zůstane na hlavičce."
+       },
+       "b": {
+        "text": "Panel se otevře, fokus zůstane na hlavičce."
+       },
+       "evidence": []
+      },
+      {
+       "id": "space",
+       "title": "Mezerník zavře panel",
+       "status": "same",
+       "a": {
+        "text": "Panel se zavře, stránka se neposune."
+       },
+       "b": {
+        "text": "Panel se zavře, stránka se neposune."
+       },
+       "evidence": []
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "tabs",
+   "kind": "component",
+   "title": "Tabs",
+   "path": "Tabs",
+   "group": "parts",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 1.4,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.4,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "behavior": {
+     "note": "Ovládání záložek klávesnicí. Vzorek.",
+     "rows": [],
+     "steps": [
+      {
+       "id": "click",
+       "title": "Kliknutí na druhou záložku",
+       "status": "same",
+       "a": {
+        "text": "aria-selected=\"true\" na druhé záložce."
+       },
+       "b": {
+        "text": "aria-selected=\"true\" na druhé záložce."
+       },
+       "evidence": []
+      },
+      {
+       "id": "arrow",
+       "title": "Šipka doprava přesune fokus",
+       "status": "failed",
+       "a": {
+        "text": "Fokus přejde na třetí záložku."
+       },
+       "b": {
+        "text": "Fokus zůstane na druhé záložce."
+       },
+       "evidence": [
+        {
+         "kind": "dom",
+         "side": "a",
+         "label": "Aktivní prvek",
+         "text": "document.activeElement = #tab-3"
+        },
+        {
+         "kind": "dom",
+         "side": "b",
+         "label": "Aktivní prvek",
+         "text": "document.activeElement = #tab-2"
+        }
+       ],
+       "causeId": "tabs-arrow-keys"
+      },
+      {
+       "id": "home",
+       "title": "Home přesune fokus na první záložku",
+       "status": "same",
+       "a": {
+        "text": "Fokus na první záložce."
+       },
+       "b": {
+        "text": "Fokus na první záložce."
+       },
+       "evidence": []
+      }
+     ],
+     "recordings": [
+      {
+       "kind": "trace",
+       "side": "b",
+       "label": "Trace běhu styleguide",
+       "path": "tests/visual/runs/2026-10-06T08-30-02-000Z-5120-b05ffe3/behavior/tabs/trace.zip"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "card",
+   "kind": "component",
+   "title": "Card",
+   "path": "Card",
+   "group": "parts",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "hero",
+   "kind": "component",
+   "title": "Hero",
+   "path": "Hero",
+   "group": "blocks",
+   "sample": {
+    "layout": "home"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "slider",
+   "kind": "component",
+   "title": "Slider",
+   "path": "Slider",
+   "group": "blocks",
+   "sample": {
+    "layout": "home"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "html": {
+     "rows": [
+      {
+       "k": " ",
+       "n": 12,
+       "s": "<div class=\"swiper-wrapper\">"
+      },
+      {
+       "k": "-",
+       "n": 14,
+       "s": "<div class=\"swiper-slide swiper-slide-duplicate\" data-swiper-slide-index=\"0\">",
+       "noise": "swiper-clones"
+      },
+      {
+       "k": "+",
+       "n": 14,
+       "s": "<div class=\"swiper-slide\" data-swiper-slide-index=\"0\">",
+       "noise": "swiper-clones"
+      },
+      {
+       "k": "-",
+       "n": 30,
+       "s": "<div class=\"swiper-slide swiper-slide-duplicate\" data-swiper-slide-index=\"4\">",
+       "noise": "swiper-clones"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "numbers",
+   "kind": "component",
+   "title": "Numbers",
+   "path": "Numbers",
+   "group": "blocks",
+   "sample": {
+    "layout": "home"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.4,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.4,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "contact-form",
+   "kind": "component",
+   "title": "Contact form",
+   "path": "Contact form",
+   "group": "blocks",
+   "sample": {
+    "layout": "contact"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {}
+  },
+  {
+   "id": "home",
+   "kind": "page",
+   "title": "Home",
+   "path": "/home",
+   "group": "pages",
+   "sample": {
+    "layout": "home"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.8,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.8,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.7,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.7,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.7,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.7,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "html": {
+     "rows": [
+      {
+       "k": "-",
+       "n": 5,
+       "s": "<link rel=\"stylesheet\" href=\"https://www.example.com/assets/css/site.css?v=412\">",
+       "noise": "live-asset-urls"
+      },
+      {
+       "k": "+",
+       "n": 5,
+       "s": "<link rel=\"stylesheet\" href=\"/styleguide/assets/styleguide.css\">",
+       "noise": "live-asset-urls"
+      }
+     ]
+    }
+   },
+   "composedOf": [
+    "header",
+    "hero",
+    "numbers",
+    "slider",
+    "tabs",
+    "card",
+    "footer"
+   ]
+  },
+  {
+   "id": "contact",
+   "kind": "page",
+   "title": "Contact",
+   "path": "/contact",
+   "group": "pages",
+   "sample": {
+    "layout": "contact"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.7,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.7,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.5,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.5,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.5,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.5,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.6,
+        "regions": [
+         {
+          "x": 8,
+          "y": 30,
+          "w": 84,
+          "h": 18
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {},
+   "composedOf": [
+    "header",
+    "breadcrumb",
+    "contact-form",
+    "accordion",
+    "footer"
+   ]
+  }
+ ],
+ "causes": [
+  {
+   "id": "font-smoothing",
+   "title": "Vyhlazování písma",
+   "known": true,
+   "detail": "Dvě textové vrstvy vykreslují okraje písmen jinak. Šum textového enginu, poměr pod 1,2 %."
+  },
+  {
+   "id": "swiper-clones",
+   "title": "Klony slidů ve Swiperu",
+   "known": true,
+   "detail": "Referenční web má duplicitní slidy, které Swiper doplní po inicializaci. Styleguide je nemá."
+  },
+  {
+   "id": "tabs-focus-ring",
+   "title": "Fokusový rámeček na záložkách",
+   "known": false,
+   "detail": "Při šířce 1024 je rámeček na aktivní záložce silnější. Příčina zatím nenalezena."
+  },
+  {
+   "id": "tabs-arrow-keys",
+   "title": "Šipka doprava nepřesune fokus",
+   "known": false,
+   "detail": "V B zůstane fokus na druhé záložce. Pravděpodobně chybí obsluha klávesy."
+  }
+ ],
+ "findings": [
+  {
+   "id": "c1",
+   "targetId": "button",
+   "causeId": "font-smoothing",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "c2",
+   "targetId": "input",
+   "causeId": "font-smoothing",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "c3",
+   "targetId": "badge",
+   "causeId": "font-smoothing",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "c4",
+   "targetId": "breadcrumb",
+   "causeId": "font-smoothing",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "c5",
+   "targetId": "tabs",
+   "causeId": "tabs-focus-ring",
+   "artifact": "screenshot",
+   "viewportId": "notebook-1024"
+  },
+  {
+   "id": "c6",
+   "targetId": "tabs",
+   "causeId": "tabs-arrow-keys",
+   "artifact": "behavior"
+  },
+  {
+   "id": "c7",
+   "targetId": "slider",
+   "causeId": "swiper-clones",
+   "artifact": "html"
+  },
+  {
+   "id": "c8",
+   "targetId": "home",
+   "causeId": "font-smoothing",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "c9",
+   "targetId": "contact",
+   "causeId": "font-smoothing",
+   "artifact": "screenshot"
+  }
+ ],
+ "rules": {
+  "swiper-clones": {
+   "text": "Klonované slidy Swiperu se odečítají.",
+   "evidence": "Swiper přidává třídu swiper-slide-duplicate po inicializaci. Styleguide ji nemá.",
+   "applies": {
+    "pairs": [
+     "reference-styleguide"
+    ],
+    "artifacts": [
+     "html"
+    ],
+    "kinds": [
+     "component"
+    ],
+    "targets": [
+     "slider"
+    ]
+   }
+  },
+  "live-asset-urls": {
+   "text": "Adresy stylů a skriptů referenčního webu se liší od styleguidu.",
+   "evidence": "Referenční web servíruje agregované soubory z vlastní domény.",
+   "applies": {
+    "pairs": [
+     "reference-styleguide"
+    ],
+    "artifacts": [
+     "html"
+    ],
+    "kinds": [
+     "page"
+    ]
+   }
+  }
+ }
+}

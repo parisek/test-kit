@@ -1,0 +1,41 @@
+/* Design tokens. Same language as the styleguide chrome: dark rail, light canvas, red accent, 8px radii.
+   Every colour is a token with its light value on :root; dark redefines tokens only, never components. */
+@layer tokens {
+	:root {
+		--rail: oklch(0.21 0.006 285.885);
+		--rail-deep: oklch(0.141 0.005 285.823);
+		--rail-ink: oklch(0.967 0.001 286.375);
+		--rail-muted: oklch(0.705 0.015 286.067);
+		--rail-line: rgb(255 255 255 / .07);
+		--accent: oklch(0.704 0.191 22.216);
+		--canvas: oklch(0.985 0 0);
+		--panel: #fff;
+		--panel-2: oklch(0.965 0.002 286);
+		--line: oklch(0.92 0.004 286.32);
+		--ink: oklch(0.21 0.006 285.885);
+		--muted: oklch(0.552 0.016 285.938);
+		--ok: oklch(0.62 0.16 149);
+		--warn: oklch(0.68 0.15 70);
+		--bad: oklch(0.62 0.21 25);
+		--add-bg: oklch(0.95 0.05 150);
+		--del-bg: oklch(0.95 0.04 25);
+		--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+		--sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+		--rail-w: 19rem;
+		--bar-h: 3.5rem;
+		--radius: 8px;
+		color-scheme: light;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme="light"]) {
+			--canvas: oklch(0.17 0.005 285.8); --panel: oklch(0.21 0.006 285.885); --panel-2: oklch(0.25 0.006 286);
+			--line: oklch(0.30 0.006 286); --ink: oklch(0.967 0.001 286.375); --muted: oklch(0.705 0.015 286.067);
+			--add-bg: oklch(0.30 0.05 150); --del-bg: oklch(0.30 0.06 25); color-scheme: dark;
+		}
+	}
+	:root[data-theme="dark"] {
+		--canvas: oklch(0.17 0.005 285.8); --panel: oklch(0.21 0.006 285.885); --panel-2: oklch(0.25 0.006 286);
+		--line: oklch(0.30 0.006 286); --ink: oklch(0.967 0.001 286.375); --muted: oklch(0.705 0.015 286.067);
+		--add-bg: oklch(0.30 0.05 150); --del-bg: oklch(0.30 0.06 25); color-scheme: dark;
+	}
+}

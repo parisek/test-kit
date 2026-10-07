@@ -1,0 +1,346 @@
+{
+ "meta": {
+  "project": "sample",
+  "title": "Vizuální porovnání",
+  "description": "Report ve formátu verze 1",
+  "reference": "https://example.com",
+  "generated": "2026-10-06T10:41:00Z",
+  "primaryViewport": "desktop-1280",
+  "viewports": [
+   {
+    "id": "mobile-390",
+    "label": "390"
+   },
+   {
+    "id": "tablet-768",
+    "label": "768"
+   },
+   {
+    "id": "notebook-1024",
+    "label": "1024"
+   },
+   {
+    "id": "desktop-1280",
+    "label": "1280"
+   },
+   {
+    "id": "wide-1920",
+    "label": "1920"
+   }
+  ]
+ },
+ "entries": [
+  {
+   "kind": "component",
+   "id": "hero",
+   "title": "Hero",
+   "category": "blocks",
+   "selector": ".component-hero",
+   "comparedAt": "2026-10-06T10:41:00Z",
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 1.2,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-mobile-390-target.png",
+      "render": "shots/hero-mobile-390-render.png",
+      "diff": "shots/hero-mobile-390-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.8,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-tablet-768-target.png",
+      "render": "shots/hero-tablet-768-render.png",
+      "diff": "shots/hero-tablet-768-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.5,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-notebook-1024-target.png",
+      "render": "shots/hero-notebook-1024-render.png",
+      "diff": "shots/hero-notebook-1024-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.4,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-desktop-1280-target.png",
+      "render": "shots/hero-desktop-1280-render.png",
+      "diff": "shots/hero-desktop-1280-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.6,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-wide-1920-target.png",
+      "render": "shots/hero-wide-1920-render.png",
+      "diff": "shots/hero-wide-1920-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    }
+   ]
+  },
+  {
+   "kind": "component",
+   "id": "pricing",
+   "title": "Pricing",
+   "category": "blocks",
+   "selector": ".component-pricing",
+   "judge": "oracle",
+   "note": "Dva selektory rámují různé boxy, poměr není verdikt.",
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 22.0,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-mobile-390-target.png",
+      "render": "shots/hero-mobile-390-render.png",
+      "diff": "shots/hero-mobile-390-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 18.5,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-tablet-768-target.png",
+      "render": "shots/hero-tablet-768-render.png",
+      "diff": "shots/hero-tablet-768-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 9.1,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-notebook-1024-target.png",
+      "render": "shots/hero-notebook-1024-render.png",
+      "diff": "shots/hero-notebook-1024-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 7.3,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-desktop-1280-target.png",
+      "render": "shots/hero-desktop-1280-render.png",
+      "diff": "shots/hero-desktop-1280-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 12.4,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-wide-1920-target.png",
+      "render": "shots/hero-wide-1920-render.png",
+      "diff": "shots/hero-wide-1920-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     }
+    }
+   ]
+  },
+  {
+   "kind": "page",
+   "id": "home",
+   "title": "Home",
+   "category": "pages",
+   "selector": "body",
+   "composedOf": [
+    "hero",
+    "pricing"
+   ],
+   "consoleErrors": [
+    "Failed to load resource: 404 /fonts/x.woff2"
+   ],
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 4.5,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-mobile-390-target.png",
+      "render": "shots/hero-mobile-390-render.png",
+      "diff": "shots/hero-mobile-390-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     },
+     "error": null
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 3.9,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-tablet-768-target.png",
+      "render": "shots/hero-tablet-768-render.png",
+      "diff": "shots/hero-tablet-768-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     },
+     "error": null
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 3.2,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-notebook-1024-target.png",
+      "render": "shots/hero-notebook-1024-render.png",
+      "diff": "shots/hero-notebook-1024-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     },
+     "error": null
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 2.8,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-desktop-1280-target.png",
+      "render": "shots/hero-desktop-1280-render.png",
+      "diff": "shots/hero-desktop-1280-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     },
+     "error": null
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0,
+     "target": "1280x900",
+     "render": "1280x900",
+     "overflow": 0,
+     "shots": {
+      "target": "shots/hero-wide-1920-target.png",
+      "render": "shots/hero-wide-1920-render.png",
+      "diff": "shots/hero-wide-1920-diff.png"
+     },
+     "capturedAt": {
+      "target": "2026-10-05T09:12:00Z",
+      "render": "2026-10-06T10:40:00Z",
+      "diff": "2026-10-06T10:41:00Z"
+     },
+     "error": "Snímek se nepodařilo pořídit"
+    }
+   ]
+  }
+ ]
+}

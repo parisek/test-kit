@@ -1,0 +1,3608 @@
+{
+ "schemaVersion": 2,
+ "meta": {
+  "project": "example-site",
+  "title": "Porovnání běhů",
+  "generated": "2026-10-06",
+  "matchBelow": 0.5,
+  "primaryViewport": "desktop-1280",
+  "viewports": [
+   {
+    "id": "mobile-390",
+    "label": "390",
+    "width": 390,
+    "height": 844
+   },
+   {
+    "id": "tablet-768",
+    "label": "768",
+    "width": 768,
+    "height": 1024
+   },
+   {
+    "id": "notebook-1024",
+    "label": "1024",
+    "width": 1024,
+    "height": 768
+   },
+   {
+    "id": "desktop-1280",
+    "label": "1280",
+    "width": 1280,
+    "height": 900
+   },
+   {
+    "id": "wide-1920",
+    "label": "1920",
+    "width": 1920,
+    "height": 1080
+   }
+  ],
+  "note": "Ukázková data. Tvar odpovídá návrhu. Čísla kontaktu, home a shody 51 z 95 jsou z #86, ostatní jsou ilustrativní. Chování u kontaktu je reálný záznam z 5. 10. 2026.",
+  "sample": true
+ },
+ "runs": [
+  {
+   "id": "prod-2026-10-05",
+   "side": "production",
+   "at": "2026-10-05 09:12",
+   "label": "Produkce před deployem",
+   "captures": 95
+  },
+  {
+   "id": "local-now",
+   "side": "local",
+   "at": "2026-10-06 10:40",
+   "label": "Lokál, větev main (b05ffe3 + 422375d)",
+   "captures": 95
+  },
+  {
+   "id": "prod-after",
+   "side": "production",
+   "at": "nasnímá se po deployi",
+   "label": "Produkce po deployi",
+   "captures": 0
+  }
+ ],
+ "pair": {
+  "kind": "production-local",
+  "aRunId": "prod-2026-10-05",
+  "bRunId": "local-now"
+ },
+ "entries": [
+  {
+   "id": "home",
+   "kind": "page",
+   "title": "/",
+   "path": "/",
+   "group": "cs",
+   "sample": {
+    "layout": "home"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 6.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 6.1,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 5.4,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 5.4,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 4.8,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 4.8,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 4.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 4.2,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 8.9,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 8.9,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    },
+    "html": {
+     "rows": [
+      {
+       "k": " ",
+       "n": 1,
+       "s": "<html lang=\"cs\" dir=\"ltr\">"
+      },
+      {
+       "k": "-",
+       "n": 7,
+       "s": "<!-- THEME DEBUG -->",
+       "noise": "twig-debug"
+      },
+      {
+       "k": "-",
+       "n": 9,
+       "s": "<link rel=\"stylesheet\" href=\"/sites/default/files/css/css_9fK2x.css\">",
+       "noise": "asset-aggregation"
+      },
+      {
+       "k": "+",
+       "n": 9,
+       "s": "<link rel=\"stylesheet\" href=\"/themes/custom/example/dist/css/style.css?t=1759664000\">",
+       "noise": "asset-aggregation"
+      },
+      {
+       "k": "-",
+       "n": 41,
+       "s": "<source srcset=\"/files/styles/hero/public/hero.avif\" type=\"image/avif\">",
+       "noise": "avif-webp"
+      },
+      {
+       "k": "+",
+       "n": 41,
+       "s": "<source srcset=\"/files/styles/hero/public/hero.webp\" type=\"image/webp\">",
+       "noise": "avif-webp"
+      },
+      {
+       "k": "-",
+       "n": 88,
+       "s": "<span class=\"numbers__digit\">1</span><span class=\"numbers__digit\">5</span>",
+       "known": "reduced-motion"
+      },
+      {
+       "k": "+",
+       "n": 88,
+       "s": "15",
+       "known": "reduced-motion"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "zpravy",
+   "kind": "page",
+   "title": "/zpravy",
+   "path": "/zpravy",
+   "group": "cs",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "blog",
+   "kind": "page",
+   "title": "/blog/teambuilding-its-spolecne-trochu-jinak",
+   "path": "/blog/teambuilding-its-spolecne-trochu-jinak",
+   "group": "cs",
+   "sample": {
+    "layout": "article"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 1.9,
+     "dh": 1,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.9,
+        "regions": [
+         {
+          "x": 0,
+          "y": 91,
+          "w": 100,
+          "h": 1.4
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.4,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.4,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.3,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.3,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    },
+    "html": {
+     "rows": [
+      {
+       "k": " ",
+       "n": 22,
+       "s": "<article class=\"component-article-full\">"
+      },
+      {
+       "k": "-",
+       "n": 24,
+       "s": "<time datetime=\"2026-09-14T08:00:00+02:00\">14. 9. 2026</time>"
+      },
+      {
+       "k": "+",
+       "n": 24,
+       "s": "<time datetime=\"2026-09-14T08:00:00+02:00\">14. září 2026</time>"
+      },
+      {
+       "k": "-",
+       "n": 60,
+       "s": "<source srcset=\"/files/styles/gallery/public/team.avif\" type=\"image/avif\">",
+       "noise": "avif-webp"
+      },
+      {
+       "k": "+",
+       "n": 60,
+       "s": "<source srcset=\"/files/styles/gallery/public/team.webp\" type=\"image/webp\">",
+       "noise": "avif-webp"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "produkty",
+   "kind": "page",
+   "title": "/produkty",
+   "path": "/produkty",
+   "group": "cs",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "spolecnosti",
+   "kind": "page",
+   "title": "/spolecnosti",
+   "path": "/spolecnosti",
+   "group": "cs",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "hestego",
+   "kind": "page",
+   "title": "/spolecnost/hestego-cz",
+   "path": "/spolecnost/hestego-cz",
+   "group": "cs",
+   "sample": {
+    "layout": "article"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "kontakt",
+   "kind": "page",
+   "title": "/kontakt",
+   "path": "/kontakt",
+   "group": "cs",
+   "sample": {
+    "layout": "contact"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 3.2,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 3.2,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 2.4,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 2.4,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 2.1,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 2.1,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 1.9,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.9,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 1.7,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.7,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    },
+    "html": {
+     "rows": [
+      {
+       "k": " ",
+       "n": 31,
+       "s": "<form class=\"webform-submission-contact-form\">"
+      },
+      {
+       "k": "-",
+       "n": 52,
+       "s": "<div class=\"cf-turnstile\" data-sitekey=\"…\"></div>",
+       "known": "turnstile"
+      },
+      {
+       "k": "-",
+       "n": 70,
+       "s": "<input type=\"hidden\" name=\"form_build_id\" value=\"form-8Nd3\">",
+       "noise": "form-token"
+      },
+      {
+       "k": "+",
+       "n": 70,
+       "s": "<input type=\"hidden\" name=\"form_build_id\" value=\"form-Zq0a\">",
+       "noise": "form-token"
+      }
+     ]
+    },
+    "behavior": {
+     "note": "Formulář s potvrzením přesměrováním (?token=), jednorázový webform. Reálný záznam window.dataLayer z 5. 10. 2026.",
+     "rows": [
+      {
+       "n": "generate_lead, form_type",
+       "a": "dl_page",
+       "b": "dl_page",
+       "st": "eq"
+      },
+      {
+       "n": "form_data.name",
+       "a": "Jan Test",
+       "b": "Jan Test",
+       "st": "eq"
+      },
+      {
+       "n": "form_data.email",
+       "a": "jan@example.com",
+       "b": "jan@example.com",
+       "st": "eq"
+      },
+      {
+       "n": "form_data.message",
+       "a": "Test &lt;/script&gt; ' &amp; \" ščř",
+       "b": "Test </script><!-- <script> ' & \" ščř",
+       "st": "ne"
+      }
+     ],
+     "verdict": "Rozdíl: hodnoty už nejsou HTML-escapované. Starý stav je poškozoval. Posoudit proti kontejneru GTM.",
+     "steps": [
+      {
+       "id": "open",
+       "title": "Otevřít formulář",
+       "status": "same",
+       "a": {
+        "text": "Formulář dl_page se zobrazí."
+       },
+       "b": {
+        "text": "Formulář dl_page se zobrazí."
+       },
+       "evidence": [
+        {
+         "kind": "screenshot",
+         "side": "a",
+         "label": "Prázdný formulář"
+        },
+        {
+         "kind": "screenshot",
+         "side": "b",
+         "label": "Prázdný formulář"
+        }
+       ]
+      },
+      {
+       "id": "fill",
+       "title": "Vyplnit jméno, e-mail a zprávu",
+       "status": "same",
+       "a": {
+        "text": "Tři pole vyplněna, zpráva obsahuje znaky < > & a uvozovky."
+       },
+       "b": {
+        "text": "Tři pole vyplněna, zpráva obsahuje znaky < > & a uvozovky."
+       },
+       "evidence": [
+        {
+         "kind": "screenshot",
+         "side": "a",
+         "label": "Vyplněný formulář"
+        },
+        {
+         "kind": "screenshot",
+         "side": "b",
+         "label": "Vyplněný formulář"
+        }
+       ]
+      },
+      {
+       "id": "submit",
+       "title": "Odeslat",
+       "status": "same",
+       "a": {
+        "text": "POST na /webform/dl_page, přesměrování na potvrzení s ?token=."
+       },
+       "b": {
+        "text": "POST na /webform/dl_page, přesměrování na potvrzení s ?token=."
+       },
+       "evidence": [
+        {
+         "kind": "network",
+         "side": "a",
+         "label": "Požadavky",
+         "text": "POST /webform/dl_page 303\nGET  /form/dl-page/confirmation?token=<t> 200"
+        },
+        {
+         "kind": "network",
+         "side": "b",
+         "label": "Požadavky",
+         "text": "POST /webform/dl_page 303\nGET  /form/dl-page/confirmation?token=<t> 200"
+        }
+       ]
+      },
+      {
+       "id": "confirm",
+       "title": "Potvrzení se zobrazí",
+       "status": "same",
+       "a": {
+        "text": "Stránka potvrzení, text děkovací zprávy."
+       },
+       "b": {
+        "text": "Stránka potvrzení, text děkovací zprávy."
+       },
+       "evidence": [
+        {
+         "kind": "screenshot",
+         "side": "a",
+         "label": "Potvrzení"
+        },
+        {
+         "kind": "screenshot",
+         "side": "b",
+         "label": "Potvrzení"
+        }
+       ]
+      },
+      {
+       "id": "datalayer",
+       "title": "Push do window.dataLayer",
+       "status": "changed",
+       "causeId": "redirect-escape",
+       "a": {
+        "text": "form_data.message obsahuje &lt;/script&gt; a &amp;. Hodnoty jsou HTML-escapované."
+       },
+       "b": {
+        "text": "form_data.message obsahuje </script> a &. Hodnoty zůstávají tak, jak je uživatel napsal."
+       },
+       "evidence": [
+        {
+         "kind": "datalayer",
+         "side": "a",
+         "label": "generate_lead, starý modul",
+         "text": "{\"event\":\"generate_lead\",\"form_type\":\"dl_page\",\"form_data\":{\"name\":\"Jan Test\",\"email\":\"jan@example.com\",\"message\":\"Test &lt;/script&gt; ' &amp; \\\" ščř\"}}"
+        },
+        {
+         "kind": "datalayer",
+         "side": "b",
+         "label": "generate_lead, vrstva kitu",
+         "text": "{\"event\":\"generate_lead\",\"form_type\":\"dl_page\",\"form_data\":{\"name\":\"Jan Test\",\"email\":\"jan@example.com\",\"message\":\"Test </script><!-- <script> ' & \\\" ščř\"}}"
+        }
+       ]
+      },
+      {
+       "id": "console",
+       "title": "Chyby konzole",
+       "status": "same",
+       "a": {
+        "text": "0 chyb."
+       },
+       "b": {
+        "text": "0 chyb."
+       },
+       "evidence": [
+        {
+         "kind": "console",
+         "side": "a",
+         "label": "Konzole",
+         "text": "(prázdná)"
+        },
+        {
+         "kind": "console",
+         "side": "b",
+         "label": "Konzole",
+         "text": "(prázdná)"
+        }
+       ]
+      }
+     ],
+     "recordings": [
+      {
+       "kind": "trace",
+       "side": "b",
+       "label": "Trace běhu local-now",
+       "path": "tests/visual/runs/2026-10-05T10-02-11-000Z-4821-b05ffe3/behavior/kontakt/trace.zip"
+      },
+      {
+       "kind": "video",
+       "side": "b",
+       "label": "Video běhu local-now",
+       "path": "tests/visual/runs/2026-10-05T10-02-11-000Z-4821-b05ffe3/behavior/kontakt/video.webm"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "o-nas",
+   "kind": "page",
+   "title": "/o-nas",
+   "path": "/o-nas",
+   "group": "cs",
+   "sample": {
+    "layout": "article"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "en",
+   "kind": "page",
+   "title": "/en",
+   "path": "/en",
+   "group": "en",
+   "sample": {
+    "layout": "home"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 5.8,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 5.8,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 5.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 5.1,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 4.6,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 4.6,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 4.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 4.0,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 8.4,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 8.4,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "en-news",
+   "kind": "page",
+   "title": "/en/news",
+   "path": "/en/news",
+   "group": "en",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "en-products",
+   "kind": "page",
+   "title": "/en/products",
+   "path": "/en/products",
+   "group": "en",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "en-companies",
+   "kind": "page",
+   "title": "/en/companies",
+   "path": "/en/companies",
+   "group": "en",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "en-contact",
+   "kind": "page",
+   "title": "/en/contact",
+   "path": "/en/contact",
+   "group": "en",
+   "sample": {
+    "layout": "contact"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 3.1,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 3.1,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 2.3,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 2.3,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 2.0,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 2.0,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 1.8,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.8,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 1.6,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.6,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "en-about",
+   "kind": "page",
+   "title": "/en/about-us",
+   "path": "/en/about-us",
+   "group": "en",
+   "sample": {
+    "layout": "article"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "de",
+   "kind": "page",
+   "title": "/de",
+   "path": "/de",
+   "group": "de",
+   "sample": {
+    "layout": "home"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 5.9,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 5.9,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 5.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 5.2,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 4.7,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 4.7,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 4.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 4.1,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 8.5,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 8.5,
+        "regions": [
+         {
+          "x": 6,
+          "y": 56,
+          "w": 88,
+          "h": 14
+         },
+         {
+          "x": 0,
+          "y": 10,
+          "w": 100,
+          "h": 30
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "de-news",
+   "kind": "page",
+   "title": "/de/nachrichten",
+   "path": "/de/nachrichten",
+   "group": "de",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "de-products",
+   "kind": "page",
+   "title": "/de/produkte",
+   "path": "/de/produkte",
+   "group": "de",
+   "sample": {
+    "layout": "list"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.0,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.0,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "de-contact",
+   "kind": "page",
+   "title": "/de/kontakt",
+   "path": "/de/kontakt",
+   "group": "de",
+   "sample": {
+    "layout": "contact"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 3.3,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 3.3,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 2.5,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 2.5,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 2.2,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 2.2,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 2.0,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 2.0,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 1.8,
+     "dh": 96,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 1.8,
+        "regions": [
+         {
+          "x": 6,
+          "y": 74,
+          "w": 88,
+          "h": 9
+         }
+        ],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "id": "de-about",
+   "kind": "page",
+   "title": "/de/uber-uns",
+   "path": "/de/uber-uns",
+   "group": "de",
+   "sample": {
+    "layout": "article"
+   },
+   "viewports": [
+    {
+     "id": "mobile-390",
+     "label": "390",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "tablet-768",
+     "label": "768",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "notebook-1024",
+     "label": "1024",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "desktop-1280",
+     "label": "1280",
+     "ratio": 0.1,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.1,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    },
+    {
+     "id": "wide-1920",
+     "label": "1920",
+     "ratio": 0.2,
+     "dh": 0,
+     "artifacts": {
+      "screenshot": {
+       "a": null,
+       "b": null,
+       "diff": {
+        "ratio": 0.2,
+        "regions": [],
+        "regionsUnit": "percent"
+       }
+      }
+     }
+    }
+   ],
+   "artifacts": {
+    "status": {
+     "rows": [
+      [
+       "Konečný HTTP kód",
+       "200",
+       "200",
+       "eq"
+      ],
+      [
+       "Přesměrování",
+       "žádné",
+       "žádné",
+       "eq"
+      ],
+      [
+       "Počet CSS souborů",
+       "1",
+       "14",
+       "ex"
+      ],
+      [
+       "Počet JS souborů",
+       "2",
+       "31",
+       "ex"
+      ],
+      [
+       "Obrázky 404",
+       "0",
+       "0",
+       "eq"
+      ],
+      [
+       "Hlavička cache-control",
+       "max-age=3600",
+       "no-cache",
+       "ex"
+      ]
+     ]
+    }
+   }
+  }
+ ],
+ "causes": [
+  {
+   "id": "reduced-motion",
+   "title": "Blok čísel a hero při reduced motion",
+   "known": true,
+   "detail": "Produkční skripty ignorují prefers-reduced-motion. Nové ho respektují (#42). Rozsah 4 až 9 % pixelů."
+  },
+  {
+   "id": "turnstile",
+   "title": "Widget Cloudflare Turnstile",
+   "known": true,
+   "detail": "Produkce ho vykreslí, lokální doména ne. Strana A je o 96 px vyšší. Maskováno v nastavení strany."
+  },
+  {
+   "id": "article-1px",
+   "title": "O 1 px vyšší na mobilu",
+   "known": false,
+   "detail": "Příčina zatím nenalezena. Datum v hlavičce článku se liší ve formátu (viz HTML)."
+  },
+  {
+   "id": "avif-webp",
+   "title": "AVIF na produkci, WebP lokálně",
+   "known": true,
+   "detail": "Stejný počet obrázků, nulový průnik formátu. Pravidlo normalizace jen pro pár production proti local."
+  },
+  {
+   "id": "asset-aggregation",
+   "title": "Agregace CSS a JS na produkci",
+   "known": true,
+   "detail": "Produkce 1 CSS a 2 JS, lokál 14 CSS a 31 JS. Počty se hlásí zvlášť."
+  },
+  {
+   "id": "redirect-escape",
+   "title": "Hodnoty leadu už nejsou HTML-escapované",
+   "known": false,
+   "detail": "Starý modul poškozoval &, < a >. Kit je neescapuje. Posoudit proti kontejneru GTM."
+  }
+ ],
+ "findings": [
+  {
+   "id": "f1",
+   "targetId": "home",
+   "causeId": "reduced-motion",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "f2",
+   "targetId": "home",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f3",
+   "targetId": "zpravy",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f4",
+   "targetId": "blog",
+   "causeId": "article-1px",
+   "artifact": "screenshot",
+   "viewportId": "mobile-390"
+  },
+  {
+   "id": "f5",
+   "targetId": "blog",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f6",
+   "targetId": "produkty",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f7",
+   "targetId": "spolecnosti",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f8",
+   "targetId": "hestego",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f9",
+   "targetId": "kontakt",
+   "causeId": "turnstile",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "f10",
+   "targetId": "kontakt",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f11",
+   "targetId": "o-nas",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f12",
+   "targetId": "en",
+   "causeId": "reduced-motion",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "f13",
+   "targetId": "en",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f14",
+   "targetId": "en-news",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f15",
+   "targetId": "en-products",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f16",
+   "targetId": "en-companies",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f17",
+   "targetId": "en-contact",
+   "causeId": "turnstile",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "f18",
+   "targetId": "en-contact",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f19",
+   "targetId": "en-about",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f20",
+   "targetId": "de",
+   "causeId": "reduced-motion",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "f21",
+   "targetId": "de",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f22",
+   "targetId": "de-news",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f23",
+   "targetId": "de-products",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f24",
+   "targetId": "de-contact",
+   "causeId": "turnstile",
+   "artifact": "screenshot"
+  },
+  {
+   "id": "f25",
+   "targetId": "de-contact",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f26",
+   "targetId": "de-about",
+   "causeId": "asset-aggregation",
+   "artifact": "status"
+  },
+  {
+   "id": "f27",
+   "targetId": "home",
+   "causeId": "avif-webp",
+   "artifact": "html"
+  },
+  {
+   "id": "f28",
+   "targetId": "blog",
+   "causeId": "avif-webp",
+   "artifact": "html"
+  },
+  {
+   "id": "f29",
+   "targetId": "home",
+   "causeId": "reduced-motion",
+   "artifact": "html"
+  },
+  {
+   "id": "f30",
+   "targetId": "kontakt",
+   "causeId": "turnstile",
+   "artifact": "html"
+  },
+  {
+   "id": "f31",
+   "targetId": "blog",
+   "causeId": "article-1px",
+   "artifact": "html"
+  },
+  {
+   "id": "f32",
+   "targetId": "kontakt",
+   "causeId": "redirect-escape",
+   "artifact": "behavior"
+  }
+ ],
+ "rules": {
+  "twig-debug": {
+   "text": "Twig debug komentáře se odečítají.",
+   "evidence": "twig.config: debug zapnuto lokálně, vypnuto na produkci.",
+   "applies": {
+    "pairs": [
+     "production-local"
+    ],
+    "artifacts": [
+     "html"
+    ]
+   }
+  },
+  "asset-aggregation": {
+   "text": "Agregace CSS a JS. Počty assetů se hlásí zvlášť, ať chybějící knihovna zůstane vidět.",
+   "evidence": "system.performance: preprocess CSS a JS zapnuto na produkci.",
+   "applies": {
+    "pairs": [
+     "production-local"
+    ],
+    "artifacts": [
+     "html",
+     "status"
+    ]
+   }
+  },
+  "avif-webp": {
+   "text": "AVIF na produkci, WebP lokálně. Stejný počet, nulový průnik.",
+   "evidence": "Produkce posílá image/avif, lokální PHP image/webp.",
+   "applies": {
+    "pairs": [
+     "production-local"
+    ],
+    "artifacts": [
+     "html"
+    ]
+   }
+  },
+  "form-token": {
+   "text": "form_build_id a podobné tokeny jsou vždy jiné.",
+   "evidence": "Token se generuje při každém načtení formuláře.",
+   "applies": {
+    "pairs": [
+     "production-local",
+     "local-before-after",
+     "production-before-after"
+    ],
+    "artifacts": [
+     "html"
+    ]
+   }
+  }
+ }
+}

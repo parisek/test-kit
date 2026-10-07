@@ -1,0 +1,61 @@
+/* Behaviour steps, scoped rules and composition chips. Loaded after components.css (index.html links it).
+   Tokens only; colour mixes in sRGB, because oklch mixing turned amber and red into the same purple in dark mode. */
+@layer components {
+	/* ===== Steps (js/components/steps.js) ===== */
+	.steps { margin-top: 1.25rem; min-width: 0; }
+	.steps-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; margin-bottom: .6rem; }
+	.steps-top .lbl, .steps-rec .lbl { margin: 0; }
+	.steps-list { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: .75rem; }
+	.steps-item { counter-increment: step; position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .8rem 1rem .8rem 3rem; min-width: 0; }
+	.steps-item::before { content: counter(step); position: absolute; left: .9rem; top: .75rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; background: var(--panel-2); color: var(--muted); }
+	.steps-changed::before { background: color-mix(in srgb, var(--warn) 38%, var(--panel)); color: var(--ink); }
+	.steps-failed::before { background: color-mix(in srgb, var(--bad) 55%, var(--panel)); color: var(--ink); }
+	.steps-same::before { background: color-mix(in srgb, var(--ok) 22%, var(--panel)); color: var(--ink); }
+	.steps-failed { border-color: var(--bad); }
+	.steps-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; }
+	.steps-title { font-weight: 600; }
+	.steps-pill { font-size: .66rem; letter-spacing: .09em; text-transform: uppercase; padding: .08rem .5rem; border-radius: 999px; border: 1px solid currentColor; font-weight: 600; }
+	.steps-pill-same { color: var(--ok); } .steps-pill-changed { color: var(--warn); } .steps-pill-failed { color: var(--bad); }
+	.steps-cause { font-size: .75rem; color: var(--muted); border-left: 3px solid var(--warn); padding-left: .5rem; }
+	.steps-cause-bad { border-left-color: var(--bad); }
+	.steps-ab { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .5rem 1rem; margin-top: .5rem; font-size: .85rem; }
+	.steps-outcome { min-width: 0; display: flex; gap: .5rem; }
+	.steps-outcome b { flex: none; width: 1.1rem; color: var(--muted); }
+	.steps-outcome span { overflow-wrap: anywhere; }
+	.steps-film { display: flex; gap: .6rem; margin-top: .7rem; overflow-x: auto; padding-bottom: .4rem; }
+	.steps-frame { flex: none; width: 15rem; margin: 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
+	.steps-frame figcaption { display: flex; align-items: center; gap: .4rem; padding: .3rem .5rem; font-size: .7rem; border-bottom: 1px solid var(--line); min-width: 0; }
+	.steps-side { flex: none; width: 1.1rem; height: 1.1rem; border-radius: 4px; display: grid; place-items: center; font-weight: 700; font-size: .66rem; background: var(--ink); color: var(--canvas); }
+	.steps-side-a { background: color-mix(in srgb, var(--ink) 55%, var(--panel)); }
+	.steps-kind { flex: none; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-size: .64rem; font-weight: 600; }
+	.steps-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.steps-img { display: block; width: 100%; height: auto; background: #fff; }
+	.steps-placeholder { flex: 1; min-height: 6.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; padding: .5rem; text-align: center; color: var(--muted);
+		background: repeating-linear-gradient(135deg, var(--panel-2) 0 10px, var(--panel) 10px 20px); }
+	.steps-placeholder span { font-size: .66rem; letter-spacing: .09em; text-transform: uppercase; font-weight: 600; }
+	.steps-placeholder small { font-size: .72rem; }
+	.steps-code { margin: 0; padding: .5rem .6rem; font-size: .7rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9rem; overflow: auto; }
+	.steps-rec { margin-top: 1.25rem; display: grid; gap: .5rem; }
+	.steps-rec-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .5rem .75rem; font-size: .8rem; }
+	.steps-cmd { font-size: .74rem; background: var(--panel-2); padding: .15rem .45rem; border-radius: 4px; overflow-wrap: anywhere; min-width: 0; }
+	.steps-copy { background: none; border: 1px solid var(--line); border-radius: 6px; padding: .1rem .55rem; font-size: .72rem; color: var(--muted); }
+	.steps-copy:hover { color: var(--ink); border-color: var(--ink); }
+	.steps-link { color: var(--ink); text-underline-offset: 3px; overflow-wrap: anywhere; font-family: var(--mono); font-size: .74rem; }
+
+	/* ===== Scoped rules (js/components/diff.js) ===== */
+	.rules { margin: 0; padding-left: 1.1rem; font-size: .85rem; }
+	.rules li + li { margin-top: .35rem; }
+	.rule-evidence { color: var(--muted); font-size: .78rem; margin-top: .1rem; }
+	.rules-others { margin-top: .8rem; border-top: 1px solid var(--line); padding-top: .6rem; }
+	.rules-others summary { cursor: pointer; color: var(--muted); font-size: .8rem; }
+	.rules-others[open] summary { margin-bottom: .5rem; }
+
+	/* ===== Composition chips (js/components/composed.js) ===== */
+	.composed { display: grid; gap: .4rem; margin-top: .75rem; }
+	.composed-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; }
+	.composed-row .lbl { margin: 0 .3rem 0 0; }
+	.composed-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+	.composed-chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: .1rem .7rem; font-size: .78rem; color: var(--ink); }
+	button.composed-chip:hover { border-color: var(--ink); }
+	.composed-chip-off { color: var(--muted); border-style: dashed; }
+}
