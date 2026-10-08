@@ -16,7 +16,7 @@ PHP lint rules are not part of this package. They go to `parisek/lint-kit`.
 
 ## Consequences
 
-- One copy for each version. A project pins a version and updates with `npm update`.
-- A new repository to maintain and a second distribution channel next to Composer.
+- One copy for each version. A project pins a tag and updates with `npm install -D github:parisek/test-kit#vX.Y.Z`.
+- A new repository to maintain. The package is not on the npm registry: it is a git dependency from tags (specification section 13.2). A tag never moves.
 - Everything is public from the first commit, so no client data may enter the history (R12.4). A leak needs a history rewrite.
 - `verify-skeleton` and `sync-skeleton` must learn the new state before the first move (R13.10).

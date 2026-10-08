@@ -15,4 +15,10 @@ npm test                      # node --test, no dependency
 node bin/cli.js --help
 ```
 
+Install in a project, from a git tag (no npm registry; see [`RELEASING.md`](RELEASING.md)). No tag exists yet:
+
+```bash
+ddev npm install -D github:parisek/test-kit#v0.2.0
+```
+
 Related: [`lint-kit`](https://github.com/parisek/lint-kit), the lint rules.

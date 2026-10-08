@@ -302,7 +302,21 @@ skeleton manifest: 237 files under `static/tests/`.
 - R13.12 The name of the package must fit the final scope. A rename after the first release is costly.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
-npm name: `@parisek/test-kit` (an unscoped `test-kit` is taken). Open: whether the `@parisek` npm scope is owned, and the distribution channel.
+
+### 13.2 Distribution
+
+Decided by the owner (2026-10-08): `test-kit` reaches a project through a git tag, not through the npm registry.
+
+- R13.24 `test-kit` must be installed as a git dependency from the tags of `github:parisek/test-kit`. It must not be published to the npm registry. `package.json` must stay `private: true`, so a publish by mistake fails.
+- R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag.
+- R13.26 The tag must equal `version` in `package.json`. A workflow on tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`.
+- R13.27 Before 1.0 a project must pin an exact tag: `npm install -D github:parisek/test-kit#v0.2.0`. After 1.0 it may use a range: `#semver:^1`. The lockfile pins the commit, so a moved tag cannot change a project.
+- R13.28 The package must ship without a build step. The `files` list in `package.json` decides what a project receives. A later build step needs a `prepare` script or a committed build.
+- R13.29 The scoped name `@parisek/test-kit` needs no ownership of an npm scope for a git install. The name stays.
+- R13.30 `git` must exist in the container that runs `npm install`. This is not yet verified for DDEV.
+- R13.31 The licence must be chosen before the first tag. A public repository without one means all rights reserved.
+
+Verified 2026-10-08 on a local copy with two tags: npm installs from a tag and from a `semver:` range, `private: true` does not block it, only the `files` entries arrive, the `test-kit` command is linked, and the lockfile records the commit.
 
 ---
 
@@ -340,11 +354,14 @@ One logical change per pull request. Each is a draft, assigned to the owner. Eac
 | Real screenshots in behaviour steps | not tested |
 | Keyboard navigation, widths 860 to 1099 px | read in code, not run |
 | Speed run count and noise band in a DDEV setup | not measured |
+| Install from a git tag and from a `semver:` range (section 13.2) | verified on a local copy |
+| `git` inside the DDEV container | not verified |
+| The tag workflow (version check, GitHub Release) | not run; the first real tag is the test |
 | Agent `summary` size | not measured |
 
 ## 17. Open questions
 
-1. (decided) The engine lives in the separate package `parisek/test-kit` (section 13). Open: the npm scope and the release channel.
+1. (decided) The engine lives in the separate package `parisek/test-kit` (section 13), released as git tags (section 13.2).
 2. Which checks form the small default set?
 3. Does measuring production for speed need a separate explicit command?
 4. How long are content snapshots kept, and who deletes them?

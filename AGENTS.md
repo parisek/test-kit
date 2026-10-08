@@ -58,9 +58,8 @@ Everything in this repository is English: code, comments, documents, commit mess
 
 ## Not decided yet
 
-These are open in the specification, section 17. Do not decide them in code. Ask the owner.
+These are open in the specification, section 17. Decided: releases are git tags, there is no npm registry (section 13.2). Do not decide them in code. Ask the owner.
 
-- The npm scope and the release channel (npm or a git dependency).
 - The licence.
 - The small default set of checks.
 - How long content snapshots live, and who deletes them.
