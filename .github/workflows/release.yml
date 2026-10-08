@@ -1,0 +1,48 @@
+name: Release
+
+# A tag `vX.Y.Z` is the release (RELEASING.md). The package is not published to a registry;
+# projects install from the tag. This workflow checks the tag and creates the GitHub Release.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: The tag equals the version in package.json
+        run: |
+          version="$(jq -r .version package.json)"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not equal package.json version v${version}." >&2
+            exit 1
+          fi
+
+      - run: npm test
+
+      - name: Release notes come from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="${version}" '$0 ~ "^## \\[" v "\\]" { found = 1; next } /^## \[/ { found = 0 } found' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "CHANGELOG.md has no section for ${version}." >&2
+            exit 1
+          fi
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "${GITHUB_REF_NAME}" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file notes.md ${prerelease}
