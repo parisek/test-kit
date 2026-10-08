@@ -1,0 +1,37 @@
+{
+  "name": "@parisek/test-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Testing and comparison tool for sites: pairs of runs, pluggable checks, one viewer, one query interface for agents.",
+  "type": "module",
+  "bin": {
+    "test-kit": "bin/cli.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "viewer",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/parisek/test-kit.git"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.49"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  }
+}
