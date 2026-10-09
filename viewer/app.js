@@ -53,8 +53,8 @@ function renderDetail() {
   const panel = element('section', null, 'panel');
   panel.append(element('h2', target.title ?? target.id), element('p', `${target.kind ?? 'target'} · ${target.path ?? ''}`), badge(targetClass(report, target) ?? 'unclassified'), badge(targetState(target)));
   if (target.note) panel.append(element('p', target.note));
-  if (target.composedOf?.length) panel.append(element('p', `Composed of: ${target.composedOf.join(', ')}`));
-  const usedOn = report.entries.filter(item => item.composedOf?.includes(target.id));
+  if (Array.isArray(target.composedOf) && target.composedOf.length) panel.append(element('p', `Composed of: ${target.composedOf.map(item => typeof item === 'string' ? item : item?.id).filter(Boolean).join(', ')}`));
+  const usedOn = report.entries.filter(item => Array.isArray(item.composedOf) && item.composedOf.some(part => (typeof part === 'string' ? part : part?.id) === target.id));
   if (usedOn.length) panel.append(element('p', `Used on: ${usedOn.map(item => item.title ?? item.id).join(', ')}`));
   const label = element('label', 'Viewport '); const select = element('select'); select.setAttribute('aria-label', 'Viewport');
   for (const row of target.viewports) { const option = element('option', row.id); option.value = row.id; option.selected = row.id === state.viewportId; select.append(option); }
