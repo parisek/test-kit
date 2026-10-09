@@ -33,5 +33,12 @@
     "@playwright/test": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "pixelmatch": "8.0.0",
+    "pngjs": "7.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0"
   }
 }
