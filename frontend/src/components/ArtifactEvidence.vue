@@ -1,25 +1,30 @@
 <script setup>
 import { sameOriginUrl } from '../../../src/report/safe.js';
-defineProps({ row: Object, source: String, evidence: Object });
+import HtmlDiff from './HtmlDiff.vue';
+import StatusComparison from './StatusComparison.vue';
+const props = defineProps({ row: Object, source: String, evidence: Object, kind: { type: String, default: 'html' }, evidenceView: { type: String, default: 'normalized' } });
 const emit = defineEmits(['action']);
 </script>
 <template>
-    <section v-for="kind in ['html', 'status'].filter(kind => row?.artifacts?.[kind])" :key="kind" class="mt-4 rounded-ui-panel border border-ui-border p-3">
-        <h3 class="font-semibold">{{ kind === 'html' ? 'HTML response' : 'HTTP status' }} · {{ row.artifacts[kind].state }}</h3>
-        <p v-if="row.artifacts[kind].diagnostic" class="mt-2 text-sm">{{ row.artifacts[kind].diagnostic }}</p>
-        <p v-if="kind === 'status'" class="mt-2 text-xs text-ui-muted">HTTP metadata does not affect screenshot or HTML class.</p>
-        <div class="my-2 flex flex-wrap gap-3 text-sm">
-            <template v-for="side in ['a', 'b', 'normalizedA', 'normalizedB']" :key="side">
-                <a v-if="row.artifacts[kind][side]?.src && sameOriginUrl(row.artifacts[kind][side].src, source)" :href="sameOriginUrl(row.artifacts[kind][side].src, source)" target="_blank" rel="noreferrer" class="underline">{{ side.startsWith('normalized') ? side.slice(-1) + ' normalized' : side.toUpperCase() + ' raw' }} {{ kind }}</a>
+    <section class="min-w-0" :aria-label="kind === 'html' ? 'HTML response evidence' : 'HTTP status evidence'">
+        <template v-if="row?.artifacts?.[kind]">
+            <p v-if="row.artifacts[kind].state !== 'complete'" role="status" class="mb-4 rounded-ui-panel border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ row.artifacts[kind].state ?? 'Missing' }} evidence. {{ row.artifacts[kind].diagnostic ?? 'This artifact cannot be compared.' }}</p>
+            <div class="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ui-muted">
+                <template v-for="side in ['a', 'b', 'normalizedA', 'normalizedB']" :key="side">
+                    <a v-if="sameOriginUrl(row.artifacts[kind][side]?.src, source)" :href="sameOriginUrl(row.artifacts[kind][side].src, source)" target="_blank" rel="noreferrer" class="underline">{{ side.startsWith('normalized') ? side.slice(-1) + ' normalized' : side.toUpperCase() + ' raw' }} {{ kind }}</a>
+                </template>
+            </div>
+            <template v-if="evidence?.kind === kind">
+                <p v-if="evidence.loading" role="status" class="rounded-ui-panel border border-ui-border p-6 text-sm text-ui-muted">Loading evidence…</p>
+                <div v-else-if="evidence.error" role="status" class="rounded-ui-panel border border-ui-border p-4 text-sm"><p class="text-red-700 dark:text-red-300">{{ evidence.error }}</p><button v-if="row.artifacts[kind].diff?.src" class="mt-3 underline" @click="emit('action', 'load-artifact', kind)">Retry evidence</button></div>
+                <HtmlDiff v-else-if="kind === 'html' && evidence.data" :data="evidence.data" :view="evidenceView" @action="(...args) => emit('action', ...args)" />
+                <StatusComparison v-else-if="kind === 'status' && evidence.data" :data="evidence.data" />
+                <p v-else class="text-sm text-ui-muted">No comparison detail is available.</p>
             </template>
-            <button v-if="row.artifacts[kind].diff?.src" class="underline focus-visible:outline-ui-focus" @click="emit('action', 'load-artifact', kind)">Load {{ kind }} comparison</button>
-        </div>
-        <p v-if="kind === 'html'" class="text-xs text-ui-muted">Server response bytes. No DOM capture. Evidenced literal rules can normalize comparison text. The replacement window is bounded.</p>
-        <details class="mt-2 text-xs"><summary class="cursor-pointer">Response artifact provenance</summary><pre class="mt-2 whitespace-pre-wrap break-all">{{ JSON.stringify(row.artifacts[kind], null, 2) }}</pre></details>
-        <template v-if="evidence?.kind === kind">
-            <p v-if="evidence.loading" role="status">Loading evidence…</p>
-            <p v-else-if="evidence.error" role="status">{{ evidence.error }}</p>
-            <pre v-else class="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs">{{ JSON.stringify(evidence.data, null, 2) }}</pre>
+            <button v-else-if="row.artifacts[kind].diff?.src" class="rounded-ui-pill border border-ui-control-border px-4 py-2 text-sm" @click="emit('action', 'load-artifact', kind)">Load {{ kind }} comparison</button>
+            <p v-else class="rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">No comparison detail is indexed. Original evidence remains available through the links above.</p>
+            <details class="mt-5 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Technical details</summary><pre class="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-all">{{ JSON.stringify({ index: row.artifacts[kind], comparison: evidence?.kind === kind ? evidence.data : undefined }, null, 2) }}</pre></details>
         </template>
+        <p v-else role="status" class="rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">No {{ kind }} evidence is indexed for this viewport. This measurement is unclassified.</p>
     </section>
 </template>

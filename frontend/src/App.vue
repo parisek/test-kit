@@ -27,6 +27,10 @@ function restoreScroll() {
 		previousOverflow = null;
 	}
 }
+const availabilityLabel = target => {
+    const states = target.viewports.flatMap(row => ['a', 'b'].map(side => row.availability?.[side]));
+    return states.includes('http-error') ? 'HTTP !' : states.includes('capture-error') ? 'Capture !' : null;
+};
 const views = { detail: 'Detail', matrix: 'Matrix', findings: 'Findings', timeline: 'Timeline' };
 const component = computed(
 	() =>
@@ -34,6 +38,33 @@ const component = computed(
 			state.view
 		],
 );
+const groups = computed(() => {
+    const map = new Map();
+    for (const target of filteredTargets.value) {
+        const group = typeof target.group === 'string' ? target.group : (target.kind === 'component' ? 'Components' : 'Pages');
+        if (!map.has(group)) map.set(group, []);
+        map.get(group).push(target);
+    }
+    return [...map].map(([name, targets]) => ({ name, targets }));
+});
+const targetRatio = target => {
+    const ratios = target.viewports.map(row => row.ratio ?? row.artifacts?.screenshot?.diff?.ratio).filter(Number.isFinite);
+    const maximum = ratios.length ? Math.max(...ratios) : null;
+    if (maximum == null || maximum === 0) {
+        const findings = state.report?.findings.filter(finding => finding.targetId === target.id) ?? [];
+        const screenshotFindings = findings.filter(finding => finding.artifact === 'screenshot');
+        if (screenshotFindings.length) {
+            const sizeChanged = target.viewports.some(row => {
+                const size = row.artifacts?.screenshot?.diff?.size;
+                return screenshotFindings.some(finding => finding.viewportId == null || finding.viewportId === row.id)
+                    && size?.a && size?.b && (size.a.width !== size.b.width || size.a.height !== size.b.height);
+            });
+            return sizeChanged ? 'Size Δ' : 'Screenshot Δ';
+        }
+        if (findings.some(finding => finding.artifact === 'html')) return 'HTML Δ';
+    }
+    return maximum == null ? '—' : maximum > 0 && maximum < 0.01 ? '<0.01%' : maximum.toFixed(2) + '%';
+};
 const pill =
 	'inline-flex h-ui-control items-center justify-center gap-1.5 rounded-ui-pill border px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-focus';
 const idle =
@@ -126,209 +157,57 @@ onUnmounted(() => {
 </script>
 
 <template>
-	<div class="min-h-screen bg-ui-surface text-ui-text">
-		<header
-			:inert="drawerOpen"
-			class="flex min-h-ui-toolbar flex-wrap items-center gap-2 border-b border-ui-border bg-ui-toolbar px-3 py-2"
-		>
-			<button
-				id="sidebar-toggle"
-				ref="toggle"
-				:class="[pill, idle]"
-				:aria-expanded="!state.sidebarHidden"
-				aria-controls="sidebar"
-				@click="dispatch('sidebar')"
-			>
-				Targets
-			</button>
-			<span class="mr-2 text-sm font-semibold">Test kit</span>
-			<nav aria-label="Report views" class="flex flex-wrap gap-1">
-				<button
-					v-for="(title, view) in views"
-					:key="view"
-					:data-view="view"
-					:class="[pill, state.view === view ? active : idle]"
-					:aria-current="state.view === view ? 'page' : undefined"
-					@click="dispatch('view', view)"
-				>
-					{{ title }}
-				</button>
-			</nav>
-			<button
-				id="theme"
-				:class="[pill, idle, 'ml-auto']"
-				:aria-pressed="state.theme === 'dark'"
-				@click="dispatch('theme')"
-			>
-				{{ state.theme === 'dark' ? 'Light theme' : 'Dark theme' }}
-			</button>
-			<details class="source-switch text-xs">
-				<summary class="cursor-pointer rounded-ui-pill px-3 py-2 text-ui-muted">
-					Report source
-				</summary>
-				<form
-					id="source-form"
-					class="source-form flex gap-2 rounded-ui-panel border border-ui-border bg-ui-surface p-3"
-					@submit.prevent="load(source)"
-				>
-					<label class="flex min-w-0 flex-1 flex-col gap-1" for="source"
-						>Report URL<input
-							id="source"
-							v-model="source"
-							class="min-w-0 rounded border border-ui-control-border bg-ui-surface px-2 py-1 text-ui-text"
-					/></label>
-					<button type="submit" :class="[pill, idle, 'self-end']">Load</button>
-				</form>
-			</details>
-		</header>
-		<p
-			:inert="drawerOpen"
-			id="notice"
-			class="border-b border-ui-border px-4 py-2 text-xs text-ui-muted"
-			role="status"
-			aria-live="polite"
-		>
-			{{ state.notice }}
-		</p>
-		<div class="viewer-layout" :class="{ 'sidebar-hidden': state.sidebarHidden }">
-			<button
-				v-if="drawerOpen"
-				class="drawer-backdrop"
-				aria-label="Close targets"
-				tabindex="-1"
-				@click="dispatch('sidebar', true)"
-			></button>
-			<aside
-				id="sidebar"
-				ref="sidebar"
-				v-show="!state.sidebarHidden"
-				class="viewer-sidebar border-r border-ui-border bg-ui-toolbar p-3"
-				:role="drawerOpen ? 'dialog' : undefined"
-				:aria-modal="drawerOpen ? 'true' : undefined"
-				aria-label="Targets"
-			>
-				<div class="mb-3 flex items-center justify-between">
-					<h2 class="text-xs font-semibold uppercase tracking-wide text-ui-muted">Targets</h2>
-					<button class="drawer-close" :class="[pill, idle]" @click="dispatch('sidebar', true)">
-						Close
-					</button>
-				</div>
-				<div class="flex flex-col gap-1">
-					<button
-						v-for="target in filteredTargets"
-						:key="target.id"
-						class="min-w-0 rounded-ui-panel border p-2 text-left text-xs focus-visible:outline-2 focus-visible:outline-ui-focus"
-						:class="
-							state.targetId === target.id
-								? 'border-ui-control-border bg-ui-surface'
-								: 'border-transparent hover:border-ui-border'
-						"
-						:aria-current="state.targetId === target.id ? 'true' : undefined"
-						@click="dispatch('target', target.id)"
-					>
-						<span class="block break-words font-semibold">{{ target.title ?? target.id }}</span>
-						<span class="mt-1 block text-ui-muted"
-							>{{ targetClass(state.report, target) ?? 'unclassified' }} ·
-							{{ targetState(target) }}</span
-						>
-					</button>
-				</div>
-			</aside>
-			<main
-				:inert="drawerOpen"
-				id="content"
-				class="min-w-0 space-y-4 p-3 sm:p-5"
-				:aria-busy="state.loading"
-			>
-				<template v-if="state.report">
-					<section class="rounded-ui-panel border border-ui-border p-4">
-						<h1 class="break-words text-xl font-semibold">
-							{{ state.report.meta.title ?? 'Comparison' }}
-						</h1>
-						<p class="mt-1 break-words text-xs text-ui-muted">
-							{{ state.report.pair.kind }}: {{ state.report.pair.aRunId }} →
-							{{ state.report.pair.bRunId }}
-						</p>
-						<RunSummary :report="state.report" />
-						<div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-							<span v-for="(count, name) in summary.counts" :key="name"
-								>{{ name }}: <strong>{{ count }}</strong></span
-							>
-						</div>
-						<p class="mt-2 text-xs text-ui-muted">Target states from stored rows (all targets): <span v-for="(count, name) in summary.states" :key="name">{{ name }}: {{ count }} · </span></p>
-						<p class="mt-3 text-xs text-ui-muted">
-							Noise floor:
-							{{
-								state.report.meta.noiseFloor == null
-									? 'unknown; repeatability is not measured'
-									: JSON.stringify(state.report.meta.noiseFloor)
-							}}. Display hint: {{ state.report.meta.matchBelow }}%. The ratio is not a verdict.
-						</p>
-					</section>
-					<ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
-					<component
-						:is="component"
-						:report="state.report"
-						:target-id="state.targetId"
-						:viewport-id="state.viewportId"
-						:source="state.source"
-						:targets="filteredTargets"
-						:filters="state.filters"
-						:artifact-evidence="state.artifactEvidence"
-						@action="dispatch"
-					/>
-				</template>
-				<p v-else class="text-sm text-ui-muted">Load a local report to inspect its evidence.</p>
-			</main>
-		</div>
-	</div>
+    <div class="app-shell" :class="{ 'sidebar-hidden': state.sidebarHidden }">
+        <button v-if="drawerOpen" class="drawer-backdrop" aria-label="Close targets" tabindex="-1" @click="dispatch('sidebar', true)"></button>
+        <aside id="sidebar" ref="sidebar" v-show="!state.sidebarHidden" class="viewer-sidebar" :role="drawerOpen ? 'dialog' : undefined" :aria-modal="drawerOpen ? 'true' : undefined" aria-label="Targets">
+            <div class="sidebar-brand">
+                <div class="brand-mark" aria-hidden="true">t<span>k</span></div>
+                <div><strong>test kit<span class="brand-period">.</span></strong><p>Compare. Understand. Improve.</p></div>
+                <button class="drawer-close" @click="dispatch('sidebar', true)">Close</button>
+            </div>
+            <div class="sidebar-section-label">WORKSPACE</div>
+            <p class="sidebar-project">{{ state.report?.meta.project ?? 'Local reports' }}</p>
+            <div class="sidebar-section-label flex items-center justify-between"><span>TARGETS</span><span>{{ filteredTargets.length }}</span></div>
+            <div v-if="state.report" class="sidebar-filters" aria-label="Quick class filters">
+                <button v-for="name in ['all', 'unexplained', 'explained', 'match']" :key="name" :aria-pressed="state.filters.classification === name" @click="dispatch('filter', { key: 'classification', value: name })">
+                    {{ name === 'all' ? 'All' : name }} <span>{{ name === 'all' ? summary.counts.total : summary.counts[name] }}</span>
+                </button>
+            </div>
+            <div class="sidebar-targets">
+                <section v-for="group in groups" :key="group.name">
+                    <h2 class="sidebar-group">{{ group.name }} <span>{{ group.targets.length }}</span></h2>
+                    <button v-for="target in group.targets" :key="target.id" class="target-row" :class="{ selected: state.targetId === target.id }" :aria-current="state.targetId === target.id ? 'true' : undefined" @click="dispatch('target', target.id)">
+                        <span class="status-dot" :data-status="targetState(target) === 'complete' ? targetClass(state.report, target) : targetState(target)"></span>
+                        <span class="min-w-0 flex-1"><span class="target-title">{{ target.title ?? target.id }}</span><span class="target-subtitle">{{ targetClass(state.report, target) ?? 'unclassified' }} · {{ targetState(target) }}</span></span>
+                        <span class="target-ratio"><span v-if="availabilityLabel(target)" class="sidebar-availability" title="Availability problem">{{ availabilityLabel(target) }}</span>{{ targetRatio(target) }}</span>
+                    </button>
+                </section>
+                <p v-if="!filteredTargets.length" class="px-3 py-4 text-xs text-zinc-400">No targets in this selection.</p>
+            </div>
+            <div class="sidebar-footer"><span class="status-dot" data-status="match"></span> Local evidence only <kbd>[</kbd></div>
+        </aside>
+        <div class="shell-main min-w-0" :inert="drawerOpen">
+            <header class="viewer-toolbar">
+                <button id="sidebar-toggle" aria-label="Targets" ref="toggle" :class="[pill, idle]" :aria-expanded="!state.sidebarHidden" aria-controls="sidebar" @click="dispatch('sidebar')"><span aria-hidden="true">☰</span><span class="target-toggle-label">Targets</span></button>
+                <nav aria-label="Report views" class="view-navigation">
+                    <button v-for="(title, view) in views" :key="view" :data-view="view" :class="[pill, state.view === view ? active : idle]" :aria-current="state.view === view ? 'page' : undefined" @click="dispatch('view', view)">{{ title }}</button>
+                </nav>
+                <div class="toolbar-end">
+                    <button id="theme" :aria-label="state.theme === 'dark' ? 'Light theme' : 'Dark theme'" :class="[pill, idle]" :aria-pressed="state.theme === 'dark'" @click="dispatch('theme')"><span aria-hidden="true">{{ state.theme === 'dark' ? '☀' : '◐' }}</span><span class="theme-label">{{ state.theme === 'dark' ? 'Light theme' : 'Dark theme' }}</span></button>
+                    <details class="source-switch text-xs"><summary class="cursor-pointer rounded-ui-pill px-3 py-2 text-ui-muted">Report source</summary><form id="source-form" class="source-form flex gap-2 rounded-ui-panel border border-ui-border bg-ui-surface p-3" @submit.prevent="load(source)"><label class="flex min-w-0 flex-1 flex-col gap-1" for="source">Report URL<input id="source" v-model="source" class="min-w-0 rounded border border-ui-control-border bg-ui-surface px-2 py-1 text-ui-text" /></label><button type="submit" :class="[pill, idle, 'self-end']">Load</button></form></details>
+                </div>
+            </header>
+            <p id="notice" :class="state.report && !state.loading && state.notice.startsWith('Loaded') ? 'sr-only' : 'viewer-notice'" role="status" aria-live="polite">{{ state.notice }}</p>
+            <main id="content" class="viewer-content" :aria-busy="state.loading">
+                <template v-if="state.report">
+                    <div class="comparison-heading"><div><p class="eyebrow">{{ state.report.pair.kind }} comparison</p><h1>{{ state.report.meta.title ?? 'Comparison' }}</h1></div><span class="local-label"><span class="status-dot" data-status="match"></span> Local report</span></div>
+                    <RunSummary :report="state.report" :summary="summary" />
+                    <ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
+                    <component :is="component" :report="state.report" :target-id="state.targetId" :viewport-id="state.viewportId" :source="state.source" :targets="filteredTargets" :filters="state.filters" :artifact-evidence="state.artifactEvidence" :evidence-view="state.evidenceView" :artifact="state.artifact" :comparison="state.comparison" :overlay="state.overlay" @action="dispatch" />
+                    <details class="measurement-details"><summary>Measurement context</summary><p>Target states from stored rows (all targets): <span v-for="(count, name) in summary.states" :key="name">{{ name }}: {{ count }} · </span></p><p>Noise floor: {{ state.report.meta.noiseFloor == null ? 'unknown; repeatability is not measured' : JSON.stringify(state.report.meta.noiseFloor) }}. Display hint: {{ state.report.meta.matchBelow }}%. The ratio is not a verdict.</p></details>
+                </template>
+                <p v-else class="empty-report">Load a local report to inspect its evidence.</p>
+            </main>
+        </div>
+    </div>
 </template>
-
-<style scoped>
-.viewer-layout {
-	display: grid;
-	grid-template-columns: 16rem minmax(0, 1fr);
-}
-.viewer-layout.sidebar-hidden {
-	grid-template-columns: minmax(0, 1fr);
-}
-.viewer-sidebar {
-	min-width: 0;
-}
-.drawer-backdrop,
-.drawer-close {
-	display: none;
-}
-.source-switch {
-	position: relative;
-}
-.source-form {
-	position: absolute;
-	top: 100%;
-	right: 0;
-	z-index: 30;
-	width: min(26rem, calc(100vw - 2rem));
-}
-@media (max-width: 860px) {
-	.viewer-layout {
-		grid-template-columns: minmax(0, 1fr);
-	}
-	.viewer-sidebar {
-		position: fixed;
-		inset: 0 auto 0 0;
-		z-index: 50;
-		width: min(20rem, 85vw);
-		overflow-y: auto;
-	}
-	.drawer-backdrop {
-		display: block;
-		position: fixed;
-		inset: 0;
-		z-index: 40;
-		background: rgb(0 0 0 / 40%);
-	}
-	.drawer-close {
-		display: inline-flex;
-	}
-}
-</style>

@@ -11,13 +11,13 @@ function ratio(row) {
 const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 </script>
 <template>
-	<div class="min-w-0 max-w-full overflow-x-auto rounded-ui-panel border border-ui-border">
-		<table class="w-full border-collapse text-left text-sm">
+	<div class="matrix-panel min-w-0 max-w-full overflow-x-auto rounded-ui-panel border border-ui-border bg-ui-surface">
+		<table class="w-full border-collapse text-left text-xs">
 			<thead class="bg-ui-toolbar">
 				<tr>
-					<th scope="col" class="p-4">Target</th>
-					<th v-for="viewport in report.meta.viewports" :key="viewport.id" scope="col" class="p-4">
-						{{ viewport.id }}
+					<th scope="col" class="p-4 text-xs font-semibold">Target</th>
+					<th v-for="viewport in report.meta.viewports" :key="viewport.id" scope="col" class="p-4 text-xs font-semibold">
+						{{ viewport.id }}<span class="mt-1 block text-[10px] font-normal text-ui-muted">{{ viewport.width }} × {{ viewport.height }}</span>
 					</th>
 				</tr>
 			</thead>
@@ -42,14 +42,14 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 						:key="viewport.id"
 						class="min-w-48 p-4 align-top"
 					>
-						<button class="mb-2 underline focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id, viewportId: viewport.id })" :disabled="!rowFor(target, viewport.id)">Open {{ viewport.id }} evidence</button>
+						<button class="matrix-evidence mb-2 focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id, viewportId: viewport.id })" :disabled="!rowFor(target, viewport.id)">Open {{ viewport.id }} evidence</button>
 						<div class="flex flex-wrap gap-1">
 							<Badge :text="cellClass(report, target, viewport.id) ?? 'unclassified'" /><Badge
 								:text="cellState(target, viewport.id)"
 							/>
 						</div>
 						<template v-if="rowFor(target, viewport.id)"
-							><p class="my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
+							><p class="matrix-ratio my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
 							<div class="flex flex-wrap gap-1">
 								<Badge
 									v-for="side in ['a', 'b']"

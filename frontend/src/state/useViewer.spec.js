@@ -170,16 +170,40 @@ describe('viewer filters', () => {
 });
 
 describe('bounded response evidence actions', () => {
-    it('ignores stale evidence after a target selection and strips unknown fields', async () => {
+    it('discards success and failure from evidence that a new selection cancels', async () => {
+        for (const fails of [false, true]) {
+            const data = report();
+            data.entries[0].viewports[0].artifacts = { screenshot: {}, status: { diff: { src: 'diff/status.json' } } };
+            let resolve, reject;
+            const instance = viewer({ fetch: () => new Promise((done, fail) => { resolve = done; reject = fail; }) });
+            instance.dispatch('loaded', { report: data, source: 'http://localhost:4178/report.json' });
+            instance.dispatch('artifact', 'status');
+            expect(instance.state.artifactEvidence.loading).toBe(true);
+            instance.dispatch('artifact', 'screenshot');
+            if (fails) reject(new Error('Old failure'));
+            else resolve(new Response(JSON.stringify({ changed: false, a: { statusCode: 200 }, b: { statusCode: 200 } })));
+            await new Promise(done => setTimeout(done, 0));
+            expect(instance.state.artifactEvidence).toBe(null);
+            expect(instance.state.artifact).toBe('screenshot');
+        }
+    });
+    it('selects the exact finding artifact and validates comparison controls', () => {
         const data = report();
-        data.entries[0].viewports[0].artifacts = { status: { state: 'complete', diff: { src: 'diff/status.json' } } };
-        let resolve;
-        const instance = viewer({ fetch: () => new Promise(done => { resolve = done; }) });
-        instance.dispatch('loaded', { report: data, source: 'http://localhost/report.json' });
-        instance.dispatch('load-artifact', 'status');
-        instance.dispatch('target', 'example');
-        resolve(new Response(JSON.stringify({ changed: false, a: { statusCode: 200, finalPath: '/', redirects: [], assets: { requests: 0, failed: 0, httpErrors: 0 } }, b: { statusCode: 200, finalPath: '/', redirects: [], assets: { requests: 0, failed: 0, httpErrors: 0 } } })));
-        await new Promise(done => setTimeout(done, 10));
-        expect(instance.state.artifactEvidence).toBe(null);
+        data.entries[0].viewports[0].artifacts = { screenshot: {}, html: {} };
+        const instance = viewer();
+        instance.dispatch('loaded', { report: data, source: '/report.json' });
+        instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'html' });
+        expect(instance.state.artifact).toBe('html');
+        instance.dispatch('artifact', 'status');
+        expect(instance.state.artifact).toBe('html');
+        instance.dispatch('comparison', 'overlay');
+        instance.dispatch('overlay', 75);
+        for (const value of [-1, 101, NaN, '20']) instance.dispatch('overlay', value);
+        instance.dispatch('comparison', '__proto__');
+        expect(instance.state.comparison).toBe('overlay');
+        expect(instance.state.overlay).toBe(75);
+        instance.dispatch('evidence-view', 'raw');
+        instance.dispatch('evidence-view', 'invalid');
+        expect(instance.state.evidenceView).toBe('raw');
     });
 });

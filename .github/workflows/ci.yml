@@ -50,4 +50,5 @@ jobs:
       - run: node tests/integration/check-response-artifacts.mjs
       - run: node tests/integration/check-evidenced-rules.mjs
       - run: node tests/integration/check-viewer.mjs
+      - run: node tests/integration/check-viewer-workspace.mjs
       - run: node tests/integration/check-viewer-package.mjs

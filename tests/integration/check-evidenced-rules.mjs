@@ -140,8 +140,14 @@ try {
   await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
   await page.getByRole('button', { name: 'home · wide evidence' }).click();
   await page.getByText('Fired: response', { exact: false }).waitFor();
-  await page.getByRole('button', { name: 'Load html comparison' }).click();
-  await page.locator('pre').filter({ hasText: 'prefix-suffix-replacement' }).waitFor();
+  const html = page.getByRole('region', { name: 'HTML line comparison' });
+  await html.waitFor();
+  assert.match(await html.textContent(), /Raw response changes are explained/);
+  await html.getByRole('button', { name: 'Raw response', exact: true }).click();
+  assert.equal(await html.getByRole('button', { name: 'Raw response', exact: true }).getAttribute('aria-pressed'), 'true');
+  assert.ok(await html.locator('code').count() > 0);
+  await html.getByRole('button', { name: 'Normalized', exact: true }).click();
+  assert.match(await html.textContent(), /No changed lines in this comparison/);
   assert.deepEqual(errors, []);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   console.log('Scoped normalization, exact recorded evidence, raw audit, bounded query, and safe viewer pass.');

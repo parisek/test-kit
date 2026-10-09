@@ -111,8 +111,12 @@ try {
   await page.goto(viewer.origin);
   await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
   await page.getByRole('button', { name: 'home · wide evidence' }).click();
-  await page.getByRole('button', { name: 'Load html comparison' }).click();
-  await page.locator('pre').filter({ hasText: 'prefix-suffix-replacement' }).waitFor();
+  assert.equal(await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: 'HTML', exact: true }).getAttribute('aria-pressed'), 'true');
+  const html = page.getByRole('region', { name: 'HTML line comparison' });
+  await html.waitFor();
+  assert.match(await html.textContent(), /before/);
+  assert.match(await html.textContent(), /after/);
+  assert.ok(await html.locator('code').count() > 0);
   assert.equal(await page.evaluate(() => window.injected), undefined);
   assert.deepEqual(errors, []);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
