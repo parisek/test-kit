@@ -6,7 +6,7 @@ Compare reads stored runs. The viewer and JSON summary use the same classifier.
 
 Version 0.1 supports screenshots only. No content checks run by default.
 The unreleased development build also supports opt-in HTML and HTTP status.
-Main also supports opt-in stored content checks. Behavior, speed, and lint integration remain later milestones.
+Main also supports opt-in stored content checks, project behavior contracts and local Lighthouse measurements. Legacy engine and lint migration remain later milestones.
 The Node engine belongs here. PHP and Twig lint belong to
 [`lint-kit`](https://github.com/parisek/lint-kit).
 
@@ -157,3 +157,38 @@ With `behavior.trace: true`, traces stay local. The viewer shows the command
 to open them. Scoped queries accept `--artifact behavior --max-lines 10`.
 The legacy reporter, coverage and old command migration remain separate work
 under #25 and #45.
+
+### Local Lighthouse measurements (unreleased)
+
+The engine and pure helpers still support Node 20. Lighthouse 13.5 requires
+Node 22.19 or newer and the optional `lighthouse` peer. The development version
+is pinned to 13.5.0. Measurement accepts local HTTP page targets only.
+HTTPS and component targets fail explicitly.
+
+```bash
+test-kit perf --side local --targets home --label before --runs 3
+test-kit perf --side local --targets home --label after --runs 3 --budget lcp_ms=2500,cls=0.1
+test-kit diff RUN_A RUN_B --output speed-report
+test-kit query speed-report/report.json --target home --viewport desktop --artifact lighthouse --max-lines 10
+```
+
+The fixed desktop preset uses 1280 × 900. It retains a configured matching
+`desktop` viewport ID; otherwise the ID is `performance`. Mobile uses 390 × 844.
+Each set has one discarded warmup and three to five measured audits. Reports
+show medians, samples and full observed spread. Significant improvements and
+regressions become findings. The default command exit does not judge them.
+
+More than three targets requires `--consent` after the command states its cost.
+High machine load refuses capture. `--allow-high-load` marks such measurements
+suspect. They cannot produce a speed regression comparison. `--fail-on-budget`
+is the only budget option that changes exit status. It works on measurement
+and comparison commands. Budgets stay explicit in the saved run.
+
+Speed environment identity uses the stored side and canonical origin. A side
+that changes origin does not prove a regression. This restriction applies to
+speed only. Screenshot and content compatibility retain their existing rules.
+
+Raw Lighthouse JSON and HTML stay under local runs. HTML links show source as
+plain text. To build a real anonymous speed demo, run `npm run demo:perf`.
+It measures one page twice and opens a separate local report on port 4185.
+It does not run as part of the normal visual demo.

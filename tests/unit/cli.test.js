@@ -70,3 +70,12 @@ test('record-known requires exact selectors and explicit evidence text', () => {
   assert.throws(() => parseCommand(args.slice(0, -2)), /requires/);
   assert.throws(() => parseCommand(args.map(value => value === 'html' ? 'status' : value)), /requires/);
 });
+
+test('performance selection and budget flags are explicit and scoped', () => {
+  const parsed = parseCommand(['perf', '--side', 'local', '--targets', 'home', '--runs', '3', '--consent', '--fail-on-budget']);
+  assert.equal(parsed.options.runs, 3);
+  assert.equal(parsed.options.consent, true);
+  assert.equal(parsed.options['fail-on-budget'], true);
+  assert.throws(() => parseCommand(['perf', '--side', 'local']), /targets/);
+  assert.throws(() => parseCommand(['perf', '--side', 'local', '--targets', 'home', '--runs', '1']), /3..5/);
+});

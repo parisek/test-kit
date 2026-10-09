@@ -360,9 +360,11 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 | Viewer prototype with sample data | built, 62 unit tests pass |
 | Viewer in the artifact frame | checked by hand |
 | Adapter on a real `report.json` from `build-report.js` | not tested |
-| Any runner that writes behaviour `steps[]` | does not exist |
-| Real screenshots in behaviour steps | not tested |
+| Runner that writes behaviour `steps[]` | verified with guarded local contracts and retained failures, 2026-10-09 |
+| Real screenshots in behaviour steps | verified in synthetic Chromium capture, compare, query and viewer, 2026-10-09 |
 | Viewer keyboard controls, blocked storage, widths 390, 860, 1100 px | verified in Chromium on synthetic data, 2026-10-09 |
+| Local HTTP speed runner | one discarded warmup and three real Lighthouse 13.5 audits; command, comparison, query and compiled viewer verified, 2026-10-09 |
+| Stored content checks | six explicit checks; compressed DOM, immutable reruns and evidenced acceptance verified, 2026-10-09 |
 | Speed run count and noise band in a DDEV setup | not measured |
 | Install from a git tag and from a `semver:` range (section 13.2) | verified on a local copy |
 | Local Drupal screenshot pilot | two targets, two viewports; repeated A/A has no screenshot findings, 2026-10-09 |

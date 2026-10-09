@@ -37,7 +37,8 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 	const assets = new Set();
 	const sidecars = new Map();
 	const attachments = new Set();
-	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior']) {
+	const rawPerformance = new Set();
+	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse']) {
 		for (const side of ['a', 'b', 'diff', 'normalizedA', 'normalizedB']) {
 			const index = row.artifacts?.[kind]?.[side];
 			if (relativePath(index?.src)) sidecars.set(index.src, kind === 'html' && side !== 'diff' ? 'text/plain; charset=utf-8' : 'application/json');
@@ -59,6 +60,14 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
     }
     for (const src of [detail.traceA, detail.traceB]) if (relativePath(src) && src.endsWith('.zip')) attachments.add(src);
   }
+	for (const entry of report.entries) for (const row of entry.viewports) for (const side of ['a', 'b']) {
+		const reports = row.artifacts?.lighthouse?.[side]?.reports;
+		if (!Array.isArray(reports)) continue;
+		for (const raw of reports.slice(0, 5)) for (const kind of ['json', 'html']) {
+			const src = raw?.[kind]?.src;
+			if (relativePath(src) && src.endsWith('.' + kind)) { rawPerformance.add(src); sidecars.set(src, kind === 'html' ? 'text/plain; charset=utf-8' : 'application/json'); }
+		}
+	}
 	const routes = new Map([
 		['/', [packageRoot, 'viewer/index.html', 'text/html']],
 		['/app.js', [packageRoot, 'viewer/app.js', 'text/javascript']],
@@ -89,8 +98,9 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 			const file = await realpath(resolve(canonicalRoot, filename));
 			const within = relative(canonicalRoot, file);
 			if (!within || within.startsWith('../') || within === '..') { fail(403); return; }
-			const bytes = await boundedRead(file, sidecars.has(path.slice(1)) ? 2 * 1024 * 1024 : MAX_BYTES);
-			if (sidecars.has(path.slice(1)) && bytes.length > 2 * 1024 * 1024) { fail(413); return; }
+			const sidecarLimit = rawPerformance.has(path.slice(1)) ? 20 * 1024 * 1024 : 2 * 1024 * 1024;
+			const bytes = await boundedRead(file, sidecars.has(path.slice(1)) ? sidecarLimit : MAX_BYTES);
+			if (sidecars.has(path.slice(1)) && bytes.length > sidecarLimit) { fail(413); return; }
 			if (attachments.has(path.slice(1))) res.setHeader('Content-Disposition', 'attachment; filename="trace.zip"');
 			res.setHeader('Content-Type', type); res.setHeader('Content-Length', bytes.length);
 			res.end(req.method === 'HEAD' ? undefined : bytes);

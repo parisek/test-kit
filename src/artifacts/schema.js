@@ -1,3 +1,4 @@
+import { validatePerformanceComparison } from '../perf/schema.js';
 import { validateBehaviorComparison } from '../behavior/compare.js';
 import { validateContentComparison } from '../content/compare.js';
 import { isHash } from '../rules/model.js';
@@ -15,6 +16,7 @@ export function statusDetail(value) {
 }
 export function comparisonDetail(kind, value, nested = false) {
   if (kind === 'behavior') return validateBehaviorComparison(value);
+  if (kind === 'lighthouse') return validatePerformanceComparison(value);
   if (kind === 'content') return validateContentComparison(value);
   if (!value || typeof value.changed !== 'boolean') throw new Error('Invalid artifact comparison.');
   if (kind === 'status') return { changed: value.changed, a: statusDetail(value.a), b: statusDetail(value.b) };

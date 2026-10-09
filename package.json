@@ -30,13 +30,18 @@
     "test:viewer": "npm --prefix frontend test",
     "build:viewer": "npm --prefix frontend run build",
     "check:viewer": "node scripts/check-viewer-build.mjs",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "demo:perf": "node scripts/demo-perf.mjs"
   },
   "peerDependencies": {
-    "@playwright/test": ">=1.49"
+    "@playwright/test": ">=1.49",
+    "lighthouse": "^13.5.0"
   },
   "peerDependenciesMeta": {
     "@playwright/test": {
+      "optional": true
+    },
+    "lighthouse": {
       "optional": true
     }
   },
@@ -45,7 +50,8 @@
     "pngjs": "7.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.0"
+    "@playwright/test": "1.64.0",
+    "lighthouse": "13.5.0"
   },
   "license": "MIT"
 }

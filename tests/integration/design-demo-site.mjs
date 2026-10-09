@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 export async function startDesignDemoSite({ variant = 'before' } = {}) {
   if (!['before', 'after'].includes(variant)) throw new Error('Invalid demo variant.');
   const css = await readFile(new URL('../fixtures/example-site/demo.css', import.meta.url), 'utf8');
-  const after = variant === 'after';
+  let after = variant === 'after';
   const card = () => `<article class="card specimen"><span class="tag">Studio plan</span><h3>A little more room to grow.</h3><div class="price">$${after ? '39' : '29'} <small>/ month</small></div><p>One workspace. Every essential tool.<br>Start small and make it yours.</p><span class="cta">Choose this plan →</span></article>`;
   const body = path => {
     if (path === '/components/button') return `<div class="eyebrow">Component / Button</div><h1>A clear next step.</h1><p>Primary action. Comfortable spacing. One purpose.</p><section class="component-stage"><div class="specimen"><button class="cta primary-button">Start a conversation →</button></div></section>`;
@@ -34,5 +34,5 @@ ${body(path).replaceAll('><', '>\n<')}
 </body></html>`);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  return { origin: `http://127.0.0.1:${server.address().port}`, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }) };
+  return { origin: `http://127.0.0.1:${server.address().port}`, setVariant: value => { if (!['before', 'after'].includes(value)) throw new Error('Invalid demo variant.'); after = value === 'after'; }, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }) };
 }
