@@ -1,7 +1,7 @@
 <script setup>
 const props = defineProps({ data: Object });
 const metrics = { lcp_ms: ['Largest contentful paint', 'ms'], fcp_ms: ['First contentful paint', 'ms'], tbt_ms: ['Total blocking time', 'ms'], cls: ['Cumulative layout shift', ''], speed_index_ms: ['Speed index', 'ms'] };
-const format = (value, key) => Number.isFinite(value) ? key === 'cls' ? value.toFixed(3) : Math.round(value).toLocaleString('en') : 'Unknown';
+const format = (value, key) => Number.isFinite(value) ? Math.abs(value) >= 1e9 ? value.toExponential(2) : key === 'cls' ? value.toFixed(3) : Math.round(value).toLocaleString('en') : 'Unknown';
 const width = (side, key) => {
   const a = props.data.a.metrics[key]?.median ?? 0, b = props.data.b.metrics[key]?.median ?? 0;
   return Math.max(0, Math.min(100, (side === 'a' ? a : b) / Math.max(1, a, b) * 100)) + '%';

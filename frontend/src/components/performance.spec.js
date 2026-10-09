@@ -21,3 +21,9 @@ it('keeps incompatible measurements visible without regression labels', () => {
  expect(wrapper.findAll('span.rounded-ui-pill')).toHaveLength(0);
  expect(wrapper.find('script').exists()).toBe(false);
 });
+
+it('bounds the visual width of finite large measurements', () => {
+ const data = detail(); data.b.metrics.lcp_ms.median = 1e300;
+ const wrapper = mount(PerformanceComparison,{props:{data}});
+ expect(wrapper.text()).toContain('1.00e+300');
+});

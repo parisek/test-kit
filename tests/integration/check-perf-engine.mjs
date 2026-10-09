@@ -36,6 +36,7 @@ const request = (url, method = 'GET') => new Promise((resolve, reject) => {
     response.resume(); response.on('end', () => resolve(response.statusCode));
   }); req.on('error', reject); req.end();
 });
+const chromePath = process.env.TEST_KIT_CHROME_PATH || chromium.executablePath();
 const root = await mkdtemp(join(tmpdir(), 'test-kit-perf-'));
 try {
   assert.equal(await request(origin), 200);
@@ -48,7 +49,7 @@ try {
     targets: [{ id: 'example-site', kind: 'page', path: '/' }, { id: 'unused', kind: 'page', path: '/unused' }],
     viewports: [{ id: 'desktop', width: 1280, height: 900 }], runsRoot: 'runs' }));
   const command = await runPerfCommand({ configPath, side: 'local', label: 'Local performance fixture', targetIds: ['example-site'],
-    chromePath: chromium.executablePath(), allowHighLoad: true });
+    chromePath, allowHighLoad: true });
   assert.equal(command.exitCode, 0, JSON.stringify(command.output));
   const run = JSON.parse(await readFile(command.output.manifestPath, 'utf8'));
   const runDir = dirname(command.output.manifestPath);
@@ -106,6 +107,10 @@ try {
       await page.locator('[aria-label="Measured performance comparison"]').waitFor();
       assert.equal(await page.getByRole('heading', { name: 'Performance lab', exact: true }).isVisible(), true);
       assert.equal(await page.getByRole('heading', { name: 'Largest contentful paint', exact: true }).isVisible(), true);
+      for (const width of [390, 860, 1100, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Performance evidence overflows at ${width}`);
+      }
       assert.deepEqual(errors, [], 'Real performance evidence must load without Node crypto in the browser.');
     } finally { await browser.close(); }
   } finally { await viewer.close(); }
@@ -146,7 +151,7 @@ try {
   assert.equal(altered.artifact.state, 'failed');
   assert.equal(altered.artifact.diff, null);
   const blocked = await runPerformance({ targets: [{ id: 'blocked-page', url: `${origin}/blocked-page` }],
-    runDir: join(root, 'blocked-run'), chromePath: chromium.executablePath(), allowHighLoad: true });
+    runDir: join(root, 'blocked-run'), chromePath, allowHighLoad: true });
   assert.equal(blocked.results[0].artifact.state, 'failed');
   assert.match(blocked.results[0].artifact.error.message, /proxy blocked a measured page/);
   console.log('Local proxy policy, three real desktop Lighthouse audits, immutable CLI manifests, suppressed redirect rejection and pair evidence validation pass.');
