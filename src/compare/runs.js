@@ -1,3 +1,4 @@
+import { screenshotScope, scopeMatches, settingsHash } from '../config/settings.js';
 import { isLocalUrl } from '../capture/helpers.js';
 import { comparePerformanceArtifact } from '../perf/compare-artifact.js';
 import { compareBehaviorArtifact } from '../behavior/compare-artifact.js';
@@ -94,6 +95,11 @@ export function comparisonState(a, b, runA, runB) {
 	if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
 	if (runA.settingsHash !== runB.settingsHash || JSON.stringify(runA.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot')) !== JSON.stringify(runB.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot'))) return 'incompatible';
 	if (effectiveSettings(runA) !== effectiveSettings(runB)) return 'incompatible';
+	const scope = (capture, run) => screenshotScope(run.settings?.targets?.find(target => target.id === capture.targetId));
+	let scopeA, scopeB;
+	try { scopeA = scope(a, runA); scopeB = scope(b, runB); } catch { return 'incompatible'; }
+	if (settingsHash(scopeA) !== settingsHash(scopeB)) return 'incompatible';
+	if ([ [a, scopeA], [b, scopeB] ].some(([capture, recipe]) => !scopeMatches(capture, recipe))) return 'incompatible';
 	return 'complete';
 }
 

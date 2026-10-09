@@ -59,7 +59,7 @@ test('component selectors remain bounded text', () => {
   const source = input();
   source.targets[0] = { id: 'card', kind: 'component', path: '/components/card', selector: '.card' };
   assert.equal(normalizeConfig(source).targets[0].selector, '.card');
-  for (const selector of ['', 'a'.repeat(2049), ['.card']]) {
+  for (const selector of ['', 'a'.repeat(2049), [], ['.card', '.card'], ['']] ) {
     source.targets[0].selector = selector;
     assert.throws(() => normalizeConfig(source), /target.selector/);
   }
@@ -111,3 +111,10 @@ test('loadConfig resolves storage relative to the configuration file', async () 
 test('inherited side paths do not satisfy target coverage', () => {
   assert.throws(() => normalizeConfig({ schemaVersion: 1, sides: { constructor: { origin: 'http://localhost:8080' } }, targets: [{ id: 'home', kind: 'page', paths: {} }], viewports: [{ id: 'desktop', width: 800, height: 600 }] }), /no path/);
 });
+
+ test('selector unions and content boxes remain explicit and bounded', () => {
+  const source = input(); source.targets[0].selector = ['.heading', '.body']; source.targets[0].box = 'content';
+  assert.deepEqual(normalizeConfig(source).targets[0].selector, ['.heading', '.body']);
+  delete source.targets[0].selector;
+  assert.throws(() => normalizeConfig(source), /target.box/);
+ });

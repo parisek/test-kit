@@ -27,3 +27,20 @@ export function contentSettings(config, side) {
   const { masks, ...settle } = config.sides[side].settle;
   return { mode: 'settled-dom', extractorVersion: '1.0.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
 }
+
+// Paths and titles can differ between sides. The screenshot scope cannot.
+export function screenshotScope(target) {
+  const selector = target?.selector ?? null;
+  const box = target?.box ?? 'border';
+  const valid = value => typeof value === 'string' && value.trim() && value.length <= 2048 && !/[\x00-\x1f\x7f]/.test(value);
+  if (selector !== null && !(Array.isArray(selector) ? selector.length > 0 && selector.length <= 50 && selector.every(valid) && new Set(selector).size === selector.length : valid(selector))) throw new Error('Invalid stored screenshot selector.');
+  if (!['border', 'content'].includes(box) || (selector === null && target?.box !== undefined)) throw new Error('Invalid stored screenshot box.');
+  return { selector, box };
+}
+
+export function scopeMatches(capture, scope) {
+  const hash = settingsHash(scope);
+  return capture.scopeHash === undefined
+    ? !Array.isArray(scope.selector) && scope.box === 'border'
+    : capture.scopeHash === hash;
+}
