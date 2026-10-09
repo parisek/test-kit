@@ -1,3 +1,4 @@
+import { normalizeRules, normalizeKnown } from '../rules/model.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 function fail(message) { throw new Error(`Invalid configuration: ${message}`); }
@@ -55,7 +56,7 @@ function freeze(value) {
 }
 
 export function normalizeConfig(input) {
-  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot']);
+  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');
   object(input.sides, 'sides');
   const sideEntries = Object.entries(input.sides);
@@ -103,5 +104,5 @@ export function normalizeConfig(input) {
   if (!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(runsRoot)) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
-  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks: [], runsRoot, screenshot });
+  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks: [], runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
 }

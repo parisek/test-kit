@@ -10,3 +10,8 @@ project files or directory listings are served. See `docs/usage.md`.
 
 Indexed response sidecars have a 2 MiB limit. HTML bytes use text/plain. Status and comparison sidecars use application/json.
 No response artifact can become an active HTML document (R10.6).
+
+
+Normalized HTML sidecars use the same fixed index allowlist and text/plain
+response as raw HTML. Combined raw/normalized difference JSON stays within
+the 2 MiB sidecar limit. No HTML executes (R9.4).

@@ -7,6 +7,7 @@ import {
 	cellState,
 	findingsFor,
 } from '../../../src/report/classify.js';
+import RuleAudit from './RuleAudit.vue';
 import ArtifactEvidence from './ArtifactEvidence.vue';
 import Badge from './Badge.vue';
 import EvidenceImage from './EvidenceImage.vue';
@@ -119,6 +120,7 @@ const ratio = computed(() => {
 			<ArtifactEvidence :row="row" :source="source" :evidence="artifactEvidence" @action="(...args) => emit('action', ...args)" /></template
 		>
 		<p v-else class="my-4 text-sm">Missing evidence for {{ viewportId ?? 'this target' }}. This measurement is unclassified.</p>
+		<RuleAudit :report="report" :target-id="targetId" :row="row" />
 		<h3 class="mt-5 font-semibold">Findings ({{ findings.length }})</h3>
 		<pre
 			v-for="(finding, index) in findings"

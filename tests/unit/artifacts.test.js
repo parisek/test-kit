@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lineWindow } from '../../src/artifacts/diff.js';
+import { lineWindow, boundedDifference } from '../../src/artifacts/diff.js';
 import { artifactState } from '../../src/artifacts/state.js';
 import { comparisonDetail } from '../../src/artifacts/schema.js';
 import { cellClass, cellState, targetClass } from '../../src/report/classify.js';
@@ -90,4 +90,16 @@ test('oracle targets preserve parity for comparable screenshot and HTML findings
     assert.equal(cellClass(report, report.entries[0], 'wide'), 'oracle');
     assert.equal(targetClass(report, report.entries[0]), 'oracle');
   }
+});
+
+test('raw and normalized windows share the serialized sidecar budget', () => {
+  const a = ('\u0001'.repeat(2000) + '\n').repeat(100), b = 'X\n'.repeat(100);
+  const detail = boundedDifference({ changed: true, rawChanged: true, ...lineWindow(a, b), rawWindow: { changed: true, ...lineWindow(a, b) }, normalization: { policyHash: 'sha256:' + 'a'.repeat(64), rawA: 'sha256:' + 'a'.repeat(64), rawB: 'sha256:' + 'b'.repeat(64), fired: [], scoped: [], diagnostics: [] } });
+  assert.ok(Buffer.byteLength(JSON.stringify(detail)) <= 2 * 1024 * 1024);
+  for (const window of [detail, detail.rawWindow]) {
+    assert.equal(window.displayedLines, window.lines.length);
+    assert.equal(window.omittedLines, window.removedLines + window.addedLines - window.lines.length);
+    assert.ok(window.omittedLines > 100);
+  }
+  assert.doesNotThrow(() => comparisonDetail('html', detail));
 });

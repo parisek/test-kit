@@ -1,3 +1,5 @@
+import { normalizeRules, normalizeKnown } from '../rules/model.js';
+import { pairKey, policyHash, evidenceBinding } from '../rules/evidence.js';
 import { compareResponseArtifact } from '../artifacts/compare.js';
 import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -88,7 +90,9 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update' }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown }) {
+	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
+	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
 	const b = await readRun(runsRoot, bId);
 	const { PNG } = await import('pngjs');
@@ -153,8 +157,8 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			row.artifacts.screenshot.state = row.state;
 			} else { delete row.artifacts.screenshot; row.state = 'complete'; }
 			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {
-				row.artifacts[artifact] = await compareResponseArtifact({ kind: artifact, a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
-				if (artifact === 'html' && row.artifacts.html.state === 'complete' && row.artifacts.html.diff?.changed) {
+				row.artifacts[artifact] = await compareResponseArtifact({ kind: artifact, a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, rules, context: { pairKey: key, kind, targetId: target.id } });
+				if (artifact === 'html' && row.artifacts.html.state === 'complete' && (row.artifacts.html.diff?.rawChanged ?? row.artifacts.html.diff?.changed)) {
 					findings.push({ id: 'html-' + target.id + '-' + viewport.id, targetId: target.id, viewportId: viewport.id, artifact: 'html', message: 'HTML response bytes differ.' });
 				}
 			}
@@ -174,8 +178,35 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status']) {
 		const index = row.artifacts[kind]?.diff;
 		if (index) responseTools.set(index.settingsHash, { name: index.tool, version: index.version, settingsHash: index.settingsHash });
+		const normalized = row.artifacts[kind]?.normalizedA;
+		if (normalized) responseTools.set(normalized.settingsHash, { name: normalized.tool, version: normalized.version, settingsHash: normalized.settingsHash });
 	}
 	report.meta.tools.push(...responseTools.values());
+	report.pair.key = key;
+	report.rules = rules;
+	report.known_diffs = { [key]: known_diffs[key] ?? [] };
+	report.meta.comparisonPolicyHash = policyHash(rules);
+	for (const finding of findings) {
+		const entry = entries.find(entry => entry.id === finding.targetId);
+		const row = entry.viewports.find(row => row.id === finding.viewportId);
+		const binding = await evidenceBinding({ runsRoot, aRunId: aId, bRunId: bId,
+			targetId: finding.targetId, viewportId: finding.viewportId, artifact: finding.artifact, rules, runs: [a, b] });
+		finding.evidenceFingerprint = binding.fingerprint;
+		const accepted = report.known_diffs[key].find(record => record.target === finding.targetId
+			&& record.viewport === finding.viewportId && record.artifact === finding.artifact && record.fingerprint === binding.fingerprint
+			&& Object.keys(binding.evidence).every(key => record.evidence[key] === binding.evidence[key]));
+		const normalization = finding.artifact === 'html' && row.artifacts.html.diff?.rawChanged && !row.artifacts.html.diff.changed;
+		if (accepted && entry.judge !== 'oracle') {
+			finding.causeId = accepted.cause;
+			finding.acceptance = { ...binding, policyHash: binding.evidence.policyHash, evidence: undefined, sources: undefined };
+			if (!report.causes.some(cause => cause.id === accepted.cause)) report.causes.push({ id: accepted.cause, title: accepted.cause, detail: accepted.reason, known: true, acceptance: 'recorded-evidence' });
+		} else if (normalization) {
+			const id = '@normalization/' + finding.targetId + '/' + finding.viewportId;
+			finding.causeId = id;
+			finding.acceptance = { ...binding, policyHash: binding.evidence.policyHash, evidence: undefined, sources: undefined, ruleIds: row.artifacts.html.diff.firedRuleIds };
+			report.causes.push({ id, title: 'Evidenced HTML normalization', known: true, acceptance: 'normalization' });
+		}
+	}
 	const problems = validateReport(report);
 	if (problems.length) throw new Error(problems.join(' '));
 	const reportPath = join(output, 'report.json');

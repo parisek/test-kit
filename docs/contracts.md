@@ -222,3 +222,22 @@ for a bounded HTML window. Use `--artifact status` for bounded HTTP metadata.
 The line limit is 1 to 100. Unknown targets, viewports, and artifacts fail.
 The JSON answer has evidence paths, measurement state, omitted counts, and
 `next`. No arbitrary sidecar fields enter the answer.
+
+
+## Evidenced rules and exact known differences
+
+Comparison accepts optional `rules` and `known_diffs` configuration (R5.2, R5.3).
+Rules require evidence and a bounded literal-pair operation. Scope axes intersect
+(R8.4, R8.5). They inspect original response spans and never mutate capture files.
+The ordered policy hash includes rule order. Normalized text and raw/normalized
+JSON windows remain fixed indexed sidecars. HTML always serves as text/plain.
+The combined escaped JSON window is at most 2 MiB. Counts identify omitted lines.
+
+Each raw finding carries an evidence fingerprint. It binds explicit ordered run
+IDs, target, viewport, artifact, full A/B bytes, validated stored capture geometry,
+browser/tool provenance, and comparator policy. `record-known` checks these files
+and their report copies before an optimistic atomic configuration update.
+Accepted raw differences remain findings. Shared per-finding evaluation supplies
+the CLI and viewer classes (R11.6). A residual normalized difference, stale evidence,
+missing scope, or failed requested measurement cannot become a match.
+No check defaults or snapshot retention policy are introduced.
