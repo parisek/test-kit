@@ -147,7 +147,7 @@ constant is not a measured noise floor. Original evidence always remains local.
 | --- | --- | --- | --- |
 | Same PNGs, both HTTP 200 | complete | match | ok / ok |
 | Same PNGs, B HTTP 500 | complete | match | ok / http-error |
-| B navigation timeout | failed | null | ok / unknown |
+| B navigation timeout | failed | null | ok / capture-error |
 | Target exists only in A | missing | null | ok / unknown |
 | Different viewport dimensions | incompatible | null | retained separately |
 | Nonzero ratio, floor unknown | complete | unexplained | retained separately |
@@ -184,7 +184,8 @@ code, final pathname, redirect pathnames, and asset request, failure, and HTTP
 error counts. Redirects have at most 20 steps. Paths have at most 2000 characters.
 Do not store cookies, request headers, credentials, or query strings.
 The count covers asset requests observed before response-artifact collection.
-Status is separate from target class. Status-only reports have no comparable
+A failed capture has availability capture-error. Its retained status sidecar
+still holds the HTTP code. Status is separate from target class. Status-only reports have no comparable
 evidence and must never claim match.
 
 A stored capture adds `artifacts.html` and `artifacts.status` indexes when
