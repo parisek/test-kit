@@ -45,7 +45,10 @@ try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const failures = []; page.on('pageerror', error => failures.push(error.message));
     await page.goto(viewer.origin);
+    await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+    await page.locator('[data-view=detail]').click();
     await page.locator('img').first().waitFor();
+    await page.locator('img').evaluateAll(images => images.forEach(image => image.loading = 'eager'));
     await page.waitForFunction(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
     assert.deepEqual(failures, []);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
