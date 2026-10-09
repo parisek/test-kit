@@ -93,3 +93,18 @@ test-kit query report.json --target home --viewport desktop --artifact html --ma
 ```
 
 The default remains screenshots only. See [response contracts](docs/contracts.md#opt-in-response-artifacts-after-v01).
+
+Try the visual workspace with anonymous local fixtures:
+
+```sh
+npx playwright install chromium
+npm run demo -- --port 4183
+```
+
+Open the printed local URL. The demo captures five targets at desktop and mobile widths.
+It includes an unexplained page change, a small component size change, an accepted price change,
+an unchanged catalogue, and an HTTP 503 response. The viewer shows originals, overlay,
+pixel differences, HTML line changes, and HTTP evidence. All demo data stays in `.test-kit/demo/`.
+Stop the server with Ctrl+C. This command is opt-in and does not change a project configuration.
+The layout uses the [visual reference](https://claude.ai/artifact/9ahvV58EoBk3ZGr9634w2N)
+and the copied company UI contract. It does not copy reference sample data.

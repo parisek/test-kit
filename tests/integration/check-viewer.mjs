@@ -104,7 +104,7 @@ try {
             const visible = {
                 detail: page.getByRole('heading', { name: 'Example page', exact: true }),
                 matrix: page.locator('#content table'),
-                timeline: page.getByRole('heading', { name: 'Before (a)', exact: true }),
+                timeline: page.locator('.timeline-list').getByRole('heading', { name: 'Before', exact: true }),
                 findings: page.getByRole('heading', { name: 'Unknown change', exact: true }),
             };
             await visible[view].waitFor();
@@ -117,18 +117,18 @@ try {
         assert.match(await page.locator('[aria-label="Compared runs"]').textContent(), /Before/);
         await page.getByLabel('Measurement filter').selectOption('failed');
         assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);
-        assert.match(await page.locator('#content').textContent(), /incomplete:.*2/s);
+        assert.match(await page.locator('[aria-label="All target counts"] [data-status="incomplete"]').textContent(), /2\s*incomplete/);
         assert.match(await page.locator('#content').textContent(), /Availability problems: 1/);
         await page.getByLabel('Measurement filter').selectOption('missing');
         assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);
         await page.getByRole('button', { name: 'Clear filters' }).click();
         await page.getByLabel('Cause filter').selectOption('cause:cause');
         await page.getByRole('button', { name: 'Example page · mobile evidence' }).click();
-        assert.equal(await page.getByLabel('Viewport', { exact: true }).inputValue(), 'mobile');
+        assert.equal(await page.locator('[aria-label="Viewport"]').getByRole('button', { name: 'mobile', exact: true }).getAttribute('aria-pressed'), 'true');
         await page.getByRole('button', { name: 'Clear filters' }).click();
 		await page.locator('[data-view=detail]').click();
 		assert.match(await page.locator('#content').textContent(), /http-error/);
-		await page.getByLabel('Viewport', { exact: true }).selectOption('desktop');
+		await page.locator('[aria-label="Viewport"]').getByRole('button', { name: 'desktop', exact: true }).click();
 		assert.match(await page.locator('#content').textContent(), /incompatible/);
 		await page.locator('#theme').click();
 		assert.equal(
@@ -161,8 +161,8 @@ try {
 		await page.waitForFunction(() =>
 			document.querySelector('#sidebar').contains(document.activeElement),
 		);
-		assert.equal(await page.locator('header').evaluate((element) => element.inert), true);
-		assert.equal(await page.locator('#content').evaluate((element) => element.inert), true);
+		assert.equal(await page.locator('header').evaluate((element) => Boolean(element.closest('[inert]'))), true);
+		assert.equal(await page.locator('#content').evaluate((element) => Boolean(element.closest('[inert]'))), true);
 		assert.equal(await page.locator('#sidebar').getAttribute('aria-modal'), 'true');
 		await page.keyboard.press('Shift+Tab');
 		assert.equal(
@@ -172,7 +172,7 @@ try {
 			true,
 		);
 		await page.keyboard.press('Escape');
-		assert.equal(await page.locator('header').evaluate((element) => element.inert), false);
+		assert.equal(await page.locator('header').evaluate((element) => Boolean(element.closest('[inert]'))), false);
 		assert.equal(
 			await page.evaluate(() => document.activeElement.id),
 			initialWidth > 860 ? 'theme' : 'sidebar-toggle',

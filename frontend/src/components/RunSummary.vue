@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-const props = defineProps({ report: Object });
+const props = defineProps({ report: Object, summary: Object });
 const sides = computed(() => ['a', 'b'].map((side) => ({
     side: side.toUpperCase(),
     id: props.report.pair[side === 'a' ? 'aRunId' : 'bRunId'],
@@ -14,13 +14,20 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
         row.availability?.[side] && ['http-error', 'capture-error'].includes(row.availability[side]))).length, 0));
 </script>
 <template>
-    <div class="mt-3 grid min-w-0 gap-2 sm:grid-cols-2" aria-label="Compared runs">
-        <section v-for="item in sides" :key="item.side" class="min-w-0 rounded-ui-panel border border-ui-border bg-ui-toolbar p-3">
-            <h2 class="text-sm font-semibold break-words">{{ item.side }} · {{ item.run?.label ?? item.id }}</h2>
-            <p class="mt-1 break-words text-xs text-ui-muted">{{ item.run?.side ?? 'Side not recorded' }} · {{ item.id }}</p>
-            <p class="mt-1 break-words text-xs text-ui-muted">{{ item.run?.at ?? 'Capture date not recorded' }}</p>
-        </section>
-    </div>
-    <p v-if="absent" class="mt-2 text-xs" role="status">Absent declared viewport measurements: {{ absent }}. Stored target counts do not include absent rows. Use the missing viewport measurement filter to find these targets.</p>
-    <p v-if="availability" class="mt-2 text-xs" role="status">Availability problems: {{ availability }} viewport measurements across all targets. Availability is separate from screenshot class.</p>
+    <section class="run-overview" aria-label="Comparison summary">
+        <div class="run-pair" aria-label="Compared runs">
+            <section v-for="item in sides" :key="item.side" class="run-card">
+                <span class="run-letter">{{ item.side }}</span>
+                <div class="min-w-0"><p class="eyebrow">{{ item.side === 'A' ? 'Baseline' : 'Compared run' }} · {{ item.run?.side ?? 'Side not recorded' }}</p><h2>{{ item.run?.label ?? item.id }}</h2><details class="run-id"><summary>Capture details</summary><p>{{ item.run?.at ?? 'Capture date not recorded' }}</p><p>{{ item.id }}</p></details></div>
+            </section>
+        </div>
+        <div v-if="summary" class="summary-metrics" aria-label="All target counts">
+            <div v-for="name in ['unexplained', 'explained', 'match', 'incomplete']" :key="name" class="summary-metric" :data-status="name"><strong>{{ summary.counts[name] }}</strong><span>{{ name }}</span></div>
+            <div v-if="summary.counts.oracle" class="summary-metric" data-status="oracle"><strong>{{ summary.counts.oracle }}</strong><span>oracle</span></div>
+            <div v-if="summary.counts.unclassified" class="summary-metric"><strong>{{ summary.counts.unclassified }}</strong><span>unclassified</span></div>
+        </div>
+        <p class="summary-caption">All {{ report.entries.length }} targets · {{ report.meta.viewports.length }} declared viewports. Counts remain visible under filters.</p>
+        <p v-if="absent" class="summary-warning" role="status">Absent declared viewport measurements: {{ absent }}. Stored target counts do not include absent rows. Use the missing viewport measurement filter to find these targets.</p>
+        <p v-if="availability" class="summary-warning" role="status">Availability problems: {{ availability }} viewport measurements across all targets. Availability is separate from screenshot class.</p>
+    </section>
 </template>

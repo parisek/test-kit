@@ -78,8 +78,8 @@ describe('viewer evidence', () => {
 		expect(wrapper.text()).toContain('<script>bad()</script>');
 		expect(wrapper.find('script').exists()).toBe(false);
 		expect(wrapper.findAll('img')).toHaveLength(1);
-		expect(wrapper.text()).toContain('Artifact provenance');
-		await wrapper.get('select').trigger('change');
+		expect(wrapper.text()).toContain('artifact provenance');
+		await wrapper.get('[aria-label="Viewport"] button').trigger('click');
 		expect(wrapper.emitted('action')[0]).toEqual(['viewport', 'phone']);
 		await wrapper.setProps({ targetId: 'page' });
 		expect(wrapper.text()).toContain('Composed of: button, other');
@@ -121,7 +121,7 @@ describe('filtered evidence navigation', () => {
         const wrapper = mount(FindingsView, { props: { ...props(), report: data, targets: [data.entries[0]], filters: { cause: 'cause:known' } } });
         expect(wrapper.text()).not.toContain('Example page');
         await wrapper.get('button').trigger('click');
-        expect(wrapper.emitted('action')[0]).toEqual(['evidence', { targetId: 'button', viewportId: 'phone' }]);
+        expect(wrapper.emitted('action')[0]).toEqual(['evidence', { targetId: 'button', viewportId: 'phone', artifact: 'screenshot' }]);
     });
     it('shows missing selected evidence instead of another viewport', () => {
         const data = report();
@@ -139,8 +139,9 @@ describe('comparison overview', () => {
         data.runs[0].label = '<script>bad()</script>';
         data.runs[0].at = '2026-10-09T10:00:00Z';
         const wrapper = mount(RunSummary, { props: { report: data } });
-        expect(wrapper.text()).toContain('A · <script>bad()</script>');
-        expect(wrapper.text()).toContain('B · run-b');
+        expect(wrapper.findAll('h2').map(title => title.text())).toEqual(['<script>bad()</script>', 'run-b']);
+        expect(wrapper.text()).toContain('Baseline · a');
+        expect(wrapper.text()).toContain('Compared run');
         expect(wrapper.text()).toContain('2026-10-09T10:00:00Z');
         expect(wrapper.text()).toContain('Availability problems: 1');
         expect(wrapper.find('script').exists()).toBe(false);
@@ -177,10 +178,11 @@ describe('comparison overview', () => {
 describe('response artifact evidence', () => {
     it('renders response content as text and emits one load action', async () => {
         const wrapper = mount(ArtifactEvidence, { props: { row: { artifacts: { html: { state: 'complete', a: { src: 'a.txt' }, diff: { src: 'diff.json' } } } },
-            source: 'http://localhost/report.json', evidence: { kind: 'html', data: { text: '<script>bad()</script>' } } } });
+            source: 'http://localhost/report.json', evidence: { kind: 'html', data: { changed: true, removedLines: 1, addedLines: 0, lines: [{ kind: 'removed', line: 1, text: '<script>bad()</script>', truncated: false }], omittedLines: 0 } } } });
         expect(wrapper.find('script').exists()).toBe(false);
         expect(wrapper.text()).toContain('<script>bad()</script>');
         expect(wrapper.get('a').attributes('href')).toBe('http://localhost/a.txt');
+        await wrapper.setProps({ evidence: null });
         await wrapper.get('button').trigger('click');
         expect(wrapper.emitted('action')[0]).toEqual(['load-artifact', 'html']);
     });

@@ -29,7 +29,8 @@
     "test": "node --test",
     "test:viewer": "npm --prefix frontend test",
     "build:viewer": "npm --prefix frontend run build",
-    "check:viewer": "node scripts/check-viewer-build.mjs"
+    "check:viewer": "node scripts/check-viewer-build.mjs",
+    "demo": "node scripts/demo.mjs"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.49"

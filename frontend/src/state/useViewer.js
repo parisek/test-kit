@@ -37,6 +37,10 @@ export function useViewer(options = {}) {
 	const state = shallowReactive({
 		report: null,
 		artifactEvidence: null,
+		artifact: 'screenshot',
+		comparison: 'side-by-side',
+		overlay: 50,
+		evidenceView: 'normalized',
 		filters: { classification: 'all', measurement: 'all', cause: 'all' },
 		source: null,
 		targetId: null,
@@ -75,8 +79,32 @@ export function useViewer(options = {}) {
 		() => selectedTarget.value?.viewports.find((row) => row.id === state.viewportId) ?? null,
 	);
 
+	function selectArtifact(preferred = state.artifact) {
+		const artifacts = selectedRow.value?.artifacts ?? {};
+		const available = ['screenshot', 'html', 'status'].filter(kind => Object.hasOwn(artifacts, kind));
+		state.artifact = available.includes(preferred) ? preferred : (available[0] ?? 'screenshot');
+	}
+	function invalidateEvidence() {
+		evidenceRequest++;
+		state.artifactEvidence = null;
+	}
+	function loadSelectedEvidence() {
+		if (state.view === 'detail' && ['html', 'status'].includes(state.artifact)) loadArtifact(state.artifact);
+	}
+
 	function dispatch(action, value) {
-		if (action === 'load-artifact') {
+		if (action === 'artifact') {
+			if (!['screenshot', 'html', 'status'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value)) return;
+			invalidateEvidence();
+			state.artifact = value;
+			loadSelectedEvidence();
+		} else if (action === 'comparison') {
+			if (['side-by-side', 'overlay', 'diff'].includes(value)) state.comparison = value;
+		} else if (action === 'overlay') {
+			if (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100) state.overlay = value;
+		} else if (action === 'evidence-view') {
+			if (['normalized', 'raw'].includes(value)) state.evidenceView = value;
+		} else if (action === 'load-artifact') {
 			loadArtifact(value);
 		} else if (action === 'artifact-result') {
 			state.artifactEvidence = value;
@@ -97,38 +125,48 @@ export function useViewer(options = {}) {
 			const viewportExists = state.report.meta.viewports.some((row) => row.id === value.viewportId)
 				|| target.viewports.some((row) => row.id === value.viewportId);
 			if (value.viewportId != null && !viewportExists) return;
-			dispatch('target', target.id);
-			if (value.viewportId != null) state.viewportId = value.viewportId;
+			invalidateEvidence();
+			state.targetId = target.id;
+			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? null;
+			state.view = 'detail';
+			selectArtifact(value.artifact ?? state.artifact);
+			if (width() <= 860) dispatch('sidebar', true);
+			loadSelectedEvidence();
 		} else if (action === 'sidebar') {
 			state.sidebarHidden = typeof value === 'boolean' ? value : !state.sidebarHidden;
 			persist('test-kit-sidebar', state.sidebarHidden ? 'hidden' : 'visible');
 		} else if (action === 'theme') {
 			state.theme = state.theme === 'light' ? 'dark' : 'light';
 			persist('test-kit-theme', state.theme);
-		} else if (action === 'view' && VIEWS.includes(value)) state.view = value;
+		} else if (action === 'view' && VIEWS.includes(value)) {
+			state.view = value;
+			if (!state.artifactEvidence) loadSelectedEvidence();
+		}
 		else if (action === 'target') {
 			const target = state.report?.entries.find((target) => target.id === value);
 			if (!target) return;
-			evidenceRequest++;
-			state.artifactEvidence = null;
+			invalidateEvidence();
 			state.targetId = target.id;
 			state.viewportId = target.viewports[0]?.id ?? null;
 			state.view = 'detail';
+			selectArtifact();
 			if (width() <= 860) dispatch('sidebar', true);
+			loadSelectedEvidence();
 		} else if (
 			action === 'viewport' &&
 			(selectedTarget.value?.viewports.some((row) => row.id === value) || state.report?.meta.viewports.some((row) => row.id === value))
 		)
-		{ evidenceRequest++; state.artifactEvidence = null; state.viewportId = value; }
+		{ invalidateEvidence(); state.viewportId = value; selectArtifact(); loadSelectedEvidence(); }
 		else if (action === 'loaded') {
 			dispatch('clear-filters');
-			evidenceRequest++;
-			state.artifactEvidence = null;
+			invalidateEvidence();
 			state.report = markRaw(value.report);
 			state.source = value.source;
 			state.targetId = value.report.entries[0]?.id ?? null;
 			state.viewportId = value.report.entries[0]?.viewports[0]?.id ?? null;
 			state.view = FIRST_VIEW[value.report.pair.kind];
+			selectArtifact();
+			loadSelectedEvidence();
 			state.loading = false;
 			state.notice = `Loaded ${value.report.entries.length} targets.`;
 		} else if (action === 'loading') {
@@ -174,6 +212,7 @@ export function useViewer(options = {}) {
 
 	async function load(source) {
 		const id = ++requestId;
+		invalidateEvidence();
 		const url = sameOriginUrl(source, base);
 		if (!url) {
 			dispatch('error', 'Use a report URL on this origin.');
