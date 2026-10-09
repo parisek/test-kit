@@ -50,7 +50,7 @@ Everything in this repository is English: code, comments, documents, commit mess
 
 ## PR + Review workflow
 
-- One logical change for each pull request. A pull request is a draft, assigned to `parisek`. The owner marks it ready and merges it.
+- One logical change for each pull request. A pull request is a draft, assigned to `parisek`. The owner marks it ready and merges it unless the chat grants specific merge authority. The owner authorizes autonomous merge and release through v0.1.0 on 2026-10-09. CI and independent review remain required.
 - The pull request title is a Conventional Commit (`feat(capture): ...`). Pull requests are squash-merged and the title becomes the commit subject. The `pr-title` workflow checks it.
 - The commit body records what was rejected or left alone. A diff cannot show a non-change.
 - After you open a pull request or push to it, wait for CI. A pull request is not ready until the checks are green or you explained the failure.
@@ -60,6 +60,5 @@ Everything in this repository is English: code, comments, documents, commit mess
 
 These are open in the specification, section 17. Decided: releases are git tags, there is no npm registry (section 13.2). Do not decide them in code. Ask the owner.
 
-- The licence.
 - The small default set of checks.
 - How long content snapshots live, and who deletes them.
