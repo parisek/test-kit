@@ -1,11 +1,12 @@
 # test-kit
 
-`@parisek/test-kit` compares two local screenshot runs. A project supplies its
+`@parisek/test-kit` compares two local runs. A project supplies its
 sides, target paths, viewports, and settle settings. Capture records evidence.
 Compare reads stored runs. The viewer and JSON summary use the same classifier.
 
 Version 0.1 supports screenshots only. No content checks run by default.
-HTML, behavior, content, speed, and lint migration remain later milestones.
+The unreleased development build also supports opt-in HTML and HTTP status.
+Behavior, content, speed, and lint migration remain later milestones.
 The Node engine belongs here. PHP and Twig lint belong to
 [`lint-kit`](https://github.com/parisek/lint-kit).
 
@@ -83,7 +84,8 @@ The package uses the MIT licence. Installation needs no build step.
 Viewer development uses Node 22.18 or later. See [the frontend guide](frontend/README.md).
 The package commits the Vue and Tailwind build. CI verifies it against its source.
 
-HTML and HTTP status are opt-in response artifacts. Use
+HTML and HTTP status are opt-in response artifacts in the unreleased build.
+These commands are not part of v0.1.0. Use
 
 ```sh
 test-kit capture --side local --artifacts screenshot,html,status
