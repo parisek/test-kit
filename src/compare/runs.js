@@ -16,8 +16,24 @@ async function contained(root, path) {
 async function readRun(root, id) {
 	if (!relativePath(id) || id.includes('/')) throw new Error('Run must be a safe ID.');
 	const path = await contained(root, `${id}/run.json`);
-	const run = JSON.parse(await readFile(path, 'utf8'));
+	const handle = await open(path, 'r');
+	let bytes;
+	try {
+		const info = await handle.stat();
+		if (!info.isFile() || info.size > 16_000_000) throw new Error('Run manifest exceeds the size limit.');
+		bytes = Buffer.alloc(info.size + 1);
+		let length = 0;
+		while (length < bytes.length) {
+			const result = await handle.read(bytes, length, bytes.length - length, null);
+			if (!result.bytesRead) break;
+			length += result.bytesRead;
+		}
+		if (length > info.size) throw new Error('Run manifest changed during reading.');
+		bytes = bytes.subarray(0, length);
+	} finally { await handle.close(); }
+	const run = JSON.parse(bytes);
 	if (run.schemaVersion !== 2 || run.id !== id || !Array.isArray(run.captures) || !Array.isArray(run.settings?.targets) || !Array.isArray(run.settings?.viewports)) throw new Error(`Invalid run ${id}.`);
+	if (run.settings.targets.length > 1000 || run.settings.viewports.length > 20 || run.captures.length > 20_000 || run.tools?.length > 20) throw new Error('Run collections exceed the size limit.');
 	if (typeof run.settingsHash !== 'string' || !run.settingsHash.startsWith('sha256:') || !Array.isArray(run.tools) || run.tools.length === 0) throw new Error('Run provenance is missing.');
 	if (!run.settings.sides || !Object.hasOwn(run.settings.sides, run.side)) throw new Error('Stored side settings are missing.');
 	for (const tool of run.tools) if (!tool || typeof tool.name !== 'string' || typeof tool.version !== 'string' || typeof tool.settingsHash !== 'string') throw new Error('Invalid run tool provenance.');

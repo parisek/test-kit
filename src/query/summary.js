@@ -8,7 +8,7 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	if (!allowed.includes(filter)) throw new Error('Unknown summary filter.');
 	const report = adaptReport(input);
 	if (target != null && !report.entries.some((entry) => entry.id === target)) throw new Error('Unknown target.');
-	const rows = report.entries.map((entry) => ({ id: entry.id, class: targetClass(report, entry), state: targetState(entry), availability: entry.viewports.flatMap((row) => Object.entries(row.availability ?? {}).filter(([, state]) => state !== 'ok').map(([side, state]) => ({ viewport: row.id, side, state }))) }));
+	const rows = report.entries.map((entry) => ({ id: entry.id, class: targetClass(report, entry), state: targetState(entry), availability: entry.viewports.flatMap((row) => ['a', 'b'].map(side => [side, row.availability?.[side] ?? 'unknown']).filter(([, state]) => state !== 'ok').map(([side, state]) => ({ viewport: row.id, side, state }))) }));
 	const problems = rows.filter((row) => row.availability.length);
 	const selected = rows.filter((row) => (target == null || row.id === target) && (filter === 'all' || filter === row.class || filter === 'incomplete' && row.state !== 'complete' || filter === 'availability' && row.availability.length));
 	const aggregate = summarize(report);

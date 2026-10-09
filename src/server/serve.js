@@ -6,7 +6,7 @@ import { adaptReport } from '../report/model.js';
 import { relativePath } from '../report/safe.js';
 
 const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
-const MAX_BYTES = 64 * 1024 * 1024;
+const MAX_BYTES = 80_000_000;
 async function boundedRead(file) {
 	const handle = await open(file, 'r');
 	try {

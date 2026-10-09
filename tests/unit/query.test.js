@@ -45,3 +45,10 @@ test('normal twenty-target output remains below estimated 5 kB', () => {
 	const data = report(); data.entries = Array.from({ length: 20 }, (_, index) => entry(`page-${index}`));
 	assert.ok(Buffer.byteLength(JSON.stringify(summarizeReport(data))) < 5000);
 });
+
+test('absent availability remains unknown', () => {
+	const data = report(); data.entries = [entry('unknown', 'complete', {})];
+	const summary = summarizeReport(data);
+	assert.equal(summary.verdict, 'availability-problems');
+	assert.equal(summary.targets[0].availability.length, 2);
+});
