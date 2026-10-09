@@ -28,7 +28,7 @@ export async function startDesignDemoSite({ variant = 'before' } = {}) {
 <body>
 <header><a class="brand" href="/"><i></i>Example site.</a><nav><a href="/catalogue">Our approach</a><a href="/support">Get in touch ↗</a></nav></header>
 <main>
-${body(path)}
+${body(path).replaceAll('><', '>\n<')}
 </main><footer><span>Independent ideas. Considered design.</span><span>Example site · Local fixture</span></footer>
 </body></html>`);
   });
