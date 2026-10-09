@@ -43,7 +43,7 @@ export function targetClass(report, target) {
 		const row = target.viewports.find(row => row.id === finding.viewportId);
 		return row?.artifacts?.[finding.artifact]?.state === 'complete';
 	});
-	if (findings.length) values.push(findings.every((finding) => causeIsKnown(report, finding.causeId)) ? 'explained' : 'unexplained');
+	if (findings.length) values.push(target.judge === 'oracle' ? 'oracle' : findings.every((finding) => causeIsKnown(report, finding.causeId)) ? 'explained' : 'unexplained');
 	return CLASSES.find((value) => values.includes(value)) ?? null;
 }
 

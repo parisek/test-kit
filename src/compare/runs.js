@@ -160,6 +160,10 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			const comparable = ['screenshot', 'html'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
 			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
+			if (ac?.state === 'failed' || bc?.state === 'failed') {
+				row.state = 'failed';
+				row.diagnostic ??= ac?.error?.message ?? bc?.error?.message ?? 'Capture fails.';
+			}
 			rows.push(row);
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });

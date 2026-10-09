@@ -81,3 +81,13 @@ test('complete empty artifact extensions cannot invent comparable evidence', () 
   assert.ok(validateReport(html).some(problem => problem.includes('indexed provenance')));
   assert.throws(() => summarizeReport(html), /Invalid report/);
 });
+
+test('oracle targets preserve parity for comparable screenshot and HTML findings', () => {
+  for (const artifact of ['screenshot', 'html']) {
+    const report = data({ [artifact]: { state: 'complete' } });
+    report.entries[0].judge = 'oracle';
+    report.findings.push({ targetId: 'home', viewportId: 'wide', artifact });
+    assert.equal(cellClass(report, report.entries[0], 'wide'), 'oracle');
+    assert.equal(targetClass(report, report.entries[0]), 'oracle');
+  }
+});
