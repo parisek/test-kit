@@ -7,6 +7,7 @@ import { compareRuns } from '../src/compare/runs.js';
 import { recordKnown } from '../src/rules/record.js';
 import { loadConfig } from '../src/config/index.js';
 import { serve } from '../src/server/serve.js';
+import { PROTOTYPE_MARKER } from '../frontend/src/prototypes/planned.js';
 import { summarizeReport } from '../src/query/summary.js';
 
 // Opt-in developer demo. Every image is captured from a local fixture.
@@ -35,6 +36,8 @@ export async function buildDemo({ outputRoot } = {}) {
     }
     const loaded = await loadConfig(configPath);
     const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: a.run.id, runB: b.run.id, outputDir: join(root, 'report'), kind: 'adhoc', known_diffs: loaded.config.known_diffs });
+    result.report.meta.prototype = PROTOTYPE_MARKER;
+    await writeFile(result.reportPath, JSON.stringify(result.report, null, 2));
     return { ...result, root, configPath, summary: summarizeReport(result.report) };
   } finally { await Promise.all(sites.map(site => site.close())); }
 }

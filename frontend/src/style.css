@@ -180,3 +180,8 @@
 }
 .technical-details, .measurement-details { min-width: 0; max-width: 100%; }
 .technical-details pre, .measurement-details pre { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; max-width: 100%; overflow-x: auto; }
+
+.prototype-banner { border:1px solid #d4a342; background:var(--ui-surface); border-radius:var(--ui-radius-panel,8px); padding:10px 14px; font-size:12px; line-height:1.5; color:var(--ui-text); }
+.has-prototypes .theme-label { display:none; }
+.has-prototypes .view-navigation button { padding-left:10px; padding-right:10px; }
+@media(max-width:1099px) { .has-prototypes .view-navigation { flex-wrap:wrap; } }
