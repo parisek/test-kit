@@ -207,3 +207,27 @@ describe('bounded response evidence actions', () => {
         expect(instance.state.evidenceView).toBe('raw');
     });
 });
+
+
+describe('planned artifact isolation', () => {
+    it('gates prototype navigation and restores real evidence on a normal report', () => {
+        const data = report();
+        data.meta.prototype = 'planned-artifacts-v1';
+        data.entries[0].viewports[0].artifacts = { screenshot: {} };
+        const instance = viewer();
+        instance.dispatch('loaded', { report: data, source: '/report.json' });
+        instance.dispatch('artifact', 'behavior');
+        expect(instance.state.artifact).toBe('behavior');
+        expect(instance.state.artifactEvidence).toBe(null);
+        instance.dispatch('view', 'speed');
+        expect(instance.state.view).toBe('speed');
+        expect(instance.summary.value.counts.total).toBe(1);
+        const real = report();
+        real.entries[0].viewports[0].artifacts = { screenshot: {} };
+        instance.dispatch('loaded', { report: real, source: '/real.json' });
+        instance.dispatch('artifact', 'behavior');
+        instance.dispatch('view', 'speed');
+        expect(instance.state.artifact).toBe('screenshot');
+        expect(instance.state.view).toBe('detail');
+    });
+});

@@ -1,3 +1,4 @@
+import { hasPrototypes, PLANNED_KINDS } from '../prototypes/planned.js';
 import { comparisonDetail } from '../../../src/artifacts/schema.js';
 import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
@@ -12,7 +13,7 @@ export const FIRST_VIEW = Object.freeze({
 	deploy: 'matrix',
 	adhoc: 'detail',
 });
-const VIEWS = ['detail', 'matrix', 'findings', 'timeline'];
+const VIEWS = ['detail', 'matrix', 'findings', 'timeline', 'content', 'speed'];
 
 export function useViewer(options = {}) {
 	const browser = options.browser ?? globalThis.window;
@@ -82,6 +83,7 @@ export function useViewer(options = {}) {
 	function selectArtifact(preferred = state.artifact) {
 		const artifacts = selectedRow.value?.artifacts ?? {};
 		const available = ['screenshot', 'html', 'status'].filter(kind => Object.hasOwn(artifacts, kind));
+        if (hasPrototypes(state.report) && selectedRow.value) available.push(...PLANNED_KINDS);
 		state.artifact = available.includes(preferred) ? preferred : (available[0] ?? 'screenshot');
 	}
 	function invalidateEvidence() {
@@ -94,7 +96,8 @@ export function useViewer(options = {}) {
 
 	function dispatch(action, value) {
 		if (action === 'artifact') {
-			if (!['screenshot', 'html', 'status'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value)) return;
+			const planned = hasPrototypes(state.report) && selectedRow.value && PLANNED_KINDS.includes(value);
+            if (!planned && (!['screenshot', 'html', 'status'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value))) return;
 			invalidateEvidence();
 			state.artifact = value;
 			loadSelectedEvidence();
@@ -139,6 +142,7 @@ export function useViewer(options = {}) {
 			state.theme = state.theme === 'light' ? 'dark' : 'light';
 			persist('test-kit-theme', state.theme);
 		} else if (action === 'view' && VIEWS.includes(value)) {
+            if (['content', 'speed'].includes(value) && !hasPrototypes(state.report)) return;
 			state.view = value;
 			if (!state.artifactEvidence) loadSelectedEvidence();
 		}

@@ -20,6 +20,22 @@ try {
   await page.goto(server.origin);
   await page.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
   // This section has an accessible label, but no region role without a heading in some browsers.
+  await page.getByRole('button', { name: 'Behavior · Prototype', exact: true }).click();
+  await page.getByRole('heading', { name: 'Behavior contracts', exact: true }).waitFor();
+  assert.match(await page.locator('#content').textContent(), /No runner or check produced/);
+  await page.getByRole('button', { name: 'Content · Prototype', exact: true }).click();
+  await page.getByRole('heading', { name: 'Content checks', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Lighthouse · Prototype', exact: true }).click();
+  await page.getByRole('heading', { name: 'Performance lab', exact: true }).waitFor();
+  assert.match(await page.locator('#content').textContent(), /Illustrative median/);
+  await page.locator('[data-view=content]').click();
+  await page.locator('[aria-label="Planned artifact overview"]').waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Explore prototype', exact: true }).count(), 5);
+  await page.locator('[data-view=speed]').click();
+  await page.locator('[aria-label="Planned artifact overview"]').getByRole('article').filter({ hasText: 'Component catalogue' }).getByRole('button').click();
+  await page.getByText('Comparison unavailable · Simulated incompatible pair', { exact: true }).waitFor();
+  await page.locator('#sidebar').getByRole('button', { name: /Homepage/ }).click();
+  await page.getByRole('button', { name: 'Screenshot', exact: true }).click();
   const comparison = page.locator('[aria-label="Screenshot comparison"]');
   await comparison.locator('img').first().waitFor();
   await page.waitForFunction(() => [...document.querySelectorAll('[aria-label="Screenshot comparison"] img')].every(image => image.naturalWidth > 0));
@@ -59,6 +75,22 @@ try {
   await page.locator('#sidebar[aria-modal=true]').waitFor({ state: 'hidden' });
   for (const details of await page.locator('.technical-details summary').all()) await details.click();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Expanded provenance overflows on a phone');
+  for (const width of [390, 860, 1100, 1440]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    const preview = await context.newPage();
+    preview.on('pageerror', error => errors.push(error.message));
+    await preview.goto(server.origin);
+    await preview.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
+    if (width >= 1100) assert.equal(await preview.locator('.viewer-toolbar').evaluate(node => node.getBoundingClientRect().height), 66);
+    for (const name of ['Behavior · Prototype', 'Content · Prototype', 'Lighthouse · Prototype']) {
+      await preview.getByRole('button', { name, exact: true }).click();
+      assert.equal(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name} overflows at ${width}`);
+      await preview.locator('#theme').click();
+      assert.equal(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await preview.locator('#theme').click();
+    }
+    await context.close();
+  }
   assert.deepEqual(errors, []);
   console.log('Visual workspace uses real local screenshots, guarded overlay, diff, HTML and HTTP evidence.');
 } finally {

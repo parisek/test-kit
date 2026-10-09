@@ -108,3 +108,9 @@ pixel differences, HTML line changes, and HTTP evidence. All demo data stays in 
 Stop the server with Ctrl+C. This command is opt-in and does not change a project configuration.
 The layout uses the [visual reference](https://claude.ai/artifact/9ahvV58EoBk3ZGr9634w2N)
 and the copied company UI contract. It does not copy reference sample data.
+
+The opt-in demo also previews behavior, content and Lighthouse interfaces.
+These panels use simulated fixtures. They do not execute runners or checks.
+They do not enter report findings, target classes or agent query results.
+Content and speed overview views appear only with the demo prototype marker.
+The final artifact schema, runners and evidence loading remain future work.

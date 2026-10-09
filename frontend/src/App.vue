@@ -1,4 +1,6 @@
 <script setup>
+import PrototypeOverview from './components/PrototypeOverview.vue';
+import { hasPrototypes } from './prototypes/planned.js';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { targetClass, targetState } from '../../src/report/classify.js';
 import { useViewer } from './state/useViewer.js';
@@ -31,7 +33,7 @@ const availabilityLabel = target => {
     const states = target.viewports.flatMap(row => ['a', 'b'].map(side => row.availability?.[side]));
     return states.includes('http-error') ? 'HTTP !' : states.includes('capture-error') ? 'Capture !' : null;
 };
-const views = { detail: 'Detail', matrix: 'Matrix', findings: 'Findings', timeline: 'Timeline' };
+const views = computed(() => ({ detail: 'Detail', matrix: 'Matrix', findings: 'Findings', timeline: 'Timeline', ...(hasPrototypes(state.report) ? { content: 'Content', speed: 'Speed' } : {}) }));
 const component = computed(
 	() =>
 		({ detail: TargetDetail, matrix: MatrixView, findings: FindingsView, timeline: TimelineView })[
@@ -157,7 +159,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="app-shell" :class="{ 'sidebar-hidden': state.sidebarHidden }">
+    <div class="app-shell" :class="{ 'sidebar-hidden': state.sidebarHidden, 'has-prototypes': hasPrototypes(state.report) }">
         <button v-if="drawerOpen" class="drawer-backdrop" aria-label="Close targets" tabindex="-1" @click="dispatch('sidebar', true)"></button>
         <aside id="sidebar" ref="sidebar" v-show="!state.sidebarHidden" class="viewer-sidebar" :role="drawerOpen ? 'dialog' : undefined" :aria-modal="drawerOpen ? 'true' : undefined" aria-label="Targets">
             <div class="sidebar-brand">
@@ -201,9 +203,11 @@ onUnmounted(() => {
             <main id="content" class="viewer-content" :aria-busy="state.loading">
                 <template v-if="state.report">
                     <div class="comparison-heading"><div><p class="eyebrow">{{ state.report.pair.kind }} comparison</p><h1>{{ state.report.meta.title ?? 'Comparison' }}</h1></div><span class="local-label"><span class="status-dot" data-status="match"></span> Local report</span></div>
+                    <aside v-if="hasPrototypes(state.report)" role="status" class="prototype-banner">Planned artifacts · UI prototype. Behavior, content and Lighthouse use simulated examples. Their runners are not implemented. Counts below use captured screenshot and HTML evidence only.</aside>
                     <RunSummary :report="state.report" :summary="summary" />
                     <ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
-                    <component :is="component" :report="state.report" :target-id="state.targetId" :viewport-id="state.viewportId" :source="state.source" :targets="filteredTargets" :filters="state.filters" :artifact-evidence="state.artifactEvidence" :evidence-view="state.evidenceView" :artifact="state.artifact" :comparison="state.comparison" :overlay="state.overlay" @action="dispatch" />
+                    <PrototypeOverview v-if="['content', 'speed'].includes(state.view)" :report="state.report" :targets="filteredTargets" :viewport-id="state.viewportId" :prototype-kind="state.view === 'speed' ? 'lighthouse' : 'content'" @action="dispatch" />
+                    <component v-else :is="component" :report="state.report" :target-id="state.targetId" :viewport-id="state.viewportId" :source="state.source" :targets="filteredTargets" :filters="state.filters" :artifact-evidence="state.artifactEvidence" :evidence-view="state.evidenceView" :artifact="state.artifact" :comparison="state.comparison" :overlay="state.overlay" @action="dispatch" />
                     <details class="measurement-details"><summary>Measurement context</summary><p>Target states from stored rows (all targets): <span v-for="(count, name) in summary.states" :key="name">{{ name }}: {{ count }} · </span></p><p>Noise floor: {{ state.report.meta.noiseFloor == null ? 'unknown; repeatability is not measured' : JSON.stringify(state.report.meta.noiseFloor) }}. Display hint: {{ state.report.meta.matchBelow }}%. The ratio is not a verdict.</p></details>
                 </template>
                 <p v-else class="empty-report">Load a local report to inspect its evidence.</p>
