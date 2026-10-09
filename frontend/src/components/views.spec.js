@@ -195,3 +195,16 @@ describe('legacy missing screenshot artifacts', () => {
         expect(wrapper.text()).toContain('Capture failed.');
     });
 });
+
+describe('HTML-only detail', () => {
+    it('shows response controls without missing screenshot placeholders', () => {
+        const data = report();
+        data.entries[0].viewports[0].artifacts = { html: { state: 'complete', diff: { src: 'diff.json' } } };
+        const detail = mount(TargetDetail, { props: { ...props(), report: data } });
+        expect(detail.text()).toContain('Load html comparison');
+        expect(detail.text()).not.toContain('Difference:');
+        expect(detail.findAll('img')).toHaveLength(0);
+        const matrix = mount(MatrixView, { props: { ...props(), report: data } });
+        expect(matrix.text()).toContain('Screenshot not requested');
+    });
+});

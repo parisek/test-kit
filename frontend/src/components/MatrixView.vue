@@ -4,6 +4,7 @@ import Badge from './Badge.vue';
 defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array });
 const emit = defineEmits(['action']);
 function ratio(row) {
+	if (row.artifacts && !row.artifacts.screenshot && (row.artifacts.html || row.artifacts.status)) return 'Screenshot not requested';
 	const value = row.ratio ?? row.artifacts?.screenshot?.diff?.ratio;
 	return Number.isFinite(value) ? `${value.toFixed(3)}%` : 'No ratio';
 }
