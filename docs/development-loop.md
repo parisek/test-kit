@@ -88,7 +88,7 @@ DDEV names and databases. Never stop another worker's environment.
 Workers report issue, branch, base/head SHAs, changed contracts, checks, blockers,
 and the next action. The coordinator integrates evidence and opens or updates
 draft PRs. Independent review may run beside unrelated implementation, but does
-not consume the author's session. Preserve owner merge and release authority.
+not consume the author's session. Respect the release-specific authorization below.
 
 ## Execution cycle
 
@@ -106,7 +106,7 @@ not consume the author's session. Preserve owner merge and release authority.
    not a successful check.
 9. Review the final head. If the diff changes after review, review the changed
    surface again. Record which exact SHA the review covers.
-10. Leave the PR as a draft for the owner. Select another independent issue,
+10. For v0.1.0, merge after final independent review and green CI. For later work, leave the PR as a draft for the owner. Select another independent issue,
     or wait for a merge or a decision. Use the native stack exception below for
     an approved cohesive feature with dependent layers.
 
@@ -122,7 +122,7 @@ that reviewers can assess separately. Keep independent work on separate branches
 A stack stays in one repository. Cross-repository migration PRs use issue links.
 
 Use `gh stack init`, `gh stack add`, and `gh stack submit --auto`. The last command
-creates drafts by default. Never pass `--open` or use `gh stack merge`. Assign
+creates drafts by default. Keep each PR a draft until final review and CI pass. Use merge commands only within the release-specific authorization below. Assign
 each PR to `parisek`, link its leaf issue, and describe its layer and prerequisites.
 Do not emulate native stacks by changing PR base branches manually.
 
@@ -131,11 +131,11 @@ settled, its lower layer passes local checks, and both belong to the same featur
 stack. Keep the issue dependency unresolved until the lower layer merges. Review
 each layer's own diff and test the cumulative stack. Record base and head SHAs.
 After a lower-layer edit, use `gh stack rebase` and `gh stack push`, then rerun
-affected checks and reviews. After owner merges, use `gh stack sync` and verify
+affected checks and reviews. After merges, use `gh stack sync` and verify
 the remaining diffs. Native stack support must work before this exception applies.
 
 GitHub evaluates native stack checks against the trunk. Keep checks enabled on
-every layer. A stack does not bypass owner review, CI, migration prerequisites,
+every layer. A stack does not bypass independent review, CI, migration prerequisites,
 or release gates. Do not stack across an unresolved conceptual decision.
 
 For visual changes, attach synthetic before, after, and diff screenshots directly
@@ -173,8 +173,7 @@ for local work. A prompt alone does not make DDEV or a second model available.
 
 Owner authorization in the Codex chat on 2026-10-09: create issues and draft PRs,
 repair review and CI findings, select skeletons, and use a designated local
-Drupal pilot. All target access stays local. The owner keeps merge and release
-authority. The pilot identity and paths stay in ignored local state.
+Drupal pilot. All target access stays local. A later instruction authorizes autonomous merge and release through v0.1.0. Later milestones keep owner merge and release authority. The pilot identity and paths stay in ignored local state.
 
 The owner accepts these choices in the Codex chat on 2026-10-09: MIT licence;
 screenshot A/B, viewer, and summary for the first version;
@@ -189,10 +188,10 @@ error wording, and fixes within the approved contract.
 
 Remaining owner decisions: cross-engine scope, later check defaults, snapshot
 deletion policy, breaking project interfaces, review provider availability, and
-an optional spending limit. Merge and release authority remain with the owner.
+an optional spending limit. Merge and release through v0.1.0 are authorized; later milestones require owner approval.
 
 Accepted boundary: local targets only; automatic implementation, review repair,
-issues and draft PRs within accepted scope; owner merge and release. Record the
+issues and draft PRs within accepted scope; autonomous merge and release through v0.1.0 after independent review and green CI. Record the
 operational goal and review provider before enabling continuous execution.
 
 ## Sources

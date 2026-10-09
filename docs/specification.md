@@ -45,7 +45,7 @@ It must work for pages and for components with the same viewer. It must give a p
 | check | A small module that reads one artifact and reports findings (heading outline, language). |
 | finding | One difference or defect on a target, in an artifact, optionally in a viewport. |
 | cause | A named reason that explains findings. It may be known (accepted) or unknown. |
-| class | `match`, `explained`, `unexplained`, `oracle`. Derived, never stored. |
+| class | `match`, `explained`, `unexplained`, `oracle`. Derived, never stored. Only comparable evidence has a class. |
 | normaliser | A rule that removes a known environment difference before comparing. It has evidence. |
 | noise floor | The difference between a side and itself. It sets the smallest meaningful change. |
 
@@ -76,7 +76,7 @@ config (global)  ->  capture  ->  runs (local disk)  ->  compare  ->  report.jso
 ```
 
 - R4.1 Capture and compare are two commands: `visual:capture --side <s> --label <l>` and `visual:diff <runA> <runB>`.
-- R4.2 One page load must feed every artifact that the run asks for. Production gets one request per target, not one per artifact.
+- R4.2 One navigation per target and viewport must feed all artifacts requested for that capture. Asset requests, redirects, and explicit behavior steps are not additional artifact navigations. Speed uses the separate repeated-run contract in R6.6.
 - R4.3 The old commands (`visual:harvest`, `visual:compare`, `test:visual`) stay as thin aliases. No project changes.
 - R4.4 The pure logic (classification, scope of rules, adapters) must have no DOM dependency and must have unit tests.
 
@@ -114,7 +114,7 @@ known_diffs: { <pair>: [ { target, cause, evidence } ] }   # belongs to a pair, 
 | `lighthouse` | speed metrics, full report kept locally | median and spread against the noise floor |
 | `content` | extracted text, headings, language, links | checks (section 7) |
 
-- R6.1 `status` is shown but is not counted in the class of a target.
+- R6.1 `status` is shown but is not counted in the class of a target. Availability is a separate field. HTTP errors and capture errors must remain visible in the viewer and query output, even when captured pixels match. A captured HTTP error page is evidence, not a navigation exception.
 - R6.2 A `behavior` step has: title, state (`same`, `changed`, `failed`), result A, result B, and evidence (screenshot, console, network, `dataLayer`, DOM).
 - R6.3 A behaviour recording (trace, video) stays local. The viewer shows the command `npx playwright show-trace <path>`.
 - R6.4 Every artifact must record the tool name, the tool version and a hash of the settings it used.
@@ -159,14 +159,17 @@ Derived from findings and `matchBelow`. Never stored.
 
 | Class | Meaning |
 | --- | --- |
-| `match` | no finding, ratio below `matchBelow` |
+| `match` | comparable evidence with no finding; `matchBelow` is a display hint |
 | `explained` | every finding has a known cause |
 | `unexplained` | at least one finding with no known cause |
 | `oracle` | the target judges by a rule, not by ratio (`judge: oracle`). Never coloured by ratio. |
 
 - R8.1 The default `matchBelow` is 3 percent. It is a compass. The report must not call it a verdict.
 - R8.2 A row that names a rule outside the rule's scope must not be hidden by normalisation. Outside its scope it is a real difference.
-- R8.3 A pair must show its noise floor. A difference below it is not a finding.
+- R8.3 A pair must show its noise floor. A measured difference below it is not a finding. An unmeasured floor is `null`, never zero. Without a measured floor, a nonzero screenshot ratio produces a finding. The `matchBelow` hint must not suppress that finding.
+- R8.7 Measurement state is separate from class: `complete`, `missing`, `failed`, or `incompatible`. Missing evidence, capture failure, and incompatible settings must never become `match`. A query counts these states separately.
+- R8.8 A screenshot finding applies to one target and viewport. A class uses findings in that same scope. Target aggregation considers all comparable viewport findings and retains incomplete measurement states.
+- R8.9 Comparison must reject incompatible viewport dimensions, artifact settings, or tool versions with an explicit diagnostic. A run preserves the settings it used. Labels and origins do not determine artifact compatibility.
 
 ### Rules (normalisers) with scope
 
@@ -206,6 +209,7 @@ runs/<id>/behavior/<target>/        trace, video, step screenshots
 ```
 
 - R9.4 `report.json` holds, per artifact, an index entry: kind, path of the sidecar, tool, version, settings hash.
+- R9.6 The v0.1 serialized config, run, and screenshot report contract is `docs/contracts.md`. A comparison preserves raw captures. It does not rewrite the original evidence.
 - R9.5 A component and a page use the same report. A page lists its components in `composedOf`. The viewer shows "composed of" and, on the component, "used on".
 
 ---
@@ -302,7 +306,7 @@ skeleton manifest: 237 files under `static/tests/`.
 - R13.12 The name of the package must fit the final scope. A rename after the first release is costly. The owner keeps the name `test-kit` (2026-10-08); the README must state the dividing line of R13.8.
 - R13.40 The ESLint and Stylelint rules must ship as entry points of the package. Their rule identifiers and the plugin namespace (`portadesign/...`) must not change before a major version, because project configs, disable comments and baselines name them. The entry-point shape (for example `@parisek/test-kit/eslint`) must be designed before the move.
 - R13.41 The package must own the engine of the behaviour suite: the registry, the discovery, the reporter, the Playwright config and the format of the allowlists. A contract written by one project stays in that project.
-- R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. They are coupled to those components. Where they live is open: with the engine in the package, or with the components in `tailwind-base`. The owner decides before the behaviour move.
+- R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. They are coupled to those components. Component-specific shared contracts stay with the components in `tailwind-base`. The package owns the engine and contract API. The owner accepts this boundary on 2026-10-09.
 - R13.43 A move must keep the project-facing seam. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the move the same project files must keep working with a thin import from the package.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
@@ -318,7 +322,7 @@ Decided by the owner (2026-10-08): `test-kit` reaches a project through a git ta
 - R13.28 The package must ship without a build step. The `files` list in `package.json` decides what a project receives. A later build step needs a `prepare` script or a committed build.
 - R13.29 The scoped name `@parisek/test-kit` needs no ownership of an npm scope for a git install. The name stays.
 - R13.30 `git` must exist in the container that runs `npm install`. This is not yet verified for DDEV.
-- R13.31 The licence must be chosen before the first tag. A public repository without one means all rights reserved.
+- R13.31 The package uses the MIT licence. The owner accepts this choice on 2026-10-09. The licence ships with the package before the first tag.
 
 Verified 2026-10-08 on a local copy with two tags: npm installs from a tag and from a `semver:` range, `private: true` does not block it, only the `files` entries arrive, the `test-kit` command is linked, and the lockfile records the commit.
 
@@ -326,7 +330,9 @@ Verified 2026-10-08 on a local copy with two tags: npm installs from a tag and f
 
 ## 14. Delivery plan
 
-One logical change per pull request. Each is a draft, assigned to the owner. Each follows chat, approval, issue, draft pull request.
+One logical change per pull request. Each starts as a draft, assigned to the owner. The owner authorizes autonomous implementation, review, merge, and release through v0.1.0 on 2026-10-09. CI and independent review remain required. Later release authority stays with the owner.
+
+The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounded summary, and verified git installation. It enables screenshots only and no checks. HTML/status artifacts, rules, behavior, content, speed, and lint remain later milestones. Basic HTTP availability metadata is part of screenshot capture. The original plan below describes the full scope, not one release.
 
 1. Doctrine in `visual-comparison.md`: side, run, pair, artifact, check, normaliser, known differences. No code.
 2. `sides`, `visual:capture`, `visual:diff` with `screenshot`; the viewer evolves; old commands become aliases.
@@ -370,5 +376,5 @@ One logical change per pull request. Each is a draft, assigned to the owner. Eac
 3. Does measuring production for speed need a separate explicit command?
 4. How long are content snapshots kept, and who deletes them?
 5. Which language-detection library, after the section R7.6 check?
-6. Where do the shared behaviour contracts live (R13.42)?
+6. (decided) Component-specific behavior contracts stay with components (R13.42).
 7. What does the project-facing seam of the ESLint and Stylelint configs look like after the move (R13.40, R13.43)? Today the canonical config is a synced `exact` file and the project imports it.
