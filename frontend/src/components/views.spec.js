@@ -7,6 +7,7 @@ import FindingsView from './FindingsView.vue';
 import TimelineView from './TimelineView.vue';
 import RunSummary from './RunSummary.vue';
 import ReportFilters from './ReportFilters.vue';
+import ArtifactEvidence from './ArtifactEvidence.vue';
 const row = {
 	id: 'phone',
 	state: 'failed',
@@ -170,5 +171,40 @@ describe('comparison overview', () => {
         expect(wrapper.emitted('action')[1]).toEqual(['clear-filters']);
         expect(wrapper.text()).toContain('1 of 2 targets');
         expect(wrapper.text()).toContain('Expected change · unexplained');
+    });
+});
+
+describe('response artifact evidence', () => {
+    it('renders response content as text and emits one load action', async () => {
+        const wrapper = mount(ArtifactEvidence, { props: { row: { artifacts: { html: { state: 'complete', a: { src: 'a.txt' }, diff: { src: 'diff.json' } } } },
+            source: 'http://localhost/report.json', evidence: { kind: 'html', data: { text: '<script>bad()</script>' } } } });
+        expect(wrapper.find('script').exists()).toBe(false);
+        expect(wrapper.text()).toContain('<script>bad()</script>');
+        expect(wrapper.get('a').attributes('href')).toBe('http://localhost/a.txt');
+        await wrapper.get('button').trigger('click');
+        expect(wrapper.emitted('action')[0]).toEqual(['load-artifact', 'html']);
+    });
+});
+
+describe('legacy missing screenshot artifacts', () => {
+    it('retains capture failure diagnostics without a screenshot extension', () => {
+        const data = report();
+        delete data.entries[0].viewports[0].artifacts;
+        data.entries[0].viewports[0].error = 'Capture failed.';
+        const wrapper = mount(TargetDetail, { props: { ...props(), report: data } });
+        expect(wrapper.text()).toContain('Capture failed.');
+    });
+});
+
+describe('HTML-only detail', () => {
+    it('shows response controls without missing screenshot placeholders', () => {
+        const data = report();
+        data.entries[0].viewports[0].artifacts = { html: { state: 'complete', diff: { src: 'diff.json' } } };
+        const detail = mount(TargetDetail, { props: { ...props(), report: data } });
+        expect(detail.text()).toContain('Load html comparison');
+        expect(detail.text()).not.toContain('Difference:');
+        expect(detail.findAll('img')).toHaveLength(0);
+        const matrix = mount(MatrixView, { props: { ...props(), report: data } });
+        expect(matrix.text()).toContain('Screenshot not requested');
     });
 });

@@ -1,3 +1,4 @@
+import { comparisonDetail } from '../../../src/artifacts/schema.js';
 import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
 import { summarize, targetClass, cellState } from '../../../src/report/classify.js';
@@ -35,6 +36,7 @@ export function useViewer(options = {}) {
 	const preference = stored('test-kit-sidebar');
 	const state = shallowReactive({
 		report: null,
+		artifactEvidence: null,
 		filters: { classification: 'all', measurement: 'all', cause: 'all' },
 		source: null,
 		targetId: null,
@@ -46,6 +48,7 @@ export function useViewer(options = {}) {
 		loading: false,
 	});
 	let requestId = 0;
+	let evidenceRequest = 0;
 	const summary = computed(() => (state.report ? summarize(state.report) : null));
 	const filteredTargets = computed(() =>
 		state.report?.entries.filter((target) => {
@@ -73,7 +76,11 @@ export function useViewer(options = {}) {
 	);
 
 	function dispatch(action, value) {
-		if (action === 'filter') {
+		if (action === 'load-artifact') {
+			loadArtifact(value);
+		} else if (action === 'artifact-result') {
+			state.artifactEvidence = value;
+		} else if (action === 'filter') {
 			const allowed = {
 				classification: ['all', 'match', 'explained', 'unexplained', 'oracle', 'unclassified'],
 				measurement: ['all', 'complete', 'missing', 'failed', 'incompatible'],
@@ -102,6 +109,8 @@ export function useViewer(options = {}) {
 		else if (action === 'target') {
 			const target = state.report?.entries.find((target) => target.id === value);
 			if (!target) return;
+			evidenceRequest++;
+			state.artifactEvidence = null;
 			state.targetId = target.id;
 			state.viewportId = target.viewports[0]?.id ?? null;
 			state.view = 'detail';
@@ -110,9 +119,11 @@ export function useViewer(options = {}) {
 			action === 'viewport' &&
 			(selectedTarget.value?.viewports.some((row) => row.id === value) || state.report?.meta.viewports.some((row) => row.id === value))
 		)
-			state.viewportId = value;
+		{ evidenceRequest++; state.artifactEvidence = null; state.viewportId = value; }
 		else if (action === 'loaded') {
 			dispatch('clear-filters');
+			evidenceRequest++;
+			state.artifactEvidence = null;
 			state.report = markRaw(value.report);
 			state.source = value.source;
 			state.targetId = value.report.entries[0]?.id ?? null;
@@ -126,6 +137,38 @@ export function useViewer(options = {}) {
 		} else if (action === 'error') {
 			state.loading = false;
 			state.notice = value;
+		}
+	}
+
+	async function loadArtifact(kind) {
+		if (!['html', 'status'].includes(kind)) return;
+		const src = selectedRow.value?.artifacts?.[kind]?.diff?.src;
+		const url = sameOriginUrl(src, state.source ?? base);
+		if (!src || !url) return;
+		const id = ++evidenceRequest;
+		dispatch('artifact-result', { kind, loading: true });
+		try {
+			const response = await fetchReport(url);
+			if (!response.ok) throw new Error('Evidence request fails.');
+			const reader = response.body.getReader();
+			const chunks = [];
+			let size = 0;
+			try {
+				while (true) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					size += value.byteLength;
+					if (size > 2 * 1024 * 1024) throw new Error('Evidence exceeds 2 MiB.');
+					chunks.push(value);
+				}
+			} finally { await reader.cancel().catch(() => {}); }
+			const bytes = new Uint8Array(size);
+			let offset = 0;
+			for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+			const data = comparisonDetail(kind, JSON.parse(new TextDecoder().decode(bytes)));
+			if (id === evidenceRequest) dispatch('artifact-result', { kind, loading: false, data });
+		} catch (error) {
+			if (id === evidenceRequest) dispatch('artifact-result', { kind, loading: false, error: error.message });
 		}
 	}
 

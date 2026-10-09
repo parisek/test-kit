@@ -13,14 +13,18 @@ export function causeIsKnown(report, causeId) {
 
 export function cellState(target, viewportId) {
 	const cell = target.viewports.find((row) => row.id === viewportId);
-	return cell?.state ?? (cell?.error ? 'failed' : cell ? 'complete' : 'missing');
+	const stored = cell?.state ?? (cell?.error ? 'failed' : cell ? 'complete' : 'missing');
+	const states = [stored, cell?.artifacts?.html?.state, cell?.artifacts?.screenshot?.state].filter(Boolean);
+	if (cell?.artifacts?.status && !cell.artifacts.html && !cell.artifacts.screenshot) states.push(cell.artifacts.status.state);
+	return ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? stored;
 }
 
 export function cellClass(report, target, viewportId) {
 	if (cellState(target, viewportId) !== 'complete') return null;
-	if (target.judge === 'oracle') return 'oracle';
 	const cell = target.viewports.find((row) => row.id === viewportId);
-	const findings = findingsFor(report, target.id, { viewportId, artifact: 'screenshot' });
+	if (cell?.artifacts?.status && !cell.artifacts.screenshot && !cell.artifacts.html) return null;
+	if (target.judge === 'oracle') return 'oracle';
+	const findings = findingsFor(report, target.id, { viewportId }).filter(finding => finding.artifact !== 'status');
 	if (findings.length) return findings.every((finding) => causeIsKnown(report, finding.causeId)) ? 'explained' : 'unexplained';
 	return 'match';
 }
@@ -32,8 +36,14 @@ export function targetState(target) {
 
 export function targetClass(report, target) {
 	const values = target.viewports.map((row) => cellClass(report, target, row.id)).filter((value) => value !== null);
-	const findings = findingsFor(report, target.id).filter((finding) => !['status', 'screenshot'].includes(finding.artifact));
-	if (findings.length) values.push(findings.every((finding) => causeIsKnown(report, finding.causeId)) ? 'explained' : 'unexplained');
+	const findings = findingsFor(report, target.id).filter((finding) => {
+		if (finding.artifact === 'status') return false;
+		if (!['screenshot', 'html'].includes(finding.artifact)) return true;
+		if (finding.artifact === 'html' && finding.viewportId == null) return true;
+		const row = target.viewports.find(row => row.id === finding.viewportId);
+		return row?.artifacts?.[finding.artifact]?.state === 'complete';
+	});
+	if (findings.length) values.push(target.judge === 'oracle' ? 'oracle' : findings.every((finding) => causeIsKnown(report, finding.causeId)) ? 'explained' : 'unexplained');
 	return CLASSES.find((value) => values.includes(value)) ?? null;
 }
 

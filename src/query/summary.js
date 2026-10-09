@@ -14,7 +14,7 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	const aggregate = summarize(report);
 	return {
 		pair: report.pair,
-		verdict: aggregate.counts.incomplete ? 'incomplete' : problems.length ? 'availability-problems' : aggregate.counts.unexplained ? 'unexplained' : aggregate.counts.oracle ? 'oracle-review' : aggregate.counts.explained ? 'explained' : 'match',
+		verdict: aggregate.counts.incomplete ? 'incomplete' : problems.length ? 'availability-problems' : aggregate.counts.unexplained ? 'unexplained' : aggregate.counts.oracle ? 'oracle-review' : aggregate.counts.explained ? 'explained' : aggregate.counts.unclassified ? 'no-comparable-evidence' : 'match',
 		counts: aggregate.counts, states: aggregate.states,
 		availabilityCount: problems.length,
 		targets: selected.slice(0, maxTargets).map((row) => ({ ...row, availability: row.availability.slice(0, 10), availabilityOmitted: Math.max(0, row.availability.length - 10) })), omitted: selected.length > maxTargets ? selected.length - maxTargets : 0,

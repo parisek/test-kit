@@ -1,14 +1,15 @@
-export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve'].map(name => [name, {}]));
+export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
-  capture --side ID [--config FILE] [--label TEXT]
+  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
+  query REPORT --target ID --viewport ID --artifact html|status [--max-lines N]
   serve REPORT [--port N]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { capture: ['config', 'side', 'label'], diff: ['config', 'output', 'kind'], summary: ['max-targets', 'filter', 'target'], serve: ['port'] };
+const FLAGS = { capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'] };
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -28,10 +29,13 @@ export function parseCommand(argv) {
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
-  const expected = { capture: 0, diff: 2, summary: 1, serve: 1 }[command];
+  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1 }[command];
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
   if (command === 'capture' && !options.side) throw new Error('capture requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
+  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status');
+  if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status'].includes(kind))) throw new Error('Unknown capture artifact');
+  if (options['max-lines']) options.maxLines = integer(options['max-lines'], '--max-lines', 1, 100);
   if (options.kind && !['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'].includes(options.kind)) throw new Error('Unknown pair kind');
   if (options.filter && !['all', 'match', 'explained', 'unexplained', 'oracle', 'incomplete', 'availability'].includes(options.filter)) throw new Error('Unknown summary filter');
   if (options['max-targets']) options.maxTargets = integer(options['max-targets'], '--max-targets', 1, 1000);
@@ -41,7 +45,7 @@ export function parseCommand(argv) {
 async function dispatch({ command, positions, options }) {
   if (command === 'capture') {
     const { capture } = await import('../capture/index.js');
-    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '' });
+    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(',') });
     return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath }, exitCode: result.run.state === 'complete' ? 0 : 1 };
   }
   if (command === 'diff') {
@@ -71,6 +75,10 @@ async function dispatch({ command, positions, options }) {
       bytes = buffer.subarray(0, length);
     } finally { await handle.close(); }
     return { output: summarizeReport(JSON.parse(bytes), { maxTargets: options.maxTargets ?? 20, filter: options.filter ?? 'all', target: options.target }), exitCode: 0 };
+  }
+  if (command === 'query') {
+    const { queryArtifact } = await import('../query/artifact.js');
+    return { output: await queryArtifact(positions[0], { target: options.target, viewport: options.viewport, artifact: options.artifact, maxLines: options.maxLines }), exitCode: 0 };
   }
   const { serve } = await import('../server/serve.js');
   const result = await serve({ reportPath: positions[0], port: options.port ?? 0 });

@@ -7,11 +7,11 @@ import { relativePath } from '../report/safe.js';
 
 const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
 const MAX_BYTES = 80_000_000;
-async function boundedRead(file) {
+async function boundedRead(file, maxBytes = MAX_BYTES) {
 	const handle = await open(file, 'r');
 	try {
 		const info = await handle.stat();
-		if (!info.isFile() || info.size > MAX_BYTES) throw Object.assign(new Error('File exceeds the size limit.'), { code: 'EFBIG' });
+		if (!info.isFile() || info.size > maxBytes) throw Object.assign(new Error('File exceeds the size limit.'), { code: 'EFBIG' });
 		const buffer = Buffer.alloc(info.size + 1);
 		let length = 0;
 		while (length < buffer.length) {
@@ -34,6 +34,13 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 	const reportBytes = await boundedRead(reportFile);
 	const report = adaptReport(JSON.parse(reportBytes));
 	const assets = new Set();
+	const sidecars = new Map();
+	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status']) {
+		for (const side of ['a', 'b', 'diff']) {
+			const index = row.artifacts?.[kind]?.[side];
+			if (relativePath(index?.src)) sidecars.set(index.src, kind === 'html' && side !== 'diff' ? 'text/plain; charset=utf-8' : 'application/json');
+		}
+	}
 	for (const entry of report.entries) for (const row of entry.viewports) for (const shot of Object.values(row.artifacts?.screenshot ?? {})) {
 		if (relativePath(shot?.src) && extname(shot.src) === '.png') assets.add(shot.src);
 	}
@@ -59,13 +66,15 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 			}
 			let route = routes.get(path);
 			if (!route && assets.has(path.slice(1))) route = [reportRoot, path.slice(1), 'image/png'];
+			if (!route && sidecars.has(path.slice(1))) route = [reportRoot, path.slice(1), sidecars.get(path.slice(1))];
 			if (!route) { fail(404); return; }
 			const [root, filename, type] = route;
 			const canonicalRoot = await realpath(root);
 			const file = await realpath(resolve(canonicalRoot, filename));
 			const within = relative(canonicalRoot, file);
 			if (!within || within.startsWith('../') || within === '..') { fail(403); return; }
-			const bytes = await boundedRead(file);
+			const bytes = await boundedRead(file, sidecars.has(path.slice(1)) ? 2 * 1024 * 1024 : MAX_BYTES);
+			if (sidecars.has(path.slice(1)) && bytes.length > 2 * 1024 * 1024) { fail(413); return; }
 			res.setHeader('Content-Type', type); res.setHeader('Content-Length', bytes.length);
 			res.end(req.method === 'HEAD' ? undefined : bytes);
 		} catch (error) { fail(error instanceof URIError ? 400 : error.code === 'ENOENT' ? 404 : error.code === 'EFBIG' ? 413 : 500); }

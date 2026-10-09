@@ -61,7 +61,25 @@ export function validateReport(report) {
 			const state = row.state ?? (row.error ? 'failed' : 'complete');
 			if (!STATES.includes(state)) problems.push('Unknown measurement state.');
 			const ratio = row.ratio ?? row.artifacts?.screenshot?.diff?.ratio;
-			if (state === 'complete' && (!Number.isFinite(ratio) || ratio < 0 || ratio > 100)) problems.push('A complete measurement needs a percentage ratio.');
+			if (state === 'complete' && (row.artifacts?.screenshot || (!row.artifacts?.html && !row.artifacts?.status)) && (!Number.isFinite(ratio) || ratio < 0 || ratio > 100)) problems.push('A complete measurement needs a percentage ratio.');
+			for (const kind of ['html', 'status']) {
+				const artifact = row.artifacts?.[kind];
+				if (!artifact) continue;
+				if (!STATES.includes(artifact.state)) problems.push('Unknown artifact measurement state.');
+				if (artifact.state === 'complete') {
+					for (const side of ['a', 'b', 'diff']) {
+						const index = artifact[side];
+						if (!index || typeof index.src !== 'string'
+							|| !['tool', 'version', 'settingsHash'].every(key => typeof index[key] === 'string' && index[key].length > 0 && index[key].length <= 200)) problems.push('Complete artifact needs indexed provenance.');
+					}
+					if (typeof artifact.diff?.changed !== 'boolean') problems.push('Complete artifact needs a comparison result.');
+				}
+				for (const side of ['a', 'b', 'diff']) {
+					const index = artifact[side];
+					if (index?.src != null && (!relativePath(index.src) || index.src.length > 2000
+						|| !index.src.endsWith(kind === 'html' && side !== 'diff' ? '.txt' : '.json'))) problems.push('Unsafe artifact path.');
+				}
+			}
 			for (const shot of Object.values(row.artifacts?.screenshot ?? {})) {
 				if (shot?.src != null && !relativePath(shot.src)) problems.push('Unsafe artifact path.');
 			}

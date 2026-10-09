@@ -4,6 +4,11 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- Capture opt-in HTML response bytes and bounded HTTP status from the same navigation.
+- Compare response sidecars, show safe text evidence, and query bounded artifact details.
+
 ### Changed
 
 - Show A/B run labels, sides, capture dates, and global availability notices.

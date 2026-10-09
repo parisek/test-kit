@@ -168,3 +168,18 @@ describe('viewer filters', () => {
         expect(instance.state.viewportId).toBe('phone');
     });
 });
+
+describe('bounded response evidence actions', () => {
+    it('ignores stale evidence after a target selection and strips unknown fields', async () => {
+        const data = report();
+        data.entries[0].viewports[0].artifacts = { status: { state: 'complete', diff: { src: 'diff/status.json' } } };
+        let resolve;
+        const instance = viewer({ fetch: () => new Promise(done => { resolve = done; }) });
+        instance.dispatch('loaded', { report: data, source: 'http://localhost/report.json' });
+        instance.dispatch('load-artifact', 'status');
+        instance.dispatch('target', 'example');
+        resolve(new Response(JSON.stringify({ changed: false, a: { statusCode: 200, finalPath: '/', redirects: [], assets: { requests: 0, failed: 0, httpErrors: 0 } }, b: { statusCode: 200, finalPath: '/', redirects: [], assets: { requests: 0, failed: 0, httpErrors: 0 } } })));
+        await new Promise(done => setTimeout(done, 10));
+        expect(instance.state.artifactEvidence).toBe(null);
+    });
+});

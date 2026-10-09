@@ -16,3 +16,9 @@ export function captureSettings(config, sideId) {
   if (!Object.hasOwn(config.sides, sideId)) throw new Error(`Unknown side: ${sideId}`);
   return { viewports: config.viewports, settle: config.sides[sideId].settle, screenshot: config.screenshot };
 }
+
+// Response artifacts do not depend on screenshot settlement or image settings.
+export function responseSettings(config, kind) {
+  return { mode: kind === 'html' ? 'response-body' : 'http-metadata', version: 1,
+    viewports: config.viewports, maxBytes: 2 * 1024 * 1024 };
+}

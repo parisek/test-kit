@@ -95,8 +95,9 @@ export function normalizeConfig(input) {
     return result;
   });
   unique(viewports.map(viewport => viewport.id), 'viewport');
-  const artifacts = list(input.artifacts ?? ['screenshot'], 'artifacts', 1, 1);
-  if (artifacts[0] !== 'screenshot') fail('only screenshot is supported');
+  const artifacts = list(input.artifacts ?? ['screenshot'], 'artifacts', 3, 1);
+  if (artifacts.some(kind => !['screenshot', 'html', 'status'].includes(kind))) fail('unsupported artifact');
+  unique(artifacts, 'artifact');
   list(input.checks ?? [], 'checks', 0);
   const runsRoot = text(input.runsRoot ?? 'tests/visual/runs', 'runsRoot', 500);
   if (!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(runsRoot)) fail('runsRoot must be a plain relative path');

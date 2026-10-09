@@ -147,7 +147,7 @@ constant is not a measured noise floor. Original evidence always remains local.
 | --- | --- | --- | --- |
 | Same PNGs, both HTTP 200 | complete | match | ok / ok |
 | Same PNGs, B HTTP 500 | complete | match | ok / http-error |
-| B navigation timeout | failed | null | ok / unknown |
+| B navigation timeout | failed | null | ok / capture-error |
 | Target exists only in A | missing | null | ok / unknown |
 | Different viewport dimensions | incompatible | null | retained separately |
 | Nonzero ratio, floor unknown | complete | unexplained | retained separately |
@@ -162,3 +162,63 @@ counts cover the full report. A summary with incomplete evidence cannot claim
 all targets match. A legacy v1 adapter keeps original data in a `legacy` extension
 and must not discard unsupported evidence. Do not infer capture completeness
 from absence of findings in an old report.
+
+## Opt-in response artifacts after v0.1
+
+Requirements: R4.2, R6.1, R6.4, R8.7, R8.9, R9.4, R10.6, R11.1.
+The default artifact set remains screenshot only. Set configuration
+`artifacts: ["screenshot", "html", "status"]`, or use
+`capture --side local --artifacts screenshot,html,status`.
+HTML and status can also run without screenshots. Checks remain disabled.
+
+One navigation per target and viewport supplies each requested artifact.
+HTML stores the server response bytes. It does not store the DOM after scripts.
+A component selector affects its screenshot only. HTML holds the full response.
+HTML sidecars use `html/<target>/<viewport>.txt`. Each body has a 2 MiB limit.
+Playwright buffers the response before the body limit can reject a chunked body.
+The limit bounds stored data. It does not claim a streaming transport limit.
+An unsupported body or a body above the limit has a failed artifact state.
+
+Status sidecars use `status/<target>/<viewport>.json`. They hold the final HTTP
+code, final pathname, redirect pathnames, and asset request, failure, and HTTP
+error counts. Redirects have at most 20 steps. Paths have at most 2000 characters.
+Do not store cookies, request headers, credentials, or query strings.
+The count covers asset requests observed before response-artifact collection.
+A failed capture has availability capture-error. Its retained status sidecar
+still holds the HTTP code. Status is separate from target class. Status-only reports have no comparable
+evidence and must never claim match.
+
+A stored capture adds `artifacts.html` and `artifacts.status` indexes when
+requested. Each has `state` (`captured` or `failed`), `path`, `kind`, `tool`,
+`version`, `browserVersion`, and `settingsHash`. A successful index records
+its byte count. HTML also records the response content type. Each response
+artifact has its own settings hash. Screenshot options and the other enabled
+artifacts do not change that hash. Screenshot hashes retain the v0.1 contract.
+Preserve captured response evidence if later screenshot settlement fails.
+
+A report viewport adds `artifacts.html` and `artifacts.status`. Each has its
+own measurement `state`, A/B indexes with `src`, and a comparison index.
+The comparison index points to bounded JSON under
+`diff/<artifact>/<target>/<viewport>.json`. Raw response bytes remain local.
+HTML differences use a linear prefix/suffix replacement window. They do not
+claim a minimal edit script. The window shows at most 100 lines and 2000
+characters per line. Removed and added counts describe the replacement window.
+`displayedLines`, `omittedLines`, and per-line `truncated` describe the limits.
+Only UTF-8 response text is compared. An unsupported charset or invalid UTF-8
+retains raw evidence and has a failed comparison diagnostic.
+No normalization or known-difference recording runs in this slice.
+
+Requested screenshot and HTML states determine the viewport measurement state.
+Failed or missing HTML never becomes match. A finding from a complete artifact
+remains visible when another requested artifact fails. The aggregate verdict
+remains incomplete. Status alone does not provide a comparable class.
+
+The server serves only indexed sidecars. Raw HTML is `text/plain`, with
+`nosniff` and the viewer CSP. It never serves active report HTML.
+The viewer loads bounded comparison JSON on request. It displays text only.
+
+Use `query REPORT --target ID --viewport ID --artifact html --max-lines 40`
+for a bounded HTML window. Use `--artifact status` for bounded HTTP metadata.
+The line limit is 1 to 100. Unknown targets, viewports, and artifacts fail.
+The JSON answer has evidence paths, measurement state, omitted counts, and
+`next`. No arbitrary sidecar fields enter the answer.
