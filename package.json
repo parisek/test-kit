@@ -8,7 +8,8 @@
     "test-kit": "bin/cli.js"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./compat/selection": "./src/compat/selection.js"
   },
   "files": [
     "bin",
