@@ -4,6 +4,13 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Changed
+
+- Build the viewer with Vue 3, Vite, and Tailwind 4. Ship the compiled files.
+- Copy a pinned company UI token contract with provenance and licence notices.
+- Open the first view from the pair kind and retain incomplete evidence.
+- Verify component behavior, reproducible builds, mobile focus, and installed packages.
+
 ## [0.1.0] - 2026-10-09
 
 ### Added

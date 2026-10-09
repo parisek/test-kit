@@ -10,7 +10,8 @@ The suite needs Node 20 or newer and nothing else. CI runs it on Node 20 and 22.
 
 ## Add a test
 
-Put a pure-logic test in `tests/unit/`. Name the file after the module. Use `node:test` and `node:assert/strict`. A test that needs a browser is not a unit test and waits for the `e2e/` folder.
+Put a pure-logic test in `tests/unit/`. Name the file after the module. Use `node:test` and `node:assert/strict`. A browser check belongs in `tests/integration/` and runs explicitly.
+Vue component tests use `*.spec.js` in `frontend/src/`. See [the viewer guide](frontend/README.md).
 
 ## Add an artifact or a check
 

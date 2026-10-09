@@ -1,0 +1,43 @@
+/* Theme values follow the application shell, never the preview document. */
+:root {
+    --ui-surface: var(--color-white);
+    --ui-toolbar: var(--color-zinc-50);
+    --ui-text: var(--color-zinc-900);
+    --ui-muted: var(--color-zinc-600);
+    --ui-border: var(--color-zinc-200);
+    --ui-control-border: var(--color-zinc-300);
+    --ui-control-hover-border: var(--color-zinc-400);
+    --ui-active-surface: var(--color-zinc-900);
+    --ui-active-text: var(--color-white);
+    --ui-focus: var(--color-red-600);
+    --ui-preview: var(--color-white);
+}
+.dark {
+    --ui-surface: var(--color-zinc-900);
+    --ui-toolbar: var(--color-zinc-900);
+    --ui-text: var(--color-zinc-100);
+    --ui-muted: var(--color-zinc-300);
+    --ui-border: var(--color-zinc-800);
+    --ui-control-border: var(--color-zinc-700);
+    --ui-control-hover-border: var(--color-zinc-500);
+    --ui-active-surface: var(--color-zinc-100);
+    --ui-active-text: var(--color-zinc-900);
+}
+/* Inline aliases resolve theme variables on the element that uses a utility. */
+@theme inline {
+    --color-ui-surface: var(--ui-surface);
+    --color-ui-toolbar: var(--ui-toolbar);
+    --color-ui-text: var(--ui-text);
+    --color-ui-muted: var(--ui-muted);
+    --color-ui-border: var(--ui-border);
+    --color-ui-control-border: var(--ui-control-border);
+    --color-ui-control-hover-border: var(--ui-control-hover-border);
+    --color-ui-active-surface: var(--ui-active-surface);
+    --color-ui-active-text: var(--ui-active-text);
+    --color-ui-focus: var(--ui-focus);
+    --color-ui-preview: var(--ui-preview);
+    --spacing-ui-control: 2rem;
+    --spacing-ui-toolbar: 57px;
+    --radius-ui-pill: 9999px;
+    --radius-ui-panel: 0.25rem;
+}

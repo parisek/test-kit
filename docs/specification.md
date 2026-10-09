@@ -218,11 +218,11 @@ runs/<id>/behavior/<target>/        trace, video, step screenshots
 
 The viewer evolves upstream `report-viewer.html`. It stays one shell with several views.
 
-- R10.1 Plain ES modules, CSS layers (`tokens, base, shell, components, views`), no bundler, no dependency. It needs a file server.
+- R10.1 The viewer uses Vue 3 components, Vite, and Tailwind 4. The package commits the compiled viewer. A project needs no frontend build or frontend dependency. The local server serves the viewer. The owner accepts this stack on 2026-10-09.
 - R10.2 The toolbar must fit one row at 1100 px and wider. It hides parts in a fixed order below that.
 - R10.3 The left column must collapse with a button and with the `[` key. The choice must persist. On a phone it is a drawer.
 - R10.4 Views: target detail, matrix (target by viewport), findings grouped by cause, timeline of runs, speed (only when the run has the artifact), content (only when checks ran).
-- R10.5 The first view depends on the pair kind.
+- R10.5 The first view depends on the pair kind: `convergence` and `adhoc` open detail; `self-baseline` and `deploy` open matrix; `update` and `migration` open findings.
 - R10.6 Report data must never become markup. Text only.
 - R10.7 Every state change must go through one action list. Views must not write state.
 - R10.8 The viewer must work in light and dark theme and at phone width with no horizontal page scroll.
@@ -280,7 +280,7 @@ Recommendation: **C**, with an explicit contract to the styleguide.
 - R13.2 The package must stay data-driven. It must not contain project names, URLs or sample data of a client.
 - R13.3 The styleguide stays the source of component data. The package should read targets and `usage:` (composed of, used on) from the styleguide REST endpoints (`/styleguide/api/components`, `/api/pages`) and may accept a plain URL list instead.
 - R13.4 The styleguide may link to the viewer, and the viewer must link back to the component in the styleguide. Neither may import the other's code.
-- R13.5 The viewer should reuse the layout and the design tokens of the styleguide chrome so that both look like one product. It stays plain ES modules. A shared token file may come later.
+- R13.5 The viewer uses a copied, versioned UI token contract from the styleguide chrome. It records the source commit, licence, and file hashes. The packages have no runtime dependency on each other. Domain classes stay in test-kit.
 - R13.6 The first version must live in the repository that will become the package. It must not start as skeleton files that move later, because a move is a second migration.
 - R13.7 `tailwind-base` keeps only: the doctrine (`visual-comparison.md`), a configuration stub, and thin command aliases that call the package.
 
@@ -319,7 +319,7 @@ Decided by the owner (2026-10-08): `test-kit` reaches a project through a git ta
 - R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag.
 - R13.26 The tag must equal `version` in `package.json`. A workflow on tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`.
 - R13.27 Before 1.0 a project must pin an exact tag: `npm install -D github:parisek/test-kit#v0.2.0`. After 1.0 it may use a range: `#semver:^1`. The lockfile pins the commit, so a moved tag cannot change a project.
-- R13.28 The package must ship without a build step. The `files` list in `package.json` decides what a project receives. A later build step needs a `prepare` script or a committed build.
+- R13.28 The package must install without a build step. The `files` list in `package.json` decides what a project receives. The viewer build is committed. CI must verify that it matches its source.
 - R13.29 The scoped name `@parisek/test-kit` needs no ownership of an npm scope for a git install. The name stays.
 - R13.30 `git` must exist in the container that runs `npm install`. This is not yet verified for DDEV.
 - R13.31 The package uses the MIT licence. The owner accepts this choice on 2026-10-09. The licence ships with the package before the first tag.
@@ -330,7 +330,7 @@ Verified 2026-10-08 on a local copy with two tags: npm installs from a tag and f
 
 ## 14. Delivery plan
 
-One logical change per pull request. Each starts as a draft, assigned to the owner. The owner authorizes autonomous implementation, review, merge, and release through v0.1.0 on 2026-10-09. CI and independent review remain required. Later release authority stays with the owner.
+One logical change per pull request. Each starts as a draft, assigned to the owner. The owner authorizes autonomous implementation, review, merge, and release through v0.1.0 on 2026-10-09. On the same date, the owner extends review and merge authority to low-risk changes. CI must be green and independent review must pass. A problem or material risk needs owner approval before merge. Later release authority stays with the owner.
 
 The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounded summary, and verified git installation. It enables screenshots only and no checks. HTML/status artifacts, rules, behavior, content, speed, and lint remain later milestones. Basic HTTP availability metadata is part of screenshot capture. The original plan below describes the full scope, not one release.
 

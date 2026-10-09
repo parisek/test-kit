@@ -21,3 +21,4 @@ Context, Decision, Consequences. One file for each decision: `NNNN-kebab-title.m
 | # | Title |
 | --- | --- |
 | 0001 | A separate package, public from the first commit |
+| 0002 | Build the viewer with Vue and Tailwind |

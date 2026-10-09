@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/parisek/styleguide",
+  "commit": "48fb98cdf30c088f336b77e0bbca52e9807e07c3",
+  "contractVersion": "0.1.0",
+  "sha256": {
+    "tokens.css": "e5eef8b6f0601c3967a9d8c2a69d6420fb5f01351988cbacd227ea03f31c7f11",
+    "contract.json": "f9df0f73419273100dddf6c9dc45fc4952e20de8572d50b7669aeee2352838a0"
+  },
+  "localChanges": []
+}
