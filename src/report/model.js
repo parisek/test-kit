@@ -24,7 +24,9 @@ export function adaptV1(input) {
 		meta: { ...meta, matchBelow: 3, viewports: meta.viewports ?? [], noiseFloor: null },
 		runs: [{ id: 'reference', side: 'reference' }, { id: 'render', side: 'styleguide' }],
 		pair: { kind: 'convergence', aRunId: 'reference', bRunId: 'render' },
-		entries, causes: [], findings: [], rules: {},
+		entries, causes: [], findings: entries.flatMap((target) => target.viewports
+			.filter((row) => row.state === 'complete' && row.ratio > 0)
+			.map((row) => ({ id: `legacy-${target.id}-${row.id}`, targetId: target.id, viewportId: row.id, artifact: 'screenshot' }))), rules: {},
 	};
 }
 

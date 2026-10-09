@@ -32,7 +32,15 @@ test('version one adaptation retains raw and unknown fields', () => {
 	const adapted = adaptReport(old);
 	assert.equal(adapted.legacy, old);
 	assert.deepEqual(adapted.custom, { keep: true });
-	assert.equal(targetClass(adapted, adapted.entries[0]), 'match');
+	assert.equal(targetClass(adapted, adapted.entries[0]), 'unexplained');
+});
+test('comparable findings survive another incomplete viewport', () => {
+	const data = report();
+	data.entries[0].viewports.push({ id: 'desktop', state: 'missing' });
+	data.findings.push({ targetId: 'home', viewportId: 'mobile', artifact: 'screenshot' });
+	assert.equal(targetClass(data, data.entries[0]), 'unexplained');
+	assert.equal(summarize(data).counts.unexplained, 1);
+	assert.equal(summarize(data).counts.incomplete, 1);
 });
 test('artifact paths and browser URLs reject escape and active schemes', () => {
 	for (const value of ['../escape', '/etc/passwd', 'a/../b', '-option', 'a//b', 'a\\b']) assert.equal(relativePath(value), null);
