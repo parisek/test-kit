@@ -107,3 +107,7 @@ test('loadConfig resolves storage relative to the configuration file', async () 
     assert.equal(loaded.configPath, path);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test('inherited side paths do not satisfy target coverage', () => {
+  assert.throws(() => normalizeConfig({ schemaVersion: 1, sides: { constructor: { origin: 'http://localhost:8080' } }, targets: [{ id: 'home', kind: 'page', paths: {} }], viewports: [{ id: 'desktop', width: 800, height: 600 }] }), /no path/);
+});

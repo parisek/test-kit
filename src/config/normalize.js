@@ -84,7 +84,7 @@ export function normalizeConfig(input) {
         return [sideId, targetPath(path, 'target.paths')];
       }));
     }
-    for (const sideId of Object.keys(sides)) if (!result.path && !result.paths?.[sideId]) fail(`target ${targetId} has no path for ${sideId}`);
+    for (const sideId of Object.keys(sides)) if (!result.path && !(result.paths && Object.hasOwn(result.paths, sideId))) fail(`target ${targetId} has no path for ${sideId}`);
     return result;
   });
   unique(targets.map(target => target.id), 'target');
