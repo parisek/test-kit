@@ -1,8 +1,7 @@
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
-import { pairKey, policyHash, evidenceBinding } from '../rules/evidence.js';
+import { pairKey, policyHash, evidenceBinding, comparatorIndex } from '../rules/evidence.js';
 import { compareResponseArtifact } from '../artifacts/compare.js';
 import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { resolve, join, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
 import { validateReport } from '../report/model.js';
@@ -101,7 +100,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	const output = resolve(outputDir);
 	await mkdir(output, { recursive: true });
 	if ((await readdir(output)).length) throw new Error('Comparison output directory must be empty.');
-	const diffSettingsHash = `sha256:${createHash('sha256').update(JSON.stringify({ threshold: 0.1, padding: 'white', maxRegions: 8, minPixels: 1 })).digest('hex')}`;
+	const diffSettingsHash = comparatorIndex('screenshot').settingsHash;
 	const viewports = new Map([...a.settings.viewports, ...b.settings.viewports].map((item) => [item.id, item]));
 	const targets = new Map([...a.settings.targets, ...b.settings.targets].map((item) => [item.id, item]));
 	const findings = [];

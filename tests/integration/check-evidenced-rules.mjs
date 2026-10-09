@@ -1,3 +1,6 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 // Explicit local policy and recording check (R5.3, R8.2–R8.6).
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
@@ -66,7 +69,8 @@ try {
   await writeFile(configPath, JSON.stringify(config));
   const unnormalized = await compare('record-source');
   const originalReport = await readFile(unnormalized.reportPath);
-  await recordKnown({ reportPath: unnormalized.reportPath, configPath, target: 'home', viewport: 'wide', artifact: 'html', cause: 'expected', reason: 'Observed synthetic HTML change' });
+  const cli = await promisify(execFile)(process.execPath, [fileURLToPath(new URL('../../bin/cli.js', import.meta.url)), 'record-known', unnormalized.reportPath, '--config', configPath, '--target', 'home', '--viewport', 'wide', '--artifact', 'html', '--cause', 'expected', '--reason', 'Observed synthetic HTML change']);
+  assert.equal(JSON.parse(cli.stdout).pairKey, key);
   assert.equal((await readFile(unnormalized.reportPath)).equals(originalReport), true);
   const known = await compare('known', (await loadConfig(configPath)).config);
   assert.equal(summarizeReport(known.report).counts.explained, 1);

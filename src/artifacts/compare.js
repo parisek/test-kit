@@ -1,5 +1,5 @@
 import { normalizeHtml } from '../rules/normalize.js';
-import { byteHash, policyHash } from '../rules/evidence.js';
+import { byteHash, policyHash, comparatorIndex } from '../rules/evidence.js';
 import { artifactState } from './state.js';
 import { statusDetail } from './schema.js';
 import { open, realpath, mkdir, writeFile } from 'node:fs/promises';
@@ -99,7 +99,7 @@ export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, ou
     await mkdir(dirname(join(output, src)), { recursive: true });
     await writeFile(join(output, src), JSON.stringify(detail));
     result.diff = { kind, src, tool: 'test-kit-response', version: '1',
-      settingsHash: settingsHash({ mode: 'response-window', version: 1, maxLines: 100, maxLineLength: 2000, normalization: Object.entries(rules) }), changed,
+      settingsHash: settingsHash({ mode: 'response-window', version: 1, maxLines: 100, maxLineLength: 2000, normalization: Object.entries(rules) }), ...(kind === 'html' ? comparatorIndex('html', rules) : {}), changed,
       ...(kind === 'html' ? { rawChanged: detail.rawChanged, firedRuleIds: detail.normalization.fired.map(rule => rule.id), policyHash: detail.normalization.policyHash } : {}),
       ...(kind === 'html' ? { removedLines: detail.removedLines, addedLines: detail.addedLines, omittedLines: detail.omittedLines } : {}) };
   } else result.diagnostic ??= result.state === 'incompatible' ? 'Artifact settings or tool versions differ.' : 'Requested artifact evidence is incomplete.';
