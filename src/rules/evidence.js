@@ -4,7 +4,7 @@ import { validateContentSnapshot } from '../content/snapshot.js';
 import { comparatorDescriptor } from './comparator.js';
 import { normalizeConfig } from '../config/normalize.js';
 import { createHash } from 'node:crypto';
-import { settingsHash } from '../config/settings.js';
+import { settingsHash, screenshotScope, scopeMatches } from '../config/settings.js';
 import { readSidecar } from '../artifacts/compare.js';
 export const byteHash = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
 export const pairKey = (a, b) => settingsHash([a, b]);
@@ -29,6 +29,10 @@ export async function evidenceBinding({ runsRoot, aRunId, bRunId, targetId, view
     const viewports = run.settings.viewports.filter(viewport => viewport.id === viewportId);
     if (captures.length !== 1 || viewports.length !== 1) throw new Error('Stored evidence scope is not unique.');
     const capture = captures[0], viewport = viewports[0];
+    const targets = run.settings.targets.filter(target => target.id === targetId);
+    if (targets.length !== 1) throw new Error('Stored evidence target is not unique.');
+    const scope = screenshotScope(targets[0]);
+    if (artifact === 'screenshot' && !scopeMatches(capture, scope)) throw new Error('Stored screenshot scope does not match its provenance.');
     const index = artifact !== 'screenshot' ? capture.artifacts?.[artifact] : {
       state: capture.state, path: capture.path, tool: run.tools[0]?.name, version: run.tools[0]?.version, settingsHash: run.settingsHash,
     };
@@ -45,7 +49,7 @@ export async function evidenceBinding({ runsRoot, aRunId, bRunId, targetId, view
       binding: { viewport: { width: viewport.width, height: viewport.height, deviceScaleFactor: viewport.deviceScaleFactor ?? 1 },
         browser, tools, index: { tool: index.tool, version: index.version, settingsHash: index.settingsHash, browserVersion: index.browserVersion ?? null },
         ...(artifact === 'content' ? { responses: storedResponses(run, viewportId) } : {}),
-        ...(artifact === 'screenshot' ? { screenshot: run.settings.screenshot, settle: run.settings.sides[run.side].settle } : {}) } });
+        ...(artifact === 'screenshot' ? { scope, screenshot: run.settings.screenshot, settle: run.settings.sides[run.side].settle } : {}) } });
   }
   const selectedPolicy = contentPolicy ?? contentPolicies[1];
   const comparator = { ...comparatorDescriptor(artifact, rules, selectedPolicy), index: comparatorIndex(artifact, rules, selectedPolicy) };

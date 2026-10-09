@@ -29,10 +29,30 @@ settlement. A timeout closes its browser context before the next target starts.
 Failures retain diagnostics and omit PNG paths. A failed result keeps the run
 partial. HTTP errors can retain screenshot evidence. Original PNG dimensions
 and device scale factors remain explicit. Images have a 40 million pixel limit
-and a 30000 pixel height limit. Selector screenshots use the first visible match.
+and a 30000 pixel height limit. Selector screenshots use the first match. That match must be visible.
 
 Opt-in HTML and status reuse the navigation response (R4.2).
 Each response artifact has its own provenance and failure state.
 A failed requested response artifact keeps the run partial. HTML and status
 can run without a screenshot. Completed response evidence survives a later
 screenshot failure. Raw HTML stays local and has a 2 MiB storage limit.
+
+A target can set `selector` to a string or an array of 1..50 selectors.
+A string keeps the element screenshot path. An array captures the union of
+the first match for each selector. Each match must be visible. A missing
+match fails capture.
+A union outside the viewport uses a document clip. The image limits apply
+before capture, including the device scale factor.
+
+Set `box: "content"` on a target to omit CSS padding and borders. Content
+clips round outwards to CSS pixels. Transformed content boxes are unsupported. Content targets with reserved
+scrollbar gutters or automatic/scrolling overflow are unsupported.
+The default remains the border box. Page screenshots do not accept `box`.
+New scoped modes require settled animations when `disableMotion` is true.
+An active animation fails capture before the crop uses unstable geometry.
+
+Each new screenshot records a scope hash. Comparison also checks the stored
+target selector and box. A changed scope is incompatible for that target.
+Changes to another target do not change this result. Recorded acceptance
+binds the same scope to the raw screenshot bytes. Paths can differ between
+sides. Titles and paths do not define screenshot geometry (R4.4, R13.11).

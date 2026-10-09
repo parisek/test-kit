@@ -73,11 +73,20 @@ export function normalizeConfig(input) {
     } }];
   }));
   const targets = list(input.targets, 'targets', 1000, 1).map(target => {
-    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector']);
+    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
     const result = { id: targetId, kind: target.kind, title: text(target.title ?? targetId, 'target.title') };
-    if (target.selector !== undefined) result.selector = text(target.selector, 'target.selector', 2048);
+    if (target.selector !== undefined) {
+      result.selector = Array.isArray(target.selector)
+        ? list(target.selector, 'target.selector', 50, 1).map(value => text(value, 'target.selector', 2048))
+        : text(target.selector, 'target.selector', 2048);
+      if (Array.isArray(result.selector)) unique(result.selector, 'target.selector');
+    }
+    if (target.box !== undefined) {
+      if (!target.selector || !['border', 'content'].includes(target.box)) fail('target.box requires a selector and must be border or content');
+      result.box = target.box;
+    }
     if (target.path !== undefined) result.path = targetPath(target.path, 'target.path');
     if (target.paths !== undefined) {
       object(target.paths, 'target.paths');

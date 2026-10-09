@@ -1,3 +1,5 @@
+import { captureScopedScreenshot } from './scope.js';
+import { screenshotScope } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
 import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
@@ -180,22 +182,24 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     phase = 'screenshot';
     let locator;
     let size;
-    if (target.selector) {
+    if (target.selector && !Array.isArray(target.selector) && target.box !== 'content') {
       locator = page.locator(target.selector).first();
       await locator.waitFor({ state: 'visible' });
       size = await locator.boundingBox();
       if (!size) throw new Error('Selector has no visible area');
-    } else {
+    } else if (!target.selector) {
       size = config.screenshot.fullPage ? await page.evaluate(() => ({
         width: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0, innerWidth),
         height: Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight),
       })) : { width: viewport.width, height: viewport.height };
     }
-    assertImageBounds(size.width, size.height, viewport.deviceScaleFactor);
+    if (size) assertImageBounds(size.width, size.height, viewport.deviceScaleFactor);
     await mkdir(dirname(file), { recursive: true });
     const options = { path: file, type: 'png', timeout: config.screenshot.timeoutMs,
       animations: recipe.disableMotion ? 'disabled' : 'allow', mask: recipe.masks.map(selector => page.locator(selector)) };
-    const bytes = locator ? await locator.screenshot(options) : await page.screenshot({ ...options, fullPage: config.screenshot.fullPage });
+    const bytes = target.selector && !locator
+      ? (await captureScopedScreenshot({ page, selector: target.selector, box: target.box ?? 'border', options })).bytes
+      : locator ? await locator.screenshot(options) : await page.screenshot({ ...options, fullPage: config.screenshot.fullPage });
     // Verify actual PNG dimensions as well as the pre-capture estimate.
     if (bytes.length < 24 || bytes.toString('hex', 0, 8) !== '89504e470d0a1a0a') throw new Error('Invalid screenshot PNG');
     const width = bytes.readUInt32BE(16);
@@ -205,7 +209,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     const final = new URL(page.url());
     await captureBehavior();
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
-      width, height, deviceScaleFactor: viewport.deviceScaleFactor, artifacts };
+      width, height, deviceScaleFactor: viewport.deviceScaleFactor, scopeHash: settingsHash(screenshotScope(target)), artifacts };
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});
