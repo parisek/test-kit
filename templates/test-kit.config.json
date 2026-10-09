@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "sides": {
+    "local": {
+      "origin": "http://localhost:8080",
+      "settle": { "waitMs": 0, "selectors": [], "disableMotion": true, "masks": [] }
+    }
+  },
+  "targets": [{ "id": "home", "kind": "page", "title": "Home", "path": "/" }],
+  "viewports": [{ "id": "desktop", "width": 1280, "height": 800 }],
+  "artifacts": ["screenshot"],
+  "checks": []
+}
