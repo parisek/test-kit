@@ -1,6 +1,6 @@
 import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
-import { summarize } from '../../../src/report/classify.js';
+import { summarize, targetClass, cellState } from '../../../src/report/classify.js';
 import { sameOriginUrl } from '../../../src/report/safe.js';
 
 export const FIRST_VIEW = Object.freeze({
@@ -35,6 +35,7 @@ export function useViewer(options = {}) {
 	const preference = stored('test-kit-sidebar');
 	const state = shallowReactive({
 		report: null,
+		filters: { classification: 'all', measurement: 'all', cause: 'all' },
 		source: null,
 		targetId: null,
 		viewportId: null,
@@ -46,6 +47,24 @@ export function useViewer(options = {}) {
 	});
 	let requestId = 0;
 	const summary = computed(() => (state.report ? summarize(state.report) : null));
+	const filteredTargets = computed(() =>
+		state.report?.entries.filter((target) => {
+			const filters = state.filters;
+			const classification = targetClass(state.report, target) ?? 'unclassified';
+			const viewportIds = new Set([
+				...state.report.meta.viewports.map((row) => row.id),
+				...target.viewports.map((row) => row.id),
+			]);
+			const states = [...viewportIds].map((id) => cellState(target, id));
+			if (!states.length) states.push('missing');
+			return (filters.classification === 'all' || classification === filters.classification)
+				&& (filters.measurement === 'all' || states.includes(filters.measurement))
+				&& (filters.cause === 'all' || state.report.findings.some((finding) =>
+					finding.targetId === target.id && (filters.cause === 'unknown'
+						? !state.report.causes.some((cause) => cause.id === finding.causeId)
+						: 'cause:' + finding.causeId === filters.cause)));
+		}) ?? [],
+	);
 	const selectedTarget = computed(
 		() => state.report?.entries.find((target) => target.id === state.targetId) ?? null,
 	);
@@ -54,7 +73,26 @@ export function useViewer(options = {}) {
 	);
 
 	function dispatch(action, value) {
-		if (action === 'sidebar') {
+		if (action === 'filter') {
+			const allowed = {
+				classification: ['all', 'match', 'explained', 'unexplained', 'oracle', 'unclassified'],
+				measurement: ['all', 'complete', 'missing', 'failed', 'incompatible'],
+				cause: ['all', 'unknown', ...(state.report?.causes.map((cause) => 'cause:' + cause.id) ?? [])],
+			};
+			if (Object.hasOwn(allowed, value?.key ?? '') && allowed[value.key].includes(value.value)) {
+				state.filters = { ...state.filters, [value.key]: value.value };
+			}
+		} else if (action === 'clear-filters') {
+			state.filters = { classification: 'all', measurement: 'all', cause: 'all' };
+		} else if (action === 'evidence') {
+			const target = state.report?.entries.find((target) => target.id === value?.targetId);
+			if (!target) return;
+			const viewportExists = state.report.meta.viewports.some((row) => row.id === value.viewportId)
+				|| target.viewports.some((row) => row.id === value.viewportId);
+			if (value.viewportId != null && !viewportExists) return;
+			dispatch('target', target.id);
+			if (value.viewportId != null) state.viewportId = value.viewportId;
+		} else if (action === 'sidebar') {
 			state.sidebarHidden = typeof value === 'boolean' ? value : !state.sidebarHidden;
 			persist('test-kit-sidebar', state.sidebarHidden ? 'hidden' : 'visible');
 		} else if (action === 'theme') {
@@ -70,10 +108,11 @@ export function useViewer(options = {}) {
 			if (width() <= 860) dispatch('sidebar', true);
 		} else if (
 			action === 'viewport' &&
-			selectedTarget.value?.viewports.some((row) => row.id === value)
+			(selectedTarget.value?.viewports.some((row) => row.id === value) || state.report?.meta.viewports.some((row) => row.id === value))
 		)
 			state.viewportId = value;
 		else if (action === 'loaded') {
+			dispatch('clear-filters');
 			state.report = markRaw(value.report);
 			state.source = value.source;
 			state.targetId = value.report.entries[0]?.id ?? null;
@@ -107,5 +146,5 @@ export function useViewer(options = {}) {
 			if (id === requestId) dispatch('error', `Cannot load report: ${error.message}`);
 		}
 	}
-	return { state: readonly(state), summary, selectedTarget, selectedRow, dispatch, load };
+	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load };
 }

@@ -109,3 +109,62 @@ describe('viewer actions', () => {
 		expect(instance.state.loading).toBe(false);
 	});
 });
+
+describe('viewer filters', () => {
+    it('finds each incomplete state in mixed rows and retains global counts', () => {
+        const data = report();
+        data.meta.viewports.push({ id: 'phone' }, { id: 'tablet' });
+        data.entries[0].viewports.push({ id: 'phone', state: 'incompatible' });
+        const instance = viewer();
+        instance.dispatch('loaded', { report: data, source: '/report.json' });
+        for (const measurement of ['failed', 'incompatible', 'missing']) {
+            instance.dispatch('filter', { key: 'measurement', value: measurement });
+            expect(instance.filteredTargets.value).toHaveLength(1);
+            expect(instance.summary.value.counts.incomplete).toBe(1);
+            expect(instance.summary.value.counts.match).toBe(0);
+        }
+        instance.dispatch('filter', { key: 'classification', value: 'match' });
+        expect(instance.filteredTargets.value).toHaveLength(0);
+        expect(instance.summary.value.counts.total).toBe(1);
+        instance.dispatch('filter', { key: '__proto__', value: 'all' });
+        instance.dispatch('filter', { key: 'constructor', value: 'all' });
+        expect(instance.state.filters.classification).toBe('match');
+    });
+    it('finds absent declared rows without changing shared stored-row classification', () => {
+        const data = report();
+        data.meta.viewports.push({ id: 'phone' });
+        data.entries[0].viewports[0].state = 'complete';
+        const instance = viewer();
+        instance.dispatch('loaded', { report: data, source: '/report.json' });
+        instance.dispatch('filter', { key: 'measurement', value: 'missing' });
+        expect(instance.filteredTargets.value).toHaveLength(1);
+        expect(instance.summary.value.states.complete).toBe(1);
+        expect(instance.summary.value.counts.incomplete).toBe(0);
+    });
+    it('keeps cause identifiers distinct from filter controls and resets on load', () => {
+        const data = report();
+        data.causes = [{ id: 'unknown', known: false }];
+        data.findings = [{ targetId: 'example', causeId: 'unknown' }];
+        const instance = viewer();
+        instance.dispatch('loaded', { report: data, source: '/report.json' });
+        instance.dispatch('filter', { key: 'cause', value: 'cause:unknown' });
+        expect(instance.filteredTargets.value).toHaveLength(1);
+        instance.dispatch('filter', { key: 'cause', value: 'unknown' });
+        expect(instance.filteredTargets.value).toHaveLength(0);
+        instance.dispatch('loaded', { report: data, source: '/next.json' });
+        expect(instance.state.filters.cause).toBe('all');
+    });
+    it('selects missing declared viewport evidence without fallback', () => {
+        const data = report();
+        data.meta.viewports.push({ id: 'phone' });
+        const instance = viewer();
+        instance.dispatch('loaded', { report: data, source: '/report.json' });
+        instance.dispatch('view', 'findings');
+        instance.dispatch('evidence', { targetId: 'example', viewportId: 'phone' });
+        expect(instance.state.view).toBe('detail');
+        expect(instance.state.viewportId).toBe('phone');
+        expect(instance.selectedRow.value).toBe(null);
+        instance.dispatch('evidence', { targetId: 'example', viewportId: 'invalid' });
+        expect(instance.state.viewportId).toBe('phone');
+    });
+});
