@@ -50,6 +50,20 @@ describe('detail evidence navigation', () => {
         expect(wrapper.find('img').exists()).toBe(false);
     });
 });
+describe('selected artifact measurement', () => {
+    it('keeps screenshot and HTML results readable when behavior fails', async () => {
+        const data = report(), row = data.entries[0].viewports[0];
+        row.state = 'failed'; row.artifacts.screenshot.state = 'complete';
+        row.artifacts.behavior = { state: 'failed' };
+        const wrapper = mount(TargetDetail, { props: { report: data, targetId: 'home', viewportId: 'wide', source } });
+        const selected = () => wrapper.get('[aria-label="Selected artifact measurement"]').text();
+        expect(selected()).toContain('Screenshot'); expect(selected()).toContain('unexplained'); expect(selected()).toContain('complete'); expect(selected()).not.toContain('failed');
+        await wrapper.setProps({ artifact: 'html' }); expect(selected()).toContain('HTML'); expect(selected()).toContain('complete');
+        await wrapper.setProps({ artifact: 'behavior' }); expect(selected()).toContain('failed'); expect(selected()).toContain('unclassified');
+        // The target header still reports its incomplete aggregate state.
+        expect(wrapper.find('header').text()).toContain('failed');
+    });
+});
 describe('original screenshot overlay', () => {
     const props = { screenshot: { a: { src: 'a.png' }, b: { src: 'b.png' }, diff: { src: 'diff.png', ratio: 2 } }, source, targetTitle: 'Example', viewportId: 'wide', mode: 'overlay', overlay: 50 };
     it('waits for equal natural dimensions and emits opacity without local selection state', async () => {

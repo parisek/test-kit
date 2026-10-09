@@ -21,6 +21,29 @@ export function cellState(target, viewportId) {
 	return ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? stored;
 }
 
+// A selected artifact keeps its state when another artifact fails (R11.6).
+export function artifactState(target, viewportId, artifact) {
+	const cell = target.viewports.find(row => row.id === viewportId);
+	if (!cell) return 'missing';
+	const selected = cell.artifacts?.[artifact];
+	const stored = cell.state ?? (cell.error ? 'failed' : 'complete');
+	if (selected) return selected.state ?? stored;
+	// Legacy reports store screenshot measurements on the cell itself.
+	if (artifact === 'screenshot' && !cell.artifacts
+		&& (Number.isFinite(cell.ratio) || cell.error || cell.state)) return stored;
+	return 'missing';
+}
+
+export function artifactClass(report, target, viewportId, artifact) {
+	if (artifact === 'status' || artifactState(target, viewportId, artifact) !== 'complete') return null;
+	const selected = target.viewports.find(row => row.id === viewportId)?.artifacts?.[artifact];
+	if (artifact === 'content' && !(selected?.diff?.checks > 0)) return null;
+	if (target.judge === 'oracle') return 'oracle';
+	const findings = findingsFor(report, target.id, { viewportId, artifact });
+	if (findings.length) return findings.every(finding => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';
+	return 'match';
+}
+
 export function cellClass(report, target, viewportId) {
 	if (cellState(target, viewportId) !== 'complete') return null;
 	const contentCell = target.viewports.find(row => row.id === viewportId);
