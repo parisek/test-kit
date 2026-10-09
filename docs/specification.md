@@ -288,18 +288,22 @@ skeleton manifest: 237 files under `static/tests/`.
 | Area | Files | Kind | Moves? |
 | --- | --- | --- | --- |
 | `visual` | 14 | Playwright capture, diff, report | yes, first (folds into the comparison tool) |
-| `behavior` | 22 | Playwright runner and contract API | yes. Project-owned `*.contract.js` files stay in the project. |
+| `behavior` | 22 | Playwright runner, contract API, shared contracts | the engine: yes. Project-owned contracts (`contracts/project/`, `tests/behavior/project/`) stay in the project. The shared contracts: open (R13.42). |
 | `lib` | 45 | shared helpers | only what the moved areas use. A dependency check must come first. |
 | `cross-engine`, `browser-support` | 7 | engine-gap and support checks | yes, after `behavior` |
 | `fixtures.spec.js`, `fixtures.unverified.txt` | 2 | fixture checks | decide with `behavior` |
 | `twig-cs-fixer`, `phpstan` | 116 | PHP lint rules | yes, but into a separate Composer package, `parisek/lint-kit` (see the separate `lint-kit` issue). Not into `test-kit`. |
-| `eslint`, `stylelint` | 31 | JS and CSS lint rules | no. Plugins of their linters. A separate decision. |
+| `eslint`, `stylelint` | 31 | JS and CSS lint rules | yes (decided by the owner, 2026-10-08). They are Node plugins and ship through the same channel as the rest of the package (R13.40). |
 
-- R13.8 `test-kit` must cover testing and measuring: capture, compare, behaviour, checks, speed. PHP lint rules belong to a second package, `lint-kit`, in a separate issue. JS and CSS lint plugins stay a later decision.
+- R13.8 `test-kit` must cover the Node side: capture, compare, behaviour, checks, speed, and the ESLint and Stylelint rules. PHP and Twig lint rules belong to a second package, `lint-kit`, in a separate issue. The dividing line is the toolchain and the channel (npm from a git tag against Composer from Packagist), not the purpose.
 - R13.9 Each move must be one pull request. After it, the project must work with no edit: a thin alias in the project calls the package (R13.7).
 - R13.10 A move must replace the manifest entries of the moved files with one pinned dependency. `verify-skeleton` and `sync-skeleton` must know the new state before the first move merges.
 - R13.11 A moved helper must not break a lint test that still imports it. The dependency check of `lib` must prove this before the move.
-- R13.12 The name of the package must fit the final scope. A rename after the first release is costly.
+- R13.12 The name of the package must fit the final scope. A rename after the first release is costly. The owner keeps the name `test-kit` (2026-10-08); the README must state the dividing line of R13.8.
+- R13.40 The ESLint and Stylelint rules must ship as entry points of the package. Their rule identifiers and the plugin namespace (`portadesign/...`) must not change before a major version, because project configs, disable comments and baselines name them. The entry-point shape (for example `@parisek/test-kit/eslint`) must be designed before the move.
+- R13.41 The package must own the engine of the behaviour suite: the registry, the discovery, the reporter, the Playwright config and the format of the allowlists. A contract written by one project stays in that project.
+- R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. They are coupled to those components. Where they live is open: with the engine in the package, or with the components in `tailwind-base`. The owner decides before the behaviour move.
+- R13.43 A move must keep the project-facing seam. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the move the same project files must keep working with a thin import from the package.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
 
@@ -366,3 +370,5 @@ One logical change per pull request. Each is a draft, assigned to the owner. Eac
 3. Does measuring production for speed need a separate explicit command?
 4. How long are content snapshots kept, and who deletes them?
 5. Which language-detection library, after the section R7.6 check?
+6. Where do the shared behaviour contracts live (R13.42)?
+7. What does the project-facing seam of the ESLint and Stylelint configs look like after the move (R13.40, R13.43)? Today the canonical config is a synced `exact` file and the project imports it.

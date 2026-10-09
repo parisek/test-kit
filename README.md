@@ -3,7 +3,9 @@
 Status: **early scaffold**. The command line starts and lists the planned commands. Nothing else is built yet.
 
 A tool for testing and comparing a site: pairs of runs, pluggable checks, one viewer, one query interface for agents.
-It takes over the testing tools of `tailwind-base` step by step.
+It takes over the testing tools of `tailwind-base` step by step, and the ESLint and Stylelint rules too.
+
+The dividing line to [`lint-kit`](https://github.com/parisek/lint-kit) is the toolchain, not the purpose: `test-kit` is the Node side (npm from a git tag), `lint-kit` is the PHP and Twig side (Composer from Packagist).
 
 - Specification: [`docs/specification.md`](docs/specification.md), kept in step with [portadesign/tailwind-base#873](https://github.com/portadesign/tailwind-base/issues/873).
 - Plan: specification section 14. One pull request for each step.
