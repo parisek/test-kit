@@ -6,7 +6,7 @@ Compare reads stored runs. The viewer and JSON summary use the same classifier.
 
 Version 0.1 supports screenshots only. No content checks run by default.
 The unreleased development build also supports opt-in HTML and HTTP status.
-Behavior, content, speed, and lint migration remain later milestones.
+Main also supports opt-in stored content checks. Behavior, speed, and lint integration remain later milestones.
 The Node engine belongs here. PHP and Twig lint belong to
 [`lint-kit`](https://github.com/parisek/lint-kit).
 
@@ -110,7 +110,30 @@ The layout uses the [visual reference](https://claude.ai/artifact/9ahvV58EoBk3ZG
 and the copied company UI contract. It does not copy reference sample data.
 
 The opt-in demo also previews behavior, content and Lighthouse interfaces.
-These panels use simulated fixtures. They do not execute runners or checks.
+Behavior and Lighthouse prototype panels use simulated fixtures. The content tab uses real stored DOM snapshots and enabled checks.
 They do not enter report findings, target classes or agent query results.
-Content and speed overview views appear only with the demo prototype marker.
+The content overview appears when a report has content evidence. Speed previews use the demo prototype marker.
 The final artifact schema, runners and evidence loading remain future work.
+
+### Stored content checks (unreleased)
+
+Add `content` to `artifacts`. Select checks explicitly in `checks`.
+Supported IDs: `heading-outline`, `lang`, `empty-alt`, `empty-title`,
+`internal-links`, and `text-difference`. Set `content.expectedLanguage` for
+the language check. There are no default checks.
+
+Capture stores bounded, gzip-compressed extracted fields and the settled DOM body locally.
+Comparison reads the snapshot. It performs no crawl. Internal links use only
+HTTP responses already measured for targets in the same viewport. An unmeasured
+link remains unknown. Component-scoped content capture is not supported yet.
+It records failed evidence instead of using the whole page as a component.
+
+To rerun checks over stored runs:
+
+```bash
+test-kit diff RUN_A RUN_B --output report-title --checks empty-title
+test-kit query report-title/report.json --target home --viewport desktop --artifact content --max-lines 10
+```
+
+The original run manifests and snapshots stay unchanged (R7.1, R9.6, R12.3).
+Snapshot retention remains a project decision.

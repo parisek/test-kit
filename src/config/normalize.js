@@ -1,3 +1,4 @@
+import { builtinChecks } from '../checks/index.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
@@ -56,7 +57,7 @@ function freeze(value) {
 }
 
 export function normalizeConfig(input) {
-  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs']);
+  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');
   object(input.sides, 'sides');
   const sideEntries = Object.entries(input.sides);
@@ -96,13 +97,19 @@ export function normalizeConfig(input) {
     return result;
   });
   unique(viewports.map(viewport => viewport.id), 'viewport');
-  const artifacts = list(input.artifacts ?? ['screenshot'], 'artifacts', 3, 1);
-  if (artifacts.some(kind => !['screenshot', 'html', 'status'].includes(kind))) fail('unsupported artifact');
+  const artifacts = list(input.artifacts ?? ['screenshot'], 'artifacts', 4, 1);
+  if (artifacts.some(kind => !['screenshot', 'html', 'status', 'content'].includes(kind))) fail('unsupported artifact');
   unique(artifacts, 'artifact');
-  list(input.checks ?? [], 'checks', 0);
+  const checks = list(input.checks ?? [], 'checks', 6).map(value => id(value, 'check ID'));
+  unique(checks, 'check');
+  if (checks.some(check => !Object.hasOwn(builtinChecks, check))) fail('unknown content check');
+  if (checks.length && !artifacts.includes('content')) fail('checks require the content artifact');
+  const contentInput = object(input.content ?? {}, 'content', ['expectedLanguage']);
+  const content = {};
+  if (contentInput.expectedLanguage !== undefined) content.expectedLanguage = text(contentInput.expectedLanguage, 'content.expectedLanguage', 100);
   const runsRoot = text(input.runsRoot ?? 'tests/visual/runs', 'runsRoot', 500);
   if (!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(runsRoot)) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
-  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks: [], runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
+  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks, content, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
 }

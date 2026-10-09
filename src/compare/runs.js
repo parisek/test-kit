@@ -1,3 +1,4 @@
+import { compareContentArtifact } from '../content/compare-artifact.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { pairKey, policyHash, evidenceBinding, comparatorIndex } from '../rules/evidence.js';
 import { compareResponseArtifact } from '../artifacts/compare.js';
@@ -89,7 +90,7 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
@@ -161,7 +162,12 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 					findings.push({ id: 'html-' + target.id + '-' + viewport.id, targetId: target.id, viewportId: viewport.id, artifact: 'html', message: 'HTML response bytes differ.' });
 				}
 			}
-			const comparable = ['screenshot', 'html'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			if (requested.has('content')) {
+				const content = await compareContentArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, contentChecks, contentExpectedLanguage });
+				row.artifacts.content = content.artifact;
+				content.findings.forEach((finding, index) => findings.push({ targetId: finding.targetId, viewportId: finding.viewportId, artifact: 'content', checkId: finding.checkId, severity: finding.severity, message: finding.message, id: `content-${target.id}-${viewport.id}-${finding.checkId}-${index}` }));
+			}
+			const comparable = ['screenshot', 'html', 'content'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
 			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {
@@ -174,7 +180,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	}
 	const report = { schemaVersion: 2, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, entries, causes: [], findings, rules: {} };
 	const responseTools = new Map();
-	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status']) {
+	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content']) {
 		const index = row.artifacts[kind]?.diff;
 		if (index) responseTools.set(index.settingsHash, { name: index.tool, version: index.version, settingsHash: index.settingsHash });
 		const normalized = row.artifacts[kind]?.normalizedA;
@@ -186,10 +192,11 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	report.known_diffs = { [key]: known_diffs[key] ?? [] };
 	report.meta.comparisonPolicyHash = policyHash(rules);
 	for (const finding of findings) {
+		if (!['screenshot', 'html', 'content'].includes(finding.artifact)) continue;
 		const entry = entries.find(entry => entry.id === finding.targetId);
 		const row = entry.viewports.find(row => row.id === finding.viewportId);
 		const binding = await evidenceBinding({ runsRoot, aRunId: aId, bRunId: bId,
-			targetId: finding.targetId, viewportId: finding.viewportId, artifact: finding.artifact, rules, runs: [a, b] });
+			targetId: finding.targetId, viewportId: finding.viewportId, artifact: finding.artifact, rules, runs: [a, b], contentPolicy: { checks: contentChecks ?? b.settings.checks ?? [], expectedLanguage: contentExpectedLanguage ?? b.settings.content?.expectedLanguage ?? null } });
 		finding.evidenceFingerprint = binding.fingerprint;
 		const accepted = report.known_diffs[key].find(record => record.target === finding.targetId
 			&& record.viewport === finding.viewportId && record.artifact === finding.artifact && record.fingerprint === binding.fingerprint
@@ -209,6 +216,8 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	const problems = validateReport(report);
 	if (problems.length) throw new Error(problems.join(' '));
 	const reportPath = join(output, 'report.json');
-	await writeFile(reportPath, JSON.stringify(report, null, 2));
+	const serialized = Buffer.from(JSON.stringify(report));
+	if (serialized.length > 16_000_000) throw new Error('Report exceeds the 16 MB reader limit. Compare fewer targets or viewports. Detailed evidence remains in local sidecars.');
+	await writeFile(reportPath, serialized);
 	return { report, reportPath };
 }

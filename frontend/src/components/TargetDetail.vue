@@ -12,15 +12,15 @@ const props = defineProps({ report: Object, targetId: String, viewportId: String
 const emit = defineEmits(['action']);
 const target = computed(() => props.report?.entries?.find(item => item.id === props.targetId));
 const row = computed(() => target.value?.viewports?.find(item => item.id === props.viewportId) ?? (props.viewportId == null ? target.value?.viewports?.[0] : null));
-const artifacts = computed(() => [...['screenshot', 'html', 'status'].filter(kind => row.value?.artifacts?.[kind]), ...(hasPrototypes(props.report) && row.value ? PLANNED_KINDS : [])]);
-const planned = computed(() => plannedSample(props.report, props.targetId, row.value?.id, selectedArtifact.value));
+const artifacts = computed(() => [...['screenshot', 'html', 'status', 'content'].filter(kind => row.value?.artifacts?.[kind]), ...(hasPrototypes(props.report) && row.value ? PLANNED_KINDS.filter(kind => !row.value.artifacts?.[kind]) : [])]);
+const planned = computed(() => row.value?.artifacts?.[selectedArtifact.value] ? null : plannedSample(props.report, props.targetId, row.value?.id, selectedArtifact.value));
 const selectedArtifact = computed(() => artifacts.value.includes(props.artifact) ? props.artifact : artifacts.value[0] ?? props.artifact);
 const viewports = computed(() => props.report?.meta?.viewports?.length ? props.report.meta.viewports : target.value?.viewports ?? []);
 const parts = computed(() => (Array.isArray(target.value?.composedOf) ? target.value.composedOf : []).map(item => typeof item === 'string' ? item : item?.id).filter(Boolean).join(', '));
 const usedOn = computed(() => props.report.entries.filter(item => Array.isArray(item.composedOf) && item.composedOf.some(part => (typeof part === 'string' ? part : part?.id) === target.value?.id)).map(item => item.title ?? item.id).join(', '));
 const findings = computed(() => target.value ? findingsFor(props.report, target.value.id, { viewportId: row.value?.id ?? props.viewportId, artifact: selectedArtifact.value }) : []);
 const diagnostic = value => typeof value === 'string' ? value : value?.message ?? 'This measurement cannot be compared. Inspect technical details for its diagnostic.';
-const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status', behavior: 'Behavior · Prototype', content: 'Content · Prototype', lighthouse: 'Lighthouse · Prototype' })[kind];
+const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status', behavior: 'Behavior · Prototype', content: row.value?.artifacts?.content ? 'Content' : 'Content · Prototype', lighthouse: 'Lighthouse · Prototype' })[kind];
 </script>
 <template>
     <section v-if="target" class="min-w-0 rounded-ui-panel border border-ui-border bg-ui-surface">
@@ -40,7 +40,7 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
                 <p v-if="row.error ?? row.diagnostic" role="status" class="mb-4 rounded-ui-panel border border-ui-border bg-ui-toolbar p-3 text-sm">{{ diagnostic(row.error ?? row.diagnostic) }}</p>
                 <PlannedEvidence v-if="planned" :kind="selectedArtifact" :sample="planned" />
                 <ScreenshotComparison v-else-if="selectedArtifact === 'screenshot' && row.artifacts?.screenshot" :screenshot="row.artifacts.screenshot" :source="source" :target-title="target.title ?? target.id" :viewport-id="row.id" :mode="comparison" :overlay="overlay" :ratio="row.ratio" @action="(...args) => emit('action', ...args)" />
-                <ArtifactEvidence v-else-if="['html', 'status'].includes(selectedArtifact)" :row="row" :source="source" :evidence="artifactEvidence" :kind="selectedArtifact" :evidence-view="evidenceView" @action="(...args) => emit('action', ...args)" />
+                <ArtifactEvidence v-else-if="['html', 'status', 'content'].includes(selectedArtifact)" :row="row" :source="source" :evidence="artifactEvidence" :kind="selectedArtifact" :evidence-view="evidenceView" @action="(...args) => emit('action', ...args)" />
                 <p v-else role="status" class="rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">No evidence is indexed for this viewport.</p>
                 <RuleAudit v-if="selectedArtifact === 'html'" :report="report" :target-id="targetId" :row="row" :evidence="artifactEvidence?.kind === 'html' ? artifactEvidence.data : null" />
 

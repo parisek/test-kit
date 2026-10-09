@@ -82,8 +82,8 @@ export function useViewer(options = {}) {
 
 	function selectArtifact(preferred = state.artifact) {
 		const artifacts = selectedRow.value?.artifacts ?? {};
-		const available = ['screenshot', 'html', 'status'].filter(kind => Object.hasOwn(artifacts, kind));
-        if (hasPrototypes(state.report) && selectedRow.value) available.push(...PLANNED_KINDS);
+		const available = ['screenshot', 'html', 'status', 'content'].filter(kind => Object.hasOwn(artifacts, kind));
+        if (hasPrototypes(state.report) && selectedRow.value) available.push(...PLANNED_KINDS.filter(kind => !available.includes(kind)));
 		state.artifact = available.includes(preferred) ? preferred : (available[0] ?? 'screenshot');
 	}
 	function invalidateEvidence() {
@@ -91,13 +91,13 @@ export function useViewer(options = {}) {
 		state.artifactEvidence = null;
 	}
 	function loadSelectedEvidence() {
-		if (state.view === 'detail' && ['html', 'status'].includes(state.artifact)) loadArtifact(state.artifact);
+		if (state.view === 'detail' && ['html', 'status', 'content'].includes(state.artifact)) loadArtifact(state.artifact);
 	}
 
 	function dispatch(action, value) {
 		if (action === 'artifact') {
 			const planned = hasPrototypes(state.report) && selectedRow.value && PLANNED_KINDS.includes(value);
-            if (!planned && (!['screenshot', 'html', 'status'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value))) return;
+            if (!planned && (!['screenshot', 'html', 'status', 'content'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value))) return;
 			invalidateEvidence();
 			state.artifact = value;
 			loadSelectedEvidence();
@@ -142,7 +142,7 @@ export function useViewer(options = {}) {
 			state.theme = state.theme === 'light' ? 'dark' : 'light';
 			persist('test-kit-theme', state.theme);
 		} else if (action === 'view' && VIEWS.includes(value)) {
-            if (['content', 'speed'].includes(value) && !hasPrototypes(state.report)) return;
+            if (['content', 'speed'].includes(value) && !hasPrototypes(state.report) && !state.report?.entries.some(target => target.viewports.some(row => row.artifacts?.[value === 'speed' ? 'lighthouse' : 'content']))) return;
 			state.view = value;
 			if (!state.artifactEvidence) loadSelectedEvidence();
 		}
@@ -183,7 +183,7 @@ export function useViewer(options = {}) {
 	}
 
 	async function loadArtifact(kind) {
-		if (!['html', 'status'].includes(kind)) return;
+		if (!['html', 'status', 'content'].includes(kind)) return;
 		const src = selectedRow.value?.artifacts?.[kind]?.diff?.src;
 		const url = sameOriginUrl(src, state.source ?? base);
 		if (!src || !url) return;

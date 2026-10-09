@@ -241,3 +241,33 @@ Accepted raw differences remain findings. Shared per-finding evaluation supplies
 the CLI and viewer classes (R11.6). A residual normalized difference, stale evidence,
 missing scope, or failed requested measurement cannot become a match.
 No check defaults or snapshot retention policy are introduced.
+
+## Opt-in content extension (unreleased)
+
+Requirements: R6.4, R7.1–R7.5, R8.7, R9.4, R12.3.
+
+The configuration accepts `content` in `artifacts` and an explicit `checks` list.
+The list uses the six starter IDs in `src/checks/`. `content.expectedLanguage`
+supplies the expected language. The default check list stays empty.
+
+A page capture reads the settled DOM during the shared navigation. It stores
+`content/<target>/<viewport>.json.gz`. The gzip body expands to at most 2 MiB. A separate `.body.html.gz` file preserves
+the bounded settled DOM body for future checks. It has the same size limit.
+The snapshot records extractor version, title, declared language, bounded text,
+headings, images, same-origin links, and omitted counts. Component selectors are
+not supported by this extension. They record failed content evidence.
+
+The report stores a decoded local snapshot copy and a check comparison sidecar.
+The comparison index records check count, settings hash, changed state, and
+incomplete coverage. A missing response for an internal link remains unknown.
+Only a complete selected check set can prove comparable content. An empty set
+or incomplete coverage cannot produce a content match. Captured defects remain
+findings even when another check has incomplete coverage.
+
+`diff --checks ID,ID` changes the comparison policy for both stored runs.
+It writes a new report. It does not navigate or change the original runs.
+The query returns bounded findings and omitted counts. The viewer uses the same
+validated sidecar. Content retention and the default check set remain open.
+
+The writer rejects a report above 16,000,000 bytes before it writes report.json.
+Split a large target or viewport selection. Detailed evidence stays local.

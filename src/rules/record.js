@@ -1,3 +1,4 @@
+import { gunzipSync } from 'node:zlib';
 import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { normalizeConfig } from '../config/normalize.js';
@@ -14,20 +15,28 @@ export async function recordKnown({ reportPath, configPath, target, viewport, ar
   const report = adaptReport(JSON.parse(await readSidecar(dirname(reportFile), reportFile.split('/').at(-1), 16_000_000)));
   const entry = report.entries.find(entry => entry.id === target), row = entry?.viewports.find(row => row.id === viewport);
   const finding = report.findings.find(finding => finding.targetId === target && finding.viewportId === viewport && finding.artifact === artifact);
-  if (!entry || entry.judge === 'oracle' || !row || row.state !== 'complete'
+  if (!entry || entry.judge === 'oracle' || !row
     || (row.artifacts?.[artifact]?.state ?? row.state) !== 'complete' || !finding) throw new Error('Record one complete non-oracle finding.');
   if (report.meta.comparisonPolicyHash !== policyHash(config.rules)) throw new Error('Comparison policy changed. Compare again before recording.');
-  const expected = comparatorIndex(artifact, config.rules), diff = row.artifacts?.[artifact]?.diff;
+  const contentPolicy = { checks: config.checks ?? [], expectedLanguage: config.content?.expectedLanguage ?? null };
+  const expected = comparatorIndex(artifact, config.rules, contentPolicy), diff = row.artifacts?.[artifact]?.diff;
   if (!diff || Object.keys(expected).some(key => diff[key] !== expected[key])) throw new Error('Comparator provenance changed. Compare again.');
   const binding = await evidenceBinding({ runsRoot: resolve(dirname(file), config.runsRoot),
-    aRunId: report.pair.aRunId, bRunId: report.pair.bRunId, targetId: target, viewportId: viewport, artifact, rules: config.rules });
+    aRunId: report.pair.aRunId, bRunId: report.pair.bRunId, targetId: target, viewportId: viewport, artifact, rules: config.rules, contentPolicy });
   if (binding.fingerprint !== finding.evidenceFingerprint || binding.pairKey !== report.pair.key
     || binding.sources.some((src, index) => src !== row.artifacts?.[artifact]?.[index ? 'b' : 'a']?.src)) throw new Error('Stored evidence changed or does not belong to this finding. Compare again.');
   // Verify the report's raw copies too. Caller-supplied fingerprints are not proof.
   const { byteHash } = await import('./evidence.js');
   for (const [index, src] of binding.sources.entries()) {
-    const bytes = await readSidecar(dirname(reportFile), src, artifact === 'html' ? 2 * 1024 * 1024 : 80_000_000);
-    if (byteHash(bytes) !== binding.evidence[index ? 'rawB' : 'rawA']) throw new Error('Report evidence differs from its stored run.');
+    const bytes = await readSidecar(dirname(reportFile), src, artifact !== 'screenshot' ? 2 * 1024 * 1024 : 80_000_000);
+    let matches;
+    if (artifact === 'content') {
+      const runId = index ? report.pair.bRunId : report.pair.aRunId;
+      const storedPath = src.slice(('runs/' + runId + '/').length) + '.gz';
+      const compressed = await readSidecar(resolve(dirname(file), config.runsRoot), runId + '/' + storedPath);
+      matches = byteHash(compressed) === binding.evidence[index ? 'rawB' : 'rawA'] && bytes.equals(gunzipSync(compressed, { maxOutputLength: 2 * 1024 * 1024 }));
+    } else matches = byteHash(bytes) === binding.evidence[index ? 'rawB' : 'rawA'];
+    if (!matches) throw new Error('Report evidence differs from its stored run.');
   }
   const records = config.known_diffs[binding.pairKey] ?? [];
   if (records.some(record => record.fingerprint === binding.fingerprint)) throw new Error('This exact evidence is already recorded.');

@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 export async function storeResponse({ response, requested, runDir, targetId, viewportId, provenance, assets, active = () => true, artifacts = {} }) {
-  for (const kind of requested.filter(kind => kind !== 'screenshot')) {
+  for (const kind of requested.filter(kind => ['html', 'status'].includes(kind))) {
     if (!active()) break;
     const index = { kind, ...provenance[kind] };
     try {
