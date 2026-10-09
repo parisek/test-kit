@@ -54,7 +54,9 @@ try {
   }
   await page.locator('[data-view=timeline]').click();
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.keyboard.press('Escape');
+  await page.locator('#sidebar[aria-modal=true]').waitFor();
+  await page.locator('#sidebar').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#sidebar[aria-modal=true]').waitFor({ state: 'hidden' });
   for (const details of await page.locator('.technical-details summary').all()) await details.click();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Expanded provenance overflows on a phone');
   assert.deepEqual(errors, []);
