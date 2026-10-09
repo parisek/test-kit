@@ -1,0 +1,13 @@
+{
+    "name": "parisek-tools-ui",
+    "version": "0.1.0",
+    "license": "MIT",
+    "requires": {
+        "tailwind": "4"
+    },
+    "files": [
+        "tokens.css"
+    ],
+    "scope": "application chrome",
+    "themeClass": "dark"
+}

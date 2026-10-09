@@ -30,7 +30,8 @@ node bin/cli.js --help     # the command line
 | --- | --- |
 | `bin/` | The executable. It only calls `src/cli/run.js`. |
 | `src/<area>/` | One area for each part of the architecture. Each folder has a README with its contract and its spec sections. |
-| `viewer/` | The report viewer: plain ES modules, CSS layers, no bundler. |
+| `frontend/` | Vue source, Tailwind tokens, and the isolated Vite build. |
+| `viewer/` | The compiled viewer. Do not edit it by hand. |
 | `templates/` | Files that `test-kit init` copies into a project. |
 | `tests/unit/` | Pure logic. No browser, no network. |
 | `tests/fixtures/` | Sample data only. |

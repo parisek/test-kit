@@ -5,3 +5,5 @@ coverage/
 # Captures and runs never belong in git. A project keeps them under tests/visual/runs/.
 runs/
 .test-kit/
+
+/frontend/node_modules/

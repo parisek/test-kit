@@ -65,6 +65,10 @@ Client captures and project configuration stay local.
 ```sh
 npm ci
 npm test
+npm ci --prefix frontend
+npm run test:viewer
+npm run build:viewer
+npm run check:viewer
 node bin/cli.js --help
 ```
 
@@ -75,4 +79,6 @@ node bin/cli.js --help
 - [Release procedure](RELEASING.md).
 - [Roadmap](https://github.com/parisek/test-kit/issues/5).
 
-The package uses the MIT licence. It has no build step.
+The package uses the MIT licence. Installation needs no build step.
+Viewer development uses Node 22.18 or later. See [the frontend guide](frontend/README.md).
+The package commits the Vue and Tailwind build. CI verifies it against its source.

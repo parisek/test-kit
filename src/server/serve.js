@@ -41,7 +41,6 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 		['/', [packageRoot, 'viewer/index.html', 'text/html']],
 		['/app.js', [packageRoot, 'viewer/app.js', 'text/javascript']],
 		['/style.css', [packageRoot, 'viewer/style.css', 'text/css']],
-		...['model.js', 'classify.js', 'safe.js'].map((name) => [`/src/report/${name}`, [packageRoot, `src/report/${name}`, 'text/javascript']]),
 	]);
 	const server = http.createServer(async (req, res) => {
 		res.setHeader('Content-Security-Policy', CSP);

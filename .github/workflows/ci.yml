@@ -40,7 +40,12 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
+      - run: npm ci --prefix frontend
+      - run: npm run test:viewer
+      - run: npm run check:viewer
       - run: npx playwright install --with-deps chromium
       - run: node tests/integration/check-example-site.mjs
       - run: node tests/integration/check-capture-guards.mjs
       - run: node tests/integration/check-pipeline.mjs
+      - run: node tests/integration/check-viewer.mjs
+      - run: node tests/integration/check-viewer-package.mjs
