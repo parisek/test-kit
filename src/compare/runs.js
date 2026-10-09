@@ -76,6 +76,7 @@ function effectiveSettings(run) {
 }
 
 function available(capture) {
+	if (capture?.state === 'failed') return 'capture-error';
 	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
 

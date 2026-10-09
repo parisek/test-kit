@@ -14,6 +14,11 @@ import { serve } from '../../src/server/serve.js';
 const directory = await mkdtemp(join(tmpdir(), 'test-kit-response-'));
 let variant = 'before', navigations = 0, viewer, browser;
 const site = createServer((request, response) => {
+  if (request.url === '/blocked') {
+    navigations++;
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    response.end('<h1>Local</h1><img src="https://example.invalid/asset.png">'); return;
+  }
   if (request.url === '/large') {
     navigations++;
     response.writeHead(200, { 'Content-Type': 'text/html' });
@@ -79,6 +84,21 @@ try {
   const partial = await capture({ configPath, side: 'local', artifacts: ['screenshot', 'html'] });
   assert.equal(partial.run.captures[0].state, 'failed');
   assert.equal(partial.run.captures[0].artifacts.html.state, 'captured');
+  config.targets[0].path = '/blocked'; config.sides.local.settle = {};
+  await writeFile(configPath, JSON.stringify(config));
+  const blockedA = await capture({ configPath, side: 'local', artifacts: ['html', 'status'] });
+  const blockedB = await capture({ configPath, side: 'local', artifacts: ['html', 'status'] });
+  const blockedReport = await compareRuns({ runsRoot: join(directory, 'runs'), runA: blockedA.run.id, runB: blockedB.run.id, outputDir: join(directory, 'blocked') });
+  assert.equal(blockedReport.report.entries[0].viewports[0].state, 'failed');
+  assert.equal(blockedReport.report.entries[0].viewports[0].availability.a, 'capture-error');
+  assert.equal(blockedReport.report.entries[0].viewports[0].artifacts.html.state, 'complete');
+  assert.equal(summarizeReport(blockedReport.report).verdict, 'incomplete');
+  const originalManifest = await readFile(b.manifestPath);
+  const forged = JSON.parse(originalManifest); forged.settings.viewports[0].width = 800;
+  await writeFile(b.manifestPath, JSON.stringify(forged));
+  const forgedReport = await compareRuns({ runsRoot: join(directory, 'runs'), runA: htmlOnly.run.id, runB: b.run.id, outputDir: join(directory, 'forged') });
+  assert.equal(forgedReport.report.entries[0].viewports[0].artifacts.html.state, 'incompatible');
+  await writeFile(b.manifestPath, originalManifest);
   viewer = await serve({ reportPath: result.reportPath });
   const htmlSrc = result.report.entries[0].viewports[0].artifacts.html.a.src;
   const served = await fetch(viewer.origin + '/' + htmlSrc);

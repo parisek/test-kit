@@ -32,6 +32,11 @@ export async function readSidecar(root, path, maxBytes = MAX_RESPONSE_BYTES) {
 export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, output, targetId, viewportId }) {
   const indexes = [ac?.artifacts?.[kind], bc?.artifacts?.[kind]];
   const result = { kind, state: artifactState(...indexes), a: null, b: null, diff: null };
+  const viewportSettings = run => run.settings.viewports.map(({ id, width, height, deviceScaleFactor = 1 }) => ({ id, width, height, deviceScaleFactor }));
+  if (result.state === 'complete' && (settingsHash(viewportSettings(a)) !== settingsHash(viewportSettings(b))
+    || settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null))) {
+    result.state = 'incompatible';
+  }
   const bytes = [];
   for (const [index, run, side] of [[indexes[0], a, 'a'], [indexes[1], b, 'b']]) {
     if (index?.state !== 'captured') { bytes.push(null); continue; }
