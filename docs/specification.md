@@ -167,7 +167,7 @@ Derived from findings and `matchBelow`. Never stored.
 - R8.1 The default `matchBelow` is 3 percent. It is a compass. The report must not call it a verdict.
 - R8.2 A row that names a rule outside the rule's scope must not be hidden by normalisation. Outside its scope it is a real difference.
 - R8.3 A pair must show its noise floor. A measured difference below it is not a finding. An unmeasured floor is `null`, never zero. Without a measured floor, a nonzero screenshot ratio produces a finding. The `matchBelow` hint must not suppress that finding.
-- R8.7 Measurement state is separate from class: `comparable`, `missing`, `failed`, or `incompatible`. Missing evidence, capture failure, and incompatible settings must never become `match`. A query counts these states separately.
+- R8.7 Measurement state is separate from class: `complete`, `missing`, `failed`, or `incompatible`. Missing evidence, capture failure, and incompatible settings must never become `match`. A query counts these states separately.
 - R8.8 A screenshot finding applies to one target and viewport. A class uses findings in that same scope. Target aggregation considers all comparable viewport findings and retains incomplete measurement states.
 - R8.9 Comparison must reject incompatible viewport dimensions, artifact settings, or tool versions with an explicit diagnostic. A run preserves the settings it used. Labels and origins do not determine artifact compatibility.
 
