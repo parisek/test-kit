@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, createRunId, assertImageBounds, targetPath } from './helpers.js';
+import { isLocalUrl, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -54,22 +54,28 @@ async function captureOne(browser, config, side, target, viewport, runDir) {
   let phase = 'navigation';
   const relativePath = `screenshots/${target.id}/${viewport.id}.png`;
   const file = resolve(runDir, relativePath);
+  let timer;
+  let expired = false;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => { expired = true; reject(new Error('Capture deadline exceeded')); }, config.screenshot.timeoutMs);
+  });
   try {
+    return await Promise.race([deadline, (async () => {
     context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.deviceScaleFactor,
       ignoreHTTPSErrors: BROWSER_SETTINGS.ignoreHTTPSErrors, serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
       reducedMotion: recipe.disableMotion ? 'reduce' : 'no-preference',
     });
+    if (expired) { await context.close(); throw new Error('Capture deadline exceeded'); }
     const page = await context.newPage();
     page.setDefaultTimeout(config.screenshot.timeoutMs);
     page.setDefaultNavigationTimeout(config.screenshot.timeoutMs);
     await context.route('**/*', async route => {
       const request = route.request();
-      const mainNavigation = request.isNavigationRequest() && request.frame() === page.mainFrame();
-      if (!['GET', 'HEAD'].includes(request.method()) || (mainNavigation && !isLocalUrl(request.url()))) {
-        if (mainNavigation) blocked = true;
+      if (!['GET', 'HEAD'].includes(request.method()) || !isLocalUrl(request.url())) {
+        blocked = true;
         await route.abort('blockedbyclient');
-      } else if (mainNavigation) {
+      } else {
         // Fetch one response without following redirects. Check Location before
         // the browser can issue a request to its destination.
         try {
@@ -83,7 +89,7 @@ async function captureOne(browser, config, side, target, viewport, runDir) {
         } catch {
           await route.abort('failed').catch(() => {});
         }
-      } else await route.continue();
+      }
     });
     const url = new URL(targetPath(target, side), config.sides[side].origin);
     if (!isLocalUrl(url.href)) throw new Error('Nonlocal navigation');
@@ -122,11 +128,13 @@ async function captureOne(browser, config, side, target, viewport, runDir) {
     const final = new URL(page.url());
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
       width, height, deviceScaleFactor: viewport.deviceScaleFactor };
+    })()]);
   } catch {
+    if (context) await context.close().catch(() => {});
     await unlink(file).catch(() => {});
     return { ...identity, state: 'failed', error: { code: blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
-      message: blocked ? 'A main-frame request leaves the local environment or submits data' : `The ${phase} step fails. Check the local page and capture recipe.` } };
-  } finally { if (context) await context.close().catch(() => {}); }
+      message: blocked ? 'A request leaves the local environment or submits data' : `The ${phase} step fails. Check the local page and capture recipe.` } };
+  } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
 }
 
 export async function capture({ configPath, side, label = '', runsRoot }) {
@@ -137,6 +145,12 @@ export async function capture({ configPath, side, label = '', runsRoot }) {
   const tool = await playwright();
   if (new URL(config.sides[side].origin).hostname.endsWith('.ddev.site')) {
     const cwd = await projectRoot(loaded.configDir);
+    let description;
+    try {
+      const { stdout } = await execute('ddev', ['describe', '--json-output'], { cwd, timeout: 30000 });
+      description = JSON.parse(stdout);
+    } catch { throw new Error('Cannot verify the DDEV project for the configured origin'); }
+    if (!ddevMatchesOrigin(description, config.sides[side].origin)) throw new Error('The nearest DDEV checkout does not serve the configured origin');
     try { await execute('ddev', ['mutagen', 'sync'], { cwd, timeout: 60000 }); }
     catch { throw new Error('ddev mutagen sync fails. Fix DDEV synchronization before capture.'); }
   }
@@ -155,6 +169,8 @@ export async function capture({ configPath, side, label = '', runsRoot }) {
   let browser;
   try {
     browser = await tool.chromium.launch({ headless: true });
+    run.tools.push({ name: 'chromium', version: browser.version(), settingsHash: hash });
+    await writeManifest(manifestPath, run);
     for (const target of config.targets) for (const viewport of config.viewports) {
       run.captures.push(await captureOne(browser, config, side, target, viewport, runDir));
       await writeManifest(manifestPath, run);

@@ -7,15 +7,21 @@ manifest path. It loads and freezes project configuration. It starts Chromium
 on the host. Install `@playwright/test` and its Chromium browser first.
 
 Each target and viewport gets an isolated browser context. Capture stores one
-navigation response status and a screenshot. It blocks nonlocal main-frame
-requests and requests that submit data. It does not save cookies or credentials.
+navigation response status and a screenshot. It blocks nonlocal requests in
+all frames and popups. It blocks requests that submit data. It checks redirect
+destinations before network access. It does not save cookies or credentials.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
 The run records these fixed browser settings in its capture settings hash.
+It records the actual Chromium version as well as the Playwright version.
 
 DDEV origins require a nearest ancestor `.ddev` directory. Capture runs
-`ddev mutagen sync` there once before browser work. A sync failure stops capture.
+`ddev describe --json-output` verifies that the checkout serves the configured
+host. Capture runs `ddev mutagen sync` there once before browser work.
+A wrong checkout or sync failure stops capture.
 
 The manifest starts as partial and updates atomically after each capture.
+The screenshot timeout bounds the complete target operation, including font
+settlement. A timeout closes its browser context before the next target starts.
 Failures retain diagnostics and omit PNG paths. A failed result keeps the run
 partial. HTTP errors can retain screenshot evidence. Original PNG dimensions
 and device scale factors remain explicit. Images have a 40 million pixel limit

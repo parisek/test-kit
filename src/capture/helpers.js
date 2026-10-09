@@ -22,3 +22,13 @@ export function assertImageBounds(width, height, deviceScaleFactor = 1) {
 export function targetPath(target, side) {
   return target.paths && Object.hasOwn(target.paths, side) ? target.paths[side] : target.path;
 }
+
+export function ddevMatchesOrigin(description, origin) {
+  const raw = description?.raw;
+  if (!raw || typeof raw !== 'object') return false;
+  const expected = new URL(origin).hostname;
+  return ['primary_url', 'httpurl', 'httpsurl'].some(key => {
+    try { return typeof raw[key] === 'string' && new URL(raw[key]).hostname === expected; }
+    catch { return false; }
+  });
+}

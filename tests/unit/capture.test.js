@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isLocalUrl, createRunId, assertImageBounds, targetPath } from '../../src/capture/helpers.js';
+import { isLocalUrl, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
 
 test('navigation guards reject remote redirects and credentials', () => {
   for (const value of ['http://localhost/path', 'https://example-site.ddev.site/path', 'http://127.0.0.2/', 'http://[::1]/']) assert.equal(isLocalUrl(value), true);
@@ -21,4 +21,11 @@ test('image bounds apply to physical pixels and long pages', () => {
 test('per-side paths do not use inherited object properties', () => {
   assert.equal(targetPath({ path: '/', paths: { local: '/local' } }, 'local'), '/local');
   assert.equal(targetPath({ path: '/', paths: {} }, 'constructor'), '/');
+});
+
+test('DDEV checkout identity must match the configured host', () => {
+  assert.equal(ddevMatchesOrigin({ raw: { primary_url: 'https://example-site.ddev.site' } }, 'http://example-site.ddev.site'), true);
+  assert.equal(ddevMatchesOrigin({ raw: { httpsurl: 'https://other.ddev.site' } }, 'http://example-site.ddev.site'), false);
+  assert.equal(ddevMatchesOrigin({ raw: { httpsurl: 'invalid' } }, 'http://example-site.ddev.site'), false);
+  assert.equal(ddevMatchesOrigin({}, 'http://example-site.ddev.site'), false);
 });
