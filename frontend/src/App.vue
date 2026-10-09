@@ -5,9 +5,11 @@ import { useViewer } from './state/useViewer.js';
 import TargetDetail from './components/TargetDetail.vue';
 import MatrixView from './components/MatrixView.vue';
 import FindingsView from './components/FindingsView.vue';
+import RunSummary from './components/RunSummary.vue';
+import ReportFilters from './components/ReportFilters.vue';
 import TimelineView from './components/TimelineView.vue';
 
-const { state, summary, dispatch, load } = useViewer();
+const { state, summary, filteredTargets, dispatch, load } = useViewer();
 const source = ref('/report.json');
 const sidebar = ref(null);
 const toggle = ref(null);
@@ -213,7 +215,7 @@ onUnmounted(() => {
 				</div>
 				<div class="flex flex-col gap-1">
 					<button
-						v-for="target in state.report?.entries ?? []"
+						v-for="target in filteredTargets"
 						:key="target.id"
 						class="min-w-0 rounded-ui-panel border p-2 text-left text-xs focus-visible:outline-2 focus-visible:outline-ui-focus"
 						:class="
@@ -247,11 +249,13 @@ onUnmounted(() => {
 							{{ state.report.pair.kind }}: {{ state.report.pair.aRunId }} →
 							{{ state.report.pair.bRunId }}
 						</p>
+						<RunSummary :report="state.report" />
 						<div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
 							<span v-for="(count, name) in summary.counts" :key="name"
 								>{{ name }}: <strong>{{ count }}</strong></span
 							>
 						</div>
+						<p class="mt-2 text-xs text-ui-muted">Target states from stored rows (all targets): <span v-for="(count, name) in summary.states" :key="name">{{ name }}: {{ count }} · </span></p>
 						<p class="mt-3 text-xs text-ui-muted">
 							Noise floor:
 							{{
@@ -261,12 +265,15 @@ onUnmounted(() => {
 							}}. Display hint: {{ state.report.meta.matchBelow }}%. The ratio is not a verdict.
 						</p>
 					</section>
+					<ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
 					<component
 						:is="component"
 						:report="state.report"
 						:target-id="state.targetId"
 						:viewport-id="state.viewportId"
 						:source="state.source"
+						:targets="filteredTargets"
+						:filters="state.filters"
 						@action="dispatch"
 					/>
 				</template>

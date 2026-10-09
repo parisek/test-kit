@@ -15,7 +15,7 @@ const target = computed(() => props.report.entries.find((item) => item.id === pr
 const row = computed(
 	() =>
 		target.value?.viewports.find((item) => item.id === props.viewportId) ??
-		target.value?.viewports[0],
+		(props.viewportId == null ? target.value?.viewports[0] : null),
 );
 const parts = computed(() =>
 	(Array.isArray(target.value?.composedOf) ? target.value.composedOf : [])
@@ -62,12 +62,12 @@ const ratio = computed(() => {
 		<label class="my-4 flex flex-wrap items-center gap-2 text-sm"
 			>Viewport
 			<select
-				:value="row?.id"
+				:value="viewportId ?? row?.id"
 				aria-label="Viewport"
 				class="rounded-ui-panel border border-ui-control-border bg-ui-surface px-2 py-1 text-ui-text"
 				@change="emit('action', 'viewport', $event.target.value)"
 			>
-				<option v-for="viewport in target.viewports" :key="viewport.id" :value="viewport.id">
+				<option v-for="viewport in report.meta.viewports" :key="viewport.id" :value="viewport.id">
 					{{ viewport.id }}
 				</option>
 			</select></label
@@ -114,6 +114,7 @@ const ratio = computed(() => {
 				}}</pre>
 			</details></template
 		>
+		<p v-else class="my-4 text-sm">Missing evidence for {{ viewportId ?? 'this target' }}. This measurement is unclassified.</p>
 		<h3 class="mt-5 font-semibold">Findings ({{ findings.length }})</h3>
 		<pre
 			v-for="(finding, index) in findings"

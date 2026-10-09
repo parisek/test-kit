@@ -99,11 +99,33 @@ try {
 		assert.equal(await page.locator('#content script, #content img').count(), 0);
 		for (const view of ['detail', 'matrix', 'timeline', 'findings']) {
 			await page.locator(`[data-view=${view}]`).click();
+            await page.waitForFunction((selected) =>
+                document.querySelector('[data-view="' + selected + '"]').getAttribute('aria-current') === 'page', view);
+            const visible = {
+                detail: page.getByRole('heading', { name: 'Example page', exact: true }),
+                matrix: page.locator('#content table'),
+                timeline: page.getByRole('heading', { name: 'Before (a)', exact: true }),
+                findings: page.getByRole('heading', { name: 'Unknown change', exact: true }),
+            };
+            await visible[view].waitFor();
 			assert.ok(
 				await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
 				`${view} overflows at ${width}`,
 			);
 		}
+
+        assert.match(await page.locator('[aria-label="Compared runs"]').textContent(), /Before/);
+        await page.getByLabel('Measurement filter').selectOption('failed');
+        assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);
+        assert.match(await page.locator('#content').textContent(), /incomplete:.*2/s);
+        assert.match(await page.locator('#content').textContent(), /Availability problems: 1/);
+        await page.getByLabel('Measurement filter').selectOption('missing');
+        assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);
+        await page.getByRole('button', { name: 'Clear filters' }).click();
+        await page.getByLabel('Cause filter').selectOption('cause:cause');
+        await page.getByRole('button', { name: 'Example page · mobile evidence' }).click();
+        assert.equal(await page.getByLabel('Viewport', { exact: true }).inputValue(), 'mobile');
+        await page.getByRole('button', { name: 'Clear filters' }).click();
 		await page.locator('[data-view=detail]').click();
 		assert.match(await page.locator('#content').textContent(), /http-error/);
 		await page.getByLabel('Viewport', { exact: true }).selectOption('desktop');

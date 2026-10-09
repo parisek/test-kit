@@ -1,7 +1,7 @@
 <script setup>
 import { targetClass, targetState, cellClass, cellState } from '../../../src/report/classify.js';
 import Badge from './Badge.vue';
-defineProps({ report: Object, targetId: String, viewportId: String, source: String });
+defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array });
 const emit = defineEmits(['action']);
 function ratio(row) {
 	const value = row.ratio ?? row.artifacts?.screenshot?.diff?.ratio;
@@ -21,7 +21,7 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 				</tr>
 			</thead>
 			<tbody>
-				<tr v-for="target in report.entries" :key="target.id" class="border-t border-ui-border">
+				<tr v-for="target in targets ?? report.entries" :key="target.id" class="border-t border-ui-border">
 					<th scope="row" class="min-w-44 p-4 align-top">
 						<button
 							:aria-current="String(targetId === target.id)"
@@ -41,6 +41,7 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 						:key="viewport.id"
 						class="min-w-48 p-4 align-top"
 					>
+						<button class="mb-2 underline focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id, viewportId: viewport.id })" :disabled="!rowFor(target, viewport.id)">Open {{ viewport.id }} evidence</button>
 						<div class="flex flex-wrap gap-1">
 							<Badge :text="cellClass(report, target, viewport.id) ?? 'unclassified'" /><Badge
 								:text="cellState(target, viewport.id)"
