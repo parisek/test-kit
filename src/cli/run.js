@@ -1,16 +1,17 @@
+import { builtinChecks } from '../checks/index.js';
 export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
-  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status]
-  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND]
+  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content]
+  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
-  query REPORT --target ID --viewport ID --artifact html|status [--max-lines N]
-  record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html --cause ID --reason TEXT
+  query REPORT --target ID --viewport ID --artifact html|status|content [--max-lines N]
+  record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT
   serve REPORT [--port N]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
+const FLAGS = { capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -34,9 +35,13 @@ export function parseCommand(argv) {
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
   if (command === 'capture' && !options.side) throw new Error('capture requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
-  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status');
-  if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
-  if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status'].includes(kind))) throw new Error('Unknown capture artifact');
+  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status', 'content'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status|content');
+  if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
+  if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content'].includes(kind))) throw new Error('Unknown capture artifact');
+  if (options.checks) {
+    const ids = options.checks.split(',');
+    if (ids.length > 6 || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');
+  }
   if (options['max-lines']) options.maxLines = integer(options['max-lines'], '--max-lines', 1, 100);
   if (options.kind && !['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'].includes(options.kind)) throw new Error('Unknown pair kind');
   if (options.filter && !['all', 'match', 'explained', 'unexplained', 'oracle', 'incomplete', 'availability'].includes(options.filter)) throw new Error('Unknown summary filter');
@@ -55,7 +60,7 @@ async function dispatch({ command, positions, options }) {
     const { compareRuns } = await import('../compare/runs.js');
     const { resolve } = await import('node:path');
     const loaded = await loadConfig(options.config ?? 'test-kit.config.json');
-    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind ?? 'update', rules: loaded.config.rules, known_diffs: loaded.config.known_diffs });
+    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind ?? 'update', rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage });
     return { output: { reportPath: result.reportPath }, exitCode: 0 };
   }
   if (command === 'summary') {

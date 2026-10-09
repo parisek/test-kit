@@ -24,13 +24,13 @@ export async function buildDemo({ outputRoot } = {}) {
         { id: 'catalogue', title: 'Component catalogue', kind: 'page', path: '/catalogue' },
         { id: 'support', title: 'Support page', kind: 'page', path: '/support' }],
       viewports: [{ id: 'desktop', width: 1280, height: 900 }, { id: 'mobile', width: 390, height: 844 }],
-      artifacts: ['screenshot', 'html', 'status'], runsRoot: 'runs' };
+      artifacts: ['screenshot', 'html', 'status', 'content'], checks: ['empty-title', 'lang', 'empty-alt', 'internal-links', 'text-difference'], content: { expectedLanguage: 'en' }, runsRoot: 'runs' };
     await writeFile(configPath, JSON.stringify(config, null, 2));
     const a = await capture({ configPath, side: 'before', label: 'Before update' });
     const b = await capture({ configPath, side: 'after', label: 'After update' });
-    if (a.run.state !== 'complete' || b.run.state !== 'complete') throw new Error('Demo capture is incomplete.');
+    if ([a.run, b.run].some(run => run.captures.some(row => row.state !== 'captured' || ['html', 'status'].some(kind => row.artifacts?.[kind]?.state !== 'captured') || (!config.targets.find(target => target.id === row.targetId)?.selector && row.artifacts?.content?.state !== 'captured')))) throw new Error('Demo capture is incomplete.');
     const raw = await compareRuns({ runsRoot: join(root, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(root, 'raw-report'), kind: 'adhoc' });
-    for (const finding of raw.report.findings.filter(finding => finding.targetId === 'card')) {
+    for (const finding of raw.report.findings.filter(finding => finding.targetId === 'card' && ['screenshot', 'html'].includes(finding.artifact))) {
       await recordKnown({ reportPath: raw.reportPath, configPath, target: finding.targetId, viewport: finding.viewportId,
         artifact: finding.artifact, cause: 'planned-price-change', reason: 'The local fixture changes the plan price from 29 to 39. This is an explicit demo acceptance.' });
     }

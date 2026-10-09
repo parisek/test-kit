@@ -1,3 +1,6 @@
+import { gzipSync } from 'node:zlib';
+import { extractContentSnapshot } from '../content/extract.js';
+import { contentSettings } from '../config/settings.js';
 import { responseSettings } from '../config/settings.js';
 import { storeResponse } from '../artifacts/response.js';
 import { mkdir, writeFile, rename, readFile, access, unlink } from 'node:fs/promises';
@@ -109,7 +112,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     statusCode = response.status();
     finalPath = new URL(response.url()).pathname;
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
-    if (!config.artifacts.includes('screenshot')) {
+    if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content')) {
       if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
     }
@@ -118,6 +121,44 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     await page.evaluate(async () => { await document.fonts.ready; });
     if (recipe.waitMs) await page.waitForTimeout(recipe.waitMs);
     if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+    if (config.artifacts.includes('content')) {
+      phase = 'content';
+      const index = { kind: 'content', ...provenance.content };
+      let contentFile;
+      let bodyFile;
+      try {
+        if (target.selector) throw new Error('Component content scope is not supported.');
+        const snapshot = await extractContentSnapshot(page);
+        const body = await page.evaluate(() => {
+          const html = document.documentElement.outerHTML;
+          if (html.length > 2 * 1024 * 1024) throw new Error('DOM body exceeds its limit.');
+          return html;
+        });
+        const bodyBytes = Buffer.from(body);
+        if (bodyBytes.length > 2 * 1024 * 1024) throw new Error('DOM body exceeds its limit.');
+        const bytes = Buffer.from(JSON.stringify(snapshot));
+        if (bytes.length > 2 * 1024 * 1024 || expired || blocked || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
+        const path = `content/${target.id}/${viewport.id}.json.gz`;
+        contentFile = join(runDir, path);
+        const bodyPath = `content/${target.id}/${viewport.id}.body.html.gz`;
+        bodyFile = join(runDir, bodyPath);
+        await mkdir(dirname(join(runDir, path)), { recursive: true });
+        if (expired || blocked) throw new Error('Content capture is unavailable.');
+        const compressed = gzipSync(bytes);
+        await writeFile(contentFile, compressed, { mode: 0o600 });
+        await writeFile(bodyFile, gzipSync(bodyBytes), { mode: 0o600 });
+        if (expired || blocked || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
+        artifacts.content = { ...index, state: 'captured', path, bodyPath, bodyBytes: bodyBytes.length, bytes: compressed.length }; 
+      } catch {
+        if (contentFile) await unlink(contentFile).catch(() => {});
+        if (bodyFile) await unlink(bodyFile).catch(() => {});
+        artifacts.content = { ...index, state: 'failed', error: { code: 'CONTENT_CAPTURE_FAILED', message: target.selector ? 'Component content scope is not supported. Select a page target.' : 'Content snapshot is unavailable or exceeds its limit.' } };
+      }
+    }
+    if (!config.artifacts.includes('screenshot')) {
+      if (blocked || expired || !isLocalUrl(page.url())) throw new Error('Capture is unavailable.');
+      return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
+    }
     phase = 'screenshot';
     let locator;
     let size;
@@ -198,7 +239,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     run.tools.push({ name: 'chromium', version: browser.version(), settingsHash: hash });
     const provenance = Object.fromEntries(config.artifacts.filter(kind => kind !== 'screenshot').map(kind => [kind, {
       tool: 'playwright', version: tool.version, browserVersion: browser.version(),
-      settingsHash: settingsHash({ ...responseSettings(config, kind), browser: BROWSER_SETTINGS }),
+      settingsHash: settingsHash({ ...(kind === 'content' ? contentSettings(config, side) : responseSettings(config, kind)), browser: BROWSER_SETTINGS }),
     }]));
     for (const [artifact, index] of Object.entries(provenance)) run.tools.push({ name: index.tool, version: index.version, settingsHash: index.settingsHash, artifact });
     await writeManifest(manifestPath, run);

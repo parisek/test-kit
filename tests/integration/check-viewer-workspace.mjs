@@ -11,7 +11,7 @@ const directory = await mkdtemp(join(tmpdir(), 'test-kit-workspace-'));
 let server, browser;
 try {
   const demo = await buildDemo({ outputRoot: directory });
-  assert.deepEqual(demo.summary.counts, { unexplained: 2, explained: 1, match: 2, incomplete: 0, oracle: 0, unclassified: 0, total: 5 });
+  assert.deepEqual(demo.summary.counts, { unexplained: 4, explained: 1, match: 0, incomplete: 2, oracle: 0, unclassified: 0, total: 5 });
   server = await serve({ reportPath: demo.reportPath });
   browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -23,14 +23,15 @@ try {
   await page.getByRole('button', { name: 'Behavior · Prototype', exact: true }).click();
   await page.getByRole('heading', { name: 'Behavior contracts', exact: true }).waitFor();
   assert.match(await page.locator('#content').textContent(), /No runner or check produced/);
-  await page.getByRole('button', { name: 'Content · Prototype', exact: true }).click();
-  await page.getByRole('heading', { name: 'Content checks', exact: true }).waitFor();
+  await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: 'Content', exact: true }).click();
+  await page.locator('[aria-label="Stored content checks"]').waitFor();
+  assert.match(await page.locator('#content').textContent(), /No new crawl/);
   await page.getByRole('button', { name: 'Lighthouse · Prototype', exact: true }).click();
   await page.getByRole('heading', { name: 'Performance lab', exact: true }).waitFor();
   assert.match(await page.locator('#content').textContent(), /Illustrative median/);
   await page.locator('[data-view=content]').click();
-  await page.locator('[aria-label="Planned artifact overview"]').waitFor();
-  assert.equal(await page.getByRole('button', { name: 'Explore prototype', exact: true }).count(), 5);
+  await page.locator('[aria-label="Measured content overview"]').waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Open check evidence →', exact: true }).count(), 5);
   await page.locator('[data-view=speed]').click();
   await page.locator('[aria-label="Planned artifact overview"]').getByRole('article').filter({ hasText: 'Component catalogue' }).getByRole('button').click();
   await page.getByText('Comparison unavailable · Simulated incompatible pair', { exact: true }).waitFor();
@@ -82,8 +83,8 @@ try {
     await preview.goto(server.origin);
     await preview.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
     if (width >= 1100) assert.equal(await preview.locator('.viewer-toolbar').evaluate(node => node.getBoundingClientRect().height), 66);
-    for (const name of ['Behavior · Prototype', 'Content · Prototype', 'Lighthouse · Prototype']) {
-      await preview.getByRole('button', { name, exact: true }).click();
+    for (const name of ['Behavior · Prototype', 'Content', 'Lighthouse · Prototype']) {
+      await preview.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name, exact: true }).click();
       assert.equal(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name} overflows at ${width}`);
       await preview.locator('#theme').click();
       assert.equal(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

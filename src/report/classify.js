@@ -16,15 +16,17 @@ export function causeIsKnown(report, causeId) {
 export function cellState(target, viewportId) {
 	const cell = target.viewports.find((row) => row.id === viewportId);
 	const stored = cell?.state ?? (cell?.error ? 'failed' : cell ? 'complete' : 'missing');
-	const states = [stored, cell?.artifacts?.html?.state, cell?.artifacts?.screenshot?.state].filter(Boolean);
-	if (cell?.artifacts?.status && !cell.artifacts.html && !cell.artifacts.screenshot) states.push(cell.artifacts.status.state);
+	const states = [stored, cell?.artifacts?.html?.state, cell?.artifacts?.screenshot?.state, cell?.artifacts?.content?.state].filter(Boolean);
+	if (cell?.artifacts?.status && !cell.artifacts.html && !cell.artifacts.screenshot && !cell.artifacts.content) states.push(cell.artifacts.status.state);
 	return ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? stored;
 }
 
 export function cellClass(report, target, viewportId) {
 	if (cellState(target, viewportId) !== 'complete') return null;
+	const contentCell = target.viewports.find(row => row.id === viewportId);
+	if (contentCell?.artifacts?.content && !contentCell.artifacts.screenshot && !contentCell.artifacts.html && !contentCell.artifacts.content.diff?.checks) return null;
 	const cell = target.viewports.find((row) => row.id === viewportId);
-	if (cell?.artifacts?.status && !cell.artifacts.screenshot && !cell.artifacts.html) return null;
+	if (cell?.artifacts?.status && !cell.artifacts.screenshot && !cell.artifacts.html && !cell.artifacts.content) return null;
 	if (target.judge === 'oracle') return 'oracle';
 	const findings = findingsFor(report, target.id, { viewportId }).filter(finding => finding.artifact !== 'status');
 	if (findings.length) return findings.every((finding) => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';

@@ -22,3 +22,8 @@ export function responseSettings(config, kind) {
   return { mode: kind === 'html' ? 'response-body' : 'http-metadata', version: 1,
     viewports: config.viewports, maxBytes: 2 * 1024 * 1024 };
 }
+
+export function contentSettings(config, side) {
+  const { masks, ...settle } = config.sides[side].settle;
+  return { mode: 'settled-dom', extractorVersion: '1.0.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
+}
