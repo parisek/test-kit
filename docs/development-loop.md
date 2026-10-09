@@ -1,6 +1,6 @@
 # Development loop proposal
 
-Status: draft for remaining owner decisions. This file does not change the specification.
+Status: accepted development plan. Specification reconciliation is a separate task.
 Requirements: R4.4, R11.6, R12.4, R13.9–R13.11, R13.24–R13.31.
 
 ## First usable result
@@ -55,8 +55,9 @@ not prove that a release installs. Test the git-tag path separately.
 Each issue contains: problem, numbered requirements, scope, exclusions,
 dependencies, decision gates, compatibility surface, acceptance examples,
 test commands, and evidence to retain. Each issue has one logical draft PR.
-An issue is eligible only when its decisions are resolved and dependencies are
-merged. A draft PR does not satisfy a dependency.
+An issue is eligible for standalone work when its decisions are resolved and
+dependencies are merged. A draft PR does not satisfy a dependency. Dependent
+layers may develop together in a native stack under the rules below.
 
 Suggested states: proposed, ready, active, review, awaiting-owner, blocked, done.
 Use these as an agreed convention before adding labels or editing issues.
@@ -80,11 +81,48 @@ issues when the owner has not merged a dependency.
 9. Review the final head. If the diff changes after review, review the changed
    surface again. Record which exact SHA the review covers.
 10. Leave the PR as a draft for the owner. Select another independent issue,
-    or wait for a merge or a decision. Never start a dependent issue early.
+    or wait for a merge or a decision. Use the native stack exception below for
+    an approved cohesive feature with dependent layers.
 
-Default proposal: at most three repair cycles for the same failing acceptance
-case, then report the cause and alternatives. This is a proposal, not an
-approved budget. Do not invent a workaround that weakens an acceptance test.
+## Native GitHub planning and review
+
+A root issue tracks delivery. Its sub-issues track release outcomes. Each release
+issue has implementation sub-issues. GitHub milestones group planned tags such
+as `0.1.0`. They do not set release dates. Native blocked-by links express
+prerequisites. Parent-child links express scope, not execution order.
+
+Use native stacked PRs when a single settled feature has small dependent layers
+that reviewers can assess separately. Keep independent work on separate branches.
+A stack stays in one repository. Cross-repository migration PRs use issue links.
+
+Use `gh stack init`, `gh stack add`, and `gh stack submit --auto`. The last command
+creates drafts by default. Never pass `--open` or use `gh stack merge`. Assign
+each PR to `parisek`, link its leaf issue, and describe its layer and prerequisites.
+Do not emulate native stacks by changing PR base branches manually.
+
+A dependent layer may start before merge only when its prerequisite contract is
+settled, its lower layer passes local checks, and both belong to the same feature
+stack. Keep the issue dependency unresolved until the lower layer merges. Review
+each layer's own diff and test the cumulative stack. Record base and head SHAs.
+After a lower-layer edit, use `gh stack rebase` and `gh stack push`, then rerun
+affected checks and reviews. After owner merges, use `gh stack sync` and verify
+the remaining diffs. Native stack support must work before this exception applies.
+
+GitHub evaluates native stack checks against the trunk. Keep checks enabled on
+every layer. A stack does not bypass owner review, CI, migration prerequisites,
+or release gates. Do not stack across an unresolved conceptual decision.
+
+For visual changes, attach synthetic before, after, and diff screenshots directly
+to PR bodies with `gh pr edit --body-file ... --attach ...`. Use clear alt text,
+target, viewport, capture settings, and head SHA. Inspect every image before upload.
+Client captures stay local even when the target is a local DDEV site. Use
+`example-site` fixtures for public evidence. Do not commit images merely to get
+an image URL. If an attachment upload partly fails, inspect the existing PR and
+repair it rather than creating another PR.
+
+Accepted retry policy: at most three repair cycles for the same failing acceptance
+case, then report the cause and alternatives. This is not a spending limit.
+Do not invent a workaround that weakens an acceptance test.
 
 The reviewer has a separate session and does not edit the implementation.
 Use a different model when available and approved. If it is unavailable, state
@@ -102,7 +140,7 @@ PRs. A lock prevents two invocations from selecting the same issue.
 
 An active Codex goal can drive the current milestone. A heartbeat can resume
 after CI or an owner merge. Configure the continuation only after the owner
-chooses its scope, budget, and review provider. The machine must stay available
+records its scope, spending limit if any, and review provider. The machine must stay available
 for local work. A prompt alone does not make DDEV or a second model available.
 
 ## Decision boundary
@@ -112,25 +150,31 @@ repair review and CI findings, select skeletons, and use a designated local
 Drupal pilot. All target access stays local. The owner keeps merge and release
 authority. The pilot identity and paths stay in ignored local state.
 
-Proposals: MIT licence; screenshot A/B, viewer, and summary for the first version;
+The owner accepts these choices in the Codex chat on 2026-10-09: MIT licence;
+screenshot A/B, viewer, and summary for the first version;
 component-specific behavior contracts stay with the components; no checks run
 by default in the first screenshot milestone. Resolve later check defaults before
-that milestone. Do not add a licence or change those specification decisions as
-part of this infrastructure PR.
+the content milestone. Reconcile the accepted choices with the specification and
+its parent issue in TK-01. Add the licence before the first tag. Do not treat these
+accepted choices as unresolved gates on restart.
 
 Routine implementation choices: file names, internal functions, test fixtures,
 error wording, and fixes within the approved contract.
 
-Owner decisions: licence, first milestone scope, new defaults, behavior contract
-ownership, engine scope, snapshot deletion policy, production access, breaking
-project interfaces, review provider and budget, merge and release authority.
+Remaining owner decisions: cross-engine scope, later check defaults, snapshot
+deletion policy, breaking project interfaces, review provider availability, and
+an optional spending limit. Merge and release authority remain with the owner.
 
-Proposed default: local targets only; automatic implementation, review repair,
-issues and draft PRs within accepted scope; owner merge and release. Do not
-publish or enable the loop until these choices are recorded.
+Accepted boundary: local targets only; automatic implementation, review repair,
+issues and draft PRs within accepted scope; owner merge and release. Record the
+operational goal and review provider before enabling continuous execution.
 
 ## Sources
 
 - Specification: https://github.com/parisek/test-kit/blob/main/docs/specification.md
 - Parent issue: https://github.com/portadesign/tailwind-base/issues/873
 - Codex goals: https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex
+- Sub-issues: https://docs.github.com/en/rest/issues/sub-issues
+- Dependencies: https://docs.github.com/en/rest/issues/issue-dependencies
+- Native stacks: https://docs.github.com/en/pull-requests/reference/stacked-pull-requests
+- Attachments: https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli
