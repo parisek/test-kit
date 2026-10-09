@@ -366,7 +366,7 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 | Speed run count and noise band in a DDEV setup | not measured |
 | Install from a git tag and from a `semver:` range (section 13.2) | verified on a local copy |
 | Local Drupal screenshot pilot | two targets, two viewports; repeated A/A has no screenshot findings, 2026-10-09 |
-| `git` inside the DDEV container | installation check pending before tag |
+| `git` inside the DDEV container | git 2.47.3; pinned GitHub commit installation verified, 2026-10-09 |
 | The tag workflow (version check, GitHub Release) | not run; the first real tag is the test |
 | Agent `summary` size | measured 1310 bytes for the six-target synthetic browser report, 2026-10-09 |
 
