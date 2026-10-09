@@ -1,26 +1,78 @@
 # test-kit
 
-Status: **early scaffold**. The command line starts and lists the planned commands. Nothing else is built yet.
+`@parisek/test-kit` compares two local screenshot runs. A project supplies its
+sides, target paths, viewports, and settle settings. Capture records evidence.
+Compare reads stored runs. The viewer and JSON summary use the same classifier.
 
-A tool for testing and comparing a site: pairs of runs, pluggable checks, one viewer, one query interface for agents.
-It takes over the testing tools of `tailwind-base` step by step, and the ESLint and Stylelint rules too.
+Version 0.1 supports screenshots only. No content checks run by default.
+HTML, behavior, content, speed, and lint migration remain later milestones.
+The Node engine belongs here. PHP and Twig lint belong to
+[`lint-kit`](https://github.com/parisek/lint-kit).
 
-The dividing line to [`lint-kit`](https://github.com/parisek/lint-kit) is the toolchain, not the purpose: `test-kit` is the Node side (npm from a git tag), `lint-kit` is the PHP and Twig side (Composer from Packagist).
+## Install
 
-- Specification: [`docs/specification.md`](docs/specification.md), kept in step with [portadesign/tailwind-base#873](https://github.com/portadesign/tailwind-base/issues/873).
-- Plan: specification section 14. One pull request for each step.
-- Decision record: [`docs/adr/`](docs/adr/).
-- Viewer prototype: branch `prototype/viewer-app`.
+Use Node 20 or later. Install from an exact git tag, not the npm registry.
+Run installation in the project theme directory. DDEV projects may use
+`ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
-```bash
-npm test                      # node --test, no dependency
+```sh
+npm install -D github:parisek/test-kit#v0.1.0
+npm install -D @playwright/test
+npx playwright install chromium
+```
+
+## Configure
+
+Save `test-kit.config.json` in the theme directory. Use the local project origin.
+Keep `tests/visual/runs/` and comparison output outside git.
+
+```json
+{
+  "schemaVersion": 1,
+  "sides": {
+    "local": {
+      "origin": "http://localhost:8080",
+      "settle": {"waitMs": 0, "selectors": [], "disableMotion": true, "masks": []}
+    }
+  },
+  "targets": [{"id": "home", "kind": "page", "title": "Home", "path": "/"}],
+  "viewports": [{"id": "desktop", "width": 1280, "height": 800}],
+  "artifacts": ["screenshot"],
+  "checks": []
+}
+```
+
+## Compare
+
+Capture before and after a change. The capture command prints each run ID.
+Use those IDs in the comparison command. Use an empty output directory.
+
+```sh
+npx test-kit capture --config test-kit.config.json --side local --label before
+npx test-kit capture --config test-kit.config.json --side local --label after
+npx test-kit diff <run-a> <run-b> --output tests/visual/report
+npx test-kit summary tests/visual/report/report.json --filter all --max-targets 20
+npx test-kit serve tests/visual/report/report.json
+```
+
+The server prints its loopback URL. Stop it after review. A failed capture is
+incomplete evidence. An HTTP error remains visible even when screenshots match.
+An unknown noise floor is explicit. A pixel ratio is a compass, not a verdict.
+Client captures and project configuration stay local.
+
+## Development
+
+```sh
+npm ci
+npm test
 node bin/cli.js --help
 ```
 
-Install in a project, from a git tag (no npm registry; see [`RELEASING.md`](RELEASING.md)). No tag exists yet:
+- [Specification](docs/specification.md), synchronized with
+  [the parent issue](https://github.com/portadesign/tailwind-base/issues/873).
+- [Screenshot contracts](docs/contracts.md).
+- [Local workflow](docs/usage.md).
+- [Release procedure](RELEASING.md).
+- [Roadmap](https://github.com/parisek/test-kit/issues/5).
 
-```bash
-ddev npm install -D github:parisek/test-kit#v0.2.0
-```
-
-Related: [`lint-kit`](https://github.com/parisek/lint-kit), the lint rules.
+The package uses the MIT licence. It has no build step.

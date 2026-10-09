@@ -1,4 +1,6 @@
-# Global configuration of test-kit for one project. `test-kit init` will copy this file.
+# Planned configuration sketch. Version 0.1 accepts JSON only.
+# Use test-kit.config.json. The CLI has no init command in version 0.1.
+# Future global configuration of test-kit for one project.
 # Specification: docs/specification.md, section 5.
 
 sides:
