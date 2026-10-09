@@ -43,6 +43,9 @@ jobs:
       - run: npm ci --prefix frontend
       - run: npm run test:viewer
       - run: npm run check:viewer
+      - run: node tests/integration/check-consumer-install.mjs
+        env:
+          TEST_KIT_CONSUMER_ALLOW_NETWORK: 1
       - run: npx playwright install --with-deps chromium
       - run: node tests/integration/check-example-site.mjs
       - run: node tests/integration/check-capture-guards.mjs
