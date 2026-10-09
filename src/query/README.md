@@ -1,5 +1,5 @@
 # src/query
 
-The queries an agent can ask: `summary`, `diff`, `content`, `perf`, `behavior`. Size limits are mandatory. Spec section 11.
-
-Status: planned. Nothing is built here yet.
+`summary.js` exports the pure `summarizeReport` query. It shares classification
+with the viewer. Lists are bounded; aggregate counts cover the full report.
+Other section 11 queries remain planned.
