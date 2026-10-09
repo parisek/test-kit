@@ -1,5 +1,6 @@
 <script setup>
 import { sameOriginUrl } from '../../../src/report/safe.js';
+import BehaviorComparison from './BehaviorComparison.vue';
 import ContentComparison from './ContentComparison.vue';
 import HtmlDiff from './HtmlDiff.vue';
 import StatusComparison from './StatusComparison.vue';
@@ -7,7 +8,7 @@ const props = defineProps({ row: Object, source: String, evidence: Object, kind:
 const emit = defineEmits(['action']);
 </script>
 <template>
-    <section class="min-w-0" :aria-label="kind === 'html' ? 'HTML response evidence' : kind === 'content' ? 'Stored content evidence' : 'HTTP status evidence'">
+    <section class="min-w-0" :aria-label="kind === 'html' ? 'HTML response evidence' : kind === 'behavior' ? 'Behavior contract evidence' : kind === 'content' ? 'Stored content evidence' : 'HTTP status evidence'">
         <template v-if="row?.artifacts?.[kind]">
             <p v-if="row.artifacts[kind].state !== 'complete'" role="status" class="mb-4 rounded-ui-panel border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ row.artifacts[kind].state ?? 'Missing' }} evidence. {{ row.artifacts[kind].diagnostic ?? 'This artifact cannot be compared.' }}</p>
             <div class="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ui-muted">
@@ -19,6 +20,7 @@ const emit = defineEmits(['action']);
                 <p v-if="evidence.loading" role="status" class="rounded-ui-panel border border-ui-border p-6 text-sm text-ui-muted">Loading evidence…</p>
                 <div v-else-if="evidence.error" role="status" class="rounded-ui-panel border border-ui-border p-4 text-sm"><p class="text-red-700 dark:text-red-300">{{ evidence.error }}</p><button v-if="row.artifacts[kind].diff?.src" class="mt-3 underline" @click="emit('action', 'load-artifact', kind)">Retry evidence</button></div>
                 <HtmlDiff v-else-if="kind === 'html' && evidence.data" :data="evidence.data" :view="evidenceView" @action="(...args) => emit('action', ...args)" />
+                <BehaviorComparison v-else-if="kind === 'behavior' && evidence.data" :data="evidence.data" :source="source" />
                 <ContentComparison v-else-if="kind === 'content' && evidence.data" :data="evidence.data" />
                 <StatusComparison v-else-if="kind === 'status' && evidence.data" :data="evidence.data" />
                 <p v-else class="text-sm text-ui-muted">No comparison detail is available.</p>

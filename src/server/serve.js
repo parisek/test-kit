@@ -2,6 +2,7 @@ import http from 'node:http';
 import { realpath, open } from 'node:fs/promises';
 import { dirname, resolve, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { comparisonDetail } from '../artifacts/schema.js';
 import { adaptReport } from '../report/model.js';
 import { relativePath } from '../report/safe.js';
 
@@ -35,7 +36,8 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 	const report = adaptReport(JSON.parse(reportBytes));
 	const assets = new Set();
 	const sidecars = new Map();
-	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content']) {
+	const attachments = new Set();
+	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior']) {
 		for (const side of ['a', 'b', 'diff', 'normalizedA', 'normalizedB']) {
 			const index = row.artifacts?.[kind]?.[side];
 			if (relativePath(index?.src)) sidecars.set(index.src, kind === 'html' && side !== 'diff' ? 'text/plain; charset=utf-8' : 'application/json');
@@ -44,6 +46,19 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 	for (const entry of report.entries) for (const row of entry.viewports) for (const shot of Object.values(row.artifacts?.screenshot ?? {})) {
 		if (relativePath(shot?.src) && extname(shot.src) === '.png') assets.add(shot.src);
 	}
+	for (const entry of report.entries) for (const row of entry.viewports) {
+    const index = row.artifacts?.behavior?.diff;
+    if (!relativePath(index?.src)) continue;
+    const file = await realpath(resolve(reportRoot, index.src));
+    const offset = relative(reportRoot, file);
+    if (!offset || offset.startsWith('../') || offset === '..') throw new Error('Behavior sidecar escapes report root.');
+    const detail = comparisonDetail('behavior', JSON.parse(await boundedRead(file, 2 * 1024 * 1024)));
+    for (const step of detail.steps) for (const result of [step.resultA, step.resultB]) {
+      const src = result?.evidence?.screenshot;
+      if (relativePath(src) && src.endsWith('.png')) assets.add(src);
+    }
+    for (const src of [detail.traceA, detail.traceB]) if (relativePath(src) && src.endsWith('.zip')) attachments.add(src);
+  }
 	const routes = new Map([
 		['/', [packageRoot, 'viewer/index.html', 'text/html']],
 		['/app.js', [packageRoot, 'viewer/app.js', 'text/javascript']],
@@ -66,6 +81,7 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 			}
 			let route = routes.get(path);
 			if (!route && assets.has(path.slice(1))) route = [reportRoot, path.slice(1), 'image/png'];
+			if (!route && attachments.has(path.slice(1))) route = [reportRoot, path.slice(1), 'application/zip'];
 			if (!route && sidecars.has(path.slice(1))) route = [reportRoot, path.slice(1), sidecars.get(path.slice(1))];
 			if (!route) { fail(404); return; }
 			const [root, filename, type] = route;
@@ -75,6 +91,7 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 			if (!within || within.startsWith('../') || within === '..') { fail(403); return; }
 			const bytes = await boundedRead(file, sidecars.has(path.slice(1)) ? 2 * 1024 * 1024 : MAX_BYTES);
 			if (sidecars.has(path.slice(1)) && bytes.length > 2 * 1024 * 1024) { fail(413); return; }
+			if (attachments.has(path.slice(1))) res.setHeader('Content-Disposition', 'attachment; filename="trace.zip"');
 			res.setHeader('Content-Type', type); res.setHeader('Content-Length', bytes.length);
 			res.end(req.method === 'HEAD' ? undefined : bytes);
 		} catch (error) { fail(error instanceof URIError ? 400 : error.code === 'ENOENT' ? 404 : error.code === 'EFBIG' ? 413 : 500); }

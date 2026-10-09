@@ -1,3 +1,4 @@
+import { compareBehaviorArtifact } from '../behavior/compare-artifact.js';
 import { compareContentArtifact } from '../content/compare-artifact.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { pairKey, policyHash, evidenceBinding, comparatorIndex } from '../rules/evidence.js';
@@ -167,7 +168,11 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.artifacts.content = content.artifact;
 				content.findings.forEach((finding, index) => findings.push({ targetId: finding.targetId, viewportId: finding.viewportId, artifact: 'content', checkId: finding.checkId, severity: finding.severity, message: finding.message, id: `content-${target.id}-${viewport.id}-${finding.checkId}-${index}` }));
 			}
-			const comparable = ['screenshot', 'html', 'content'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			if (requested.has('behavior')) {
+				const behavior = await compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
+				row.artifacts.behavior = behavior.artifact; findings.push(...behavior.findings);
+			}
+			const comparable = ['screenshot', 'html', 'content', 'behavior'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
 			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {
@@ -180,7 +185,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	}
 	const report = { schemaVersion: 2, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, entries, causes: [], findings, rules: {} };
 	const responseTools = new Map();
-	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content']) {
+	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior']) {
 		const index = row.artifacts[kind]?.diff;
 		if (index) responseTools.set(index.settingsHash, { name: index.tool, version: index.version, settingsHash: index.settingsHash });
 		const normalized = row.artifacts[kind]?.normalizedA;

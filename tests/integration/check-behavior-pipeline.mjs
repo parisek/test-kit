@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { capture } from '../../src/capture/index.js';
+import { compareRuns } from '../../src/compare/runs.js';
+import { queryArtifact } from '../../src/query/artifact.js';
+import { serve } from '../../src/server/serve.js';
+import { targetClass } from '../../src/report/classify.js';
+const directory = await mkdtemp(join(tmpdir(), 'test-kit-behavior-pipeline-'));
+let broken = false, navigations = 0, viewer;
+const site = createServer((request, response) => {
+  navigations++;
+  response.writeHead(200, { 'Content-Type': 'text/html' });
+  response.end(`<!doctype html><title>Example site</title><button aria-expanded="false">Open</button><script>window.dataLayer=[];document.querySelector('button').onclick=e=>{e.target.setAttribute('aria-expanded','${broken ? 'false' : 'true'}');console.log('opened');dataLayer.push({event:'open'});}</script>`);
+});
+await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
+try {
+  await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+  await writeFile(join(directory, 'package-lock.json'), '{"packages":{}}');
+  await mkdir(join(directory, 'contracts'));
+  await writeFile(join(directory, 'contracts', 'toggle.contract.js'), `export const name='toggle';export async function detect(page){return page.locator('button').all();}export async function run(page,button){await button.click();const expanded=await button.getAttribute('aria-expanded');if(expanded!=='true')throw new Error('Toggle does not expand.');return {expanded};}`);
+  const configPath = join(directory, 'config.json');
+  const config = { schemaVersion: 1, sides: { local: { origin: `http://127.0.0.1:${site.address().port}` } }, targets: [{ id: 'home', kind: 'page', path: '/' }], viewports: [{ id: 'wide', width: 640, height: 480 }], artifacts: ['screenshot', 'status', 'behavior'], behavior: { source: 'contracts', projects: { wide: 'desktop-1280' }, trace: true }, runsRoot: 'runs' };
+  await writeFile(configPath, JSON.stringify(config));
+  const a = await capture({ configPath, side: 'local' }); broken = true;
+  const b = await capture({ configPath, side: 'local' });
+  assert.equal(navigations, 2, 'Passive and behavior evidence share each target navigation.');
+  assert.equal(a.run.state, 'complete'); assert.equal(b.run.state, 'partial');
+  assert.equal(b.run.captures[0].state, 'captured', 'Failed behavior retains the passive screenshot.');
+  const result = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
+  const artifact = result.report.entries[0].viewports[0].artifacts.behavior;
+  assert.equal(artifact.state, 'failed'); assert.equal(targetClass(result.report, result.report.entries[0]), 'unexplained');
+  const query = await queryArtifact(result.reportPath, { target: 'home', viewport: 'wide', artifact: 'behavior', maxLines: 1 });
+  assert.equal(query.diff.steps.length, 1); assert.equal(query.diff.stepsOmitted, 1);
+  const detail = JSON.parse(await readFile(join(directory, 'report', artifact.diff.src)));
+  assert.equal(detail.steps[1].state, 'failed');
+  assert.equal(detail.steps[1].resultB.evidence.console[0].text, 'opened');
+  viewer = await serve({ reportPath: result.reportPath });
+  assert.equal((await fetch(`${viewer.origin}/${detail.steps[1].resultB.evidence.screenshot}`)).status, 200);
+  const trace = await fetch(`${viewer.origin}/${detail.traceB}`);
+  assert.equal(trace.status, 200); assert.match(trace.headers.get('content-disposition'), /attachment/);
+  assert.equal((await fetch(`${viewer.origin}/runs/${b.run.id}/run.json`)).status, 404);
+  console.log('Behavior pipeline: real capture, retained failure, bounded query, screenshot and trace serving verified.');
+} finally { if (viewer) await viewer.close(); await new Promise(resolve => site.close(resolve)); await rm(directory, { recursive: true, force: true }); }

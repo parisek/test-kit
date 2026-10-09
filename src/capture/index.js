@@ -1,3 +1,4 @@
+import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
 import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
 import { contentSettings } from '../config/settings.js';
@@ -51,7 +52,7 @@ async function playwright() {
   }
 }
 
-async function captureOne(browser, config, side, target, viewport, runDir, provenance) {
+async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource) {
   const identity = { targetId: target.id, viewportId: viewport.id };
   let artifacts = {};
   let statusCode;
@@ -72,7 +73,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.deviceScaleFactor,
       ignoreHTTPSErrors: BROWSER_SETTINGS.ignoreHTTPSErrors, serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
-      reducedMotion: recipe.disableMotion ? 'reduce' : 'no-preference',
+      reducedMotion: config.artifacts.includes('behavior') ? config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference') : recipe.disableMotion ? 'reduce' : 'no-preference',
+      ...(config.artifacts.includes('behavior') && config.behavior.emulate.colorScheme ? { colorScheme: config.behavior.emulate.colorScheme } : {}),
     });
     if (expired) { await context.close(); throw new Error('Capture deadline exceeded'); }
     if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
@@ -112,7 +114,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     statusCode = response.status();
     finalPath = new URL(response.url()).pathname;
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
-    if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content')) {
+    if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior')) {
       if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
     }
@@ -155,8 +157,24 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         artifacts.content = { ...index, state: 'failed', error: { code: 'CONTENT_CAPTURE_FAILED', message: target.selector ? 'Component content scope is not supported. Select a page target.' : 'Content snapshot is unavailable or exceeds its limit.' } };
       }
     }
+    const captureBehavior = async () => {
+      if (!config.artifacts.includes('behavior')) return;
+      phase = 'behavior';
+      const relativeDir = `behavior/${target.id}/${viewport.id}`;
+      try {
+        const result = await runBehavior({ page, ...behaviorSource, projectName: config.behavior.projects[viewport.id] ?? viewport.id,
+          emulate: { reducedMotion: config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference'), ...config.behavior.emulate },
+          artifactDir: join(runDir, relativeDir), relativeDir, timeoutMs: config.behavior.timeoutMs, maxInstances: config.behavior.maxInstances, trace: config.behavior.trace });
+        const bytes = Buffer.byteLength(JSON.stringify(result));
+        if (bytes > 2 * 1024 * 1024) throw new Error('Behavior result exceeds its limit.');
+        artifacts.behavior = { kind: 'behavior', tool: result.tool, version: result.version, settingsHash: result.settingsHash,
+          browserVersion: provenance.behavior.browserVersion, state: result.state === 'complete' && !blocked ? 'captured' : 'failed', path: `${relativeDir}/results.json`, bytes,
+          ...(result.state === 'complete' && !blocked ? {} : { error: { code: 'BEHAVIOR_INCOMPLETE', message: blocked ? 'A behavior request leaves the local environment or submits data.' : 'Behavior steps are failed, skipped, or incompatible.' } }) };
+      } catch { artifacts.behavior = { kind: 'behavior', ...provenance.behavior, state: 'failed', error: { code: 'BEHAVIOR_CAPTURE_FAILED', message: 'Behavior evidence is unavailable or exceeds its limit.' } }; }
+    };
     if (!config.artifacts.includes('screenshot')) {
       if (blocked || expired || !isLocalUrl(page.url())) throw new Error('Capture is unavailable.');
+      await captureBehavior();
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
     }
     phase = 'screenshot';
@@ -185,6 +203,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     assertImageBounds(width, height);
     if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
+    await captureBehavior();
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
       width, height, deviceScaleFactor: viewport.deviceScaleFactor, artifacts };
     })()]);
@@ -201,6 +220,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   const config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
+  const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile }) : null;
   const tool = await playwright();
   if (new URL(config.sides[side].origin).hostname.endsWith('.ddev.site')) {
     const cwd = await projectRoot(loaded.configDir);
@@ -220,7 +240,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   await mkdir(root, { recursive: true });
   await mkdir(runDir);
   const manifestPath = join(runDir, 'run.json');
-  const effectiveSettings = { ...captureSettings(config, side), browser: BROWSER_SETTINGS };
+  const effectiveSettings = { ...captureSettings(config, side), browser: BROWSER_SETTINGS, ...(behaviorSource ? { behavior: { ...config.behavior, fingerprint: behaviorSource.fingerprint } } : {}) };
   const hash = settingsHash(effectiveSettings);
   const run = { schemaVersion: 2, id, side, label, at: at.toISOString(), state: 'partial', settings: config,
     captureSettings: effectiveSettings, settingsHash: hash, tools: [{ name: 'playwright', version: tool.version, settingsHash: hash }], captures: [] };
@@ -238,13 +258,15 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     } finally { await probe.close(); }
     run.tools.push({ name: 'chromium', version: browser.version(), settingsHash: hash });
     const provenance = Object.fromEntries(config.artifacts.filter(kind => kind !== 'screenshot').map(kind => [kind, {
-      tool: 'playwright', version: tool.version, browserVersion: browser.version(),
+      tool: kind === 'behavior' ? 'test-kit-behavior' : 'playwright', version: kind === 'behavior' ? BEHAVIOR_VERSION : tool.version, browserVersion: browser.version(),
       settingsHash: settingsHash({ ...(kind === 'content' ? contentSettings(config, side) : responseSettings(config, kind)), browser: BROWSER_SETTINGS }),
     }]));
     for (const [artifact, index] of Object.entries(provenance)) run.tools.push({ name: index.tool, version: index.version, settingsHash: index.settingsHash, artifact });
     await writeManifest(manifestPath, run);
     for (const target of config.targets) for (const viewport of config.viewports) {
-      run.captures.push(await captureOne(browser, config, side, target, viewport, runDir, provenance));
+      run.captures.push(await captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource));
+      const behaviorIndex = run.captures.at(-1).artifacts?.behavior;
+      if (behaviorIndex?.path && !run.tools.some(item => item.settingsHash === behaviorIndex.settingsHash)) run.tools.push({ name: behaviorIndex.tool, version: behaviorIndex.version, settingsHash: behaviorIndex.settingsHash, artifact: 'behavior' });
       await writeManifest(manifestPath, run);
     }
     if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot').every(kind => result.artifacts?.[kind]?.state === 'captured'))) run.state = 'complete';

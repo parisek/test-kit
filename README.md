@@ -110,7 +110,7 @@ The layout uses the [visual reference](https://claude.ai/artifact/9ahvV58EoBk3ZG
 and the copied company UI contract. It does not copy reference sample data.
 
 The opt-in demo also previews behavior, content and Lighthouse interfaces.
-Behavior and Lighthouse prototype panels use simulated fixtures. The content tab uses real stored DOM snapshots and enabled checks.
+The behavior tab runs a local disclosure contract and retains a failed step. Lighthouse prototype panels use simulated fixtures. The content tab uses real stored DOM snapshots and enabled checks.
 They do not enter report findings, target classes or agent query results.
 The content overview appears when a report has content evidence. Speed previews use the demo prototype marker.
 The final artifact schema, runners and evidence loading remain future work.
@@ -137,3 +137,23 @@ test-kit query report-title/report.json --target home --viewport desktop --artif
 
 The original run manifests and snapshots stay unchanged (R7.1, R9.6, R12.3).
 Snapshot retention remains a project decision.
+
+### Project behavior contracts (unreleased)
+
+Add `behavior` to `artifacts`. Set `behavior.source` to a project directory.
+Each `*.contract.js` exports one contract or several named contracts.
+The project owns these files. The package owns the registry and runner.
+The source directory contains its local helper imports. A bounded source hash
+and the project lockfile bind the exact contract policy.
+
+`behavior.projects` maps viewport IDs to contract project names.
+`behavior.emulate` sets media before navigation. Contracts that need other media
+record incompatible evidence. Passive artifacts run first. Contract steps run
+on the same guarded local page. Remote requests, submissions and WebSockets
+remain blocked. Missing contract markers do not prove a pass.
+
+The viewer shows A/B steps, errors, screenshots and event evidence.
+With `behavior.trace: true`, traces stay local. The viewer shows the command
+to open them. Scoped queries accept `--artifact behavior --max-lines 10`.
+The legacy reporter, coverage and old command migration remain separate work
+under #25 and #45.

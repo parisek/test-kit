@@ -11,7 +11,7 @@ const directory = await mkdtemp(join(tmpdir(), 'test-kit-workspace-'));
 let server, browser;
 try {
   const demo = await buildDemo({ outputRoot: directory });
-  assert.deepEqual(demo.summary.counts, { unexplained: 4, explained: 1, match: 0, incomplete: 2, oracle: 0, unclassified: 0, total: 5 });
+  assert.deepEqual(demo.summary.counts, { unexplained: 4, explained: 1, match: 0, incomplete: 3, oracle: 0, unclassified: 0, total: 5 });
   server = await serve({ reportPath: demo.reportPath });
   browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -20,9 +20,9 @@ try {
   await page.goto(server.origin);
   await page.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
   // This section has an accessible label, but no region role without a heading in some browsers.
-  await page.getByRole('button', { name: 'Behavior · Prototype', exact: true }).click();
-  await page.getByRole('heading', { name: 'Behavior contracts', exact: true }).waitFor();
-  assert.match(await page.locator('#content').textContent(), /No runner or check produced/);
+  await page.getByRole('button', { name: 'Behavior', exact: true }).click();
+  await page.locator('[aria-label="Measured behavior steps"]').waitFor();
+  assert.match(await page.locator('#content').textContent(), /Disclosure does not open/);
   await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: 'Content', exact: true }).click();
   await page.locator('[aria-label="Stored content checks"]').waitFor();
   assert.match(await page.locator('#content').textContent(), /No new crawl/);
@@ -83,7 +83,7 @@ try {
     await preview.goto(server.origin);
     await preview.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
     if (width >= 1100) assert.equal(await preview.locator('.viewer-toolbar').evaluate(node => node.getBoundingClientRect().height), 66);
-    for (const name of ['Behavior · Prototype', 'Content', 'Lighthouse · Prototype']) {
+    for (const name of ['Behavior', 'Content', 'Lighthouse · Prototype']) {
       await preview.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name, exact: true }).click();
       assert.equal(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name} overflows at ${width}`);
       await preview.locator('#theme').click();

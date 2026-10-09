@@ -1,3 +1,4 @@
+import { validateBehaviorComparison } from '../behavior/compare.js';
 import { validateContentComparison } from '../content/compare.js';
 import { isHash } from '../rules/model.js';
 function integer(value, max = 2 * 1024 * 1024) {
@@ -13,6 +14,7 @@ export function statusDetail(value) {
     assets: { requests: value.assets.requests, failed: value.assets.failed, httpErrors: value.assets.httpErrors } };
 }
 export function comparisonDetail(kind, value, nested = false) {
+  if (kind === 'behavior') return validateBehaviorComparison(value);
   if (kind === 'content') return validateContentComparison(value);
   if (!value || typeof value.changed !== 'boolean') throw new Error('Invalid artifact comparison.');
   if (kind === 'status') return { changed: value.changed, a: statusDetail(value.a), b: statusDetail(value.b) };

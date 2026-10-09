@@ -17,6 +17,9 @@ export async function buildDemo({ outputRoot } = {}) {
   const sites = [await startDesignDemoSite(), await startDesignDemoSite({ variant: 'after' })];
   try {
     const configPath = join(root, 'test-kit.config.json');
+    await mkdir(join(root, 'contracts'));
+    await writeFile(join(root, 'package-lock.json'), JSON.stringify({ name: 'example-site', lockfileVersion: 3 }));
+    await writeFile(join(root, 'contracts/disclosure.contract.js'), `export default { name: 'disclosure', detect: async page => await page.locator('[data-demo-toggle]').count() ? ['[data-demo-toggle]'] : [], run: async (page, selector) => { await page.locator(selector).click(); const expanded = await page.locator(selector).getAttribute('aria-expanded'); if (expanded !== 'true') throw new Error('Disclosure does not open after activation.'); return { expanded: true }; } };`);
     const config = { schemaVersion: 1, sides: { before: { origin: sites[0].origin }, after: { origin: sites[1].origin } },
       targets: [{ id: 'home', title: 'Homepage', kind: 'page', path: '/' },
         { id: 'button', title: 'Primary button', kind: 'component', path: '/components/button', selector: '.primary-button' },
@@ -24,7 +27,7 @@ export async function buildDemo({ outputRoot } = {}) {
         { id: 'catalogue', title: 'Component catalogue', kind: 'page', path: '/catalogue' },
         { id: 'support', title: 'Support page', kind: 'page', path: '/support' }],
       viewports: [{ id: 'desktop', width: 1280, height: 900 }, { id: 'mobile', width: 390, height: 844 }],
-      artifacts: ['screenshot', 'html', 'status', 'content'], checks: ['empty-title', 'lang', 'empty-alt', 'internal-links', 'text-difference'], content: { expectedLanguage: 'en' }, runsRoot: 'runs' };
+      artifacts: ['screenshot', 'html', 'status', 'content', 'behavior'], behavior: { source: 'contracts', projects: { desktop: 'desktop-1280', mobile: 'mobile-390' } }, checks: ['empty-title', 'lang', 'empty-alt', 'internal-links', 'text-difference'], content: { expectedLanguage: 'en' }, runsRoot: 'runs' };
     await writeFile(configPath, JSON.stringify(config, null, 2));
     const a = await capture({ configPath, side: 'before', label: 'Before update' });
     const b = await capture({ configPath, side: 'after', label: 'After update' });
