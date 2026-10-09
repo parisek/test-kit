@@ -1,11 +1,8 @@
 name: Release
 
-# A tag `vX.Y.Z` is the release (RELEASING.md). The package is not published to a registry;
-# projects install from the tag. This workflow checks the tag and creates the GitHub Release.
-
 on:
   push:
-    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+    tags: ['v*']
 
 permissions:
   contents: write
@@ -15,34 +12,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: The tag equals the version in package.json
+      - name: Validate the immutable release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          version="$(jq -r .version package.json)"
-          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not equal package.json version v${version}." >&2
-            exit 1
-          fi
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          const tag = process.env.RELEASE_TAG;
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag)) throw new Error('Use a stable vMAJOR.MINOR.PATCH tag.');
+          if (tag !== `v${pkg.version}`) throw new Error('The tag does not equal package.json version.');
+          if (pkg.private !== true || pkg.license !== 'MIT') throw new Error('The package must stay private and use MIT.');
+          JS
+          git fetch origin main
+          git merge-base --is-ancestor "${GITHUB_SHA}" origin/main
 
+      - run: npm ci
       - run: npm test
 
-      - name: Release notes come from CHANGELOG.md
+      - name: Extract exact changelog notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v v="${version}" '$0 ~ "^## \\[" v "\\]" { found = 1; next } /^## \[/ { found = 0 } found' CHANGELOG.md > notes.md
-          if [ ! -s notes.md ]; then
-            echo "CHANGELOG.md has no section for ${version}." >&2
-            exit 1
-          fi
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const version = process.env.RELEASE_TAG.slice(1);
+          const sections = readFileSync('CHANGELOG.md', 'utf8').split(/^## /m).slice(1);
+          const matches = sections.filter((section) => section.split('\n')[0].startsWith(`[${version}] - `));
+          if (matches.length !== 1) throw new Error('Expected one matching changelog section.');
+          const notes = matches[0].slice(matches[0].indexOf('\n') + 1).trim();
+          if (!notes || !notes.split('\n').some((line) => line.trim() && !line.startsWith('#'))) throw new Error('Release notes are empty.');
+          writeFileSync('notes.md', `${notes}\n`);
+          JS
 
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          prerelease=""
-          case "${GITHUB_REF_NAME}" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file notes.md ${prerelease}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "${RELEASE_TAG}" --verify-tag --title "${RELEASE_TAG}" --notes-file notes.md

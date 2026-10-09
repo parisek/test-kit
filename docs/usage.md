@@ -10,11 +10,11 @@ Capture the baseline before a change. Capture the current state after it.
 Compare the stored runs. No comparison command visits the site again.
 
 ```sh
-test-kit visual:capture --side local --label before
-test-kit visual:capture --side local --label after
-test-kit visual:diff <run-a> <run-b>
-test-kit summary --report <report.json> --filter all --max-targets 20
-test-kit serve --report <report.json>
+test-kit capture --side local --label before
+test-kit capture --side local --label after
+test-kit diff <run-a> <run-b>
+test-kit summary <report.json> --filter all --max-targets 20
+test-kit serve <report.json>
 ```
 
 The CLI prints run IDs and output paths. Use those paths in later commands.

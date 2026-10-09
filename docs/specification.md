@@ -362,12 +362,13 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 | Adapter on a real `report.json` from `build-report.js` | not tested |
 | Any runner that writes behaviour `steps[]` | does not exist |
 | Real screenshots in behaviour steps | not tested |
-| Keyboard navigation, widths 860 to 1099 px | read in code, not run |
+| Viewer keyboard controls, blocked storage, widths 390, 860, 1100 px | verified in Chromium on synthetic data, 2026-10-09 |
 | Speed run count and noise band in a DDEV setup | not measured |
 | Install from a git tag and from a `semver:` range (section 13.2) | verified on a local copy |
-| `git` inside the DDEV container | not verified |
+| Local Drupal screenshot pilot | two targets, two viewports; repeated A/A has no screenshot findings, 2026-10-09 |
+| `git` inside the DDEV container | installation check pending before tag |
 | The tag workflow (version check, GitHub Release) | not run; the first real tag is the test |
-| Agent `summary` size | not measured |
+| Agent `summary` size | measured 1310 bytes for the six-target synthetic browser report, 2026-10-09 |
 
 ## 17. Open questions
 

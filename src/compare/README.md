@@ -2,4 +2,4 @@
 
 One comparator per artifact kind, normalisers with evidence, the noise floor. Spec sections 6 and 8.
 
-Status: planned. Nothing is built here yet.
+`compareRuns` reads two stored runs and writes a screenshot report. It preserves originals. It rejects incompatible settings and tool versions. It limits manifest and PNG input sizes. The explicit browser integration checks verify repeated captures and a changed target.
