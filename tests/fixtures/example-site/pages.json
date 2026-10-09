@@ -1,0 +1,8 @@
+{
+  "/": { "title": "Example site", "text": "A local fixture for capture and comparison." },
+  "/unchanged": { "title": "Unchanged page", "text": "This page stays the same in both variants." },
+  "/changed": { "title": "Changed page", "text": "Baseline card", "changedText": "Changed card" },
+  "/delayed-asset": { "title": "Delayed asset", "text": "The image arrives after the configured delay.", "asset": true },
+  "/motion": { "title": "Motion page", "text": "Reduced motion stops the animation.", "motion": true },
+  "/status/500": { "title": "Server error", "text": "This route returns HTTP 500.", "status": 500 }
+}
