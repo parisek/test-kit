@@ -271,3 +271,27 @@ validated sidecar. Content retention and the default check set remain open.
 
 The writer rejects a report above 16,000,000 bytes before it writes report.json.
 Split a large target or viewport selection. Detailed evidence stays local.
+
+## Opt-in behavior extension (unreleased)
+
+Requirements: R4.2, R6.2–R6.4, R8.7–R8.9, R13.41–R13.43.
+
+The configuration accepts `behavior` in `artifacts` and a `behavior.source`
+directory. `behavior.lockfile` defaults to `package-lock.json`.
+`behavior.projects` maps viewport IDs to project names. Optional settings bound
+step timeout, instance count, media emulation and local trace capture.
+
+The loader reads trusted project code. It hashes the bounded source tree and
+lockfile. Local helper imports must stay inside that tree. A changed source
+cannot reuse stale imported code in the same process. Contracts execute after
+passive capture on the same guarded page. A contract must restore the state
+that another contract needs. This does not replace legacy isolated test suites.
+
+The stored sidecar binds settings and records steps, state, results, errors,
+screenshots, console, network and dataLayer evidence. Missing markers do not
+prove success. Browser and viewport incompatibility suppress comparison claims,
+even when a step or recording fails. A timeout closes the browser context.
+
+The report indexes bounded A/B step comparison sidecars. Indexed screenshots
+and traces stay local. ZIP traces are served as attachments. A behavior query
+bounds steps by count and serialized size and records omissions.

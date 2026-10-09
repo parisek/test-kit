@@ -70,8 +70,8 @@ export function validateReport(report) {
 			const state = row.state ?? (row.error ? 'failed' : 'complete');
 			if (!STATES.includes(state)) problems.push('Unknown measurement state.');
 			const ratio = row.ratio ?? row.artifacts?.screenshot?.diff?.ratio;
-			if (state === 'complete' && (row.artifacts?.screenshot || (!row.artifacts?.html && !row.artifacts?.status && !row.artifacts?.content)) && (!Number.isFinite(ratio) || ratio < 0 || ratio > 100)) problems.push('A complete measurement needs a percentage ratio.');
-			for (const kind of ['html', 'status', 'content']) {
+			if (state === 'complete' && (row.artifacts?.screenshot || (!row.artifacts?.html && !row.artifacts?.status && !row.artifacts?.content && !row.artifacts?.behavior)) && (!Number.isFinite(ratio) || ratio < 0 || ratio > 100)) problems.push('A complete measurement needs a percentage ratio.');
+			for (const kind of ['html', 'status', 'content', 'behavior']) {
 				const artifact = row.artifacts?.[kind];
 				if (!artifact) continue;
 				if (!STATES.includes(artifact.state)) problems.push('Unknown artifact measurement state.');

@@ -57,7 +57,7 @@ function freeze(value) {
 }
 
 export function normalizeConfig(input) {
-  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content']);
+  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');
   object(input.sides, 'sides');
   const sideEntries = Object.entries(input.sides);
@@ -97,8 +97,8 @@ export function normalizeConfig(input) {
     return result;
   });
   unique(viewports.map(viewport => viewport.id), 'viewport');
-  const artifacts = list(input.artifacts ?? ['screenshot'], 'artifacts', 4, 1);
-  if (artifacts.some(kind => !['screenshot', 'html', 'status', 'content'].includes(kind))) fail('unsupported artifact');
+  const artifacts = list(input.artifacts ?? ['screenshot'], 'artifacts', 5, 1);
+  if (artifacts.some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) fail('unsupported artifact');
   unique(artifacts, 'artifact');
   const checks = list(input.checks ?? [], 'checks', 6).map(value => id(value, 'check ID'));
   unique(checks, 'check');
@@ -107,9 +107,29 @@ export function normalizeConfig(input) {
   const contentInput = object(input.content ?? {}, 'content', ['expectedLanguage']);
   const content = {};
   if (contentInput.expectedLanguage !== undefined) content.expectedLanguage = text(contentInput.expectedLanguage, 'content.expectedLanguage', 100);
+  const behaviorInput = object(input.behavior ?? {}, 'behavior', ['source', 'lockfile', 'projects', 'timeoutMs', 'maxInstances', 'trace', 'emulate']);
+  const behavior = {};
+  for (const key of ['source', 'lockfile']) if (behaviorInput[key] !== undefined) {
+    const value = text(behaviorInput[key], `behavior.${key}`, 500);
+    if (!/^[a-zA-Z0-9_-]+(?:[a-zA-Z0-9._/-]*[a-zA-Z0-9_-])?$/.test(value) || value.split('/').some(part => !part || part === '.' || part === '..')) fail('behavior source paths must be plain relative paths');
+    behavior[key] = value;
+  }
+  if (artifacts.includes('behavior') && !behavior.source) fail('behavior requires a trusted source directory');
+  behavior.lockfile ??= 'package-lock.json';
+  behavior.projects = {};
+  for (const [key, value] of Object.entries(object(behaviorInput.projects ?? {}, 'behavior.projects'))) {
+    if (!viewports.some(viewport => viewport.id === key)) fail('behavior project has unknown viewport');
+    behavior.projects[key] = id(value, 'behavior project');
+  }
+  behavior.timeoutMs = number(behaviorInput.timeoutMs ?? 10000, 'behavior.timeoutMs', 1, 120000);
+  behavior.maxInstances = number(behaviorInput.maxInstances ?? 20, 'behavior.maxInstances', 1, 100);
+  behavior.trace = bool(behaviorInput.trace ?? false, 'behavior.trace');
+  behavior.emulate = { ...object(behaviorInput.emulate ?? {}, 'behavior.emulate', ['reducedMotion', 'colorScheme']) };
+  if (behavior.emulate.reducedMotion !== undefined && !['reduce', 'no-preference'].includes(behavior.emulate.reducedMotion)) fail('unsupported behavior reducedMotion');
+  if (behavior.emulate.colorScheme !== undefined && !['light', 'dark', 'no-preference'].includes(behavior.emulate.colorScheme)) fail('unsupported behavior colorScheme');
   const runsRoot = text(input.runsRoot ?? 'tests/visual/runs', 'runsRoot', 500);
   if (!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(runsRoot)) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
-  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks, content, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
+  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
 }

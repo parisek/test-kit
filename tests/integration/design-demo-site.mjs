@@ -29,7 +29,8 @@ export async function startDesignDemoSite({ variant = 'before' } = {}) {
 <header><a class="brand" href="/"><i></i>Example site.</a><nav><a href="/catalogue">Our approach</a><a href="/support">Get in touch ↗</a></nav></header>
 <main>
 ${body(path).replaceAll('><', '>\n<')}
-</main><footer><span>Independent ideas. Considered design.</span><span>Example site · Local fixture</span></footer>
+</main><footer><span>Independent ideas. Considered design.</span><span>Example site · Local fixture</span><button type="button" data-demo-toggle aria-expanded="false">Details</button><p data-demo-panel hidden>Local behavior evidence.</p></footer>
+<script>document.querySelector('[data-demo-toggle]').addEventListener('click', () => { if (${after && path === '/'}) return; document.querySelector('[data-demo-toggle]').setAttribute('aria-expanded', 'true'); document.querySelector('[data-demo-panel]').hidden = false; });</script>
 </body></html>`);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
