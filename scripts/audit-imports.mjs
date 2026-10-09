@@ -13,7 +13,7 @@ for (const path of modules) {
   const source = await readFile(path, 'utf8');
   // This lexical inventory covers the one-line imports in the source snapshot.
   // It is not a parser. Review computed and multiline imports separately.
-  const pattern = /^(?:[ \t]*import\b[^\n]*?\bfrom\s*|[ \t]*import\s*\(|[ \t]*(?:const|let|var)\b[^\n]*?\brequire\s*\(|[ \t]*require\s*\()\s*['"]([^'"\n]+)['"]/gm;
+  const pattern = /^(?:[ \t]*import\b[^\n]*?\bfrom\s*|[ \t]*import\s*\(|[ \t]*(?:const|let|var)\b[^\n]*?\bimport\s*\(|[ \t]*import\s*|[ \t]*(?:const|let|var)\b[^\n]*?\brequire\s*\(|[ \t]*require\s*\()\s*['"]([^'"\n]+)['"]/gm;
   for (const match of source.matchAll(pattern)) {
     const name = match[1];
     const destination = name.startsWith('.') ? relative(root, resolve(dirname(path), name))
