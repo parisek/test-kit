@@ -82,3 +82,12 @@ node bin/cli.js --help
 The package uses the MIT licence. Installation needs no build step.
 Viewer development uses Node 22.18 or later. See [the frontend guide](frontend/README.md).
 The package commits the Vue and Tailwind build. CI verifies it against its source.
+
+HTML and HTTP status are opt-in response artifacts. Use
+
+```sh
+test-kit capture --side local --artifacts screenshot,html,status
+test-kit query report.json --target home --viewport desktop --artifact html --max-lines 40
+```
+
+The default remains screenshots only. See [response contracts](docs/contracts.md#opt-in-response-artifacts-after-v01).

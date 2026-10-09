@@ -274,6 +274,7 @@ onUnmounted(() => {
 						:source="state.source"
 						:targets="filteredTargets"
 						:filters="state.filters"
+						:artifact-evidence="state.artifactEvidence"
 						@action="dispatch"
 					/>
 				</template>

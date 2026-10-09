@@ -2,12 +2,13 @@
 
 Captures one side into a run. One page load feeds every artifact the run asks for. Spec section 4 (R4.2) and section 6.
 
-`capture({configPath, side, label, runsRoot})` returns the run, run directory and
+`capture({configPath, side, label, runsRoot, artifacts})` returns the run, run directory and
 manifest path. It loads and freezes project configuration. It starts Chromium
 on the host. Install `@playwright/test` and its Chromium browser first.
 
 Each target and viewport gets an isolated browser context. Capture stores one
-navigation response status and a screenshot. It blocks nonlocal requests in
+navigation response status and the requested artifacts. Screenshots are the default.
+Optional artifacts are HTML response bytes and HTTP metadata. It blocks nonlocal requests in
 all frames and popups. It blocks requests that submit data. It checks redirect
 destinations before network access. It does not save cookies or credentials.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
@@ -29,3 +30,9 @@ Failures retain diagnostics and omit PNG paths. A failed result keeps the run
 partial. HTTP errors can retain screenshot evidence. Original PNG dimensions
 and device scale factors remain explicit. Images have a 40 million pixel limit
 and a 30000 pixel height limit. Selector screenshots use the first visible match.
+
+Opt-in HTML and status reuse the navigation response (R4.2).
+Each response artifact has its own provenance and failure state.
+A failed requested response artifact keeps the run partial. HTML and status
+can run without a screenshot. Completed response evidence survives a later
+screenshot failure. Raw HTML stays local and has a 2 MiB storage limit.

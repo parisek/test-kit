@@ -1,9 +1,11 @@
+import { responseSettings } from '../config/settings.js';
+import { storeResponse } from '../artifacts/response.js';
 import { mkdir, writeFile, rename, readFile, access, unlink } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { loadConfig, captureSettings, settingsHash } from '../config/index.js';
+import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
 import { isLocalUrl, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
 
 const execute = promisify(execFile);
@@ -46,8 +48,11 @@ async function playwright() {
   }
 }
 
-async function captureOne(browser, config, side, target, viewport, runDir) {
+async function captureOne(browser, config, side, target, viewport, runDir, provenance) {
   const identity = { targetId: target.id, viewportId: viewport.id };
+  let artifacts = {};
+  let statusCode;
+  let finalPath;
   const recipe = config.sides[side].settle;
   let context;
   let blocked = false;
@@ -70,6 +75,10 @@ async function captureOne(browser, config, side, target, viewport, runDir) {
     if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
     await context.routeWebSocket('**/*', socket => socket.close());
     const page = await context.newPage();
+    const assets = { requests: 0, failed: 0, httpErrors: 0 };
+    page.on('request', request => { if (!request.isNavigationRequest()) assets.requests++; });
+    page.on('requestfailed', request => { if (!request.isNavigationRequest()) assets.failed++; });
+    page.on('response', response => { if (!response.request().isNavigationRequest() && response.status() >= 400) assets.httpErrors++; });
     page.setDefaultTimeout(config.screenshot.timeoutMs);
     page.setDefaultNavigationTimeout(config.screenshot.timeoutMs);
     await context.route('**/*', async route => {
@@ -97,6 +106,13 @@ async function captureOne(browser, config, side, target, viewport, runDir) {
     if (!isLocalUrl(url.href)) throw new Error('Nonlocal navigation');
     const response = await page.goto(url.href, { waitUntil: 'load' });
     if (!response) throw new Error('No HTTP navigation response');
+    statusCode = response.status();
+    finalPath = new URL(response.url()).pathname;
+    artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
+    if (!config.artifacts.includes('screenshot')) {
+      if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+      return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
+    }
     phase = 'settlement';
     for (const selector of recipe.selectors) await page.locator(selector).first().waitFor({ state: 'visible' });
     await page.evaluate(async () => { await document.fonts.ready; });
@@ -129,19 +145,19 @@ async function captureOne(browser, config, side, target, viewport, runDir) {
     if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
-      width, height, deviceScaleFactor: viewport.deviceScaleFactor };
+      width, height, deviceScaleFactor: viewport.deviceScaleFactor, artifacts };
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});
     await unlink(file).catch(() => {});
-    return { ...identity, state: 'failed', error: { code: blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
+    return { ...identity, state: 'failed', artifacts, statusCode, finalPath, error: { code: blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
       message: blocked ? 'A request leaves the local environment or submits data' : `The ${phase} step fails. Check the local page and capture recipe.` } };
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot }) {
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested }) {
   const loaded = await loadConfig(configPath);
-  const { config } = loaded;
+  const config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const tool = await playwright();
@@ -180,12 +196,17 @@ export async function capture({ configPath, side, label = '', runsRoot }) {
       }
     } finally { await probe.close(); }
     run.tools.push({ name: 'chromium', version: browser.version(), settingsHash: hash });
+    const provenance = Object.fromEntries(config.artifacts.filter(kind => kind !== 'screenshot').map(kind => [kind, {
+      tool: 'playwright', version: tool.version, browserVersion: browser.version(),
+      settingsHash: settingsHash({ ...responseSettings(config, kind), browser: BROWSER_SETTINGS }),
+    }]));
+    for (const [artifact, index] of Object.entries(provenance)) run.tools.push({ name: index.tool, version: index.version, settingsHash: index.settingsHash, artifact });
     await writeManifest(manifestPath, run);
     for (const target of config.targets) for (const viewport of config.viewports) {
-      run.captures.push(await captureOne(browser, config, side, target, viewport, runDir));
+      run.captures.push(await captureOne(browser, config, side, target, viewport, runDir, provenance));
       await writeManifest(manifestPath, run);
     }
-    if (run.captures.every(result => result.state === 'captured')) run.state = 'complete';
+    if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot').every(kind => result.artifacts?.[kind]?.state === 'captured'))) run.state = 'complete';
     await writeManifest(manifestPath, run);
   } catch (error) {
     if (error.code === 'PLAYWRIGHT_VERSION_UNSUPPORTED') throw error;

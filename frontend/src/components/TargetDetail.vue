@@ -7,9 +7,10 @@ import {
 	cellState,
 	findingsFor,
 } from '../../../src/report/classify.js';
+import ArtifactEvidence from './ArtifactEvidence.vue';
 import Badge from './Badge.vue';
 import EvidenceImage from './EvidenceImage.vue';
-const props = defineProps({ report: Object, targetId: String, viewportId: String, source: String });
+const props = defineProps({ report: Object, targetId: String, viewportId: String, source: String, artifactEvidence: Object });
 const emit = defineEmits(['action']);
 const target = computed(() => props.report.entries.find((item) => item.id === props.targetId));
 const row = computed(
@@ -83,10 +84,12 @@ const ratio = computed(() => {
 					:text="`${side.toUpperCase()}: ${row.availability?.[side] ?? 'unknown'}`"
 				/>
 			</div>
-			<p class="mb-3 text-sm text-ui-muted">Difference: {{ ratio }}</p>
 			<pre v-if="row.error ?? row.diagnostic" class="mb-4 whitespace-pre-wrap break-all text-xs">{{
 				diagnostic(row.error ?? row.diagnostic)
 			}}</pre>
+			<template v-if="row.artifacts?.screenshot">
+			<p class="mb-3 text-sm text-ui-muted">Difference: {{ ratio }}</p>
+
 			<div class="grid min-w-0 gap-3 xl:grid-cols-3">
 				<EvidenceImage
 					v-for="[key, title] in [
@@ -112,7 +115,8 @@ const ratio = computed(() => {
 				<pre class="mt-2 whitespace-pre-wrap break-all text-xs">{{
 					diagnostic(row.artifacts)
 				}}</pre>
-			</details></template
+			</details></template>
+			<ArtifactEvidence :row="row" :source="source" :evidence="artifactEvidence" @action="(...args) => emit('action', ...args)" /></template
 		>
 		<p v-else class="my-4 text-sm">Missing evidence for {{ viewportId ?? 'this target' }}. This measurement is unclassified.</p>
 		<h3 class="mt-5 font-semibold">Findings ({{ findings.length }})</h3>

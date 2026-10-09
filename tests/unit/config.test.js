@@ -80,7 +80,7 @@ test('numeric and resource limits reject nonfinite and excessive values', () => 
 });
 
 test('unsupported features and unsafe run roots fail explicitly', () => {
-  for (const change of [{ artifacts: ['html'] }, { checks: ['heading-outline'] }, { cookies: [] }, { runsRoot: '../runs' }, { runsRoot: '/tmp/runs' }]) {
+  for (const change of [{ artifacts: ['behavior'] }, { checks: ['heading-outline'] }, { cookies: [] }, { runsRoot: '../runs' }, { runsRoot: '/tmp/runs' }]) {
     assert.throws(() => normalizeConfig({ ...input(), ...change }), /Invalid configuration/);
   }
 });

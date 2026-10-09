@@ -47,5 +47,6 @@ jobs:
       - run: node tests/integration/check-example-site.mjs
       - run: node tests/integration/check-capture-guards.mjs
       - run: node tests/integration/check-pipeline.mjs
+      - run: node tests/integration/check-response-artifacts.mjs
       - run: node tests/integration/check-viewer.mjs
       - run: node tests/integration/check-viewer-package.mjs

@@ -1,3 +1,4 @@
+import { compareResponseArtifact } from '../artifacts/compare.js';
 import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve, join, relative, dirname } from 'node:path';
@@ -81,7 +82,7 @@ function available(capture) {
 export function comparisonState(a, b, runA, runB) {
 	if (!a || !b) return 'missing';
 	if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
-	if (runA.settingsHash !== runB.settingsHash || JSON.stringify(runA.tools) !== JSON.stringify(runB.tools)) return 'incompatible';
+	if (runA.settingsHash !== runB.settingsHash || JSON.stringify(runA.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot')) !== JSON.stringify(runB.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot'))) return 'incompatible';
 	if (effectiveSettings(runA) !== effectiveSettings(runB)) return 'incompatible';
 	return 'complete';
 }
@@ -107,7 +108,12 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			const bc = b.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac), b: available(bc) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
 			const images = [];
-			for (const [run, capture, key] of [[a, ac, 'a'], [b, bc, 'b']]) {
+			const requested = new Set([...(a.settings.artifacts ?? ['screenshot']), ...(b.settings.artifacts ?? ['screenshot'])]);
+			if (requested.has('screenshot')) {
+			const shotA = (a.settings.artifacts ?? ['screenshot']).includes('screenshot') ? ac : null;
+			const shotB = (b.settings.artifacts ?? ['screenshot']).includes('screenshot') ? bc : null;
+			row.state = comparisonState(shotA, shotB, a, b);
+			for (const [run, capture, key] of [[a, shotA, 'a'], [b, shotB, 'b']]) {
 				if (capture?.state !== 'captured') { images.push(null); continue; }
 				try {
 					const source = await contained(join(runsRoot, run.id), capture.path);
@@ -127,7 +133,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			if (row.state === 'complete' && images.every(Boolean)) {
 				const [ai, bi] = images;
 				const width = Math.max(ai.width, bi.width), height = Math.max(ai.height, bi.height);
-				if (width * height > 40_000_000) { row.state = 'failed'; row.diagnostic = 'Comparison canvas exceeds 40 million pixels.'; rows.push(row); continue; }
+				if (width * height > 40_000_000) { row.state = 'failed'; row.diagnostic = 'Comparison canvas exceeds 40 million pixels.'; } else {
 				const pad = (image) => {
 					const result = new PNG({ width, height }); result.data.fill(255);
 					PNG.bitblt(image, result, 0, 0, image.width, image.height, 0, 0); return result;
@@ -141,12 +147,30 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.ratio = ratio;
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
+			}
 			} else row.diagnostic ??= row.state === 'incompatible' ? 'Capture settings or tool versions differ.' : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
+			row.artifacts.screenshot.state = row.state;
+			} else { delete row.artifacts.screenshot; row.state = 'complete'; }
+			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {
+				row.artifacts[artifact] = await compareResponseArtifact({ kind: artifact, a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
+				if (artifact === 'html' && row.artifacts.html.state === 'complete' && row.artifacts.html.diff?.changed) {
+					findings.push({ id: 'html-' + target.id + '-' + viewport.id, targetId: target.id, viewportId: viewport.id, artifact: 'html', message: 'HTML response bytes differ.' });
+				}
+			}
+			const comparable = ['screenshot', 'html'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
+			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			rows.push(row);
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });
 	}
 	const report = { schemaVersion: 2, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, entries, causes: [], findings, rules: {} };
+	const responseTools = new Map();
+	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status']) {
+		const index = row.artifacts[kind]?.diff;
+		if (index) responseTools.set(index.settingsHash, { name: index.tool, version: index.version, settingsHash: index.settingsHash });
+	}
+	report.meta.tools.push(...responseTools.values());
 	const problems = validateReport(report);
 	if (problems.length) throw new Error(problems.join(' '));
 	const reportPath = join(output, 'report.json');

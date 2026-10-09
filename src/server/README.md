@@ -5,5 +5,8 @@ It returns `server`, `origin`, and asynchronous `close`. The default port is
 assigned by the operating system. The default host is `127.0.0.1`.
 
 Fixed routes serve installed package compiled HTML, JavaScript, and CSS. Shared report logic lives in the bundle.
-Report assets require an indexed PNG path and realpath containment. No arbitrary
+Report assets require an indexed PNG or response sidecar path and realpath containment. No arbitrary
 project files or directory listings are served. See `docs/usage.md`.
+
+Indexed response sidecars have a 2 MiB limit. HTML bytes use text/plain. Status and comparison sidecars use application/json.
+No response artifact can become an active HTML document (R10.6).
