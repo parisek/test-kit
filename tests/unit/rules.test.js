@@ -70,6 +70,7 @@ test('normalization acceptance requires the complete consistent artifact audit',
 
 test('comparison binding describes tool and normalization pipeline versions', () => {
   const html = comparatorDescriptor('html', {});
+  assert.equal(html.decoder.preserveBOM, true);
   assert.equal(html.pipelineVersion, 1); assert.equal(html.normalizer.version, 1);
   assert.equal(html.normalizer.mode, 'original-literal-spans');
   assert.equal(comparatorDescriptor('screenshot').version, '8.0.0');

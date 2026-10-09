@@ -60,6 +60,16 @@ try {
   const residual = await compare('residual', policy);
   assert.equal(summarizeReport(residual.report).counts.unexplained, 1);
   await writeFile(join(b.runDir, b.run.captures[0].artifacts.html.path), after);
+  // A UTF-8 BOM is response content. A token rule cannot explain it.
+  const rawAFile = join(a.runDir, a.run.captures[0].artifacts.html.path);
+  await writeFile(rawAFile, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), before]));
+  const bom = await compare('bom-residual', policy);
+  assert.equal(bom.report.entries[0].viewports[0].artifacts.html.diff.changed, true);
+  assert.equal(summarizeReport(bom.report).counts.unexplained, 1);
+  assert.equal(summarizeReport(bom.report).counts.explained, 0);
+  const bomQuery = await queryArtifact(bom.reportPath, { target: 'home', viewport: 'wide', artifact: 'html' });
+  assert.ok(bomQuery.diff.lines.some(line => line.text.startsWith('\ufeff')));
+  await writeFile(rawAFile, before);
   const outside = await compare('outside', policy, undefined, 'update');
   assert.equal(summarizeReport(outside.report).counts.unexplained, 1);
   const reversed = await compare('reversed', policy, [b.run.id, a.run.id]);

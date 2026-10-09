@@ -70,7 +70,7 @@ export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, ou
           const charset = /charset=["']?([^;"'\s]+)/i.exec(index.contentType ?? '')?.[1];
           if (charset && !['utf-8', 'utf8', 'us-ascii'].includes(charset.toLowerCase())) throw new Error('Unsupported charset.');
         }
-        const decoder = new TextDecoder('utf-8', { fatal: true });
+        const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
         const rawA = decoder.decode(bytes[0]), rawB = decoder.decode(bytes[1]);
         const normalized = normalizeHtml(rawA, rawB, rules, context);
         const rawChanged = !bytes[0].equals(bytes[1]);
