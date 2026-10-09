@@ -44,10 +44,38 @@ try {
       await assert.rejects(captureScopedScreenshot({ page, selector: '#padded', box: 'content' }), /transformed or zoomed/);
       await page.evaluate(mutation => document.querySelector(mutation.selector).style[mutation.property] = '', mutation);
     }
+    await page.addStyleTag({ content: '#padded::-webkit-scrollbar { width: 20px; height: 20px; }' });
+    for (const layout of [
+      { scrollbarGutter: 'stable', overflow: 'auto', direction: 'ltr' },
+      { scrollbarGutter: 'stable both-edges', overflow: 'auto', direction: 'rtl' },
+      { scrollbarGutter: 'auto', overflow: 'scroll', direction: 'ltr' },
+      { scrollbarGutter: 'auto', overflow: 'auto', direction: 'rtl' },
+      { scrollbarGutter: 'stable both-edges', overflow: 'visible', direction: 'rtl' },
+    ]) {
+      await page.evaluate(layout => Object.assign(document.querySelector('#padded').style, layout), layout);
+      await assert.rejects(captureScopedScreenshot({ page, selector: '#padded', box: 'content' }), /scroll containers or reserved scrollbar gutters/);
+    }
+    await page.evaluate(() => { const style = document.querySelector('#padded').style; style.scrollbarGutter = ''; style.overflow = ''; style.direction = ''; });
+    const normalContent = await captureScopedScreenshot({ page, selector: '#padded', box: 'content', options: { animations: 'disabled' } });
+    assert.deepEqual(normalContent.geometry.clip, content.geometry.clip, 'Normal content crop remains unchanged after unsupported layouts.');
     await page.evaluate(() => { window.scopeAnimation = document.querySelector('#one').animate([{ left: '20px', width: '80px' }, { left: '60px', width: '100px' }], { duration: 10000 }); });
     await assert.rejects(captureScopedScreenshot({ page, selector: ['#one', '#two'], options: { animations: 'disabled' } }), /settled animations/);
     await assert.rejects(captureScopedScreenshot({ page, selector: '#one', box: 'content', options: { animations: 'disabled' } }), /settled animations/);
+    await page.evaluate(() => window.scopeAnimation.pause());
+    await assert.rejects(captureScopedScreenshot({ page, selector: ['#one', '#two'], options: { animations: 'disabled' } }), /settled animations/);
     await page.evaluate(() => window.scopeAnimation.cancel());
+    await page.evaluate(() => {
+      const host = document.createElement('section'); host.id = 'shadow-host';
+      const shadow = host.attachShadow({ mode: 'open' });
+      shadow.innerHTML = '<div id="shadow-scope" style="width:60px;height:30px;background:red"></div>';
+      document.body.append(host);
+      window.shadowAnimation = shadow.querySelector('div').animate([{ width: '60px' }, { width: '100px' }], { duration: 10000 });
+      window.shadowAnimation.pause();
+    });
+    await assert.rejects(captureScopedScreenshot({ page, selector: ['#shadow-scope'], options: { animations: 'disabled' } }), /settled animations/);
+    await page.evaluate(() => { window.shadowAnimation.cancel(); document.querySelector('#shadow-host').style.transform = 'scale(2)'; });
+    await assert.rejects(captureScopedScreenshot({ page, selector: '#shadow-scope', box: 'content', options: { animations: 'disabled' } }), /transformed or zoomed/);
+    await page.evaluate(() => document.querySelector('#shadow-host').remove());
     await page.evaluate(() => scrollTo(0, 350));
     const scrolled = await captureScopedScreenshot({ page, selector: ['#two'], options: { animations: 'disabled' } });
     const scrolledPng = PNG.sync.read(scrolled.bytes);

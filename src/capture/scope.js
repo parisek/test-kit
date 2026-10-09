@@ -24,7 +24,13 @@ export async function captureScopedScreenshot({ page, selector, box = 'border', 
   }
   const assertStableAnimationGeometry = async () => {
     if (options.animations !== 'disabled') return;
-    const active = await page.evaluate(() => document.getAnimations().some(animation => animation.pending || animation.playState === 'running'));
+    const active = await page.evaluate(() => {
+      const roots = [document];
+      for (let index = 0; index < roots.length; index++) {
+        for (const element of roots[index].querySelectorAll('*')) if (element.shadowRoot) roots.push(element.shadowRoot);
+      }
+      return roots.some(root => root.getAnimations().some(animation => animation.pending || !['finished', 'idle'].includes(animation.playState)));
+    });
     if (active) throw new Error('Scoped geometry requires settled animations before capture.');
   };
   await assertStableAnimationGeometry();
@@ -34,7 +40,7 @@ export async function captureScopedScreenshot({ page, selector, box = 'border', 
     await locator.waitFor({ state: 'visible', timeout: options.timeout });
     const rect = await locator.evaluate((element, box) => {
       if (box === 'content') {
-        for (let node = element; node; node = node.parentElement) {
+        for (let node = element; node; node = node.assignedSlot ?? node.parentElement ?? node.getRootNode().host ?? null) {
           const style = getComputedStyle(node);
           const transform = style.transform;
           const identityTransform = transform === 'none' || new DOMMatrixReadOnly(transform).isIdentity;
@@ -47,6 +53,7 @@ export async function captureScopedScreenshot({ page, selector, box = 'border', 
       }
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
+      if (box === 'content' && (style.scrollbarGutter !== 'auto' || [style.overflowX, style.overflowY].some(value => ['auto', 'scroll'].includes(value)))) throw new Error('Content scope does not support scroll containers or reserved scrollbar gutters.');
       const edge = key => Number.parseFloat(style[key]) || 0;
       const left = box === 'content' ? edge('borderLeftWidth') + edge('paddingLeft') : 0;
       const top = box === 'content' ? edge('borderTopWidth') + edge('paddingTop') : 0;

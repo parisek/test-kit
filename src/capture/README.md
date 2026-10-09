@@ -45,7 +45,8 @@ A union outside the viewport uses a document clip. The image limits apply
 before capture, including the device scale factor.
 
 Set `box: "content"` on a target to omit CSS padding and borders. Content
-clips round outwards to CSS pixels. Transformed content boxes are unsupported.
+clips round outwards to CSS pixels. Transformed content boxes are unsupported. Content targets with reserved
+scrollbar gutters or automatic/scrolling overflow are unsupported.
 The default remains the border box. Page screenshots do not accept `box`.
 New scoped modes require settled animations when `disableMotion` is true.
 An active animation fails capture before the crop uses unstable geometry.
