@@ -1,4 +1,4 @@
-import { readFile, mkdir, writeFile, copyFile, realpath, readdir } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve, join, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
@@ -19,6 +19,15 @@ async function readRun(root, id) {
 	const run = JSON.parse(await readFile(path, 'utf8'));
 	if (run.schemaVersion !== 2 || run.id !== id || !Array.isArray(run.captures) || !Array.isArray(run.settings?.targets) || !Array.isArray(run.settings?.viewports)) throw new Error(`Invalid run ${id}.`);
 	if (typeof run.settingsHash !== 'string' || !run.settingsHash.startsWith('sha256:') || !Array.isArray(run.tools) || run.tools.length === 0) throw new Error('Run provenance is missing.');
+	if (!run.settings.sides || !Object.hasOwn(run.settings.sides, run.side)) throw new Error('Stored side settings are missing.');
+	for (const tool of run.tools) if (!tool || typeof tool.name !== 'string' || typeof tool.version !== 'string' || typeof tool.settingsHash !== 'string') throw new Error('Invalid run tool provenance.');
+	const keys = new Set();
+	for (const capture of run.captures) {
+		if (!capture || typeof capture.targetId !== 'string' || typeof capture.viewportId !== 'string' || !['captured', 'failed'].includes(capture.state)) throw new Error('Invalid stored capture.');
+		const key = JSON.stringify([capture.targetId, capture.viewportId]);
+		if (keys.has(key)) throw new Error('Duplicate stored capture.');
+		keys.add(key);
+	}
 	for (const rows of [run.settings.targets, run.settings.viewports]) {
 		const ids = new Set();
 		for (const row of rows) {
@@ -29,6 +38,26 @@ async function readRun(root, id) {
 	return run;
 }
 
+async function readPng(path) {
+	const file = await open(path, 'r');
+	try {
+		const info = await file.stat();
+		if (!info.isFile() || info.size > 80_000_000) throw new Error('PNG exceeds the file size limit.');
+		const bytes = Buffer.alloc(info.size);
+		let offset = 0;
+		while (offset < bytes.length) {
+			const { bytesRead } = await file.read(bytes, offset, bytes.length - offset, offset);
+			if (!bytesRead) throw new Error('PNG changed during comparison.');
+			offset += bytesRead;
+		}
+		return bytes;
+	} finally { await file.close(); }
+}
+
+function effectiveSettings(run) {
+	return JSON.stringify({ viewports: run.settings?.viewports, settle: run.settings?.sides?.[run.side]?.settle, screenshot: run.settings?.screenshot });
+}
+
 function available(capture) {
 	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
@@ -37,6 +66,7 @@ export function comparisonState(a, b, runA, runB) {
 	if (!a || !b) return 'missing';
 	if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
 	if (runA.settingsHash !== runB.settingsHash || JSON.stringify(runA.tools) !== JSON.stringify(runB.tools)) return 'incompatible';
+	if (effectiveSettings(runA) !== effectiveSettings(runB)) return 'incompatible';
 	return 'complete';
 }
 
@@ -65,14 +95,14 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				if (capture?.state !== 'captured') { images.push(null); continue; }
 				try {
 					const source = await contained(join(runsRoot, run.id), capture.path);
-					const bytes = await readFile(source);
-					if (bytes.length > 80_000_000) throw new Error('PNG exceeds the file size limit.');
+					const bytes = await readPng(source);
 					if (bytes.length < 24 || bytes.readUInt32BE(16) * bytes.readUInt32BE(20) > 40_000_000) throw new Error('PNG exceeds the pixel limit.');
 					const image = PNG.sync.read(bytes);
 					const src = `runs/${run.id}/${capture.path}`;
 					await mkdir(dirname(join(output, src)), { recursive: true });
-					await copyFile(source, join(output, src));
-					row.artifacts.screenshot[key] = { src, kind: 'screenshot', ...run.tools[0] };
+					await writeFile(join(output, src), bytes);
+					const tool = run.tools[0];
+					row.artifacts.screenshot[key] = { src, kind: 'screenshot', tool: tool.name, version: tool.version, settingsHash: tool.settingsHash };
 					images.push(image);
 				} catch (error) {
 					row.state = 'failed'; row.diagnostic = String(error.message); images.push(null);

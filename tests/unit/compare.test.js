@@ -10,4 +10,5 @@ test('missing failed and incompatible captures remain distinct', () => {
 	assert.equal(comparisonState(shot, shot, run, { ...run, settingsHash: 'other' }), 'incompatible');
 	assert.equal(comparisonState(shot, shot, run, { ...run, tools: [{ name: 'playwright', version: '2' }] }), 'incompatible');
 	assert.equal(comparisonState(shot, shot, run, run), 'complete');
+	assert.equal(comparisonState(shot, shot, { ...run, settings: { viewports: [{ width: 800 }] } }, { ...run, settings: { viewports: [{ width: 1600 }] } }), 'incompatible');
 });
