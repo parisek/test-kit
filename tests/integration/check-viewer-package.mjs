@@ -25,7 +25,7 @@ try {
 		'--prefix',
 		join(temp, 'consumer'),
 		join(temp, pack.filename),
-		'--offline',
+		'--prefer-offline',
 		'--ignore-scripts',
 		'--omit=dev',
 		'--no-audit',
