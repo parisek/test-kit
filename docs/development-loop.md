@@ -61,8 +61,34 @@ layers may develop together in a native stack under the rules below.
 
 Suggested states: proposed, ready, active, review, awaiting-owner, blocked, done.
 Use these as an agreed convention before adding labels or editing issues.
-Keep one active implementation issue at first. Keep a small queue of independent
-issues when the owner has not merged a dependency.
+Use the parallel waves in `issue-backlog.md`. Run up to three workers and one
+coordinator in the current four-slot environment. Reduce concurrency when review
+needs a slot. This limit describes available slots, not measured speed gains.
+Keep a small queue of independent issues when a dependency waits for owner merge.
+
+## Subagent coordination
+
+The coordinator selects eligible issues and assigns one worktree and issue to
+each worker. A worker owns its implementation diff. Review uses a separate agent.
+Do not share an editing checkout between workers. Do not start duplicate workers
+on the same issue. The coordinator reconciles GitHub state before dispatch.
+
+Agree on public contracts before parallel consumers implement them. Workers flag
+contract changes to the coordinator. Shared files such as `package.json`, CLI
+registration, lockfiles, and the specification have one writer at a time. Workers
+submit required shared-file edits to that writer. Review each change in its PR.
+
+Treat a shared DDEV pilot and browser captures as exclusive resources. Lighthouse
+measurement also requires exclusive access to the machine's benchmark work;
+pause builds and other browser workers during it. Do not run speed measurement
+beside tests and call the result trustworthy. Distinct synthetic servers use
+distinct ports, outputs, and browser contexts. Distinct CMS worktrees use distinct
+DDEV names and databases. Never stop another worker's environment.
+
+Workers report issue, branch, base/head SHAs, changed contracts, checks, blockers,
+and the next action. The coordinator integrates evidence and opens or updates
+draft PRs. Independent review may run beside unrelated implementation, but does
+not consume the author's session. Preserve owner merge and release authority.
 
 ## Execution cycle
 

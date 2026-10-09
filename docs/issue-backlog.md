@@ -31,7 +31,7 @@ The bootstrap infrastructure issue #3 also belongs to 0.1.0.
 | TK-15 | feat(behavior): move the runner while retaining project contracts | TK-02, TK-11, contract ownership decision | Existing project discovery and allowlists work. Failed steps retain results and evidence. R6.2–R6.3, R13.41–R13.43. |
 | TK-16 | feat(lint): export compatible ESLint and Stylelint entry points | TK-02, TK-11, entry-point design | Existing rule IDs, namespace, overrides, disable comments, and baselines work. Browser capture dependencies are not required for lint use. R13.40, R13.43. |
 | TK-17 | feat(perf): measure repeated Lighthouse runs with comparability guards | TK-09, performance decisions | Warm-up, load guard, median, spread, incompatible settings, and budget exit behavior are measured. R6.5–R6.12. |
-| TK-18 | feat(workflow): integrate agent queries with the update workflow | TK-11, artifact query milestones | An update obtains scoped evidence and reports unresolved changes. The workflow does not accept a difference without evidence. R5.3, R11.5. |
+| TK-18 | feat(workflow): integrate agent queries with the update workflow | TK-11, TK-13, TK-14, TK-15, TK-17 | An update obtains scoped evidence and reports unresolved changes. The workflow does not accept a difference without evidence. R5.3, R11.5. |
 
 Track the backlog as root issue, release sub-issues, and implementation sub-issues.
 Native blocked-by links express the dependencies in the table.
@@ -52,6 +52,32 @@ Do not merge removal before the pinned package release exists.
 The owner creates each release tag after its acceptance evidence passes.
 Milestones are a plan, not a schedule. Use PATCH releases for fixes between them.
 The first milestone may split further if integration evidence calls for it.
+
+## Parallel execution waves
+
+These are earliest dependency waves, not global barriers. Start an issue as soon
+as its own prerequisites pass. Do not wait for unrelated issues in the same wave.
+Release milestones group outcomes; they do not prevent later work from starting.
+Owner decision and tag gates still apply. Native stack exceptions use the rules
+in `development-loop.md`.
+
+| Wave label | Concurrent issues | Work areas and gates |
+| --- | --- | --- |
+| wave:01 | TK-01 (#11), TK-02 (#12), TK-03 (#13) | Contracts and specification; dependency audit; synthetic fixtures and DDEV recipe. |
+| wave:02 | TK-04 (#14), TK-06 (#16) | Report/classification and configuration, after their contracts settle. |
+| wave:03 | TK-05 (#15), TK-07 (#17) | Viewer and screenshot capture in separate worktrees. |
+| wave:04 | TK-08 (#18) | Screenshot comparison integrates stored capture evidence. |
+| wave:05 | TK-09 (#19) | Viewer serving and bounded summary integrate the first complete flow. |
+| wave:06 | TK-10 (#20), TK-12 (#22), TK-17 (#27) | Package validation, HTML/status, and optional performance work. Performance decisions must resolve first. |
+| wave:07 | TK-11 (#21), TK-13 (#23), TK-14 (#24) | Skeleton adoption waits for the owner tag; rules and content checks follow HTML. Check defaults and retention remain gates. |
+| wave:08 | TK-15 (#25), TK-16 (#26) | Behavior and lint migration follow prepared skeleton adoption. Entry-point design stays explicit. |
+| wave:09 | TK-18 (#28) | Update workflow integrates completed artifact/query lanes. |
+
+Each implementation issue gets one wave label and one primary lane label:
+`lane:contracts`, `lane:migration`, `lane:fixtures`, `lane:report`, `lane:config`,
+`lane:viewer`, `lane:capture`, `lane:compare`, `lane:query`, `lane:release`,
+`lane:artifacts`, `lane:rules`, `lane:checks`, `lane:behavior`, `lane:lint`,
+`lane:perf`, or `lane:workflow`. Labels describe scheduling, not completion.
 
 ## Issue body template
 
