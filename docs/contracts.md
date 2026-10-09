@@ -295,3 +295,28 @@ even when a step or recording fails. A timeout closes the browser context.
 The report indexes bounded A/B step comparison sidecars. Indexed screenshots
 and traces stay local. ZIP traces are served as attachments. A behavior query
 bounds steps by count and serialized size and records omissions.
+
+## Opt-in Lighthouse extension (unreleased)
+
+Requirements: R6.5–R6.12, R8.7–R8.9, R9.2, R10.4, R11.6.
+
+`perf` selects explicit page IDs and a configured local HTTP side. It writes
+an initial partial manifest before browser requests, then an atomic final
+manifest. The run stores fixed viewport, user agent policy, throttling,
+three to five repeats, a discarded warmup, load state, budgets and provenance.
+An optional Lighthouse peer requires Node 22.19 or newer.
+
+The proxy and recorded page requests enforce local GET/HEAD navigation.
+Suppressed redirects and other blocked page requests fail measurement.
+HTTPS and component-scoped speed are unsupported in this extension.
+
+A speed comparison binds the saved side and canonical origin. It refuses
+incompatible settings, tool or browser versions, different environments and
+suspect measurements. General artifact compatibility does not use this rule.
+Comparable metrics use median and full observed spread. Changes beyond the
+maximum spread become findings. Only explicit budget failure changes exit.
+
+The report indexes local compact summaries and comparison JSON. Raw audits
+stay local and outside report.json. JSON and HTML each have a 20 MiB read limit.
+HTML is served as text/plain. The browser validates the metric sidecar with
+pure code. It needs no Node module. Scoped queries bound finding output.

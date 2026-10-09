@@ -1,3 +1,5 @@
+import { isLocalUrl } from '../capture/helpers.js';
+import { comparePerformanceArtifact } from '../perf/compare-artifact.js';
 import { compareBehaviorArtifact } from '../behavior/compare-artifact.js';
 import { compareContentArtifact } from '../content/compare-artifact.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
@@ -7,6 +9,10 @@ import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/pro
 import { resolve, join, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
 import { validateReport } from '../report/model.js';
+
+function performanceEnvironment(run) {
+  try { const origin = new URL(run.settings.sides[run.side].origin); return origin.protocol === 'http:' && isLocalUrl(origin.href) ? `${run.side}|${origin.origin}` : null; } catch { return null; }
+}
 
 async function contained(root, path) {
 	if (!relativePath(path)) throw new Error('Unsafe stored artifact path.');
@@ -91,7 +97,7 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
@@ -105,6 +111,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	const diffSettingsHash = comparatorIndex('screenshot').settingsHash;
 	const viewports = new Map([...a.settings.viewports, ...b.settings.viewports].map((item) => [item.id, item]));
 	const targets = new Map([...a.settings.targets, ...b.settings.targets].map((item) => [item.id, item]));
+	let exitCode = 0;
 	const findings = [];
 	const entries = [];
 	for (const target of targets.values()) {
@@ -172,7 +179,13 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				const behavior = await compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
 				row.artifacts.behavior = behavior.artifact; findings.push(...behavior.findings);
 			}
-			const comparable = ['screenshot', 'html', 'content', 'behavior'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			if (requested.has('lighthouse')) {
+				const speed = await comparePerformanceArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, environmentA: performanceEnvironment(a), environmentB: performanceEnvironment(b), budgets: b.performance?.budgets ?? {}, failOnBudget });
+				row.artifacts.lighthouse = speed.artifact;
+				exitCode ||= speed.exitCode;
+				speed.findings.forEach((finding, index) => findings.push({ ...finding, id: `lighthouse-${target.id}-${viewport.id}-${index}` }));
+			}
+			const comparable = ['screenshot', 'html', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
 			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {
@@ -185,7 +198,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	}
 	const report = { schemaVersion: 2, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, entries, causes: [], findings, rules: {} };
 	const responseTools = new Map();
-	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior']) {
+	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse']) {
 		const index = row.artifacts[kind]?.diff;
 		if (index) responseTools.set(index.settingsHash, { name: index.tool, version: index.version, settingsHash: index.settingsHash });
 		const normalized = row.artifacts[kind]?.normalizedA;
@@ -224,5 +237,5 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	const serialized = Buffer.from(JSON.stringify(report));
 	if (serialized.length > 16_000_000) throw new Error('Report exceeds the 16 MB reader limit. Compare fewer targets or viewports. Detailed evidence remains in local sidecars.');
 	await writeFile(reportPath, serialized);
-	return { report, reportPath };
+	return { report, reportPath, exitCode };
 }

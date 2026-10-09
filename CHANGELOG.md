@@ -6,6 +6,11 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- Capture compressed local content and run explicit checks without another crawl.
+- Run project behavior contracts and retain failed steps, screenshots and local traces.
+- Measure repeated local HTTP Lighthouse audits with load, noise and budget guards.
+- Show real content, behavior and speed evidence in the viewer and bounded queries.
+
 - Capture opt-in HTML response bytes and bounded HTTP status from the same navigation.
 - Compare response sidecars, show safe text evidence, and query bounded artifact details.
 

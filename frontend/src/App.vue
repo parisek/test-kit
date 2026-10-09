@@ -1,4 +1,5 @@
 <script setup>
+import SpeedOverview from './components/SpeedOverview.vue';
 import ContentOverview from './components/ContentOverview.vue';
 import PrototypeOverview from './components/PrototypeOverview.vue';
 import { hasPrototypes } from './prototypes/planned.js';
@@ -35,7 +36,8 @@ const availabilityLabel = target => {
     return states.includes('http-error') ? 'HTTP !' : states.includes('capture-error') ? 'Capture !' : null;
 };
 const hasContent = computed(() => state.report?.entries.some(target => target.viewports.some(row => row.artifacts?.content)));
-const views = computed(() => ({ detail: 'Detail', matrix: 'Matrix', findings: 'Findings', timeline: 'Timeline', ...(hasContent.value ? { content: 'Content' } : {}), ...(hasPrototypes(state.report) ? { content: 'Content', speed: 'Speed' } : {}) }));
+const hasSpeed = computed(() => state.report?.entries.some(target => target.viewports.some(row => row.artifacts?.lighthouse)));
+const views = computed(() => ({ detail: 'Detail', matrix: 'Matrix', findings: 'Findings', timeline: 'Timeline', ...(hasContent.value ? { content: 'Content' } : {}), ...(hasSpeed.value ? { speed: 'Speed' } : {}), ...(hasPrototypes(state.report) ? { content: 'Content', speed: 'Speed' } : {}) }));
 const component = computed(
 	() =>
 		({ detail: TargetDetail, matrix: MatrixView, findings: FindingsView, timeline: TimelineView })[
@@ -209,6 +211,7 @@ onUnmounted(() => {
                     <RunSummary :report="state.report" :summary="summary" />
                     <ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
                     <ContentOverview v-if="state.view === 'content' && hasContent" :targets="filteredTargets" :viewport-id="state.viewportId" @action="dispatch" />
+                    <SpeedOverview v-else-if="state.view === 'speed' && hasSpeed" :targets="filteredTargets" :target-id="state.targetId" :viewport-id="state.viewportId" :evidence="state.artifactEvidence" @action="dispatch" />
                     <PrototypeOverview v-else-if="['content', 'speed'].includes(state.view)" :report="state.report" :targets="filteredTargets" :viewport-id="state.viewportId" :prototype-kind="state.view === 'speed' ? 'lighthouse' : 'content'" @action="dispatch" />
                     <component v-else :is="component" :report="state.report" :target-id="state.targetId" :viewport-id="state.viewportId" :source="state.source" :targets="filteredTargets" :filters="state.filters" :artifact-evidence="state.artifactEvidence" :evidence-view="state.evidenceView" :artifact="state.artifact" :comparison="state.comparison" :overlay="state.overlay" @action="dispatch" />
                     <details class="measurement-details"><summary>Measurement context</summary><p>Target states from stored rows (all targets): <span v-for="(count, name) in summary.states" :key="name">{{ name }}: {{ count }} · </span></p><p>Noise floor: {{ state.report.meta.noiseFloor == null ? 'unknown; repeatability is not measured' : JSON.stringify(state.report.meta.noiseFloor) }}. Display hint: {{ state.report.meta.matchBelow }}%. The ratio is not a verdict.</p></details>

@@ -52,6 +52,7 @@ jobs:
       - run: node tests/integration/check-behavior-engine.mjs
       - run: node tests/integration/check-behavior-artifact.mjs
       - run: node tests/integration/check-behavior-pipeline.mjs
+      - run: node tests/integration/check-perf-engine.mjs
       - run: node tests/integration/check-evidenced-rules.mjs
       - run: node tests/integration/check-viewer.mjs
       - run: node tests/integration/check-viewer-workspace.mjs

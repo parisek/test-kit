@@ -1,17 +1,18 @@
 import { builtinChecks } from '../checks/index.js';
-export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known'].map(name => [name, {}]));
+export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'perf'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
-  query REPORT --target ID --viewport ID --artifact html|status|content|behavior [--max-lines N]
+  query REPORT --target ID --viewport ID --artifact html|status|content|behavior|lighthouse [--max-lines N]
   record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT
+  perf --side ID --targets ID,ID [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
+const FLAGS = { perf: ['config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -27,15 +28,20 @@ export function parseCommand(argv) {
     const name = argument.slice(2);
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
+    if (['consent', 'allow-high-load', 'fail-on-budget'].includes(name)) { options[name] = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
-  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1 }[command];
+  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0 }[command];
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
+  if (command === 'perf' && (!options.side || !options.targets)) throw new Error('perf requires --side and --targets');
+  if (options.runs) options.runs = integer(options.runs, '--runs', 3, 5);
+  if (options['form-factor'] && !['desktop', 'mobile'].includes(options['form-factor'])) throw new Error('Unknown performance form factor');
+  if (options.throttling && !['simulated', 'devtools', 'provided'].includes(options.throttling)) throw new Error('Unknown performance throttling');
   if (command === 'capture' && !options.side) throw new Error('capture requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
-  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status', 'content', 'behavior'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status|content|behavior');
+  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status', 'content', 'behavior', 'lighthouse'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status|content|behavior|lighthouse');
   if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
   if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) throw new Error('Unknown capture artifact');
   if (options.checks) {
@@ -50,6 +56,16 @@ export function parseCommand(argv) {
   return { command, positions, options };
 }
 async function dispatch({ command, positions, options }) {
+  if (command === 'perf') {
+    const { runPerfCommand } = await import('./perf.js');
+    const budgets = {};
+    for (const item of options.budget?.split(',') ?? []) {
+      const [metric, raw, extra] = item.split('=');
+      if (extra !== undefined || !raw || Object.hasOwn(budgets, metric) || !Number.isFinite(Number(raw)) || Number(raw) < 0) throw new Error('Invalid performance budget');
+      budgets[metric] = Number(raw);
+    }
+    return runPerfCommand({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false });
+  }
   if (command === 'capture') {
     const { capture } = await import('../capture/index.js');
     const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(',') });
@@ -60,8 +76,8 @@ async function dispatch({ command, positions, options }) {
     const { compareRuns } = await import('../compare/runs.js');
     const { resolve } = await import('node:path');
     const loaded = await loadConfig(options.config ?? 'test-kit.config.json');
-    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind ?? 'update', rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage });
-    return { output: { reportPath: result.reportPath }, exitCode: 0 };
+    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind ?? 'update', rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage, failOnBudget: options['fail-on-budget'] ?? false });
+    return { output: { reportPath: result.reportPath }, exitCode: result.exitCode ?? 0 };
   }
   if (command === 'summary') {
     const { open } = await import('node:fs/promises');
