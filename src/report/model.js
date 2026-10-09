@@ -1,3 +1,4 @@
+import { normalizeKnown, normalizeRules, isHash } from '../rules/model.js';
 import { relativePath } from './safe.js';
 
 export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'];
@@ -39,6 +40,13 @@ export function validateReport(report) {
 	if (!array(report.meta?.viewports)) problems.push('meta.viewports must be an array.');
 	if (!Number.isFinite(report.meta?.matchBelow) || report.meta.matchBelow < 0 || report.meta.matchBelow > 100) problems.push('matchBelow must be a percentage from 0 to 100.');
 	if (!PAIR_KINDS.includes(report.pair?.kind)) problems.push('Unknown pair kind.');
+	if (report.known_diffs !== undefined) {
+		try { normalizeKnown(report.known_diffs); } catch { problems.push('Invalid known difference evidence.'); }
+	}
+	if (report.meta?.comparisonPolicyHash !== undefined) {
+		if (!isHash(report.meta.comparisonPolicyHash) || !isHash(report.pair?.key)) problems.push('Invalid comparison policy identity.');
+		try { normalizeRules(report.rules); } catch { problems.push('Invalid evidenced rules.'); }
+	}
 	if (problems.length) return problems;
 	const ids = (rows, field) => {
 		const out = new Set();
@@ -51,6 +59,7 @@ export function validateReport(report) {
 	const targetIds = ids(report.entries, 'entries');
 	const viewportIds = ids(report.meta.viewports, 'viewports');
 	const causeIds = ids(report.causes, 'causes');
+	for (const cause of report.causes) if (cause && Object.hasOwn(cause, 'acceptance') && !['normalization', 'recorded-evidence'].includes(cause.acceptance)) problems.push('Invalid scoped cause acceptance.');
 	const runIds = ids(report.runs, 'runs');
 	if (!runIds.has(report.pair.aRunId) || !runIds.has(report.pair.bRunId)) problems.push('Pair refers to an unknown run.');
 	for (const target of report.entries) {
@@ -74,7 +83,7 @@ export function validateReport(report) {
 					}
 					if (typeof artifact.diff?.changed !== 'boolean') problems.push('Complete artifact needs a comparison result.');
 				}
-				for (const side of ['a', 'b', 'diff']) {
+				for (const side of ['a', 'b', 'diff', 'normalizedA', 'normalizedB']) {
 					const index = artifact[side];
 					if (index?.src != null && (!relativePath(index.src) || index.src.length > 2000
 						|| !index.src.endsWith(kind === 'html' && side !== 'diff' ? '.txt' : '.json'))) problems.push('Unsafe artifact path.');

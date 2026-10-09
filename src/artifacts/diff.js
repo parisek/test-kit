@@ -16,3 +16,16 @@ export function lineWindow(a, b, { maxLines = 100, maxLineLength = 2000 } = {}) 
   return { method: 'prefix-suffix-replacement', removedLines, addedLines,
     displayedLines: lines.length, omittedLines: removedLines + addedLines - lines.length, lines };
 }
+
+// Bound the combined JSON, including escaped raw and normalized text.
+export function boundedDifference(detail, maxBytes = 2 * 1024 * 1024) {
+  const windows = [detail, detail.rawWindow].filter(Boolean);
+  while (new TextEncoder().encode(JSON.stringify(detail)).length > maxBytes) {
+    const window = windows.filter(window => window.lines.length).sort((a, b) => b.lines.length - a.lines.length)[0];
+    if (!window) throw new Error('Difference metadata exceeds its limit.');
+    window.lines.pop();
+    window.displayedLines = window.lines.length;
+    window.omittedLines = window.removedLines + window.addedLines - window.lines.length;
+  }
+  return detail;
+}

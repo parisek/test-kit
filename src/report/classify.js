@@ -1,3 +1,5 @@
+import { findingIsExplained } from '../rules/classify.js';
+export { findingIsExplained } from '../rules/classify.js';
 // Shared pure classification for the viewer and queries (R4.4, R11.6).
 export const CLASSES = ['unexplained', 'explained', 'oracle', 'match'];
 
@@ -25,7 +27,7 @@ export function cellClass(report, target, viewportId) {
 	if (cell?.artifacts?.status && !cell.artifacts.screenshot && !cell.artifacts.html) return null;
 	if (target.judge === 'oracle') return 'oracle';
 	const findings = findingsFor(report, target.id, { viewportId }).filter(finding => finding.artifact !== 'status');
-	if (findings.length) return findings.every((finding) => causeIsKnown(report, finding.causeId)) ? 'explained' : 'unexplained';
+	if (findings.length) return findings.every((finding) => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';
 	return 'match';
 }
 
@@ -43,7 +45,7 @@ export function targetClass(report, target) {
 		const row = target.viewports.find(row => row.id === finding.viewportId);
 		return row?.artifacts?.[finding.artifact]?.state === 'complete';
 	});
-	if (findings.length) values.push(target.judge === 'oracle' ? 'oracle' : findings.every((finding) => causeIsKnown(report, finding.causeId)) ? 'explained' : 'unexplained');
+	if (findings.length) values.push(target.judge === 'oracle' ? 'oracle' : findings.every((finding) => findingIsExplained(report, finding)) ? 'explained' : 'unexplained');
 	return CLASSES.find((value) => values.includes(value)) ?? null;
 }
 

@@ -1,3 +1,4 @@
+import { ruleApplies, isHash } from '../rules/model.js';
 import { comparisonDetail } from '../artifacts/schema.js';
 import { dirname, basename, resolve } from 'node:path';
 import { adaptReport } from '../report/model.js';
@@ -15,12 +16,17 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
   const index = row.artifacts?.[artifact];
   if (!index) throw new Error('Artifact is not requested.');
   const result = { target, viewport, artifact, state: index.state, diagnostic: typeof index.diagnostic === 'string' ? index.diagnostic.slice(0, 500) : null,
-    evidence: { a: index.a?.src ?? null, b: index.b?.src ?? null }, next: 'Open the same target and viewport in the viewer.' };
+    pairKey: isHash(report.pair.key) ? report.pair.key : null,
+    rules: Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, { pairKey: report.pair.key, kind: report.pair.kind, targetId: target, artifact })).slice(0, 50).map(([id, rule]) => ({ id: id.slice(0, 64), text: typeof rule.text === 'string' ? rule.text.slice(0, 500) : '', evidence: rule.evidence.slice(0, 1000) })),
+    rulesOmitted: Math.max(0, Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, { pairKey: report.pair.key, kind: report.pair.kind, targetId: target, artifact })).length - 50),
+    evidence: { a: index.a?.src ?? null, b: index.b?.src ?? null, normalizedA: index.normalizedA?.src ?? null, normalizedB: index.normalizedB?.src ?? null }, next: 'Open the same target and viewport in the viewer.' };
   if (index.state === 'complete' && index.diff?.src) {
     const detail = comparisonDetail(artifact, JSON.parse(await readSidecar(root, index.diff.src)));
     if (artifact === 'html') {
       if (!Array.isArray(detail.lines) || detail.lines.length > 100) throw new Error('Invalid HTML difference.');
-      result.diff = { ...detail, lines: detail.lines.slice(0, maxLines),
+      const rawWindow = detail.rawWindow ? { ...detail.rawWindow, lines: detail.rawWindow.lines.slice(0, maxLines),
+        displayedLines: Math.min(detail.rawWindow.lines.length, maxLines), omittedLines: detail.rawWindow.omittedLines + Math.max(0, detail.rawWindow.lines.length - maxLines) } : undefined;
+      result.diff = { ...detail, ...(rawWindow ? { rawWindow } : {}), lines: detail.lines.slice(0, maxLines),
         displayedLines: Math.min(detail.lines.length, maxLines), omittedLines: (detail.omittedLines ?? 0) + Math.max(0, detail.lines.length - maxLines) };
     } else result.diff = detail;
   }

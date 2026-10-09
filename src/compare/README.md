@@ -6,3 +6,8 @@ One comparator per artifact kind, normalisers with evidence, the noise floor. Sp
 
 Response artifacts use bounded sidecars and a linear HTML replacement window.
 Requested comparable artifact failures keep measurement incomplete (R8.7).
+
+
+Comparison takes optional validated rules and pair-scoped known differences.
+It retains raw findings and attaches verified evidence acceptance. Policy does not
+change screenshot capture hashes. See `src/rules/README.md` (R8.4–R8.6).

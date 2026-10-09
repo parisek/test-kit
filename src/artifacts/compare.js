@@ -1,3 +1,5 @@
+import { normalizeHtml } from '../rules/normalize.js';
+import { byteHash, policyHash, comparatorIndex } from '../rules/evidence.js';
 import { artifactState } from './state.js';
 import { statusDetail } from './schema.js';
 import { open, realpath, mkdir, writeFile } from 'node:fs/promises';
@@ -5,7 +7,7 @@ import { join, resolve, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
 import { MAX_RESPONSE_BYTES } from './response.js';
 import { settingsHash } from '../config/settings.js';
-import { lineWindow } from './diff.js';
+import { lineWindow, boundedDifference } from './diff.js';
 
 export async function readSidecar(root, path, maxBytes = MAX_RESPONSE_BYTES) {
   if (!relativePath(path)) throw new Error('Unsafe sidecar path.');
@@ -29,7 +31,7 @@ export async function readSidecar(root, path, maxBytes = MAX_RESPONSE_BYTES) {
 }
 
 
-export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, output, targetId, viewportId }) {
+export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, output, targetId, viewportId, rules = {}, context = {} }) {
   const indexes = [ac?.artifacts?.[kind], bc?.artifacts?.[kind]];
   const result = { kind, state: artifactState(...indexes), a: null, b: null, diff: null };
   const viewportSettings = run => {
@@ -68,8 +70,21 @@ export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, ou
           const charset = /charset=["']?([^;"'\s]+)/i.exec(index.contentType ?? '')?.[1];
           if (charset && !['utf-8', 'utf8', 'us-ascii'].includes(charset.toLowerCase())) throw new Error('Unsupported charset.');
         }
-        const decoder = new TextDecoder('utf-8', { fatal: true });
-        detail = { changed: !bytes[0].equals(bytes[1]), ...lineWindow(decoder.decode(bytes[0]), decoder.decode(bytes[1])) };
+        const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+        const rawA = decoder.decode(bytes[0]), rawB = decoder.decode(bytes[1]);
+        const normalized = normalizeHtml(rawA, rawB, rules, context);
+        const rawChanged = !bytes[0].equals(bytes[1]);
+        detail = { changed: normalized.a !== normalized.b, rawChanged,
+          ...lineWindow(normalized.a, normalized.b),
+          rawWindow: { changed: rawChanged, ...lineWindow(rawA, rawB) },
+          normalization: { policyHash: policyHash(rules), rawA: byteHash(bytes[0]), rawB: byteHash(bytes[1]),
+            fired: normalized.fired, scoped: normalized.scoped, diagnostics: normalized.diagnostics } };
+        for (const [side, text] of [['a', normalized.a], ['b', normalized.b]]) {
+          const src = `normalized/html/${targetId}/${viewportId}-${side}.txt`;
+          await mkdir(dirname(join(output, src)), { recursive: true });
+          await writeFile(join(output, src), text);
+          result[side === 'a' ? 'normalizedA' : 'normalizedB'] = { kind: 'html', src, tool: 'test-kit-normalizer', version: '1', settingsHash: policyHash(rules) };
+        }
       } catch {
         result.state = 'failed'; result.diagnostic = 'HTML response is not supported UTF-8 text.';
         return result;
@@ -78,12 +93,14 @@ export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, ou
       const before = statusDetail(JSON.parse(bytes[0])), after = statusDetail(JSON.parse(bytes[1]));
       detail = { changed: JSON.stringify(before) !== JSON.stringify(after), a: before, b: after };
     }
+    if (kind === 'html') boundedDifference(detail);
     const changed = detail.changed;
     const src = `diff/${kind}/${targetId}/${viewportId}.json`;
     await mkdir(dirname(join(output, src)), { recursive: true });
     await writeFile(join(output, src), JSON.stringify(detail));
     result.diff = { kind, src, tool: 'test-kit-response', version: '1',
-      settingsHash: settingsHash({ mode: 'response-window', version: 1, maxLines: 100, maxLineLength: 2000 }), changed,
+      settingsHash: settingsHash({ mode: 'response-window', version: 1, maxLines: 100, maxLineLength: 2000, normalization: Object.entries(rules) }), ...(kind === 'html' ? comparatorIndex('html', rules) : {}), changed,
+      ...(kind === 'html' ? { rawChanged: detail.rawChanged, firedRuleIds: detail.normalization.fired.map(rule => rule.id), policyHash: detail.normalization.policyHash } : {}),
       ...(kind === 'html' ? { removedLines: detail.removedLines, addedLines: detail.addedLines, omittedLines: detail.omittedLines } : {}) };
   } else result.diagnostic ??= result.state === 'incompatible' ? 'Artifact settings or tool versions differ.' : 'Requested artifact evidence is incomplete.';
   return result;

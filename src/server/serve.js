@@ -36,7 +36,7 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 	const assets = new Set();
 	const sidecars = new Map();
 	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status']) {
-		for (const side of ['a', 'b', 'diff']) {
+		for (const side of ['a', 'b', 'diff', 'normalizedA', 'normalizedB']) {
 			const index = row.artifacts?.[kind]?.[side];
 			if (relativePath(index?.src)) sidecars.set(index.src, kind === 'html' && side !== 'diff' ? 'text/plain; charset=utf-8' : 'application/json');
 		}

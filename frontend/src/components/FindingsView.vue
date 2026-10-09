@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { targetClass, targetState } from '../../../src/report/classify.js';
+import { targetClass, targetState, findingIsExplained } from '../../../src/report/classify.js';
 import Badge from './Badge.vue';
 const props = defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array, filters: Object });
 const emit = defineEmits(['action']);
@@ -34,7 +34,7 @@ const targetFor = (finding) => props.report.entries.find((item) => item.id === f
 	>
 		<div class="flex flex-wrap items-center gap-2">
 			<h2 class="text-lg font-semibold break-words">{{ group.cause?.title ?? 'No recorded cause' }}</h2>
-			<Badge :text="group.cause?.known === true ? 'explained' : 'unexplained'" />
+			<Badge :text="group.findings.every(finding => findingIsExplained(report, finding)) ? 'explained' : 'unexplained'" />
 		</div>
 		<p v-if="group.cause?.detail" class="mt-2 text-sm break-words">{{ group.cause.detail }}</p>
 		<div

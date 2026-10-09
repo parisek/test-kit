@@ -63,3 +63,10 @@ test('dispatch failures become concise operational errors', async () => {
   assert.equal(await run(['serve', 'report.json'], { out: sink(), err }, '0.1.0', async () => { throw new Error('Report is missing'); }), 1);
   assert.equal(err.text, 'Report is missing\n');
 });
+
+test('record-known requires exact selectors and explicit evidence text', () => {
+  const args = ['record-known', 'report.json', '--config', 'config.json', '--target', 'home', '--viewport', 'wide', '--artifact', 'html', '--cause', 'expected', '--reason', 'Observed difference'];
+  assert.equal(parseCommand(args).command, 'record-known');
+  assert.throws(() => parseCommand(args.slice(0, -2)), /requires/);
+  assert.throws(() => parseCommand(args.map(value => value === 'html' ? 'status' : value)), /requires/);
+});
