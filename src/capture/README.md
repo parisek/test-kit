@@ -11,6 +11,9 @@ navigation response status and a screenshot. It blocks nonlocal requests in
 all frames and popups. It blocks requests that submit data. It checks redirect
 destinations before network access. It does not save cookies or credentials.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
+WebSockets are blocked, including local sockets. Version 0.1 captures a static
+state. It does not permit socket traffic. This policy is part of the settings
+hash. Playwright 1.49 or newer is required for the socket guard.
 The run records these fixed browser settings in its capture settings hash.
 It records the actual Chromium version as well as the Playwright version.
 

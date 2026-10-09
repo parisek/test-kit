@@ -8,7 +8,7 @@ import { isLocalUrl, createRunId, assertImageBounds, targetPath, ddevMatchesOrig
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
-const BROWSER_SETTINGS = Object.freeze({ name: 'chromium', headless: true, ignoreHTTPSErrors: true, serviceWorkers: 'block' });
+const BROWSER_SETTINGS = Object.freeze({ name: 'chromium', headless: true, ignoreHTTPSErrors: true, serviceWorkers: 'block', webSockets: 'block' });
 
 async function writeManifest(path, run) {
   const temporary = `${path}.tmp`;
@@ -67,6 +67,8 @@ async function captureOne(browser, config, side, target, viewport, runDir) {
       reducedMotion: recipe.disableMotion ? 'reduce' : 'no-preference',
     });
     if (expired) { await context.close(); throw new Error('Capture deadline exceeded'); }
+    if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
+    await context.routeWebSocket('**/*', socket => socket.close());
     const page = await context.newPage();
     page.setDefaultTimeout(config.screenshot.timeoutMs);
     page.setDefaultNavigationTimeout(config.screenshot.timeoutMs);
@@ -169,6 +171,14 @@ export async function capture({ configPath, side, label = '', runsRoot }) {
   let browser;
   try {
     browser = await tool.chromium.launch({ headless: true });
+    const probe = await browser.newContext();
+    try {
+      if (typeof probe.routeWebSocket !== 'function') {
+        const error = new Error('Playwright 1.49 or newer is required for local-only WebSocket guards');
+        error.code = 'PLAYWRIGHT_VERSION_UNSUPPORTED';
+        throw error;
+      }
+    } finally { await probe.close(); }
     run.tools.push({ name: 'chromium', version: browser.version(), settingsHash: hash });
     await writeManifest(manifestPath, run);
     for (const target of config.targets) for (const viewport of config.viewports) {
@@ -177,7 +187,8 @@ export async function capture({ configPath, side, label = '', runsRoot }) {
     }
     if (run.captures.every(result => result.state === 'captured')) run.state = 'complete';
     await writeManifest(manifestPath, run);
-  } catch {
+  } catch (error) {
+    if (error.code === 'PLAYWRIGHT_VERSION_UNSUPPORTED') throw error;
     throw new Error(`Capture stops before completion. Evidence remains in ${manifestPath}. Check Chromium installation and local browser resources.`);
   } finally { if (browser) await browser.close(); }
   return { run, runDir, manifestPath };
