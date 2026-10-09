@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { targetClass, targetState, cellClass, cellState, findingsFor } from '../../../src/report/classify.js';
+import { targetClass, targetState, artifactClass, artifactState, findingsFor } from '../../../src/report/classify.js';
 import RuleAudit from './RuleAudit.vue';
 import ArtifactEvidence from './ArtifactEvidence.vue';
 import ScreenshotComparison from './ScreenshotComparison.vue';
@@ -19,6 +19,8 @@ const viewports = computed(() => props.report?.meta?.viewports?.length ? props.r
 const parts = computed(() => (Array.isArray(target.value?.composedOf) ? target.value.composedOf : []).map(item => typeof item === 'string' ? item : item?.id).filter(Boolean).join(', '));
 const usedOn = computed(() => props.report.entries.filter(item => Array.isArray(item.composedOf) && item.composedOf.some(part => (typeof part === 'string' ? part : part?.id) === target.value?.id)).map(item => item.title ?? item.id).join(', '));
 const findings = computed(() => target.value ? findingsFor(props.report, target.value.id, { viewportId: row.value?.id ?? props.viewportId, artifact: selectedArtifact.value }) : []);
+const selectedState = computed(() => row.value && target.value ? artifactState(target.value, row.value.id, selectedArtifact.value) : 'missing');
+const selectedClass = computed(() => row.value && target.value ? artifactClass(props.report, target.value, row.value.id, selectedArtifact.value) : null);
 const diagnostic = value => typeof value === 'string' ? value : value?.message ?? 'This measurement cannot be compared. Inspect technical details for its diagnostic.';
 const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status', behavior: row.value?.artifacts?.behavior ? 'Behavior' : 'Behavior · Prototype', content: row.value?.artifacts?.content ? 'Content' : 'Content · Prototype', lighthouse: row.value?.artifacts?.lighthouse ? 'Lighthouse' : 'Lighthouse · Prototype' })[kind];
 </script>
@@ -36,7 +38,7 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
                 <div v-if="selectedArtifact === 'screenshot' && row?.artifacts?.screenshot" class="inline-flex rounded-ui-pill border border-ui-control-border p-1" aria-label="Screenshot comparison mode"><button v-for="[mode, title] in [['side-by-side', 'Side by side'], ['overlay', 'Overlay'], ['diff', 'Difference']]" :key="mode" :aria-pressed="comparison === mode" :class="comparison === mode ? 'bg-ui-active-surface text-ui-active-text' : 'text-ui-muted'" class="rounded-ui-pill px-3 py-1.5 text-xs" @click="emit('action', 'comparison', mode)">{{ title }}</button></div>
             </div>
             <template v-if="row">
-                <div class="mb-2 flex flex-wrap items-center gap-2 text-xs"><Badge :text="cellClass(report, target, row.id) ?? 'unclassified'" /><Badge v-if="cellState(target, row.id) !== 'complete'" :text="cellState(target, row.id)" /><span v-for="side in ['a', 'b']" :key="side" :class="row.availability?.[side] === 'http-error' || row.availability?.[side] === 'capture-error' ? 'text-red-700 dark:text-red-300' : 'text-ui-muted'">{{ side.toUpperCase() }}: {{ row.availability?.[side] ?? 'unknown' }}</span><span v-if="selectedArtifact === 'screenshot'" class="text-ui-muted">· Pixel difference {{ Number.isFinite(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio) ? `${(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio).toFixed(3)}%` : 'not measured' }} · not a verdict</span></div>
+                <div class="mb-2 flex flex-wrap items-center gap-2 text-xs" aria-label="Selected artifact measurement"><span class="text-ui-muted">{{ label(selectedArtifact) }}</span><Badge :text="selectedClass ?? 'unclassified'" /><Badge :text="selectedState" /><span v-for="side in ['a', 'b']" :key="side" :class="row.availability?.[side] === 'http-error' || row.availability?.[side] === 'capture-error' ? 'text-red-700 dark:text-red-300' : 'text-ui-muted'">{{ side.toUpperCase() }}: {{ row.availability?.[side] ?? 'unknown' }}</span><span v-if="selectedArtifact === 'screenshot'" class="text-ui-muted">· Pixel difference {{ Number.isFinite(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio) ? `${(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio).toFixed(3)}%` : 'not measured' }} · not a verdict</span></div>
                 <p v-if="row.error ?? row.diagnostic" role="status" class="mb-4 rounded-ui-panel border border-ui-border bg-ui-toolbar p-3 text-sm">{{ diagnostic(row.error ?? row.diagnostic) }}</p>
                 <PlannedEvidence v-if="planned" :kind="selectedArtifact" :sample="planned" />
                 <ScreenshotComparison v-else-if="selectedArtifact === 'screenshot' && row.artifacts?.screenshot" :screenshot="row.artifacts.screenshot" :source="source" :target-title="target.title ?? target.id" :viewport-id="row.id" :mode="comparison" :overlay="overlay" :ratio="row.ratio" @action="(...args) => emit('action', ...args)" />
@@ -44,7 +46,7 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
                 <p v-else role="status" class="rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">No evidence is indexed for this viewport.</p>
                 <RuleAudit v-if="selectedArtifact === 'html'" :report="report" :target-id="targetId" :row="row" :evidence="artifactEvidence?.kind === 'html' ? artifactEvidence.data : null" />
 
-                <details v-if="selectedArtifact === 'screenshot'" class="mt-5 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Technical details · artifact provenance</summary><pre class="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-all">{{ JSON.stringify({ state: row.state, diagnostic: row.error ?? row.diagnostic, artifacts: row.artifacts }, null, 2) }}</pre></details>
+                <details v-if="selectedArtifact === 'screenshot'" class="mt-5 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Technical details · artifact provenance</summary><pre class="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-all">{{ JSON.stringify({ state: selectedState, targetViewportState: row.state, diagnostic: row.error ?? row.diagnostic, artifacts: row.artifacts }, null, 2) }}</pre></details>
             </template>
             <p v-else role="status" class="my-4 rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">Missing evidence for {{ viewportId ?? 'this target' }}. This measurement is unclassified.</p>
 <details v-if="parts || usedOn || target.note" class="mt-4 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Target details · composition and usage</summary><p v-if="target.note" class="mt-2 break-words">{{ target.note }}</p><p v-if="parts" class="mt-2 break-words">Composed of: {{ parts }}</p><p v-if="usedOn" class="mt-2 break-words">Used on: {{ usedOn }}</p></details>
