@@ -30,3 +30,17 @@ jobs:
 
       - name: The command line starts
         run: node bin/cli.js --help
+
+  browser:
+    name: Local screenshot pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/integration/check-example-site.mjs
+      - run: node tests/integration/check-capture-guards.mjs
+      - run: node tests/integration/check-pipeline.mjs

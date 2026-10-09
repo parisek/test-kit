@@ -7,6 +7,7 @@ import { startExampleSite } from './example-site-server.mjs';
 import { capture } from '../../src/capture/index.js';
 import { compareRuns } from '../../src/compare/runs.js';
 import { summarizeReport } from '../../src/query/summary.js';
+import { chromium } from '@playwright/test';
 import { serve } from '../../src/server/serve.js';
 
 const directory = await mkdtemp(join(tmpdir(), 'test-kit-pipeline-'));
@@ -39,6 +40,16 @@ try {
   assert.equal((await fetch(`${viewer.origin}/report.json`)).status, 200);
   assert.equal((await fetch(`${viewer.origin}/package.json`)).status, 404);
   assert.equal((await fetch(`${viewer.origin}/report.json`, { method: 'POST' })).status, 405);
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const failures = []; page.on('pageerror', error => failures.push(error.message));
+    await page.goto(viewer.origin);
+    await page.locator('img').first().waitFor();
+    await page.waitForFunction(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
+    assert.deepEqual(failures, []);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  } finally { await browser.close(); }
   console.log(JSON.stringify({ same: summarizeReport(same.report).counts, changed: summary.counts, summaryBytes: Buffer.byteLength(JSON.stringify(summarizeReport(changed.report))) }));
 } finally {
   if (viewer) await viewer.close();
