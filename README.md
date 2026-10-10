@@ -188,7 +188,7 @@ Speed environment identity uses the stored side and canonical origin. A side
 that changes origin does not prove a regression. This restriction applies to
 speed only. Screenshot and content compatibility retain their existing rules.
 
-Raw Lighthouse JSON and HTML stay under local runs. HTML links show source as
-plain text. To build a real anonymous speed demo, run `npm run demo:perf`.
+Raw Lighthouse JSON and HTML stay under local runs. HTML links download the
+original report. Open it locally for the native Lighthouse interface. To build a real anonymous speed demo, run `npm run demo:perf`.
 It measures one page twice and opens a separate local report on port 4185.
 It does not run as part of the normal visual demo.
