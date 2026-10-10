@@ -4,9 +4,9 @@
 sides, target paths, viewports, and settle settings. Capture records evidence.
 Compare reads stored runs. The viewer and JSON summary use the same classifier.
 
-Version 0.1 supports screenshots only. No content checks run by default.
-The unreleased development build also supports opt-in HTML and HTTP status.
-Main also supports opt-in stored content checks, project behavior contracts and local Lighthouse measurements. Legacy engine and lint migration remain later milestones.
+Version 0.2 supports screenshots and opt-in HTML, HTTP status, stored content
+checks, project behavior contracts and local Lighthouse measurements.
+No content checks run by default. Legacy command and lint migration remain open.
 The Node engine belongs here. PHP and Twig lint belong to
 [`lint-kit`](https://github.com/parisek/lint-kit).
 
@@ -17,7 +17,7 @@ Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
 ```sh
-npm install -D github:parisek/test-kit#v0.1.0
+npm install -D github:parisek/test-kit#v0.2.0
 npm install -D @playwright/test
 npx playwright install chromium
 ```
@@ -84,8 +84,7 @@ The package uses the MIT licence. Installation needs no build step.
 Viewer development uses Node 22.18 or later. See [the frontend guide](frontend/README.md).
 The package commits the Vue and Tailwind build. CI verifies it against its source.
 
-HTML and HTTP status are opt-in response artifacts in the unreleased build.
-These commands are not part of v0.1.0. Use
+HTML and HTTP status are opt-in response artifacts in v0.2.0. Use
 
 ```sh
 test-kit capture --side local --artifacts screenshot,html,status
@@ -115,7 +114,7 @@ They do not enter report findings, target classes or agent query results.
 The content overview appears when a report has content evidence. Speed previews use the demo prototype marker.
 The final artifact schema, runners and evidence loading remain future work.
 
-### Stored content checks (unreleased)
+### Stored content checks
 
 Add `content` to `artifacts`. Select checks explicitly in `checks`.
 Supported IDs: `heading-outline`, `lang`, `empty-alt`, `empty-title`,
@@ -138,7 +137,7 @@ test-kit query report-title/report.json --target home --viewport desktop --artif
 The original run manifests and snapshots stay unchanged (R7.1, R9.6, R12.3).
 Snapshot retention remains a project decision.
 
-### Project behavior contracts (unreleased)
+### Project behavior contracts
 
 Add `behavior` to `artifacts`. Set `behavior.source` to a project directory.
 Each `*.contract.js` exports one contract or several named contracts.
@@ -158,7 +157,7 @@ to open them. Scoped queries accept `--artifact behavior --max-lines 10`.
 The legacy reporter, coverage and old command migration remain separate work
 under #25 and #45.
 
-### Local Lighthouse measurements (unreleased)
+### Local Lighthouse measurements
 
 The engine and pure helpers still support Node 20. Lighthouse 13.5 requires
 Node 22.19 or newer and the optional `lighthouse` peer. The development version
