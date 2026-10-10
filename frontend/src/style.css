@@ -36,6 +36,10 @@
 	}
 }
 
+.filter-select { position: relative; display: inline-block; min-width: 0; max-width: 100%; }
+.filter-select::after { content: ""; position: absolute; right: 12px; top: calc(50% - 5px); width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); pointer-events: none; }
+.filter-select select { appearance: none; padding-right: 32px; }
+
 /* Viewer domain styling uses the copied UI variables without changing them. */
 .app-shell { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; color: var(--ui-text); background: var(--ui-toolbar); }
 .app-shell.sidebar-hidden { grid-template-columns: minmax(0, 1fr); }
@@ -156,7 +160,7 @@
     .summary-caption { margin-top: 12px; }
     .summary-warning { margin-top: 8px; padding: 7px 9px; font-size: 10px; }
     .filter-panel { padding: 10px 12px; }
-    .filter-panel select { padding: 5px 8px; }
+    .filter-panel select { padding: 5px 32px 5px 8px; }
     .filter-panel label { flex-direction: row; align-items: center; gap: 7px; }
     .filter-caption { margin-top: 6px; }
 }
@@ -172,9 +176,9 @@
     .filter-panel > div:first-child > button { padding: 6px 9px; font-size: 10px; }
     .filter-panel label { font-size: 10px; gap: 5px; }
     .filter-panel select { font-size: 10px; }
-    .filter-panel select[aria-label="Class filter"] { width: 94px; }
-    .filter-panel select[aria-label="Measurement filter"] { width: 130px; }
-    .filter-panel select[aria-label="Cause filter"] { width: 120px; }
+    .filter-panel select[aria-label="Class filter"] { width: 110px; }
+    .filter-panel select[aria-label="Measurement filter"] { width: 148px; }
+    .filter-panel select[aria-label="Cause filter"] { width: 136px; }
     .filter-caption { margin-top: 0; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; font-size: 8px; }
     .filter-caption details[open] { position: absolute; right: 16px; z-index: 5; max-width: 350px; background: var(--ui-surface); border: 1px solid var(--ui-border); padding: 10px; border-radius: 5px; }
 }
