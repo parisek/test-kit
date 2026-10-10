@@ -9,7 +9,8 @@
   },
   "exports": {
     ".": "./src/index.js",
-    "./compat/selection": "./src/compat/selection.js"
+    "./compat/selection": "./src/compat/selection.js",
+    "./compat/harvest": "./src/compat/harvest-plan.js"
   },
   "files": [
     "bin",
