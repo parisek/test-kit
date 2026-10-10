@@ -4,6 +4,8 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
 ### Added
 
 - Capture compressed local content and run explicit checks without another crawl.
@@ -14,6 +16,12 @@ Versions follow semver. Each release uses an immutable git tag.
 - Capture opt-in HTML response bytes and bounded HTTP status from the same navigation.
 - Compare response sidecars, show safe text evidence, and query bounded artifact details.
 
+- Link each measured audit to its original local Lighthouse HTML and JSON report.
+- Add opt-in selector unions, content-box geometry, lazy-image settlement and target reveal recipes.
+- Bind comparisons and recorded evidence to the effective target scope and settlement recipe.
+- Export bounded legacy selection and harvest planners without browser dependencies.
+- Verify packed installs in synthetic parent, WordPress and Drupal layouts.
+
 ### Changed
 
 - Show A/B run labels, sides, capture dates, and global availability notices.
@@ -23,6 +31,15 @@ Versions follow semver. Each release uses an immutable git tag.
 - Copy a pinned company UI token contract with provenance and licence notices.
 - Open the first view from the pair kind and retain incomplete evidence.
 - Verify component behavior, reproducible builds, mobile focus, and installed packages.
+
+### Scope
+
+- New artifacts, content checks and settlement recipes stay opt-in.
+- Lighthouse requires Node 22.19 or newer and supports local HTTP pages only.
+- Original Lighthouse HTML downloads remain local. Open them in a browser for the native interface.
+- Legacy command replacement, lint migration and real CMS/DDEV pilot validation remain open.
+- The package does not implement `init`. Copy and configure the included template for the pilot.
+- This release does not change existing project aliases or snapshot assertion gates.
 
 ## [0.1.0] - 2026-10-09
 

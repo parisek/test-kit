@@ -4,9 +4,9 @@
 sides, target paths, viewports, and settle settings. Capture records evidence.
 Compare reads stored runs. The viewer and JSON summary use the same classifier.
 
-Version 0.1 supports screenshots only. No content checks run by default.
-The unreleased development build also supports opt-in HTML and HTTP status.
-Main also supports opt-in stored content checks, project behavior contracts and local Lighthouse measurements. Legacy engine and lint migration remain later milestones.
+Version 0.2 supports screenshots and opt-in HTML, HTTP status, stored content
+checks, project behavior contracts and local Lighthouse measurements.
+No content checks run by default. Legacy command and lint migration remain open.
 The Node engine belongs here. PHP and Twig lint belong to
 [`lint-kit`](https://github.com/parisek/lint-kit).
 
@@ -17,7 +17,7 @@ Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
 ```sh
-npm install -D github:parisek/test-kit#v0.1.0
+npm install -D github:parisek/test-kit#v0.2.0
 npm install -D @playwright/test
 npx playwright install chromium
 ```
@@ -84,8 +84,7 @@ The package uses the MIT licence. Installation needs no build step.
 Viewer development uses Node 22.18 or later. See [the frontend guide](frontend/README.md).
 The package commits the Vue and Tailwind build. CI verifies it against its source.
 
-HTML and HTTP status are opt-in response artifacts in the unreleased build.
-These commands are not part of v0.1.0. Use
+HTML and HTTP status are opt-in response artifacts in v0.2.0. Use
 
 ```sh
 test-kit capture --side local --artifacts screenshot,html,status
@@ -109,13 +108,14 @@ Stop the server with Ctrl+C. This command is opt-in and does not change a projec
 The layout uses the [visual reference](https://claude.ai/artifact/9ahvV58EoBk3ZGr9634w2N)
 and the copied company UI contract. It does not copy reference sample data.
 
-The opt-in demo also previews behavior, content and Lighthouse interfaces.
-The behavior tab runs a local disclosure contract and retains a failed step. Lighthouse prototype panels use simulated fixtures. The content tab uses real stored DOM snapshots and enabled checks.
-They do not enter report findings, target classes or agent query results.
-The content overview appears when a report has content evidence. Speed previews use the demo prototype marker.
-The final artifact schema, runners and evidence loading remain future work.
+The behavior tab runs a local disclosure contract and retains a failed step.
+The content tab uses real stored DOM snapshots and enabled checks.
+These measured artifacts enter findings, classifications and agent queries.
+The basic demo also has simulated Lighthouse prototype panels. Those panels do
+not enter measured findings or agent queries. Run `npm run demo:perf` for real
+local Lighthouse measurements and original audit reports.
 
-### Stored content checks (unreleased)
+### Stored content checks
 
 Add `content` to `artifacts`. Select checks explicitly in `checks`.
 Supported IDs: `heading-outline`, `lang`, `empty-alt`, `empty-title`,
@@ -138,7 +138,7 @@ test-kit query report-title/report.json --target home --viewport desktop --artif
 The original run manifests and snapshots stay unchanged (R7.1, R9.6, R12.3).
 Snapshot retention remains a project decision.
 
-### Project behavior contracts (unreleased)
+### Project behavior contracts
 
 Add `behavior` to `artifacts`. Set `behavior.source` to a project directory.
 Each `*.contract.js` exports one contract or several named contracts.
@@ -158,10 +158,10 @@ to open them. Scoped queries accept `--artifact behavior --max-lines 10`.
 The legacy reporter, coverage and old command migration remain separate work
 under #25 and #45.
 
-### Local Lighthouse measurements (unreleased)
+### Local Lighthouse measurements
 
 The engine and pure helpers still support Node 20. Lighthouse 13.5 requires
-Node 22.19 or newer and the optional `lighthouse` peer. The development version
+Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
 is pinned to 13.5.0. Measurement accepts local HTTP page targets only.
 HTTPS and component targets fail explicitly.
 
@@ -188,7 +188,7 @@ Speed environment identity uses the stored side and canonical origin. A side
 that changes origin does not prove a regression. This restriction applies to
 speed only. Screenshot and content compatibility retain their existing rules.
 
-Raw Lighthouse JSON and HTML stay under local runs. HTML links show source as
-plain text. To build a real anonymous speed demo, run `npm run demo:perf`.
+Raw Lighthouse JSON and HTML stay under local runs. HTML links download the
+original report. Open it locally for the native Lighthouse interface. To build a real anonymous speed demo, run `npm run demo:perf`.
 It measures one page twice and opens a separate local report on port 4185.
 It does not run as part of the normal visual demo.
