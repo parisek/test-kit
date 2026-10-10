@@ -56,3 +56,20 @@ target selector and box. A changed scope is incompatible for that target.
 Changes to another target do not change this result. Recorded acceptance
 binds the same scope to the raw screenshot bytes. Paths can differ between
 sides. Titles and paths do not define screenshot geometry (R4.4, R13.11).
+
+Settlement stays opt-in. Set `lazyImages: true` in a settle recipe to sweep
+the page before capture. The sweep has limits of 50 steps, 30000 CSS pixels,
+and 1000 visible images. Image load and decode each have a 2-second limit.
+An unfinished load or growing page fails capture. A broken image stays
+available for content checks. The sweep restores the original scroll position.
+
+A recipe can set `reveal` to at most 20 `{action, selector}` steps. Actions
+are `click`, `hover`, and `focus`. They run before wait selectors. A reveal
+cannot navigate another page, open a popup, or submit a request.
+
+Targets can set partial `settle` overrides and `settleBySide` overrides for
+configured sides. Scalar options inherit. An explicit array replaces the
+inherited array. The report timeline shows the global recipe and target
+overrides (R5.4). Screenshot, content, and behavior comparison bind the
+effective recipe. A changed recipe is incompatible for that target.
+Defaults retain their previous capture hashes.

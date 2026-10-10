@@ -48,6 +48,24 @@ function targetPath(value, name) {
   if (url.origin !== 'http://localhost') fail(`${name} must stay on its origin`);
   return value;
 }
+export function normalizeSettlement(value, name = 'settle', partial = false) {
+  const source = object(value, name, ['waitMs', 'selectors', 'disableMotion', 'masks', 'reveal', 'lazyImages']);
+  const result = {};
+  for (const key of ['waitMs', 'selectors', 'disableMotion', 'masks']) {
+    if (partial && !Object.hasOwn(source, key)) continue;
+    if (key === 'waitMs') result[key] = number(partial ? source[key] : source[key] ?? 0, `${name}.${key}`, 0, 10000);
+    else if (key === 'disableMotion') result[key] = bool(partial ? source[key] : source[key] ?? true, `${name}.${key}`);
+    else result[key] = list(partial ? source[key] : source[key] ?? [], `${name}.${key}`, 50).map(value => text(value, `${name}.${key}`, 1000));
+  }
+  if (Object.hasOwn(source, 'reveal')) result.reveal = list(source.reveal, `${name}.reveal`, 20).map(step => {
+    object(step, `${name}.reveal step`, ['action', 'selector']);
+    if (!['click', 'hover', 'focus'].includes(step.action)) fail(`${name}.reveal action must be click, hover or focus`);
+    return { action: step.action, selector: text(step.selector, `${name}.reveal selector`, 2048) };
+  });
+  if (Object.hasOwn(source, 'lazyImages')) result.lazyImages = bool(source.lazyImages, `${name}.lazyImages`);
+  return result;
+}
+
 function freeze(value) {
   if (value && typeof value === 'object') {
     for (const child of Object.values(value)) freeze(child);
@@ -65,18 +83,21 @@ export function normalizeConfig(input) {
   const sides = Object.fromEntries(sideEntries.map(([sideId, side]) => {
     id(sideId, 'side ID');
     object(side, `sides.${sideId}`, ['origin', 'settle']);
-    const settle = object(side.settle ?? {}, 'settle', ['waitMs', 'selectors', 'disableMotion', 'masks']);
-    const selectors = key => list(settle[key] ?? [], key, 50).map(value => text(value, key, 1000));
-    return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`), settle: {
-      waitMs: number(settle.waitMs ?? 0, 'waitMs', 0, 10000),
-      selectors: selectors('selectors'), disableMotion: bool(settle.disableMotion ?? true, 'disableMotion'), masks: selectors('masks'),
-    } }];
+    return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`),
+      settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
   const targets = list(input.targets, 'targets', 1000, 1).map(target => {
-    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box']);
+    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
     const result = { id: targetId, kind: target.kind, title: text(target.title ?? targetId, 'target.title') };
+    if (Object.hasOwn(target, 'settle')) result.settle = normalizeSettlement(target.settle, 'target.settle', true);
+    if (Object.hasOwn(target, 'settleBySide')) {
+      result.settleBySide = Object.fromEntries(Object.entries(object(target.settleBySide, 'target.settleBySide')).map(([sideId, recipe]) => {
+        if (!Object.hasOwn(sides, sideId)) fail(`target.settleBySide has unknown side ${sideId}`);
+        return [sideId, normalizeSettlement(recipe, `target.settleBySide.${sideId}`, true)];
+      }));
+    }
     if (target.selector !== undefined) {
       result.selector = Array.isArray(target.selector)
         ? list(target.selector, 'target.selector', 50, 1).map(value => text(value, 'target.selector', 2048))

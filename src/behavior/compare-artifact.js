@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { readSidecar } from '../artifacts/compare.js';
 import { artifactState } from '../artifacts/state.js';
-import { settingsHash } from '../config/settings.js';
+import { settingsHash, settleRecipe, settlementMatches } from '../config/settings.js';
 import { relativePath } from '../report/safe.js';
 import { validateBehaviorSnapshot } from './snapshot.js';
 import { compareBehavior } from './compare.js';
@@ -14,6 +14,14 @@ export async function compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, 
   const artifact = { kind: 'behavior', state: artifactState(...indexes), a: null, b: null, diff: null };
   const viewport = run => run.settings.viewports.find(item => item.id === viewportId);
   if (indexes.every(Boolean) && (['tool', 'version', 'settingsHash', 'browserVersion'].some(key => indexes[0][key] !== indexes[1][key]) || settingsHash(viewport(a)) !== settingsHash(viewport(b)) || settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null))) artifact.state = 'incompatible';
+  if (indexes.every(Boolean)) {
+    try {
+      const targets = [a, b].map(run => run.settings.targets.find(target => target.id === targetId));
+      const recipes = [a, b].map((run, index) => settleRecipe(run.settings, run.side, targets[index]));
+      if (![a, b].every((run, index) => settlementMatches([ac, bc][index], run.settings, run.side, targets[index]))
+        || settingsHash(recipes[0]) !== settingsHash(recipes[1])) artifact.state = 'incompatible';
+    } catch { artifact.state = 'incompatible'; }
+  }
   const incompatible = artifact.state === 'incompatible';
   const snapshots = [];
   for (const [index, run, side] of [[indexes[0], a, 'a'], [indexes[1], b, 'b']]) {

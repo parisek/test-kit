@@ -5,7 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { readSidecar } from '../artifacts/compare.js';
 import { artifactState } from '../artifacts/state.js';
-import { settingsHash } from '../config/settings.js';
+import { settingsHash, settleRecipe, settlementMatches } from '../config/settings.js';
 import { validateContentSnapshot } from './snapshot.js';
 import { compareContentSnapshots } from './compare.js';
 import { CHECK_VERSION } from '../checks/index.js';
@@ -18,6 +18,14 @@ export async function compareContentArtifact({ a, b, ac, bc, runsRoot, output, t
   if (result.state === 'complete' && (settingsHash(policy(a)) !== settingsHash(policy(b))
     || settingsHash(viewport(a)) !== settingsHash(viewport(b))
     || settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null))) result.state = 'incompatible';
+  if (indexes.every(Boolean)) {
+    try {
+      const targets = [a, b].map(run => run.settings.targets.find(target => target.id === targetId));
+      const recipes = [a, b].map((run, index) => settleRecipe(run.settings, run.side, targets[index]));
+      if (![a, b].every((run, index) => settlementMatches([ac, bc][index], run.settings, run.side, targets[index]))
+        || settingsHash(recipes[0]) !== settingsHash(recipes[1])) result.state = 'incompatible';
+    } catch { result.state = 'incompatible'; }
+  }
   const snapshots = [];
   for (const [index, run, side] of [[indexes[0], a, 'a'], [indexes[1], b, 'b']]) {
     if (index?.state !== 'captured') { snapshots.push(null); continue; }

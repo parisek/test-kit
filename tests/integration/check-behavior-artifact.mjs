@@ -15,7 +15,7 @@ try {
     const snapshot = { tool: 'test-kit-behavior', version: '1', settingsHash: hash, settings: {}, state: id === 'a' ? 'complete' : 'failed', steps: [{ id: 'toggle-1', title: 'Toggle', state: id === 'a' ? 'complete' : 'failed', result: id === 'a' ? { open: true } : null, evidence: { screenshot: 'behavior/example-site/desktop/toggle-1.png' } }] };
     await writeFile(join(root, 'results.json'), JSON.stringify(snapshot));
     await writeFile(join(root, 'toggle-1.png'), 'synthetic-file-bytes');
-    runs.push({ id, settings: { viewports: [{ id: 'desktop', width: 1280, height: 900 }] } });
+    runs.push({ id, side: 'local', settings: { sides: { local: { origin: 'http://localhost:8080', settle: { waitMs: 0, selectors: [], masks: [], disableMotion: true } } }, targets: [{ id: 'example-site', kind: 'page', path: '/' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }] } });
   }
   const index = { state: 'captured', path: 'behavior/example-site/desktop/results.json', tool: 'test-kit-behavior', version: '1', settingsHash: hash, browserVersion: '1' };
   const options = { a: runs[0], b: runs[1], ac: { artifacts: { behavior: index } }, bc: { artifacts: { behavior: index } }, runsRoot: join(directory, 'runs'), output: join(directory, 'report'), targetId: 'example-site', viewportId: 'desktop' };

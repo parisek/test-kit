@@ -118,3 +118,61 @@ test('inherited side paths do not satisfy target coverage', () => {
   delete source.targets[0].selector;
   assert.throws(() => normalizeConfig(source), /target.box/);
  });
+
+test('settlement inherits scalars and replaces arrays in explicit target order', async () => {
+  const { settleRecipe, contentSettings } = await import('../../src/config/settings.js');
+  const source = input();
+  source.sides.local.settle = { waitMs: 10, selectors: ['.ready'], masks: ['.private'], disableMotion: true,
+    reveal: [{ action: 'hover', selector: '.menu' }], lazyImages: true };
+  source.sides.other = { origin: 'http://localhost:8081' };
+  source.targets[0].settle = { waitMs: 20, selectors: [], reveal: [] };
+  source.targets[0].settleBySide = { local: { masks: [], disableMotion: false, lazyImages: false }, other: { waitMs: 30 } };
+  const config = normalizeConfig(source);
+  const target = config.targets[0];
+  assert.deepEqual(settleRecipe(config, 'local', target), { waitMs: 20, selectors: [], masks: [], disableMotion: false, reveal: [], lazyImages: false });
+  assert.equal(settleRecipe(config, 'other', target).waitMs, 30);
+  assert.equal(contentSettings(config, 'local', target).settle.masks, undefined);
+  assert.equal(contentSettings(config, 'local', target).settle.lazyImages, false);
+  assert.throws(() => settleRecipe(config, 'unknown', target), /Unknown side/);
+  assert.throws(() => { target.settle.reveal.push({ action: 'click', selector: '.button' }); }, TypeError);
+});
+
+test('new settlement keys stay absent by default and do not change legacy hashes', async () => {
+  const { screenshotScope, settleRecipe, settingsHash: hash } = await import('../../src/config/settings.js');
+  const config = normalizeConfig(input());
+  const recipe = { waitMs: 0, selectors: [], disableMotion: true, masks: [] };
+  assert.deepEqual(config.sides.local.settle, recipe);
+  assert.deepEqual(settleRecipe(config, 'local', config.targets[0]), recipe);
+  assert.equal(captureSettings(config, 'local').settle.reveal, undefined);
+  assert.equal(hash(captureSettings(config, 'local')), hash({ viewports: config.viewports, settle: recipe, screenshot: config.screenshot }));
+  assert.deepEqual(screenshotScope(config.targets[0], 'local'), { selector: null, box: 'border' });
+});
+
+test('settlement validation bounds reveal actions selectors and partial overrides', () => {
+  const invalid = [
+    { reveal: Array.from({ length: 21 }, () => ({ action: 'click', selector: '.button' })) },
+    { reveal: [{ action: 'type', selector: '.button' }] },
+    { reveal: [{ action: 'focus', selector: 'x'.repeat(2049) }] },
+    { reveal: [{ action: 'hover', selector: '.bad\nselector' }] },
+    { reveal: [{ action: 'click', selector: '.button', value: 'unsupported' }] },
+    { reveal: null }, { lazyImages: 'true' }, { unknown: true },
+  ];
+  for (const recipe of invalid) {
+    for (const location of ['global', 'target', 'side']) {
+      const source = input();
+      if (location === 'global') source.sides.local.settle = recipe;
+      else if (location === 'target') source.targets[0].settle = recipe;
+      else source.targets[0].settleBySide = { local: recipe };
+      assert.throws(() => normalizeConfig(source), /Invalid configuration/);
+    }
+  }
+  for (const recipe of [{ waitMs: null }, { selectors: null }, { masks: null }, { disableMotion: null }]) {
+    const source = input(); source.targets[0].settle = recipe;
+    assert.throws(() => normalizeConfig(source), /Invalid configuration/);
+  }
+  const source = input(); source.targets[0].settleBySide = { unknown: {} };
+  assert.throws(() => normalizeConfig(source), /unknown side/);
+  source.targets[0].settleBySide = { local: {} };
+  source.targets[0].settle = { reveal: Array.from({ length: 20 }, () => ({ action: 'focus', selector: 'x'.repeat(2048) })), lazyImages: false };
+  assert.equal(normalizeConfig(source).targets[0].settle.reveal.length, 20);
+});

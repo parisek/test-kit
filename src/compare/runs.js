@@ -1,4 +1,4 @@
-import { screenshotScope, scopeMatches, settingsHash } from '../config/settings.js';
+import { screenshotScope, scopeMatches, settlementMatches, settleRecipe, settingsHash } from '../config/settings.js';
 import { isLocalUrl } from '../capture/helpers.js';
 import { comparePerformanceArtifact } from '../perf/compare-artifact.js';
 import { compareBehaviorArtifact } from '../behavior/compare-artifact.js';
@@ -95,10 +95,17 @@ export function comparisonState(a, b, runA, runB) {
 	if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
 	if (runA.settingsHash !== runB.settingsHash || JSON.stringify(runA.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot')) !== JSON.stringify(runB.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot'))) return 'incompatible';
 	if (effectiveSettings(runA) !== effectiveSettings(runB)) return 'incompatible';
-	const scope = (capture, run) => screenshotScope(run.settings?.targets?.find(target => target.id === capture.targetId));
+	const scope = (capture, run) => screenshotScope(run.settings?.targets?.find(target => target.id === capture.targetId), run.side);
 	let scopeA, scopeB;
 	try { scopeA = scope(a, runA); scopeB = scope(b, runB); } catch { return 'incompatible'; }
 	if (settingsHash(scopeA) !== settingsHash(scopeB)) return 'incompatible';
+	if (runA.settings?.sides && runB.settings?.sides) {
+		const target = (run, capture) => run.settings.targets.find(item => item.id === capture.targetId);
+		try {
+			if (!settlementMatches(a, runA.settings, runA.side, target(runA, a)) || !settlementMatches(b, runB.settings, runB.side, target(runB, b))
+				|| settingsHash(settleRecipe(runA.settings, runA.side, target(runA, a))) !== settingsHash(settleRecipe(runB.settings, runB.side, target(runB, b)))) return 'incompatible';
+		} catch { return 'incompatible'; }
+	}
 	if ([ [a, scopeA], [b, scopeB] ].some(([capture, recipe]) => !scopeMatches(capture, recipe))) return 'incompatible';
 	return 'complete';
 }
@@ -202,7 +209,10 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });
 	}
-	const report = { schemaVersion: 2, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, entries, causes: [], findings, rules: {} };
+	const report = { schemaVersion: 2, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
+    targets: run.settings.targets.filter(target => target.settle !== undefined || target.settleBySide?.[run.side] !== undefined).map(target => ({ id: target.id,
+      ...(target.settle !== undefined ? { settle: target.settle } : {}),
+      ...(target.settleBySide?.[run.side] !== undefined ? { settleBySide: { [run.side]: target.settleBySide[run.side] } } : {}) })) }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, entries, causes: [], findings, rules: {} };
 	const responseTools = new Map();
 	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse']) {
 		const index = row.artifacts[kind]?.diff;
