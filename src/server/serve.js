@@ -101,6 +101,7 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 			const sidecarLimit = rawPerformance.has(path.slice(1)) ? 20 * 1024 * 1024 : 2 * 1024 * 1024;
 			const bytes = await boundedRead(file, sidecars.has(path.slice(1)) ? sidecarLimit : MAX_BYTES);
 			if (sidecars.has(path.slice(1)) && bytes.length > sidecarLimit) { fail(413); return; }
+			if (rawPerformance.has(path.slice(1)) && filename.endsWith('.html')) res.setHeader('Content-Disposition', 'attachment');
 			if (attachments.has(path.slice(1))) res.setHeader('Content-Disposition', 'attachment; filename="trace.zip"');
 			res.setHeader('Content-Type', type); res.setHeader('Content-Length', bytes.length);
 			res.end(req.method === 'HEAD' ? undefined : bytes);

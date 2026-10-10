@@ -96,7 +96,8 @@ try {
     const response = await fetch(`${viewer.origin}/${html}`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /^text\/plain/);
-    assert.match(await response.text(), /Lighthouse/);
+    assert.match(response.headers.get('content-disposition'), /^attachment$/);
+    assert.equal(await response.text(), await readFile(join(dirname(compared.reportPath), html), 'utf8'), 'The original HTML bytes remain unchanged.');
     assert.doesNotMatch(JSON.stringify(compared.report), /fullPageScreenshot|largest-contentful-paint/);
     const browser = await chromium.launch({ headless: true });
     try {
@@ -106,6 +107,11 @@ try {
       await page.getByRole('button', { name: 'Lighthouse', exact: true }).click();
       await page.locator('[aria-label="Measured performance comparison"]').waitFor();
       assert.equal(await page.getByRole('heading', { name: 'Performance lab', exact: true }).isVisible(), true);
+      const downloadEvent = page.waitForEvent('download');
+      await page.getByRole('link', { name: 'A audit 1 · Original Lighthouse HTML', exact: true }).click();
+      const download = await downloadEvent;
+      assert.equal(download.suggestedFilename(), 'lighthouse-a-1.html');
+      assert.equal(await readFile(await download.path(), 'utf8'), await readFile(join(dirname(compared.reportPath), html), 'utf8'));
       assert.equal(await page.getByRole('heading', { name: 'Largest contentful paint', exact: true }).isVisible(), true);
       for (const width of [390, 860, 1100, 1440]) {
         await page.setViewportSize({ width, height: 900 });

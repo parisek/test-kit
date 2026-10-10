@@ -50,3 +50,9 @@ It checks each raw metric against its indexed sample. It checks tool and browser
 Each raw report has a 20 MiB copy limit. Each summary or comparison has a 2 MiB limit.
 An incompatible pair still has A/B summary evidence and an explicit reason.
 The server must serve raw HTML as plain text or as an attachment. It must not execute it.
+
+The viewer links each original Lighthouse HTML report from the speed overview
+and target detail. Download the HTML and open it locally to use the native
+interactive report. Test-kit shows only the A/B comparison summary. It does
+not reproduce the Lighthouse audit interface or upload evidence to a service.
+The report server keeps raw HTML inert and sends it as an attachment.
