@@ -1,5 +1,6 @@
+import { settlePage } from './settle.js';
 import { captureScopedScreenshot } from './scope.js';
-import { screenshotScope } from '../config/settings.js';
+import { screenshotScope, settleRecipe } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
 import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
@@ -55,11 +56,14 @@ async function playwright() {
 }
 
 async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource) {
-  const identity = { targetId: target.id, viewportId: viewport.id };
+  const recipe = settleRecipe(config, side, target);
+  const identity = { targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(recipe) };
+  if (provenance.content) provenance = { ...provenance, content: { ...provenance.content,
+    settingsHash: settingsHash({ ...contentSettings(config, side, target), browser: BROWSER_SETTINGS }) } };
   let artifacts = {};
   let statusCode;
   let finalPath;
-  const recipe = config.sides[side].settle;
+  let unexpectedNavigation = false;
   let context;
   let blocked = false;
   let phase = 'navigation';
@@ -82,6 +86,12 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
     await context.routeWebSocket('**/*', socket => socket.close());
     const page = await context.newPage();
+    context.on('page', extra => {
+      if ((recipe.reveal?.length || recipe.lazyImages) && phase !== 'behavior') {
+        unexpectedNavigation = true;
+        extra.close().catch(() => {});
+      }
+    });
     const assets = { requests: 0, failed: 0, httpErrors: 0 };
     page.on('request', request => { if (!request.isNavigationRequest()) assets.requests++; });
     page.on('requestfailed', request => { if (!request.isNavigationRequest()) assets.failed++; });
@@ -90,6 +100,17 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     page.setDefaultNavigationTimeout(config.screenshot.timeoutMs);
     await context.route('**/*', async route => {
       const request = route.request();
+      if ((recipe.reveal?.length || recipe.lazyImages) && phase !== 'navigation' && phase !== 'behavior'
+        && request.isNavigationRequest()) {
+        // A popup can request its first URL before Playwright creates its frame.
+        let topLevel = true;
+        try { topLevel = request.frame().parentFrame() === null; } catch { /* Abort a navigation without a frame. */ }
+        if (topLevel) {
+          unexpectedNavigation = true;
+          await route.abort('blockedbyclient');
+          return;
+        }
+      }
       if (!['GET', 'HEAD'].includes(request.method()) || !isLocalUrl(request.url())) {
         blocked = true;
         await route.abort('blockedbyclient');
@@ -117,14 +138,12 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     finalPath = new URL(response.url()).pathname;
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
     if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior')) {
-      if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+      if (blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
     }
     phase = 'settlement';
-    for (const selector of recipe.selectors) await page.locator(selector).first().waitFor({ state: 'visible' });
-    await page.evaluate(async () => { await document.fonts.ready; });
-    if (recipe.waitMs) await page.waitForTimeout(recipe.waitMs);
-    if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+    await settlePage({ page, recipe, active: () => !expired && !blocked && !unexpectedNavigation });
+    if (blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
     if (config.artifacts.includes('content')) {
       phase = 'content';
       const index = { kind: 'content', ...provenance.content };
@@ -141,17 +160,17 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         const bodyBytes = Buffer.from(body);
         if (bodyBytes.length > 2 * 1024 * 1024) throw new Error('DOM body exceeds its limit.');
         const bytes = Buffer.from(JSON.stringify(snapshot));
-        if (bytes.length > 2 * 1024 * 1024 || expired || blocked || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
+        if (bytes.length > 2 * 1024 * 1024 || expired || blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
         const path = `content/${target.id}/${viewport.id}.json.gz`;
         contentFile = join(runDir, path);
         const bodyPath = `content/${target.id}/${viewport.id}.body.html.gz`;
         bodyFile = join(runDir, bodyPath);
         await mkdir(dirname(join(runDir, path)), { recursive: true });
-        if (expired || blocked) throw new Error('Content capture is unavailable.');
+        if (expired || blocked || unexpectedNavigation) throw new Error('Content capture is unavailable.');
         const compressed = gzipSync(bytes);
         await writeFile(contentFile, compressed, { mode: 0o600 });
         await writeFile(bodyFile, gzipSync(bodyBytes), { mode: 0o600 });
-        if (expired || blocked || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
+        if (expired || blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
         artifacts.content = { ...index, state: 'captured', path, bodyPath, bodyBytes: bodyBytes.length, bytes: compressed.length }; 
       } catch {
         if (contentFile) await unlink(contentFile).catch(() => {});
@@ -205,17 +224,17 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     const width = bytes.readUInt32BE(16);
     const height = bytes.readUInt32BE(20);
     assertImageBounds(width, height);
-    if (blocked || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+    if (blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
     await captureBehavior();
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
-      width, height, deviceScaleFactor: viewport.deviceScaleFactor, scopeHash: settingsHash(screenshotScope(target)), artifacts };
+      width, height, deviceScaleFactor: viewport.deviceScaleFactor, scopeHash: settingsHash(screenshotScope(target, side)), artifacts };
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});
     await unlink(file).catch(() => {});
-    return { ...identity, state: 'failed', artifacts, statusCode, finalPath, error: { code: blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
-      message: blocked ? 'A request leaves the local environment or submits data' : `The ${phase} step fails. Check the local page and capture recipe.` } };
+    return { ...identity, state: 'failed', artifacts, statusCode, finalPath, error: { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
+      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? 'A request leaves the local environment or submits data' : `The ${phase} step fails. Check the local page and capture recipe.` } };
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
 }
 

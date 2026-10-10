@@ -15,7 +15,7 @@ const diagnostic = (value) => (typeof value === 'string' ? value : JSON.stringif
                 <h2 class="mt-2 break-words text-lg font-semibold">{{ run.label ?? run.id }}</h2>
                 <p class="mt-1 text-xs text-ui-muted">{{ run.state ?? 'State unknown' }}</p>
                 <div class="mt-4 flex flex-wrap gap-2"><span v-for="(tool, toolIndex) in toolsFor(run)" :key="toolIndex" class="tool-tag">{{ tool.name }} {{ tool.version }}</span></div>
-                <details class="technical-details"><summary>Settle recipe and tools</summary><h3 class="mt-4 font-semibold">Settle recipe and tools</h3><pre>{{ diagnostic(run.settings?.sides?.[run.side]?.settle ?? run.settle ?? 'Settle recipe unavailable') }}</pre><pre>{{ diagnostic(run.tools ?? report.meta.tools ?? 'Tool provenance unavailable') }}</pre><pre v-if="run.settingsHash != null">{{ diagnostic(run.settingsHash) }}</pre><p class="mt-3 break-all">Run ID: {{ run.id }}</p></details>
+                <details class="technical-details"><summary>Settle recipe and tools</summary><h3 class="mt-4 font-semibold">Settle recipe and tools</h3><pre>{{ diagnostic(run.settings?.sides?.[run.side]?.settle ?? run.settle ?? 'Settle recipe unavailable') }}</pre><template v-if="run.settings?.targets?.length"><h3 class="mt-4 font-semibold">Target settlement overrides</h3><pre>{{ diagnostic(run.settings.targets) }}</pre></template><pre>{{ diagnostic(run.tools ?? report.meta.tools ?? 'Tool provenance unavailable') }}</pre><pre v-if="run.settingsHash != null">{{ diagnostic(run.settingsHash) }}</pre><p class="mt-3 break-all">Run ID: {{ run.id }}</p></details>
             </div>
         </section>
     </div>
