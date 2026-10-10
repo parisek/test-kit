@@ -108,11 +108,12 @@ Stop the server with Ctrl+C. This command is opt-in and does not change a projec
 The layout uses the [visual reference](https://claude.ai/artifact/9ahvV58EoBk3ZGr9634w2N)
 and the copied company UI contract. It does not copy reference sample data.
 
-The opt-in demo also previews behavior, content and Lighthouse interfaces.
-The behavior tab runs a local disclosure contract and retains a failed step. Lighthouse prototype panels use simulated fixtures. The content tab uses real stored DOM snapshots and enabled checks.
-They do not enter report findings, target classes or agent query results.
-The content overview appears when a report has content evidence. Speed previews use the demo prototype marker.
-The final artifact schema, runners and evidence loading remain future work.
+The behavior tab runs a local disclosure contract and retains a failed step.
+The content tab uses real stored DOM snapshots and enabled checks.
+These measured artifacts enter findings, classifications and agent queries.
+The basic demo also has simulated Lighthouse prototype panels. Those panels do
+not enter measured findings or agent queries. Run `npm run demo:perf` for real
+local Lighthouse measurements and original audit reports.
 
 ### Stored content checks
 
@@ -160,7 +161,7 @@ under #25 and #45.
 ### Local Lighthouse measurements
 
 The engine and pure helpers still support Node 20. Lighthouse 13.5 requires
-Node 22.19 or newer and the optional `lighthouse` peer. The development version
+Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
 is pinned to 13.5.0. Measurement accepts local HTTP page targets only.
 HTTPS and component targets fail explicitly.
 
