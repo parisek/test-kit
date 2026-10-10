@@ -4,6 +4,8 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-10
+
 ### Fixed
 
 - Inset filter chevrons from the control edge. Reserve space between labels and arrows.

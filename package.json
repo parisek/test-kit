@@ -1,6 +1,6 @@
 {
   "name": "@parisek/test-kit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Testing and comparison tool for sites: pairs of runs, pluggable checks, one viewer, one query interface for agents.",
   "type": "module",
