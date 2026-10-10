@@ -35,3 +35,29 @@ ratio `0.002` (0.2%) stays separate from the viewer's `matchBelow` display hint.
 The implementation is independently authored. Synthetic tests check the public
 contract. Local validation can compare output against an existing skeleton
 selector without copying that implementation or project data into this package.
+
+## Harvest plan
+
+Import `planLegacyHarvest` and `legacyHarvestForce` from
+`@parisek/test-kit/compat/harvest` or the package root. Pass parsed `manifest`
+entries, a `viewports` map, optional `names`, optional `type`, normalized
+`force`, and `existing` PNG basenames by viewport. This planner reads no files.
+
+Rows follow manifest order, then viewport order. Each row has a safe filename
+and an action: `keep` or `capture`. The result also reports `kept` and `capture`
+counts, including an all-kept plan. The caller validates URL and capture recipes
+before it uses the plan. It checks `keep` before it creates a browser context.
+The caller prints the kept count. A kept reference is not a new measurement.
+
+The FORCE adapter accepts text from the environment. Values `1`, `true`, and
+`yes` enable force, without case sensitivity. Other text preserves references.
+Whitespace is not removed. The planner accepts a boolean only.
+
+Harvest selects all entries with a literal requested component name. Unlike
+compare, `card--wide` does not select the variant of `card`. This retains the
+existing command contract. TYPE applies independently. Entry viewports must
+name configured viewports. An empty manifest and duplicate writes fail before capture.
+
+This is an independently authored planning seam for R4.3, R4.4 and R13.11.
+It does not replace project commands, write references, translate paths,
+validate capture recipes, or run retries. Existing aliases stay in place.

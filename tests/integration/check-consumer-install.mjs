@@ -61,11 +61,15 @@ try {
       import assert from 'node:assert/strict';
       import * as api from '@parisek/test-kit';
       import { planLegacySelection } from '@parisek/test-kit/compat/selection';
+      import { planLegacyHarvest, legacyHarvestForce } from '@parisek/test-kit/compat/harvest';
       for (const name of ['run', 'runPerformance', 'comparePerformance', 'evaluateBudgets', 'collectContracts', 'validateContracts']) {
         assert.equal(typeof api[name], 'function', name);
       }
       assert.equal(api.performanceSettings().runs, 3);
       assert.equal(typeof planLegacySelection, 'function');
+      assert.equal(api.planLegacyHarvest, planLegacyHarvest);
+      const harvest = planLegacyHarvest({ manifest: [{ component: 'card' }], viewports: { desktop: {} }, existing: { desktop: ['component-card.png'] }, force: legacyHarvestForce('0') });
+      assert.equal(harvest.kept, 1); assert.equal(harvest.capture, 0);
       console.log('Public imports work without browser peers.');
     `], directory);
     assert.match(imports.stdout, /Public imports work/);
