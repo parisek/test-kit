@@ -1,4 +1,5 @@
 import { builtinChecks } from '../checks/index.js';
+import { validateContractSelection } from '../behavior/contracts.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
@@ -137,8 +138,9 @@ export function normalizeConfig(input) {
   const contentInput = object(input.content ?? {}, 'content', ['expectedLanguage']);
   const content = {};
   if (contentInput.expectedLanguage !== undefined) content.expectedLanguage = text(contentInput.expectedLanguage, 'content.expectedLanguage', 100);
-  const behaviorInput = object(input.behavior ?? {}, 'behavior', ['source', 'lockfile', 'projects', 'timeoutMs', 'maxInstances', 'trace', 'emulate']);
+  const behaviorInput = object(input.behavior ?? {}, 'behavior', ['source', 'lockfile', 'projects', 'timeoutMs', 'maxInstances', 'trace', 'emulate', 'enabled']);
   const behavior = {};
+  if (behaviorInput.enabled !== undefined) behavior.enabled = validateContractSelection(behaviorInput.enabled);
   for (const key of ['source', 'lockfile']) if (behaviorInput[key] !== undefined) {
     const value = text(behaviorInput[key], `behavior.${key}`, 500);
     if (!/^[a-zA-Z0-9_-]+(?:[a-zA-Z0-9._/-]*[a-zA-Z0-9_-])?$/.test(value) || value.split('/').some(part => !part || part === '.' || part === '..')) fail('behavior source paths must be plain relative paths');
@@ -158,7 +160,7 @@ export function normalizeConfig(input) {
   if (behavior.emulate.reducedMotion !== undefined && !['reduce', 'no-preference'].includes(behavior.emulate.reducedMotion)) fail('unsupported behavior reducedMotion');
   if (behavior.emulate.colorScheme !== undefined && !['light', 'dark', 'no-preference'].includes(behavior.emulate.colorScheme)) fail('unsupported behavior colorScheme');
   const runsRoot = text(input.runsRoot ?? 'tests/visual/runs', 'runsRoot', 500);
-  if (!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(runsRoot)) fail('runsRoot must be a plain relative path');
+  if (!/^[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)*$/.test(runsRoot) || runsRoot.split('/').some(segment => segment === '.' || segment === '..')) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
   return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });

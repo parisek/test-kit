@@ -4,6 +4,15 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-11
+
+### Added
+
+- Own scoped run, baseline, comparison, report, and local history commands in the package.
+- Store opt-in workflow evidence under a stable configurable local directory.
+- Select content checks and browser contracts by stable names. Preserve skipped and incomplete evidence.
+- Keep one complete baseline per selection and retain all local runs without automatic deletion.
+
 ## [0.2.1] - 2026-10-10
 
 ### Fixed

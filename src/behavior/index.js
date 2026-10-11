@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { contractApplicability, validateContracts } from './contracts.js';
+import { contractApplicability, validateContracts, validateContractSelection } from './contracts.js';
 export { collectContracts, validateContracts, contractApplicability, DEFAULT_PROJECTS } from './contracts.js';
 export { loadProjectContracts } from './registry.js';
 export { loadBehaviorSource } from './source.js';
@@ -12,8 +12,12 @@ const text = value => String(value ?? '').slice(0, 2000);
 const bounded = value => { try { const encoded = JSON.stringify(value ?? null); return encoded.length <= 4000 ? JSON.parse(encoded) : { omitted: true }; } catch { return { omitted: true }; } };
 
 // The capture owner supplies an already guarded, navigated page (R4.2).
-export async function runBehavior({ page, contracts, projectName, libraryVersions = {}, contractFingerprints = {}, emulate = {}, eagerImages = false, artifactDir, relativeDir, timeoutMs = 10000, maxInstances = 20, trace = false }) {
+export async function runBehavior({ page, contracts, enabled, projectName, libraryVersions = {}, contractFingerprints = {}, emulate = {}, eagerImages = false, artifactDir, relativeDir, timeoutMs = 10000, maxInstances = 20, trace = false }) {
   validateContracts(contracts);
+  if (enabled !== undefined) {
+    enabled = validateContractSelection(enabled);
+    if (enabled.length !== contracts.length || contracts.some(contract => !enabled.includes(contract.name))) throw new Error('Behavior enabled must match the selected contracts.');
+  }
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000) throw new Error('Behavior timeout must be between 1 and 120000 ms.');
   if (!Number.isInteger(maxInstances) || maxInstances < 1 || maxInstances > 100) throw new Error('Behavior instance limit must be between 1 and 100.');
   if (!relativeDir || !/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(relativeDir)) throw new Error('Behavior evidence needs a plain relative directory.');
@@ -21,6 +25,7 @@ export async function runBehavior({ page, contracts, projectName, libraryVersion
   const directory = resolve(artifactDir);
   await mkdir(directory, { recursive: true });
   const settings = { contracts: contracts.map(c => ({ name: c.name, projects: c.projects ?? null, library: c.library ?? null, emulate: c.emulate ?? null, eagerImages: !!c.eagerImages, source: createHash('sha256').update(`${c.detect}\n${c.run}\n${c.runScoping ?? ''}`).digest('hex') })), projectName, libraryVersions, contractFingerprints, emulate, eagerImages, timeoutMs, maxInstances, trace };
+  if (enabled !== undefined) settings.enabled = enabled;
   const settingsHash = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
   const steps = [], consoleEvents = [], network = [], dataLayer = [];
   const capture = (list, value) => { if (list.length < 100) list.push(value); };
@@ -64,6 +69,7 @@ export async function runBehavior({ page, contracts, projectName, libraryVersion
     if (tracing && !timedOut) { try { await page.context().tracing.stop({ path: join(directory, 'trace.zip') }); } catch (error) { traceError = text(error.message); tracing = false; } }
   }
   const result = { tool: 'test-kit-behavior', version: BEHAVIOR_VERSION, settingsHash, settings, state: steps.some(step => step.state === 'failed' || step.state === 'incompatible') ? 'failed' : steps.some(step => step.state === 'complete' && !step.id.endsWith('-detect')) ? 'complete' : 'missing', steps };
+  if (enabled?.length === 0) result.reason = 'No behavior contracts are enabled.';
   if (tracing && !timedOut) result.trace = `${relativeDir}/trace.zip`;
   if (traceError) result.traceError = traceError;
   await writeFile(join(directory, 'results.json'), JSON.stringify(result));

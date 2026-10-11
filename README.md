@@ -17,7 +17,7 @@ Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
 ```sh
-npm install -D github:parisek/test-kit#v0.2.0
+npm install -D git+https://github.com/parisek/test-kit.git#v0.3.0
 npm install -D @playwright/test
 npx playwright install chromium
 ```
@@ -61,6 +61,46 @@ incomplete evidence. An HTTP error remains visible even when screenshots match.
 An unknown noise floor is explicit. A pixel ratio is a compass, not a verdict.
 Client captures and project configuration stay local.
 
+
+## Scoped project workflow
+
+The package owns command routing, selections, baselines, and local history.
+A project keeps configuration, trusted behavior contracts, and command aliases.
+These commands are opt-in. Low-level capture and diff remain available.
+
+```sh
+test-kit run --target home --suite content --checks heading-outline,empty-alt
+test-kit run --path /example --suite visual --viewport mobile
+test-kit run --target home --selector '#header' --viewport mobile
+test-kit run --target home --suite behavior --contracts navigation
+test-kit before --target home --suite visual
+test-kit after --target home --suite visual
+test-kit report
+test-kit history
+test-kit perf --side local --ddev --path /example --runs 3
+```
+
+Use `--ddev` to discover the current DDEV loopback HTTP origin. Run the browser
+on the host. Install dependencies and build inside DDEV. Flush Mutagen before
+capture when the project uses it. `--side` defaults to `local`.
+
+`--store .test-kit` selects a stable directory relative to the config file.
+Ignore that directory in Git. It holds runs, reports, and baseline state.
+A selection has its own baseline. A partial capture cannot replace it.
+A standalone run records one capture. It does not invent a comparison verdict.
+History lists all stored evidence and opens existing A/B reports. No automatic
+retention or deletion is enabled.
+
+Content checks use `id`, `title`, `applies`, and `check`. They read stored content.
+Select them with `checks` in config or `--checks`. Browser behavior contracts
+use `name`, `detect`, and `run`. Select them with `behavior.enabled` or
+`--contracts`. Omit `behavior.enabled` to retain existing selection. An explicit
+empty list selects no behavior contract. Unknown and duplicate names fail.
+A skipped contract or empty selection is not evidence of a passed assertion.
+Use `--checks none` or `--contracts none` to disable that group for one run.
+Component selector capture supports visual evidence. Component content
+extraction remains unsupported.
+
 ## Development
 
 ```sh
@@ -79,6 +119,7 @@ node bin/cli.js --help
 - [Local workflow](docs/usage.md).
 - [Release procedure](RELEASING.md).
 - [Roadmap](https://github.com/parisek/test-kit/issues/5).
+- [Scoped workflow and history](https://github.com/parisek/test-kit/issues/84).
 
 The package uses the MIT licence. Installation needs no build step.
 Viewer development uses Node 22.18 or later. See [the frontend guide](frontend/README.md).
