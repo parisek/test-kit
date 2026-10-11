@@ -79,3 +79,20 @@ test('performance selection and budget flags are explicit and scoped', () => {
   assert.throws(() => parseCommand(['perf', '--side', 'local']), /targets/);
   assert.throws(() => parseCommand(['perf', '--side', 'local', '--targets', 'home', '--runs', '1']), /3..5/);
 });
+
+test('scoped workflow options stay explicit and action-specific', () => {
+  const request = parseCommand(['run', '--target', 'home', '--suite', 'behavior', '--contracts', 'navigation', '--ddev', '--store', '.test-kit']);
+  assert.equal(request.options.ddev, true);
+  assert.equal(request.options.contracts, 'navigation');
+  assert.throws(() => parseCommand(['history', '--target', 'home']));
+  assert.throws(() => parseCommand(['report', '--suite', 'content']));
+  assert.throws(() => parseCommand(['run', '--checks', 'unknown']));
+});
+
+test('project performance routing keeps low-level requirements compatible', () => {
+  assert.throws(() => parseCommand(['perf', '--side', 'local', '--ddev']));
+  assert.equal(parseCommand(['perf', '--side', 'local', '--ddev', '--targets', 'home']).options.ddev, true);
+  assert.equal(parseCommand(['perf', '--side', 'local', '--path', '/example']).options.path, '/example');
+  assert.throws(() => parseCommand(['perf', '--side', 'local', '--targets', 'home', '--path', '/example']));
+  assert.equal(parseCommand(['run', '--suite', 'content', '--checks', 'none']).options.checks, 'none');
+});

@@ -149,6 +149,8 @@ export function check(doc, ctx) { return [ /* { target, severity, message, evide
 - R7.3 Findings of a check go into the same `findings` list as findings of any artifact. Classes and rules apply with no special case.
 - R7.4 A run stores the version of each extractor that read its content. Two runs with different extractor versions must not be compared silently.
 - R7.5 Starter checks: heading outline (one `h1`, no skipped level), page language against the expected one, empty `title` and `alt`, broken internal links, text difference A against B.
+- R7.7 Content checks keep the stored pure check contract. Browser contracts keep `name`, `detect`, and `run`. An explicit name list selects checks or contracts. Unknown or duplicate names fail. An empty behavior selection records no executed assertion. A skipped contract does not prove a pass.
+
 - R7.6 A language-detection check needs a library. Add it only after a check of origin, releases and advisories.
 
 ---
@@ -255,7 +257,7 @@ An agent must not read a whole report. It asks for the part it needs.
 
 ## 12. Storage and privacy
 
-- R12.1 Runs live in `tests/visual/runs/<id>/`. The folder is in `.gitignore`. The run id grammar of `runs-store.js` stays.
+- R12.1 Low-level captures keep `tests/visual/runs/<id>/`. The opt-in project workflow uses a configured relative store, with `.test-kit/` as its default. Its `runs/`, `reports/`, and baseline state stay in `.gitignore`. The run id grammar of `runs-store.js` stays. No automatic deletion runs before the owner chooses retention.
 - R12.2 Committed: viewport manifest, `sides`, target lists, `known_diffs`, the viewer shell. Not committed: captures, snapshots, raw tool output.
 - R12.3 Content snapshots store the body compressed so that a new check needs no new crawl. They stay local.
 - R12.4 Anything that reaches a public repository (issue, pull request, example data) must be anonymised: no client name, URL or screenshot.
@@ -298,6 +300,8 @@ skeleton manifest: 237 files under `static/tests/`.
 | `fixtures.spec.js`, `fixtures.unverified.txt` | 2 | fixture checks | decide with `behavior` |
 | `twig-cs-fixer`, `phpstan` | 116 | PHP lint rules | yes, but into a separate Composer package, `parisek/lint-kit` (see the separate `lint-kit` issue). Not into `test-kit`. |
 | `eslint`, `stylelint` | 31 | JS and CSS lint rules | yes (decided by the owner, 2026-10-08). They are Node plugins and ship through the same channel as the rest of the package (R13.40). |
+
+- R13.13 The package owns scoped project commands, per-selection baselines, and persistent local history. A project keeps configuration, project contracts, and thin aliases. A one-time run stores evidence without inventing an A/B pair. Partial captures cannot replace a complete baseline. DDEV origin discovery is opt-in.
 
 - R13.8 `test-kit` must cover the Node side: capture, compare, behaviour, checks, speed, and the ESLint and Stylelint rules. PHP and Twig lint rules belong to a second package, `lint-kit`, in a separate issue. The dividing line is the toolchain and the channel (npm from a git tag against Composer from Packagist), not the purpose.
 - R13.9 Each move must be one pull request. After it, the project must work with no edit: a thin alias in the project calls the package (R13.7).

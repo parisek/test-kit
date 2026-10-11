@@ -1,18 +1,25 @@
 import { builtinChecks } from '../checks/index.js';
-export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'perf'].map(name => [name, {}]));
+export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'perf', 'run', 'before', 'after', 'report', 'history'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
+  run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
+  report [--config FILE] [--store PATH] [--run ID] [--port N]
+  history [--config FILE] [--store PATH] [--port N]
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
   query REPORT --target ID --viewport ID --artifact html|status|content|behavior|lighthouse [--max-lines N]
   record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT
-  perf --side ID --targets ID,ID [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
+  perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { perf: ['config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
+const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
+const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
+for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
+FLAGS.report = ['config', 'store', 'run', 'port'];
+FLAGS.history = ['config', 'store', 'port'];
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -28,14 +35,15 @@ export function parseCommand(argv) {
     const name = argument.slice(2);
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
-    if (['consent', 'allow-high-load', 'fail-on-budget'].includes(name)) { options[name] = true; continue; }
+    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev'].includes(name)) { options[name] = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
-  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0 }[command];
+  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0 }[command];
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
-  if (command === 'perf' && (!options.side || !options.targets)) throw new Error('perf requires --side and --targets');
+  if (command === 'perf' && options.targets && options.path) throw new Error('Use --targets or --path.');
+  if (command === 'perf' && (!options.side || (!options.targets && !options.path))) throw new Error('perf requires --side and --targets');
   if (options.runs) options.runs = integer(options.runs, '--runs', 3, 5);
   if (options['form-factor'] && !['desktop', 'mobile'].includes(options['form-factor'])) throw new Error('Unknown performance form factor');
   if (options.throttling && !['simulated', 'devtools', 'provided'].includes(options.throttling)) throw new Error('Unknown performance throttling');
@@ -44,7 +52,7 @@ export function parseCommand(argv) {
   if (command === 'query' && (!options.target || !options.viewport || !['html', 'status', 'content', 'behavior', 'lighthouse'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status|content|behavior|lighthouse');
   if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
   if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) throw new Error('Unknown capture artifact');
-  if (options.checks) {
+  if (options.checks && !(options.checks === 'none' && ['run', 'before', 'after'].includes(command))) {
     const ids = options.checks.split(',');
     if (ids.length > 6 || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');
   }
@@ -56,6 +64,17 @@ export function parseCommand(argv) {
   return { command, positions, options };
 }
 async function dispatch({ command, positions, options }) {
+  if (['run', 'before', 'after', 'report'].includes(command)) {
+    const { runWorkflow } = await import('../workflow/index.js');
+    return runWorkflow(command, options);
+  }
+  if (command === 'history') {
+    const { ensureStore } = await import('../workflow/index.js');
+    const { startHistory } = await import('../history/index.js');
+    const local = await ensureStore(options);
+    const result = await startHistory({ local, port: options.port ?? 0 });
+    return { output: { url: result.origin, storePath: local }, exitCode: 0 };
+  }
   if (command === 'perf') {
     const { runPerfCommand } = await import('./perf.js');
     const budgets = {};
@@ -63,6 +82,10 @@ async function dispatch({ command, positions, options }) {
       const [metric, raw, extra] = item.split('=');
       if (extra !== undefined || !raw || Object.hasOwn(budgets, metric) || !Number.isFinite(Number(raw)) || Number(raw) < 0) throw new Error('Invalid performance budget');
       budgets[metric] = Number(raw);
+    }
+    if (options.ddev || options.store || options.path) {
+      const { runProjectPerformance } = await import('../workflow/performance.js');
+      return runProjectPerformance(options, budgets);
     }
     return runPerfCommand({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false });
   }

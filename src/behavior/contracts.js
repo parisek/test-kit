@@ -16,6 +16,18 @@ export function validateContracts(contracts) {
   }
   return contracts;
 }
+export function validateContractSelection(enabled) {
+  if (!Array.isArray(enabled) || enabled.length > 100 || enabled.some(name => typeof name !== 'string' || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(name))) throw new Error('Behavior enabled must contain at most 100 plain contract names.');
+  if (new Set(enabled).size !== enabled.length) throw new Error('Behavior enabled contract names must be unique.');
+  return [...enabled].sort();
+}
+export function selectContracts(contracts, enabled) {
+  validateContracts(contracts);
+  if (enabled === undefined) return contracts;
+  const names = validateContractSelection(enabled);
+  for (const name of names) if (!contracts.some(contract => contract.name === name)) throw new Error(`Unknown behavior contract: ${name}.`);
+  return contracts.filter(contract => names.includes(contract.name));
+}
 export function contractApplicability(contract, { projectName, libraryVersions = {}, emulate = {}, eagerImages = false } = {}) {
   if (!(contract.projects ?? DEFAULT_PROJECTS).includes(projectName)) return { state: 'skipped', reason: 'Contract does not apply to this project.' };
   if (contract.library) {

@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectContracts, validateContracts, contractApplicability } from '../../src/behavior/contracts.js';
+import { collectContracts, validateContracts, contractApplicability, selectContracts } from '../../src/behavior/contracts.js';
 import { compareBehavior, validateBehaviorComparison } from '../../src/behavior/compare.js';
 const contract = { name: 'toggle', detect() {}, run() {} };
+test('behavior selection uses stable names and preserves applicability', () => {
+  const other = { ...contract, name: 'contact' };
+  assert.deepEqual(selectContracts([contract, other], undefined), [contract, other]);
+  assert.deepEqual(selectContracts([contract, other], ['contact']), [other]);
+  assert.deepEqual(selectContracts([contract], []), []);
+  for (const enabled of [null, 'toggle', ['Toggle'], ['toggle', 'toggle'], ['absent']]) assert.throws(() => selectContracts([contract], enabled));
+  assert.equal(contractApplicability(selectContracts([contract], ['toggle'])[0], { projectName: 'other' }).state, 'skipped');
+});
 test('behavior preserves single and multiple upstream contract exports', () => {
   assert.deepEqual(collectContracts(contract), [contract]);
   assert.deepEqual(collectContracts({ first: contract, metadata: 'x' }), [contract]);
@@ -38,6 +46,10 @@ test('behavior configuration requires explicit trusted source and known viewport
   const { normalizeConfig } = await import('../../src/config/normalize.js');
   const config = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8080' } }, targets: [{ id: 'home', kind: 'page', path: '/' }], viewports: [{ id: 'wide', width: 640, height: 480 }] };
   assert.deepEqual(normalizeConfig(config).artifacts, ['screenshot']);
+  assert.equal(Object.hasOwn(normalizeConfig(config).behavior, 'enabled'), false);
+  assert.deepEqual(normalizeConfig({ ...config, behavior: { enabled: [] } }).behavior.enabled, []);
+  assert.deepEqual(normalizeConfig({ ...config, behavior: { enabled: ['toggle', 'contact'] } }).behavior.enabled, ['contact', 'toggle']);
+  for (const enabled of [null, ['toggle', 'toggle'], ['bad_name'], [''], [1]]) assert.throws(() => normalizeConfig({ ...config, behavior: { enabled } }));
   assert.throws(() => normalizeConfig({ ...config, artifacts: ['behavior'] }), /trusted source/);
   assert.throws(() => normalizeConfig({ ...config, behavior: { source: '../contracts' } }), /relative/);
   assert.throws(() => normalizeConfig({ ...config, behavior: { source: 'contracts', projects: { absent: 'desktop-1280' } } }), /unknown viewport/);

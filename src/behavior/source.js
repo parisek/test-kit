@@ -2,13 +2,14 @@ import { readdir, realpath, lstat, readFile } from 'node:fs/promises';
 import { resolve, relative, join, basename, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { collectContracts, validateContracts } from './contracts.js';
+import { collectContracts, validateContracts, selectContracts, validateContractSelection } from './contracts.js';
 import { relativePath } from '../report/safe.js';
 
 const loadedFingerprints = new Map();
 
 // Imports are trusted project code. This loader is never called for report data.
-export async function loadBehaviorSource({ projectRoot, directory, lockfile = 'package-lock.json' }) {
+export async function loadBehaviorSource({ projectRoot, directory, lockfile = 'package-lock.json', enabled }) {
+  if (enabled !== undefined) enabled = validateContractSelection(enabled);
   if (!relativePath(directory) || !relativePath(lockfile)) throw new Error('Behavior source paths must be relative to the project.');
   const root = await realpath(projectRoot);
   const inside = async path => {
@@ -55,11 +56,12 @@ export async function loadBehaviorSource({ projectRoot, directory, lockfile = 'p
   for (const file of files.filter(path => basename(path).endsWith('.contract.js')).sort()) contracts.push(...collectContracts(await import(pathToFileURL(file).href)));
   validateContracts(contracts);
   loadedFingerprints.set(sourceRoot, fingerprint);
-  if (!contracts.length) throw new Error('Behavior source contains no contracts.');
+  if (!contracts.length && enabled?.length !== 0) throw new Error('Behavior source contains no contracts.');
+  const selected = selectContracts(contracts, enabled);
   const lock = JSON.parse(await readFile(resolve(root, lockfile), 'utf8'));
   const libraryVersions = {};
-  for (const contract of contracts) {
+  for (const contract of selected) {
     if (contract.library?.package) { const name = contract.library.package; const version = lock.packages?.[`node_modules/${name}`]?.version ?? lock.dependencies?.[name]?.version; if (typeof version === 'string') libraryVersions[name] = version; }
   }
-  return { contracts, libraryVersions, contractFingerprints: Object.fromEntries(contracts.map(contract => [contract.name, fingerprint])), fingerprint };
+  return { contracts: selected, libraryVersions, contractFingerprints: Object.fromEntries(selected.map(contract => [contract.name, fingerprint])), fingerprint, ...(enabled !== undefined ? { enabled } : {}) };
 }
