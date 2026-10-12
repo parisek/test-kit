@@ -57,8 +57,10 @@ states. This is a layout check, not a completed accessibility audit.
 
 Proposed spacing roles are 4, 8, 12, 16, 24, and 32 px. Controls use 12 px
 horizontal padding. Normal panels use 24 px; dense panels use 16 px. These
-roles replace isolated local values. They remain proposals until scanning and
-touch use are checked.
+roles are the starting layout scale. The prototype still has role-specific
+exceptions, including 6 px vertical control padding. The 12 px horizontal
+control padding demonstrates the proposed role. They remain proposals until
+scanning and touch use are checked.
 
 Measurement and result are separate columns. Complete evidence can contain a
 finding. Failed, missing, and incompatible measurements do not imply a result.
