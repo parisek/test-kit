@@ -70,7 +70,24 @@ a target drawer. The palette uses local role variables; the copied contract
 is unchanged. Keyboard focus, palette contrast, scanning speed, and touch use
 are not established by the width check.
 
-The next contract must support native static history as well as Tailwind-based
-applications. Define a standalone CSS-variable foundation and separate
-framework aliases. Do not require an application to resolve Tailwind palette
-variables at runtime.
+## Tailwind implementation boundary
+
+The shared contract uses Tailwind 4 (R10.1, R13.5). It defines semantic theme
+tokens and common utility patterns for typography, spacing, surfaces, controls,
+and focus. Both packages copy the versioned source contract and record its
+licence, source commit, and hashes. Each package builds its own styles.
+
+Keep utility patterns visible in Vue templates. Use complete class names so
+Tailwind can detect them. Keep component behavior and test result states in
+their own package. Do not copy a compiled stylesheet between repositories.
+
+Test-kit builds the styles for its viewer, static history, and feedback shells
+from the same Tailwind source. Its build must include the shell templates in
+class detection. The package ships the compiled assets. A project needs no
+Tailwind dependency or frontend build (R10.1, R13.28). Static export includes
+those assets and keeps relative references (R10.11).
+
+The handwritten CSS in this prototype is a design aid. It is not the shared
+implementation. Replace its proposed roles with Tailwind tokens and utility
+patterns when the application migration starts. The two packages have no
+runtime dependency on each other.
