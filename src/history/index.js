@@ -13,14 +13,14 @@ async function evidencePath(base, id, filename) {
   if (suffix.startsWith('..') || isAbsolute(suffix)) throw new Error('Evidence must stay in its local directory.');
   return path;
 }
-async function historyEvidencePath(local, kind, id, filename) {
+export async function historyEvidencePath(local, kind, id, filename) {
   const root = await realpath(local);
   const path = await evidencePath(resolve(root, kind), id, filename);
   const suffix = relative(root, path);
   if (suffix === '..' || suffix.startsWith('../') || isAbsolute(suffix)) throw new Error('Evidence escapes the local store.');
   return path;
 }
-async function load(local, kind, id, filename) {
+export async function loadHistoryEvidence(local, kind, id, filename) {
   const path = await historyEvidencePath(local, kind, id, filename);
   const handle = await open(path, 'r');
   try {
@@ -43,25 +43,25 @@ export async function scanHistory(local) {
   const scan = async (kind, filename) => {
     let names; try { names = await readdir(resolve(local, kind)); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
     return (await Promise.all(names.filter(validId).map(async id => {
-      try { return { id, value: await load(local, kind, id, filename) }; }
+      try { return { id, value: await loadHistoryEvidence(local, kind, id, filename) }; }
       catch { return { id, error: 'Unreadable metadata' }; }
     }))).sort((a, b) => b.id.localeCompare(a.id));
   };
   return { runs: await scan('runs', 'run.json'), reports: await scan('reports', 'report.json') };
 }
-export function renderHistory({ runs, reports }) {
+export function renderHistory({ runs, reports }, { runUrl = id => `/run/${encodeURIComponent(id)}`, reportUrl = id => `/report/${encodeURIComponent(id)}`, staticExport = false } = {}) {
   const text = escapeHtml;
-  const rows = runs.map(({ id, value: run, error }) => `<tr><td data-label="Time">${text(run?.at)}</td><td data-label="Label">${text(run?.label)}</td><td data-label="State">${text(run?.state || error)}</td><td data-label="ID"><a href="/run/${encodeURIComponent(id)}">${text(id)}</a></td><td data-label="Targets">${text(Array.isArray(run?.settings?.targets) ? run.settings.targets.map(t => t?.id).join(', ') : '')}</td><td data-label="Artifacts">${text(Array.isArray(run?.settings?.artifacts) ? run.settings.artifacts.join(', ') : '')}</td></tr>`).join('');
-  const links = reports.map(({ id, value: report, error }) => `<li>${report ? `<a href="/report/${encodeURIComponent(id)}">${text(report.meta?.title || id)}</a> · ${text(report.meta?.generated)} · ${text(report.findings?.length ?? 0)} findings · ${text(id)}` : `${text(id)} · ${text(error)}`}</li>`).join('');
-  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test kit history</title><style>body{font:16px system-ui;margin:2rem;color:#222}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:.7rem;border-bottom:1px solid #ddd}td{overflow-wrap:anywhere}a{color:#a33322}li{margin:1rem 0;overflow-wrap:anywhere}body{max-width:1200px;margin:2rem auto;padding:0 24px;background:#f7f7f8}table{background:white}h1{letter-spacing:-.04em}@media(max-width:800px){thead{display:none}table,tbody{display:block}tr{display:block;border:1px solid #ddd;border-radius:12px;margin:16px 0;padding:12px}td{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;border:0;padding:5px;font-size:14px}td:before{content:attr(data-label);color:#666}body{padding:0 16px}}</style><h1>Local test history</h1><p>Reload this page to include new runs. Evidence stays on disk. No automatic deletion is active.</p><h2>Runs (${runs.length})</h2><table><thead><tr><th>Time</th><th>Label</th><th>State</th><th>ID</th><th>Targets</th><th>Artifacts</th></tr></thead><tbody>${rows}</tbody></table><h2>Comparison reports (${reports.length})</h2><ul>${links}</ul></html>`;
+  const rows = runs.map(({ id, value: run, error }) => `<tr><td data-label="Time">${text(run?.at)}</td><td data-label="Label">${text(run?.label)}</td><td data-label="State">${text(run?.state || error)}</td><td data-label="ID">${run ? `<a href="${text(runUrl(id))}">${text(id)}</a>` : text(id)}</td><td data-label="Targets">${text(Array.isArray(run?.settings?.targets) ? run.settings.targets.map(t => t?.id).join(', ') : '')}</td><td data-label="Artifacts">${text(Array.isArray(run?.settings?.artifacts) ? run.settings.artifacts.join(', ') : '')}</td></tr>`).join('');
+  const links = reports.map(({ id, value: report, error }) => `<li>${report ? `<a href="${text(reportUrl(id))}">${text(report.meta?.title || id)}</a> · ${text(report.meta?.generated)} · ${text(report.findings?.length ?? 0)} findings · ${text(id)}` : `${text(id)} · ${text(error)}`}</li>`).join('');
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test kit history</title><style>body{font:16px system-ui;margin:2rem;color:#222}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:.7rem;border-bottom:1px solid #ddd}td{overflow-wrap:anywhere}a{color:#a33322}li{margin:1rem 0;overflow-wrap:anywhere}body{max-width:1200px;margin:2rem auto;padding:0 24px;background:#f7f7f8}table{background:white}h1{letter-spacing:-.04em}@media(max-width:800px){thead{display:none}table,tbody{display:block}tr{display:block;border:1px solid #ddd;border-radius:12px;margin:16px 0;padding:12px}td{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;border:0;padding:5px;font-size:14px}td:before{content:attr(data-label);color:#666}body{padding:0 16px}}</style><h1>Local test history</h1><p>${staticExport ? 'This is a static snapshot. New runs are not added to this export.' : 'Reload this page to include new runs. Evidence stays on disk.'} No automatic deletion is active.</p><h2>Runs (${runs.length})</h2><table><thead><tr><th>Time</th><th>Label</th><th>State</th><th>ID</th><th>Targets</th><th>Artifacts</th></tr></thead><tbody>${rows}</tbody></table><h2>Comparison reports (${reports.length})</h2><ul>${links}</ul></html>`;
 }
-export function renderRunFeedback({ id, run, feedback }) {
+export function renderRunFeedback({ id, run, feedback }, { historyUrl = '/' } = {}) {
   const text = escapeHtml;
   const number = value => Number.isSafeInteger(value) && value >= 0 ? value : 0;
   const findings = Array.isArray(feedback?.findings) ? feedback.findings.slice(0, 20) : [];
   const counts = (value, keys) => keys.map(key => `${text(key)}: ${number(value?.[key])}`).join(' · ');
   const details = feedback ? `<h2>Stored check feedback</h2><p>State: ${text(feedback.state)}. This is a single run. It has no A/B verdict.</p><p>Content: ${counts(feedback.content, ['checksExecuted', 'findings', 'unknown', 'missing'])}</p><p>Behavior: ${counts(feedback.behavior, ['passed', 'failed', 'skipped', 'incompatible', 'missing'])}</p><p>Findings: ${number(feedback.findingCount)}. Omitted: ${Math.max(number(feedback.omittedCount), number(feedback.findingCount) - findings.length)}.</p><ul>${findings.map(finding => `<li>${text(finding?.targetId)} · ${text(finding?.viewportId)} · ${text(finding?.artifact)} · ${text(finding?.checkId || finding?.contractId)} · ${text(finding?.state || finding?.severity)}: ${text(String(finding?.message ?? '').slice(0, 500))}</li>`).join('')}</ul>` : '<p>No standalone check feedback stored.</p>';
-  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Run feedback</title><style>body{font:16px system-ui;max-width:1000px;margin:2rem auto;padding:0 24px;color:#222;background:#f7f7f8;overflow-wrap:anywhere}li{margin:1rem 0}a{color:#a33322}</style><a href="/">Local history</a><h1>${text(id)}</h1><p>Label: ${text(run?.label)} · Time: ${text(run?.at)} · Capture state: ${text(run?.state)}</p>${details}</html>`;
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Run feedback</title><style>body{font:16px system-ui;max-width:1000px;margin:2rem auto;padding:0 24px;color:#222;background:#f7f7f8;overflow-wrap:anywhere}li{margin:1rem 0}a{color:#a33322}</style><a href="${text(historyUrl)}">Local history</a><h1>${text(id)}</h1><p>Label: ${text(run?.label)} · Time: ${text(run?.at)} · Capture state: ${text(run?.state)}</p>${details}</html>`;
 }
 export async function startHistory({ root = process.cwd(), local = resolve(root, '.test-kit'), port = 0 } = {}) {
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid server port.');
@@ -92,9 +92,9 @@ export async function startHistory({ root = process.cwd(), local = resolve(root,
       const runMatch = /^\/run\/([A-Za-z0-9_-]+)$/.exec(path);
       if (runMatch && validId(runMatch[1])) {
         const id = runMatch[1];
-        const run = await load(local, 'runs', id, 'run.json');
+        const run = await loadHistoryEvidence(local, 'runs', id, 'run.json');
         let feedback;
-        try { feedback = await load(local, 'runs', id, 'feedback.json'); } catch {}
+        try { feedback = await loadHistoryEvidence(local, 'runs', id, 'feedback.json'); } catch {}
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
         response.end(request.method === 'HEAD' ? undefined : renderRunFeedback({ id, run, feedback })); return;
       }

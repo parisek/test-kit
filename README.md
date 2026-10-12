@@ -101,6 +101,30 @@ Use `--checks none` or `--contracts none` to disable that group for one run.
 Component selector capture supports visual evidence. Component content
 extraction remains unsupported.
 
+## Static export
+
+Export a comparison or the stored history without starting a Node server:
+
+```sh
+test-kit report --export test-kit-export/pair-001
+test-kit report --run RUN_ID --export test-kit-export/pair-002
+test-kit history --export test-kit-export/history-001
+```
+
+Output paths are relative to the project config directory. The destination must
+not exist. Exports contain the viewer and only allowed evidence. History uses
+relative links to saved report viewers and standalone feedback pages.
+A static host can mount the directory at `/` or at a nested URL prefix.
+No hosting, authentication, retention, or deletion is configured by this command.
+Ignore the export directory in the consuming project.
+
+Raw page HTML and Lighthouse HTML use generated text filenames. They cannot
+execute as HTML under normal static MIME handling. Open a downloaded Lighthouse
+report locally if you need its interactive native interface. Exported evidence
+links point to the safe text copies. The source evidence stays unchanged.
+
+See [static export requirements](https://github.com/parisek/test-kit/issues/86).
+
 ## Development
 
 ```sh

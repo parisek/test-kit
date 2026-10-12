@@ -19,6 +19,15 @@ const viewer = (options) =>
 	useViewer({ base: 'http://localhost:4178/', width: () => 1280, ...options });
 
 describe('viewer actions', () => {
+	it('loads relative to the document base and rejects sibling reports', async () => {
+		const fetch = vi.fn(async () => response(report()));
+		const instance = useViewer({ browser: { document: { baseURI: 'http://localhost/reports/pair/index.html' }, location: { href: 'http://localhost/' } }, fetch });
+		await instance.load('report.json');
+		expect(fetch).toHaveBeenCalledWith('http://localhost/reports/pair/report.json', { redirect: 'error' });
+		await instance.load('../other/report.json');
+		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(instance.state.notice).toBe('Use a report URL on this origin.');
+	});
 	it('uses the initial view for each pair kind without inventing a match', async () => {
 		for (const [kind, view] of Object.entries(FIRST_VIEW)) {
 			const instance = viewer({ fetch: async () => response(report(kind)) });

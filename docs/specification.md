@@ -230,6 +230,7 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
 - R10.8 The viewer must work in light and dark theme and at phone width with no horizontal page scroll.
 - R10.9 When the browser blocks storage, the viewer must still render.
 - R10.10 A data-source switch must exist inside the page (query strings may not survive hosting).
+- R10.11 Report and history export write static directories and start no server. The viewer loads under any URL prefix. Report data and artifact references stay in that report directory. Server and export share one allowed-file index. Export gives untrusted evidence safe generated names and non-executable types. Only trusted viewer and history shells use HTML. Existing output directories are not overwritten.
 
 ---
 

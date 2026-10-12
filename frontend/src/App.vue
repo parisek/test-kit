@@ -14,7 +14,7 @@ import ReportFilters from './components/ReportFilters.vue';
 import TimelineView from './components/TimelineView.vue';
 
 const { state, summary, filteredTargets, dispatch, load } = useViewer();
-const source = ref('/report.json');
+const source = ref('report.json');
 const sidebar = ref(null);
 const toggle = ref(null);
 const phone = ref(innerWidth <= 860);

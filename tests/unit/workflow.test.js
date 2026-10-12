@@ -79,3 +79,18 @@ test('history store and report reject symlink escapes', async t => {
  await symlink(outside, join(dir, '.test-kit/reports/run-1'));
  await assert.rejects(runWorkflow('report', { ...options, run: 'run-1' }), /escapes/);
 });
+
+test('report export calls the exporter without starting a server', async t => {
+ const { dir, options } = await fixture(t);
+ await mkdir(join(dir, '.test-kit/reports/run-1'), { recursive: true });
+ await writeFile(join(dir, '.test-kit/reports/run-1/report.json'), '{}');
+ let exported;
+ const result = await runWorkflow('report', { ...options, run: 'run-1', export: 'test-kit-export' }, {
+   serve: async () => { throw new Error('A server must not start.'); },
+   exportReport: async input => { exported = input; return { outputPath: input.outputDir, files: ['index.html'] }; },
+ });
+ assert.equal(exported.outputDir, join(dir, 'test-kit-export'));
+ assert.equal(exported.reportPath, join(dir, '.test-kit/reports/run-1/report.json'));
+ assert.equal(result.exitCode, 0);
+ assert.equal(result.output.url, undefined);
+});

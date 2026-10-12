@@ -1,29 +1,11 @@
 import http from 'node:http';
-import { realpath, open } from 'node:fs/promises';
-import { dirname, resolve, relative, extname } from 'node:path';
+import { realpath } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { comparisonDetail } from '../artifacts/schema.js';
 import { adaptReport } from '../report/model.js';
-import { relativePath } from '../report/safe.js';
+import { boundedRead, reportFiles, readReportFile } from './files.js';
 
 const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
-const MAX_BYTES = 80_000_000;
-async function boundedRead(file, maxBytes = MAX_BYTES) {
-	const handle = await open(file, 'r');
-	try {
-		const info = await handle.stat();
-		if (!info.isFile() || info.size > maxBytes) throw Object.assign(new Error('File exceeds the size limit.'), { code: 'EFBIG' });
-		const buffer = Buffer.alloc(info.size + 1);
-		let length = 0;
-		while (length < buffer.length) {
-			const { bytesRead } = await handle.read(buffer, length, buffer.length - length, null);
-			if (!bytesRead) break;
-			length += bytesRead;
-		}
-		if (length > info.size) throw Object.assign(new Error('File changes during reading.'), { code: 'EFBIG' });
-		return buffer.subarray(0, length);
-	} finally { await handle.close(); }
-}
 
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
 
@@ -34,40 +16,7 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 	const reportRoot = dirname(reportFile);
 	const reportBytes = await boundedRead(reportFile);
 	const report = adaptReport(JSON.parse(reportBytes));
-	const assets = new Set();
-	const sidecars = new Map();
-	const attachments = new Set();
-	const rawPerformance = new Set();
-	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse']) {
-		for (const side of ['a', 'b', 'diff', 'normalizedA', 'normalizedB']) {
-			const index = row.artifacts?.[kind]?.[side];
-			if (relativePath(index?.src)) sidecars.set(index.src, kind === 'html' && side !== 'diff' ? 'text/plain; charset=utf-8' : 'application/json');
-		}
-	}
-	for (const entry of report.entries) for (const row of entry.viewports) for (const shot of Object.values(row.artifacts?.screenshot ?? {})) {
-		if (relativePath(shot?.src) && extname(shot.src) === '.png') assets.add(shot.src);
-	}
-	for (const entry of report.entries) for (const row of entry.viewports) {
-    const index = row.artifacts?.behavior?.diff;
-    if (!relativePath(index?.src)) continue;
-    const file = await realpath(resolve(reportRoot, index.src));
-    const offset = relative(reportRoot, file);
-    if (!offset || offset.startsWith('../') || offset === '..') throw new Error('Behavior sidecar escapes report root.');
-    const detail = comparisonDetail('behavior', JSON.parse(await boundedRead(file, 2 * 1024 * 1024)));
-    for (const step of detail.steps) for (const result of [step.resultA, step.resultB]) {
-      const src = result?.evidence?.screenshot;
-      if (relativePath(src) && src.endsWith('.png')) assets.add(src);
-    }
-    for (const src of [detail.traceA, detail.traceB]) if (relativePath(src) && src.endsWith('.zip')) attachments.add(src);
-  }
-	for (const entry of report.entries) for (const row of entry.viewports) for (const side of ['a', 'b']) {
-		const reports = row.artifacts?.lighthouse?.[side]?.reports;
-		if (!Array.isArray(reports)) continue;
-		for (const raw of reports.slice(0, 5)) for (const kind of ['json', 'html']) {
-			const src = raw?.[kind]?.src;
-			if (relativePath(src) && src.endsWith('.' + kind)) { rawPerformance.add(src); sidecars.set(src, kind === 'html' ? 'text/plain; charset=utf-8' : 'application/json'); }
-		}
-	}
+	const files = await reportFiles(report, reportRoot);
 	const routes = new Map([
 		['/', [packageRoot, 'viewer/index.html', 'text/html']],
 		['/app.js', [packageRoot, 'viewer/app.js', 'text/javascript']],
@@ -89,23 +38,15 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 				res.end(req.method === 'HEAD' ? undefined : reportBytes); return;
 			}
 			let route = routes.get(path);
-			if (!route && assets.has(path.slice(1))) route = [reportRoot, path.slice(1), 'image/png'];
-			if (!route && attachments.has(path.slice(1))) route = [reportRoot, path.slice(1), 'application/zip'];
-			if (!route && sidecars.has(path.slice(1))) route = [reportRoot, path.slice(1), sidecars.get(path.slice(1))];
+			const descriptor = files.get(path.slice(1));
+			if (!route && descriptor) route = [reportRoot, path.slice(1), descriptor.type];
 			if (!route) { fail(404); return; }
 			const [root, filename, type] = route;
-			const canonicalRoot = await realpath(root);
-			const file = await realpath(resolve(canonicalRoot, filename));
-			const within = relative(canonicalRoot, file);
-			if (!within || within.startsWith('../') || within === '..') { fail(403); return; }
-			const sidecarLimit = rawPerformance.has(path.slice(1)) ? 20 * 1024 * 1024 : 2 * 1024 * 1024;
-			const bytes = await boundedRead(file, sidecars.has(path.slice(1)) ? sidecarLimit : MAX_BYTES);
-			if (sidecars.has(path.slice(1)) && bytes.length > sidecarLimit) { fail(413); return; }
-			if (rawPerformance.has(path.slice(1)) && filename.endsWith('.html')) res.setHeader('Content-Disposition', 'attachment');
-			if (attachments.has(path.slice(1))) res.setHeader('Content-Disposition', 'attachment; filename="trace.zip"');
+			const bytes = await readReportFile(root, filename, descriptor?.maxBytes);
+			if (descriptor?.attachment) res.setHeader('Content-Disposition', filename.endsWith('.zip') ? 'attachment; filename="trace.zip"' : 'attachment');
 			res.setHeader('Content-Type', type); res.setHeader('Content-Length', bytes.length);
 			res.end(req.method === 'HEAD' ? undefined : bytes);
-		} catch (error) { fail(error instanceof URIError ? 400 : error.code === 'ENOENT' ? 404 : error.code === 'EFBIG' ? 413 : 500); }
+		} catch (error) { fail(error instanceof URIError ? 400 : error.code === 'ENOENT' ? 404 : error.code === 'EFBIG' ? 413 : error.code === 'EACCES' ? 403 : 500); }
 	});
 	await new Promise((accept, reject) => { server.once('error', reject); server.listen(port, host, accept); });
 	const address = server.address();
