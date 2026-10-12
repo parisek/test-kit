@@ -61,6 +61,11 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
       const boundary = relative(await realpath(storePath), canonical);
       if (!boundary || boundary.startsWith('..') || boundary.startsWith('/')) throw new Error('Report escapes the workflow store.');
     }
+    if (options.export) {
+      const exportReport = dependencies.exportReport ?? (await import('../export/report.js')).exportReport;
+      const result = await exportReport({ reportPath: resolve(storePath, report), outputDir: resolve(configDir, options.export) });
+      return { output: { ...result, reportPath: resolve(storePath, report), storePath }, exitCode: 0 };
+    }
     const serve = dependencies.serve ?? (await import('../server/serve.js')).serve;
     const result = await serve({ reportPath: resolve(storePath, report), port: options.port ?? 0 });
     return { output: { url: result.origin, reportPath: resolve(storePath, report), storePath }, exitCode: 0 };

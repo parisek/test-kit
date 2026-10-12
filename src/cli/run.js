@@ -3,8 +3,8 @@ export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
-  report [--config FILE] [--store PATH] [--run ID] [--port N]
-  history [--config FILE] [--store PATH] [--port N]
+  report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
+  history [--config FILE] [--store PATH] [--port N|--export DIR]
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
@@ -18,8 +18,8 @@ Usage: test-kit <command> [options]
 const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
-FLAGS.report = ['config', 'store', 'run', 'port'];
-FLAGS.history = ['config', 'store', 'port'];
+FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
+FLAGS.history = ['config', 'store', 'port', 'export'];
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -41,6 +41,7 @@ export function parseCommand(argv) {
     options[name] = value;
   }
   const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0 }[command];
+  if (options.export && options.port !== undefined) throw new Error('Use --export or --port.');
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
   if (command === 'perf' && options.targets && options.path) throw new Error('Use --targets or --path.');
   if (command === 'perf' && (!options.side || (!options.targets && !options.path))) throw new Error('perf requires --side and --targets');
@@ -72,6 +73,12 @@ async function dispatch({ command, positions, options }) {
     const { ensureStore } = await import('../workflow/index.js');
     const { startHistory } = await import('../history/index.js');
     const local = await ensureStore(options);
+    if (options.export) {
+      const { exportHistory } = await import('../export/history.js');
+      const { resolve, dirname } = await import('node:path');
+      const result = await exportHistory({ local, outputDir: resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), options.export) });
+      return { output: result, exitCode: 0 };
+    }
     const result = await startHistory({ local, port: options.port ?? 0 });
     return { output: { url: result.origin, storePath: local }, exitCode: 0 };
   }

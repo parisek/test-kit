@@ -17,7 +17,7 @@ const VIEWS = ['detail', 'matrix', 'findings', 'timeline', 'content', 'speed'];
 
 export function useViewer(options = {}) {
 	const browser = options.browser ?? globalThis.window;
-	const base = options.base ?? browser?.location?.href;
+	const base = options.base ?? browser?.document?.baseURI ?? browser?.location?.href;
 	const fetchReport = options.fetch ?? globalThis.fetch;
 	const width = () => options.width?.() ?? browser?.innerWidth ?? 1280;
 	function stored(key) {
@@ -191,7 +191,7 @@ export function useViewer(options = {}) {
 		const id = ++evidenceRequest;
 		dispatch('artifact-result', { kind, loading: true });
 		try {
-			const response = await fetchReport(url);
+			const response = await fetchReport(url, { redirect: 'error' });
 			if (!response.ok) throw new Error('Evidence request fails.');
 			const reader = response.body.getReader();
 			const chunks = [];
@@ -225,7 +225,7 @@ export function useViewer(options = {}) {
 		}
 		dispatch('loading');
 		try {
-			const response = await fetchReport(url);
+			const response = await fetchReport(url, { redirect: 'error' });
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			const report = adaptReport(await response.json());
 			if (id === requestId) dispatch('loaded', { report, source: url });

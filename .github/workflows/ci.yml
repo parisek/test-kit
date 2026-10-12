@@ -52,6 +52,8 @@ jobs:
       - run: node tests/integration/check-capture-scopes.mjs
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-history.mjs
+      - run: node tests/integration/check-export-guards.mjs
+      - run: node tests/integration/check-static-export.mjs
       - run: node tests/integration/check-pipeline.mjs
       - run: node tests/integration/check-response-artifacts.mjs
       - run: node tests/integration/check-content-engine.mjs

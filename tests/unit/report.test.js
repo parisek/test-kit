@@ -49,3 +49,12 @@ test('artifact paths and browser URLs reject escape and active schemes', () => {
 	assert.equal(sameOriginUrl('//example.com/a', 'http://localhost/'), null);
 	assert.equal(sameOriginUrl('runs/a.png', 'http://localhost/'), 'http://localhost/runs/a.png');
 });
+
+test('browser URLs stay inside the report directory on a shared origin', () => {
+	const base = 'https://example.test/reports/pair/report.json';
+	assert.equal(sameOriginUrl('runs/a.png', base), 'https://example.test/reports/pair/runs/a.png');
+	assert.equal(sameOriginUrl('/reports/pair/report.json', base), base);
+	for (const path of ['../other/report.json', '/report.json', '/reports/pair-other/a.png', '%2e%2e/a.png', 'runs%2f..%2fescape', 'runs%5c..%5cescape', '%252e%252e/a.png', 'http://example.test/reports/pair/a.png', 'https://user@example.test/reports/pair/a.png']) {
+		assert.equal(sameOriginUrl(path, base), null, path);
+	}
+});

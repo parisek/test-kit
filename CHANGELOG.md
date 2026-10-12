@@ -4,6 +4,17 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
+### Added
+
+- Export report viewers and local history as portable static directories.
+- Share the server evidence allowlist with export and give untrusted HTML inert names.
+
+### Fixed
+
+- Resolve viewer report and artifact URLs within their mounted directory prefix.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added

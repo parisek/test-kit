@@ -96,3 +96,11 @@ test('project performance routing keeps low-level requirements compatible', () =
   assert.throws(() => parseCommand(['perf', '--side', 'local', '--targets', 'home', '--path', '/example']));
   assert.equal(parseCommand(['run', '--suite', 'content', '--checks', 'none']).options.checks, 'none');
 });
+
+test('static export is explicit and does not combine with a listening port', () => {
+  assert.equal(parseCommand(['report', '--export', 'exports/pair']).options.export, 'exports/pair');
+  assert.equal(parseCommand(['history', '--export', 'exports/history']).options.export, 'exports/history');
+  assert.throws(() => parseCommand(['report', '--export', 'out', '--port', '0']));
+  assert.throws(() => parseCommand(['history', '--export', 'out', '--port', '1234']));
+  assert.throws(() => parseCommand(['run', '--export', 'out']));
+});
