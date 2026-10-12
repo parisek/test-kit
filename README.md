@@ -103,6 +103,8 @@ extraction remains unsupported.
 
 ## Static export
 
+Static export requires v0.4.0 or newer.
+
 Export a comparison or the stored history without starting a Node server:
 
 ```sh

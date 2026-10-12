@@ -4,6 +4,8 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
 ### Added
 
 - Export report viewers and local history as portable static directories.
