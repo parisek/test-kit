@@ -18,6 +18,11 @@ import { isLocalUrl, isOwnOrigin, requestPolicy, createRunId, assertImageBounds,
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
 const BROWSER_SETTINGS = Object.freeze({ name: 'chromium', headless: true, ignoreHTTPSErrors: true, serviceWorkers: 'block', webSockets: 'block' });
+// A local DDEV certificate is self-signed, so a local side ignores certificate errors.
+// A remote side verifies the certificate: an invalid one is a defect to see, not to skip.
+// Only the context option differs. The recorded settings and their hashes stay the same,
+// so a remote run stays comparable with a local run: certificate checks do not change pixels.
+const ignoreHTTPSErrors = (config, side) => config.sides[side].remote !== true;
 
 async function writeManifest(path, run) {
   const temporary = `${path}.tmp`;
@@ -80,7 +85,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     return await Promise.race([deadline, (async () => {
     context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.deviceScaleFactor,
-      ignoreHTTPSErrors: BROWSER_SETTINGS.ignoreHTTPSErrors, serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
+      ignoreHTTPSErrors: ignoreHTTPSErrors(config, side), serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
       reducedMotion: config.artifacts.includes('behavior') ? config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference') : recipe.disableMotion ? 'reduce' : 'no-preference',
       ...(config.artifacts.includes('behavior') && config.behavior.emulate.colorScheme ? { colorScheme: config.behavior.emulate.colorScheme } : {}),
     });

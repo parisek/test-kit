@@ -3,6 +3,9 @@
 // only its own origin is allowed, a request to any other origin is dropped.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { createServer as createSecureServer } from 'node:https';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -43,7 +46,28 @@ try {
   await writeFile(configPath, JSON.stringify({ ...base, sides: { local: { origin, settle: { waitMs: 100 } } } }));
   const local = await capture({ configPath, side: 'local' });
   for (const id of ['script', 'frame']) assert.equal(local.run.captures.find(row => row.targetId === id).state, 'failed', id);
-  console.log('Remote side passes: own origin read, third party dropped, submission, redirect and popup blocked, local side unchanged.');
+  // A remote side verifies certificates. A local side ignores them for self-signed DDEV certificates.
+  const key = join(directory, 'key.pem');
+  const cert = join(directory, 'cert.pem');
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '1', '-subj', '/CN=127.0.0.1',
+    '-addext', 'subjectAltName=IP:127.0.0.1'], { stdio: 'ignore' });
+  const secure = createSecureServer({ key: readFileSync(key), cert: readFileSync(cert) }, (_request, response) => {
+    response.setHeader('Content-Type', 'text/html'); response.end('<!doctype html><body><h1>Example site</h1>');
+  });
+  await new Promise(resolve => secure.listen(0, '127.0.0.1', resolve));
+  try {
+    const secureOrigin = `https://127.0.0.1:${secure.address().port}`;
+    const tls = { ...base, targets: [targets[0]], artifacts: ['status'] };
+    await writeFile(configPath, JSON.stringify({ ...tls, sides: { production: { origin: secureOrigin, remote: true } } }));
+    const strict = await capture({ configPath, side: 'production' });
+    assert.equal(strict.run.captures[0].state, 'failed', 'a remote side must reject a self-signed certificate');
+    await writeFile(configPath, JSON.stringify({ ...tls, sides: { local: { origin: secureOrigin } } }));
+    const lenient = await capture({ configPath, side: 'local' });
+    assert.equal(lenient.run.captures[0].state, 'captured', 'a local side must accept a self-signed certificate');
+  } finally {
+    await new Promise(resolve => { secure.close(resolve); secure.closeAllConnections(); });
+  }
+  console.log('Remote side passes: own origin read, third party dropped, submission, redirect and popup blocked, local side unchanged, certificates verified.');
 } finally {
   await rm(directory, { recursive: true, force: true });
   await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
