@@ -85,7 +85,7 @@ npx test-kit diff <production-run> <local-run> --kind migration --output tests/v
 A remote capture is read-only. It sends GET and HEAD requests to its own origin.
 It aborts frames and subresources of other origins, such as a tag manager, and
 keeps the capture. It fails the capture on a redirect, popup or top-level
-navigation to another origin, and on any other method. It does not send
+navigation to another origin, and on any method other than GET and HEAD, to any origin. It does not send
 cookies or credentials. A remote side verifies TLS certificates. A local side ignores certificate errors for self-signed DDEV certificates. `perf` and `--ddev` refuse a remote side. Use the same
 `settle` recipe on both sides, or the comparison reports incompatible settings.
 

@@ -19,7 +19,8 @@ const server = createServer((request, response) => {
   }
   response.setHeader('Content-Type', 'text/html');
   const bodies = {
-    '/script': '<script src="https://example.invalid/tag.js"></script><script>fetch("https://example.invalid/b",{method:"POST"}).catch(()=>{})</script>',
+    '/script': '<script src="https://example.invalid/tag.js"></script>',
+    '/beacon': '<script>fetch("https://example.invalid/b",{method:"POST"}).catch(()=>{})</script>',
     '/frame': '<iframe src="https://example.invalid/"></iframe>',
     '/post': '<script>fetch("/submit",{method:"POST"}).catch(()=>{})</script>',
     '/popup': '<script>window.open("https://example.invalid/")</script>',
@@ -30,7 +31,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const directory = await mkdtemp(join(tmpdir(), 'test-kit-remote-'));
 try {
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const targets = ['home', 'script', 'frame', 'post', 'external-redirect', 'popup'].map(id => ({ id, kind: 'page', title: id, path: id === 'home' ? '/' : `/${id}` }));
+  const targets = ['home', 'script', 'frame', 'post', 'beacon', 'external-redirect', 'popup'].map(id => ({ id, kind: 'page', title: id, path: id === 'home' ? '/' : `/${id}` }));
   const base = { schemaVersion: 1, targets, viewports: [{ id: 'desktop', width: 400, height: 300 }],
     artifacts: ['screenshot', 'status'], checks: [], runsRoot: 'runs', screenshot: { timeoutMs: 2500 } };
   const configPath = join(directory, 'config.json');
@@ -38,7 +39,7 @@ try {
   const remote = await capture({ configPath, side: 'production' });
   const state = id => remote.run.captures.find(row => row.targetId === id).state;
   for (const id of ['home', 'script', 'frame']) assert.equal(state(id), 'captured', `${id}: ${JSON.stringify(remote.run.captures)}`);
-  for (const id of ['post', 'external-redirect', 'popup']) assert.equal(state(id), 'failed', `${id}: ${JSON.stringify(remote.run.captures)}`);
+  for (const id of ['post', 'beacon', 'external-redirect', 'popup']) assert.equal(state(id), 'failed', `${id}: ${JSON.stringify(remote.run.captures)}`);
   assert.equal(remote.run.settings.sides.production.remote, true);
   assert.equal(submissions, 0);
 
@@ -67,7 +68,7 @@ try {
   } finally {
     await new Promise(resolve => { secure.close(resolve); secure.closeAllConnections(); });
   }
-  console.log('Remote side passes: own origin read, third party dropped, submission, redirect and popup blocked, local side unchanged, certificates verified.');
+  console.log('Remote side passes: own origin read, third party dropped, submission, off-origin write, redirect and popup blocked, local side unchanged, certificates verified.');
 } finally {
   await rm(directory, { recursive: true, force: true });
   await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });

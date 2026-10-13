@@ -38,7 +38,8 @@ test('a remote side reads its own origin and drops every other origin', () => {
   assert.equal(policy('https://example.com/a.css', 'HEAD'), 'allow');
   assert.equal(policy('https://example.com/submit', 'POST'), 'block');
   assert.equal(policy('https://tags.example.net/t.js'), 'drop');
-  assert.equal(policy('https://tags.example.net/beacon', 'POST'), 'drop');
+  assert.equal(policy('https://tags.example.net/beacon', 'POST'), 'block');
+  assert.equal(policy('https://tags.example.net/x', 'PUT', true), 'block');
   assert.equal(policy('https://other.example.org/', 'GET', true), 'block');
   assert.equal(policy('http://example.com/page'), 'drop');
   assert.equal(policy('http://127.0.0.1/', 'GET'), 'drop');
