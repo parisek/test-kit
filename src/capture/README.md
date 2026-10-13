@@ -9,7 +9,9 @@ on the host. Install `@playwright/test` and its Chromium browser first.
 Each target and viewport gets an isolated browser context. Capture stores one
 navigation response status and the requested artifacts. Screenshots are the default.
 Optional artifacts are HTML response bytes and HTTP metadata. It blocks nonlocal requests in
-all frames and popups. It blocks requests that submit data. It checks redirect
+all frames and popups. A side with `remote: true` reads its own origin with GET and HEAD,
+drops frames and subresources of other origins without failing, and blocks a top-level
+navigation, popup, redirect or non-read method that leaves it. It blocks requests that submit data. It checks redirect
 destinations before network access. It does not save cookies or credentials.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
 WebSockets are blocked, including local sockets. Version 0.1 captures a static

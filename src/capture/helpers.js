@@ -32,3 +32,25 @@ export function ddevMatchesOrigin(description, origin) {
     catch { return false; }
   });
 }
+
+export function isOwnOrigin(value, origin) {
+  let url;
+  try { url = new URL(value); } catch { return false; }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return false;
+  return url.origin === origin;
+}
+
+// Decide what a capture does with one request.
+// allow: let it through. block: fail the capture. drop: abort it, keep the capture.
+// A local side allows local GET and HEAD and blocks the rest.
+// A remote side blocks every method except GET and HEAD, to any origin: an
+// attempted write is a finding, not noise. It allows GET and HEAD to its own
+// origin and drops a GET or HEAD to another origin (a frame or a subresource).
+// A top-level navigation to another origin fails the capture.
+export function requestPolicy({ url, method, topLevel, origin, remote }) {
+  const read = ['GET', 'HEAD'].includes(method);
+  if (!remote) return read && isLocalUrl(url) ? 'allow' : 'block';
+  if (!read) return 'block';
+  if (isOwnOrigin(url, origin)) return 'allow';
+  return topLevel ? 'block' : 'drop';
+}

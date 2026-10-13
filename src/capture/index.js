@@ -13,11 +13,16 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
 const BROWSER_SETTINGS = Object.freeze({ name: 'chromium', headless: true, ignoreHTTPSErrors: true, serviceWorkers: 'block', webSockets: 'block' });
+// A local DDEV certificate is self-signed, so a local side ignores certificate errors.
+// A remote side verifies the certificate: an invalid one is a defect to see, not to skip.
+// Only the context option differs. The recorded settings and their hashes stay the same,
+// so a remote run stays comparable with a local run: certificate checks do not change pixels.
+const ignoreHTTPSErrors = (config, side) => config.sides[side].remote !== true;
 
 async function writeManifest(path, run) {
   const temporary = `${path}.tmp`;
@@ -58,6 +63,8 @@ async function playwright() {
 async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource) {
   const recipe = settleRecipe(config, side, target);
   const identity = { targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(recipe) };
+  const remote = config.sides[side].remote === true;
+  const allowedUrl = value => remote ? isOwnOrigin(value, config.sides[side].origin) : isLocalUrl(value);
   if (provenance.content) provenance = { ...provenance, content: { ...provenance.content,
     settingsHash: settingsHash({ ...contentSettings(config, side, target), browser: BROWSER_SETTINGS }) } };
   let artifacts = {};
@@ -78,7 +85,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     return await Promise.race([deadline, (async () => {
     context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.deviceScaleFactor,
-      ignoreHTTPSErrors: BROWSER_SETTINGS.ignoreHTTPSErrors, serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
+      ignoreHTTPSErrors: ignoreHTTPSErrors(config, side), serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
       reducedMotion: config.artifacts.includes('behavior') ? config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference') : recipe.disableMotion ? 'reduce' : 'no-preference',
       ...(config.artifacts.includes('behavior') && config.behavior.emulate.colorScheme ? { colorScheme: config.behavior.emulate.colorScheme } : {}),
     });
@@ -111,8 +118,11 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
           return;
         }
       }
-      if (!['GET', 'HEAD'].includes(request.method()) || !isLocalUrl(request.url())) {
-        blocked = true;
+      let topLevel = true;
+      try { topLevel = !request.isNavigationRequest() ? false : request.frame().parentFrame() === null; } catch { /* A popup requests its first URL before its frame exists. Fail closed. */ }
+      const decision = requestPolicy({ url: request.url(), method: request.method(), topLevel, origin: config.sides[side].origin, remote });
+      if (decision !== 'allow') {
+        if (decision === 'block') blocked = true;
         await route.abort('blockedbyclient');
       } else {
         // Fetch one response without following redirects. Check Location before
@@ -121,7 +131,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
           const response = await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
           const location = response.headers().location;
           if (response.status() >= 300 && response.status() < 400 && location
-            && !isLocalUrl(new URL(location, request.url()).href)) {
+            && !allowedUrl(new URL(location, request.url()).href)) {
             blocked = true;
             await route.abort('blockedbyclient');
           } else await route.fulfill({ response });
@@ -131,19 +141,19 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       }
     });
     const url = new URL(targetPath(target, side), config.sides[side].origin);
-    if (!isLocalUrl(url.href)) throw new Error('Nonlocal navigation');
+    if (!allowedUrl(url.href)) throw new Error('Nonlocal navigation');
     const response = await page.goto(url.href, { waitUntil: 'load' });
     if (!response) throw new Error('No HTTP navigation response');
     statusCode = response.status();
     finalPath = new URL(response.url()).pathname;
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
     if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior')) {
-      if (blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+      if (blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
     }
     phase = 'settlement';
     await settlePage({ page, recipe, active: () => !expired && !blocked && !unexpectedNavigation });
-    if (blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+    if (blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     if (config.artifacts.includes('content')) {
       phase = 'content';
       const index = { kind: 'content', ...provenance.content };
@@ -160,7 +170,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         const bodyBytes = Buffer.from(body);
         if (bodyBytes.length > 2 * 1024 * 1024) throw new Error('DOM body exceeds its limit.');
         const bytes = Buffer.from(JSON.stringify(snapshot));
-        if (bytes.length > 2 * 1024 * 1024 || expired || blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
+        if (bytes.length > 2 * 1024 * 1024 || expired || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Content capture is unavailable.');
         const path = `content/${target.id}/${viewport.id}.json.gz`;
         contentFile = join(runDir, path);
         const bodyPath = `content/${target.id}/${viewport.id}.body.html.gz`;
@@ -170,7 +180,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         const compressed = gzipSync(bytes);
         await writeFile(contentFile, compressed, { mode: 0o600 });
         await writeFile(bodyFile, gzipSync(bodyBytes), { mode: 0o600 });
-        if (expired || blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Content capture is unavailable.');
+        if (expired || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Content capture is unavailable.');
         artifacts.content = { ...index, state: 'captured', path, bodyPath, bodyBytes: bodyBytes.length, bytes: compressed.length }; 
       } catch {
         if (contentFile) await unlink(contentFile).catch(() => {});
@@ -194,7 +204,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       } catch { artifacts.behavior = { kind: 'behavior', ...provenance.behavior, state: 'failed', error: { code: 'BEHAVIOR_CAPTURE_FAILED', message: 'Behavior evidence is unavailable or exceeds its limit.' } }; }
     };
     if (!config.artifacts.includes('screenshot')) {
-      if (blocked || expired || !isLocalUrl(page.url())) throw new Error('Capture is unavailable.');
+      if (blocked || expired || !allowedUrl(page.url())) throw new Error('Capture is unavailable.');
       await captureBehavior();
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
     }
@@ -224,7 +234,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     const width = bytes.readUInt32BE(16);
     const height = bytes.readUInt32BE(20);
     assertImageBounds(width, height);
-    if (blocked || unexpectedNavigation || !isLocalUrl(page.url())) throw new Error('Nonlocal navigation');
+    if (blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
     await captureBehavior();
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,

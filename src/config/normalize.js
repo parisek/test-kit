@@ -32,13 +32,13 @@ function list(value, name, max, min = 0) {
 function unique(values, name) {
   if (new Set(values).size !== values.length) fail(`${name} IDs must be unique`);
 }
-function origin(value, name) {
+function origin(value, name, remote = false) {
   text(value, name, 300);
   let url;
   try { url = new URL(value); } catch { fail(`${name} must be a URL`); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) fail(`${name} must be an HTTP origin without credentials or a path`);
   const host = url.hostname;
-  if (!(host === 'localhost' || host.endsWith('.localhost') || host === '[::1]' || /^127\.(?:\d{1,3}\.){2}\d{1,3}$/.test(host) || host.endsWith('.ddev.site'))) fail(`${name} must be local`);
+  if (!remote && !(host === 'localhost' || host.endsWith('.localhost') || host === '[::1]' || /^127\.(?:\d{1,3}\.){2}\d{1,3}$/.test(host) || host.endsWith('.ddev.site'))) fail(`${name} must be local`);
   return url.origin;
 }
 function targetPath(value, name) {
@@ -83,8 +83,11 @@ export function normalizeConfig(input) {
   if (!sideEntries.length || sideEntries.length > 20) fail('sides must have 1..20 entries');
   const sides = Object.fromEntries(sideEntries.map(([sideId, side]) => {
     id(sideId, 'side ID');
-    object(side, `sides.${sideId}`, ['origin', 'settle']);
-    return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`),
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote']);
+    if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
+    const remote = side.remote === true;
+    return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`, remote),
+      ...(remote ? { remote: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
   const targets = list(input.targets, 'targets', 1000, 1).map(target => {

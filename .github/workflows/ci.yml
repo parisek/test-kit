@@ -49,6 +49,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node tests/integration/check-example-site.mjs
       - run: node tests/integration/check-capture-guards.mjs
+      - run: node tests/integration/check-capture-remote.mjs
       - run: node tests/integration/check-capture-scopes.mjs
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-history.mjs
