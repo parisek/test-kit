@@ -4,9 +4,12 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-13
+
 ### Added
 
 - Capture a deployed site read-only with `remote: true` on a side. Compare it with a local side or with itself over time (R3.3).
+- A remote side verifies TLS certificates, allows only `GET` and `HEAD`, drops frames and subresources of other origins, and fails the capture on a redirect, popup or top-level navigation that leaves its origin. `perf` and `--ddev` refuse it. A side without `remote: true` behaves as in 0.4.0.
 
 ## [0.4.0] - 2026-10-12
 
