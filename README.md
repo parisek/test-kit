@@ -25,7 +25,16 @@ npx playwright install chromium
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
-Keep `tests/visual/runs/` and comparison output outside git.
+Keep `tests/visual/runs/` and comparison output outside git. Copy
+[`templates/gitignore`](templates/gitignore) into the `.gitignore` of the directory
+that holds the configuration. Its paths are relative to that directory:
+
+```gitignore
+.test-kit/
+.test-kit.runtime-*.json
+test-kit-export/
+tests/visual/runs/
+```
 
 ```json
 {

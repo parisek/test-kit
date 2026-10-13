@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- Ship `templates/gitignore` with the paths the workflow, exports and low-level capture write.
+
 ## [0.4.0] - 2026-10-12
 
 ### Added

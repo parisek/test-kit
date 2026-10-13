@@ -1,0 +1,11 @@
+# test-kit: local evidence stays on the developer machine (R12.1, R12.2).
+# Paste into the .gitignore of the directory that holds test-kit.config.json.
+# Low-level capture and diff
+tests/visual/runs/
+tests/visual/report/
+# Workflow store: runs, reports, baseline pointers, history
+.test-kit/
+# Temporary runtime configuration the workflow writes next to the config
+.test-kit.runtime-*.json
+# Static report and history exports
+test-kit-export/
