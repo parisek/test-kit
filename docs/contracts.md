@@ -9,7 +9,8 @@ Later artifacts keep their specification requirements. They do not run in v0.1.
 The project supplies `test-kit.config.json`. Paths resolve from its directory.
 The CLI may accept an explicit config path. The default runs root is
 `tests/visual/runs`. Resolve a side origin only from explicit configuration.
-In v0.1 target origins must be local. Do not infer the CMS from a directory name.
+A side origin must be local unless the side sets `"remote": true`. A remote side reads its own
+origin only (see `README.md`, "Compare a deployed site"). Do not infer the CMS from a directory name.
 
 ```json
 {

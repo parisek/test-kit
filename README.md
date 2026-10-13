@@ -1,6 +1,6 @@
 # test-kit
 
-`@parisek/test-kit` compares two local runs. A project supplies its
+`@parisek/test-kit` compares two runs of a local or remote side. A project supplies its
 sides, target paths, viewports, and settle settings. Capture records evidence.
 Compare reads stored runs. The viewer and JSON summary use the same classifier.
 
@@ -61,6 +61,37 @@ incomplete evidence. An HTTP error remains visible even when screenshots match.
 An unknown noise floor is explicit. A pixel ratio is a compass, not a verdict.
 Client captures and project configuration stay local.
 
+
+## Compare a deployed site
+
+A side may be a deployed site. Set `remote: true` on it. Its origin may be any
+HTTP or HTTPS origin without credentials or a path. The default stays local.
+
+```json
+{
+  "sides": {
+    "local": {"origin": "http://localhost:8080"},
+    "production": {"origin": "https://www.example.com", "remote": true}
+  }
+}
+```
+
+```sh
+npx test-kit capture --config test-kit.config.json --side production --label before
+npx test-kit capture --config test-kit.config.json --side local --label after
+npx test-kit diff <production-run> <local-run> --kind migration --output tests/visual/report
+```
+
+A remote capture is read-only. It sends GET and HEAD requests to its own origin.
+It aborts frames and subresources of other origins, such as a tag manager, and
+keeps the capture. It fails the capture on a redirect, popup or top-level
+navigation to another origin, and on any other method. It does not send
+cookies or credentials. `perf` and `--ddev` refuse a remote side. Use the same
+`settle` recipe on both sides, or the comparison reports incompatible settings.
+
+Aborted third-party requests are not recorded as evidence. A page that needs
+such a request to render differs from the same page with it, so read an
+`unexplained` finding with that in mind.
 
 ## Scoped project workflow
 

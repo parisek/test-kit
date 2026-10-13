@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- Capture a deployed site read-only with `remote: true` on a side. Compare it with a local side or with itself over time (R3.3).
+
 ## [0.4.0] - 2026-10-12
 
 ### Added

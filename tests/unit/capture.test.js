@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isLocalUrl, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
 
 test('navigation guards reject remote redirects and credentials', () => {
   for (const value of ['http://localhost/path', 'https://example-site.ddev.site/path', 'http://127.0.0.2/', 'http://[::1]/']) assert.equal(isLocalUrl(value), true);
@@ -28,4 +28,31 @@ test('DDEV checkout identity must match the configured host', () => {
   assert.equal(ddevMatchesOrigin({ raw: { httpsurl: 'https://other.ddev.site' } }, 'http://example-site.ddev.site'), false);
   assert.equal(ddevMatchesOrigin({ raw: { httpsurl: 'invalid' } }, 'http://example-site.ddev.site'), false);
   assert.equal(ddevMatchesOrigin({}, 'http://example-site.ddev.site'), false);
+});
+
+test('a remote side reads its own origin and drops every other origin', () => {
+  const remote = { origin: 'https://example.com', remote: true };
+  const policy = (url, method = 'GET', topLevel = false, side = remote) => requestPolicy({ url, method, topLevel, ...side });
+  assert.equal(policy('https://example.com/page', 'GET', true), 'allow');
+  assert.equal(policy('https://example.com/a.css'), 'allow');
+  assert.equal(policy('https://example.com/a.css', 'HEAD'), 'allow');
+  assert.equal(policy('https://example.com/submit', 'POST'), 'block');
+  assert.equal(policy('https://tags.example.net/t.js'), 'drop');
+  assert.equal(policy('https://tags.example.net/beacon', 'POST'), 'drop');
+  assert.equal(policy('https://other.example.org/', 'GET', true), 'block');
+  assert.equal(policy('http://example.com/page'), 'drop');
+  assert.equal(policy('http://127.0.0.1/', 'GET'), 'drop');
+});
+
+test('a local side keeps blocking every request that leaves the local environment', () => {
+  const local = { origin: 'http://127.0.0.1:8080', remote: false };
+  const policy = (url, method = 'GET') => requestPolicy({ url, method, topLevel: false, ...local });
+  assert.equal(policy('http://127.0.0.1:8080/a.css'), 'allow');
+  assert.equal(policy('https://example.com/a.js'), 'block');
+  assert.equal(policy('http://127.0.0.1:8080/submit', 'POST'), 'block');
+});
+
+test('own origin comparison rejects credentials, other ports and other schemes', () => {
+  assert.equal(isOwnOrigin('https://example.com/a', 'https://example.com'), true);
+  for (const value of ['https://user:x@example.com/', 'https://example.com:8443/', 'http://example.com/', 'https://example.com.evil.net/', 'not a URL', 'file:///tmp/x']) assert.equal(isOwnOrigin(value, 'https://example.com'), false);
 });

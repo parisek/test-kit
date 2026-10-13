@@ -32,6 +32,27 @@ test('explicit local origins include DDEV and loopback', () => {
   }
 });
 
+test('a remote side accepts a non-local origin and keeps every other origin rule', () => {
+  const source = input(); source.sides.production = { origin: 'https://example.com', remote: true };
+  const result = normalizeConfig(source);
+  assert.equal(result.sides.production.origin, 'https://example.com');
+  assert.equal(result.sides.production.remote, true);
+  assert.equal(Object.hasOwn(result.sides.local, 'remote'), false);
+  for (const origin of ['http://user:password@example.com', 'https://example.com/path', 'https://example.com/?token=secret', 'file:///tmp/test']) {
+    const bad = input(); bad.sides.production = { origin, remote: true };
+    assert.throws(() => normalizeConfig(bad), /Invalid configuration/);
+  }
+});
+
+test('a side without remote true stays local, and remote must be a boolean', () => {
+  const source = input(); source.sides.production = { origin: 'https://example.com' };
+  assert.throws(() => normalizeConfig(source), /Invalid configuration/);
+  source.sides.production = { origin: 'https://example.com', remote: 'yes' };
+  assert.throws(() => normalizeConfig(source), /Invalid configuration/);
+  source.sides.production = { origin: 'https://example.com', remote: false };
+  assert.throws(() => normalizeConfig(source), /Invalid configuration/);
+});
+
 test('per-side paths must cover every side and remain on the origin', () => {
   const source = input(); source.sides.other = { origin: 'http://localhost:8081' };
   source.targets[0] = { id: 'home', kind: 'page', paths: { local: '/', other: '/different?lang=en' } };
