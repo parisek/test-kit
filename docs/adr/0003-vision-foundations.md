@@ -13,7 +13,7 @@ The owner directed on 2026-10-16: one package, four layers, accessibility in sco
 | The vision can change itself | Agrees | Any change to the vision is Tier 3 | Accepted |
 | "Fits the vision" is not testable | Keep as judgement, not as the gate | Replace with checkable items | Accepted |
 | Milestone branch is an invention | Partly. A label removes drift but needs a cumulative gate on `main` | Squash of a milestone loses per-change commit bodies. Prefer a label and merges to `main` | Decided by the owner on 2026-10-16: merge into `main`. No milestone branch |
-| Alpha churn conflicts with migration | Agrees. Settle the seam first | Freeze the seam or finish churn first | Proposal (decision 9): freeze the project-facing seam at the 1.0 release candidate. The owner has not confirmed |
+| Alpha churn conflicts with migration | Agrees. Settle the seam first | Freeze the seam or finish churn first | Decided by the owner on 2026-10-16: freeze the project-facing seam at the 1.0 release candidate |
 | A pack has no lifecycle owner | Agrees | Name an owner. Retire sets with no consumer | Accepted (layer rules 8) |
 | R13.42 contradiction has no tracker | Agrees | Create an issue and cite it | Done. Issue #96 |
 | Skills should be thin | Put invariants in CI, evidence in a template, orchestration in a script | Not raised | Accepted for the skill design. No skill exists yet |

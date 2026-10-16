@@ -243,7 +243,7 @@ These need the owner. The agent does not decide them.
 7. Version numbers. The last tag is v0.5.0. Does the first owner milestone start at 0.6 or at 1.0? (proposal: 1.0 is the first stable release, so milestones before it use 0.x.)
 
 8. (Decided, 2026-10-16) Milestone work merges into `main`. Dev tags come from `main` after a green cumulative run.
-9. **Seam freeze.** (proposal: freeze the project-facing seam only at the 1.0 release candidate. The seam holds the config file shape, the command aliases and the contract API. Before it, tailwind-base stays on its old pin. It migrates once, after the freeze. Until then breaking changes cost nothing.)
+9. (Decided, 2026-10-16) Freeze the project-facing seam only at the 1.0 release candidate. The seam holds the config file shape, the command aliases and the contract API. Before it, tailwind-base stays on its old pin. It migrates once, after the freeze. Until then breaking changes cost nothing.
 10. **Pack versioning.** One tag for all packs (proposal for alpha), or one tag for each pack once churn is measured.
 
 11. (Decided, 2026-10-16) The package adds no guard for sites that the user does not own. A guard cannot be enforced, and the user is responsible for the use. Reports from a foreign site stay out of the repository (R12.4).
