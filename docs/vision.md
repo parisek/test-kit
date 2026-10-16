@@ -70,7 +70,7 @@ State comes from `CHANGELOG.md` and open issues on 2026-10-16. Shape says how th
 | Cross-engine and browser support | not decided | open, no issue |
 | Accessibility (axe) | not in the package | planned: moves in, as a rule pack (owner direction 2026-10-16). It reverses R13.42 for `axe`. Open, #96 |
 | Hygiene and render-integrity contracts | not in the package | planned, same direction. Open, #96 |
-| Any public website, read-only (for example a competitor page), absolute checks and benchmark pairs | remote side exists (v0.5.0); absolute checks need the result-model ADR | proposal: design for it in the result-model ADR, ship after the 1.0 core. Needs a politeness guard (decision 11) |
+| Any public website, read-only (for example a competitor page), absolute checks and benchmark pairs | remote side exists (v0.5.0); absolute checks need the result-model ADR | proposal: design for it in the result-model ADR, ship after the 1.0 core. The package adds no guard (decision 11) |
 | Component contracts (`picture`, `gsap`, `swiper`, ...) | not in the package | planned as opt-in packs. Tracked in #96 |
 
 `docs/contracts.md` still labels the content, behavior and speed sections "unreleased". The labels are stale. Fix them in a small documentation issue.
@@ -246,7 +246,7 @@ These need the owner. The agent does not decide them.
 9. **Seam freeze.** (proposal: freeze the project-facing seam only at the 1.0 release candidate. The seam holds the config file shape, the command aliases and the contract API. Before it, tailwind-base stays on its old pin. It migrates once, after the freeze. Until then breaking changes cost nothing.)
 10. **Pack versioning.** One tag for all packs (proposal for alpha), or one tag for each pack once churn is measured.
 
-11. **Sites that the owner does not own.** Capture of a foreign site needs a guard: read-only, no login, a request rate limit, and a note about terms of use and robots rules. Does the package enforce the guard, or only document it? Reports from a foreign site stay out of the repository (R12.4).
+11. (Decided, 2026-10-16) The package adds no guard for sites that the user does not own. A guard cannot be enforced, and the user is responsible for the use. Reports from a foreign site stay out of the repository (R12.4).
 
 ## Prior art
 
