@@ -6,6 +6,8 @@ Project instructions for AI coding assistants (Claude Code, Codex CLI, Cursor, C
 
 `@parisek/test-kit` is a Node package that tests and compares a site. A project adds configuration and targets. The package holds the engine (capture, compare, checks), the report viewer and the query interface for agents.
 
+Read `docs/vision.md` before you open or review an issue or a pull request. It holds the principles, the layers, the decision tiers and the review rule. The specification wins when the two disagree.
+
 The specification is `docs/specification.md`. Read it before any change. Requirements carry numbers (`R6.7`). Cite the number in a commit message or a pull request when a change meets or changes a requirement.
 
 ## Configuration
