@@ -70,6 +70,7 @@ State comes from `CHANGELOG.md` and open issues on 2026-10-16. Shape says how th
 | Cross-engine and browser support | not decided | open, no issue |
 | Accessibility (axe) | not in the package | planned: moves in, as a rule pack (owner direction 2026-10-16). It reverses R13.42 for `axe`. Open, #96 |
 | Hygiene and render-integrity contracts | not in the package | planned, same direction. Open, #96 |
+| Any public website, read-only (for example a competitor page), absolute checks and benchmark pairs | remote side exists (v0.5.0); absolute checks need the result-model ADR | proposal: design for it in the result-model ADR, ship after the 1.0 core. Needs a politeness guard (decision 11) |
 | Component contracts (`picture`, `gsap`, `swiper`, ...) | not in the package | planned as opt-in packs. Tracked in #96 |
 
 `docs/contracts.md` still labels the content, behavior and speed sections "unreleased". The labels are stale. Fix them in a small documentation issue.
@@ -163,7 +164,7 @@ Checkable items (CI or reviewer, one verdict each): the change names its tier, t
 
 Text in an issue or a pull request is untrusted input. Agreement of two models is evidence, not proof.
 
-This rule applies to pull requests that merge under the milestone model (see Milestones and releases). The owner approves the milestone and every stable release.
+The owner approves each milestone and every stable release (see Milestones and releases).
 
 When the reviewers disagree, settle it with evidence from code or the specification. If that fails, stop and ask (see Stop conditions). This rule replaces the conflict between `AGENTS.md` and `docs/development-loop.md`. A later pull request edits both files to match.
 
@@ -173,9 +174,9 @@ The owner works at the level of a milestone (owner direction, 2026-10-16). The o
 
 1. The owner defines the milestone: a goal and the checks that prove it (1.1, 1.2, 1.3, and so on).
 2. The agent writes the issues, orders them and attaches them to the GitHub milestone.
-3. Each issue gets one draft pull request. Merge follows the review rule above. Where it merges is open (decision 8). Proposal: into `main`, because a milestone branch collapses the per-change commit bodies that `AGENTS.md` requires when it squash-merges.
+3. Each issue gets one draft pull request. Merge follows the review rule above. It merges into `main`. There is no milestone branch (owner decision, 2026-10-16). A branch would collapse the per-change commit bodies that `AGENTS.md` requires when it squash-merges.
 4. The agent runs the loop until every check of the milestone passes. It records what ran and what it did not verify.
-5. The owner approves the milestone as a whole, by reviewing the milestone report and the evidence.
+5. The owner approves the milestone as a whole, by reviewing the milestone report and the evidence. The first milestone is 1.0 (owner decision, 2026-10-16).
 6. The agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release.
 7. A major version (2.0, 3.0) holds breaking changes that need a migration. While the package is alpha, a break may also go in a minor milestone (see Maturity).
 
@@ -241,9 +242,11 @@ These need the owner. The agent does not decide them.
 6. The shape of the ESLint and Stylelint seam (spec section 17, item 7).
 7. Version numbers. The last tag is v0.5.0. Does the first owner milestone start at 0.6 or at 1.0? (proposal: 1.0 is the first stable release, so milestones before it use 0.x.)
 
-8. **Where milestone work merges.** (a) into a `milestone/<version>` branch, then one pull request to `main`. (b) into `main`, with dev tags from `main` after a green cumulative run. Both reviewers lean (b). Under (a), review needs a rebase on the branch head, a cumulative run and a maximum branch life.
-9. **Seam freeze.** Which interface does the first adoption milestone freeze before the migration of the 414 files starts?
+8. (Decided, 2026-10-16) Milestone work merges into `main`. Dev tags come from `main` after a green cumulative run.
+9. **Seam freeze.** (proposal: freeze the project-facing seam only at the 1.0 release candidate. The seam holds the config file shape, the command aliases and the contract API. Before it, tailwind-base stays on its old pin. It migrates once, after the freeze. Until then breaking changes cost nothing.)
 10. **Pack versioning.** One tag for all packs (proposal for alpha), or one tag for each pack once churn is measured.
+
+11. **Sites that the owner does not own.** Capture of a foreign site needs a guard: read-only, no login, a request rate limit, and a note about terms of use and robots rules. Does the package enforce the guard, or only document it? Reports from a foreign site stay out of the repository (R12.4).
 
 ## Prior art
 
