@@ -232,7 +232,16 @@ The package fails its purpose, even if it works, when it:
 
 These need the owner. The agent does not decide them.
 
-1. (Decided, 2026-10-18) **Single-run results (lint, content checks over one run, cross-engine).** The schema required a pair. Three options were weighed. Option A is a single-run report with `findings[]` and no class. It breaks R7.3. Option B is always a pair with an implicit baseline. It invents a baseline, which R13.13 forbids. Option C gives each check a basis, `absolute` or `relative`, and derives class at target or artifact scope, never per finding. The owner accepted option C (Tier 3 approval in chat, 2026-10-18). [ADR 0004](adr/0004-result-model.md) records it with status accepted. The spec follows it in R7.2, R7.3 and R8.10 to R8.13. The code does not follow it yet. The ADR keeps these design questions open for the implementation issue: behavior identity, selection per target, the absolute fingerprint, the allowlist file with its reason and owner, and whether findings of completed checks in a mixed artifact keep counting toward a class.
+1. (Decided, 2026-10-18) **Single-run results (lint, content checks over one run, cross-engine).** The owner accepted option C of [ADR 0004](adr/0004-result-model.md) (Tier 3 approval in chat, 2026-10-18). The spec follows it in R7.2, R7.3 and R8.10 to R8.13. The code does not follow it yet.
+   - A: a single-run report with `findings[]` and no class. It breaks R7.3.
+   - B: always a pair with an implicit baseline. It invents a baseline, which R13.13 forbids.
+   - C (accepted): each check has a basis, `absolute` or `relative`. Class is derived at target or artifact scope and never stored (ADR 0004 section 8, R8).
+   The schema requires a pair today. These design questions stay open for the implementation issue:
+   - behavior identity,
+   - selection per target,
+   - the absolute fingerprint,
+   - the allowlist file with its reason and owner,
+   - whether findings of completed checks in a mixed artifact keep counting toward a class.
 2. (Decided, 2026-10-16) The owner alone approves a stable release tag. The agent may tag dev versions (R13.25).
 3. **Roadmap issues.** #7 to #10 are open, but tags v0.2.0 to v0.5.0 exist, and their content differs from the plan. (proposal: close them as shipped and rewrite #5 as the roadmap that links this document.) This edits owner-created issues, so it is Tier 3.
 4. The small default set of checks (spec section 17, item 2).
