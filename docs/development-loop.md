@@ -167,12 +167,17 @@ One merge rule applies. `AGENTS.md` and `docs/vision.md` ("Review and merge" in
 - CI is green.
 - The change is not a Tier 3 item of the vision.
 - The author gives no decisive approval for the change.
+- Each reviewer states the evidence it examined (diff, specification lines, test
+  output) and what it left unverified.
+- The change names its tier, the principle number and the requirement number it
+  serves. It adds no default behavior and no runtime dependency. It carries tests
+  and touches no security-relevant path.
 - The change has no security impact, no unexpected file, no missing test and no
   material risk. Send any of these to the owner, even when both reviewers agree.
 
 The owner approves each milestone and every stable release. The agent never tags
-a stable release. After the specification edit of #100 merges (R13.25), the agent
-may tag a dev prerelease from `main` after a green cumulative run.
+a stable release. The agent
+may tag a dev prerelease from `main` after a green cumulative run (R13.25).
 
 ## Durable state and continuation
 
@@ -209,7 +214,7 @@ deletion policy, breaking project interfaces, review provider availability, and
 an optional spending limit.
 
 Accepted boundary: local targets only; automatic implementation, review repair,
-issues and draft PRs within accepted scope. Merge follows the merge rule below. Record the
+issues and draft PRs within accepted scope. Merge follows the merge rule above. Record the
 operational goal and review provider before enabling continuous execution.
 
 ## Sources

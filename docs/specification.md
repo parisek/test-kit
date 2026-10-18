@@ -324,7 +324,7 @@ Decided by the owner (2026-10-08): `test-kit` reaches a project through a git ta
 
 - R13.24 `test-kit` must be installed as a git dependency from the tags of `github:parisek/test-kit`. It must not be published to the npm registry. `package.json` must stay `private: true`, so a publish by mistake fails.
 - R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag. Only the owner tags a stable release. The agent may create a dev prerelease tag `vMAJOR.MINOR.PATCH-dev.N` from `main`, and only after a green cumulative test run on the tagged commit. A dev tag is not a release. Owner decision, 2026-10-18.
-- R13.26 The tag must equal `version` in `package.json`. A workflow on tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`. A dev tag creates no GitHub Release.
+- R13.26 A stable tag must equal `v` plus `version` in `package.json`. A dev tag must equal `v` plus `version` plus `-dev.N`, where `version` is the base `X.Y.Z`. A workflow on a stable tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`. A dev tag creates no GitHub Release. Today `.github/workflows/release.yml` rejects a dev tag and the run fails. Whether to narrow the trigger or accept the red run is an open owner decision.
 - R13.27 Before 1.0 a project must pin an exact tag: `npm install -D github:parisek/test-kit#v0.2.0`. After 1.0 it may use a range: `#semver:^1`. The lockfile pins the commit, so a moved tag cannot change a project.
 - R13.28 The package must install without a build step. The `files` list in `package.json` decides what a project receives. The viewer build is committed. CI must verify that it matches its source.
 - R13.29 The scoped name `@parisek/test-kit` needs no ownership of an npm scope for a git install. The name stays.
@@ -337,7 +337,7 @@ Verified 2026-10-08 on a local copy with two tags: npm installs from a tag and f
 
 ## 14. Delivery plan
 
-One logical change per pull request. Each starts as a draft, assigned to the owner. The owner authorizes autonomous implementation, review, merge, and release through v0.1.0 on 2026-10-09. On the same date, the owner extends review and merge authority to low-risk changes. CI must be green and independent review must pass. A problem or material risk needs owner approval before merge. Later release authority stays with the owner.
+One logical change per pull request. Each starts as a draft, assigned to the owner. One merge rule applies. It is stated in `docs/development-loop.md` (Merge rule) and in `docs/vision.md` (Review and merge). The owner approves each milestone and every stable release.
 
 The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounded summary, and verified git installation. It enables screenshots only and no checks. HTML/status artifacts, rules, behavior, content, speed, and lint remain later milestones. Basic HTTP availability metadata is part of screenshot capture. The original plan below describes the full scope, not one release.
 

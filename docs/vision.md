@@ -8,7 +8,7 @@ A line marked (proposal) is an agent suggestion, not an owner decision.
 The specification (`docs/specification.md`) is normative. This document is interpretive.
 If this document and the specification disagree, the specification wins. Open an issue to fix one of them. Never cite this document to skip a numbered requirement.
 
-The spec edits for alpha breaks (R13.9), dev tags (R13.25, R13.26) and packs in the package (R13.42) merged in the pull request that closes #100 and #96.
+The spec edits of #100 and #96 are in the specification from the merge of the pull request that adds this sentence.
 
 `AGENTS.md` and `docs/development-loop.md` own the rules for work, review and merge. This document does not repeat them.
 

@@ -59,8 +59,11 @@ Everything in this repository is English: code, comments, documents, commit mess
   - CI is green.
   - The change is not a Tier 3 item of the vision.
   - The author gives no decisive approval for the change.
+  - Each reviewer states the evidence it examined (diff, specification lines, test output) and what it left unverified.
+  - The change names its tier, the principle number and the requirement number it serves. It adds no default behavior and no runtime dependency. It carries tests and touches no security-relevant path.
   - The change has no security impact, no unexpected file, no missing test and no material risk. Send any of these to the owner, even when both reviewers agree.
-  - The owner approves each milestone and every stable release.
+
+  The owner also approves each milestone and every stable release. This is not a per-change gate.
 - The pull request title is a Conventional Commit (`feat(capture): ...`). Pull requests are squash-merged and the title becomes the commit subject. The `pr-title` workflow checks it.
 - The commit body records what was rejected or left alone. A diff cannot show a non-change.
 - After you open a pull request or push to it, wait for CI. A pull request is not ready until the checks are green or you explained the failure.
