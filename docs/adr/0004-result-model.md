@@ -1,6 +1,6 @@
 # ADR 0004: One result model for pair, single-run and lint results
 
-Status: proposed. It waits for the owner (Tier 3, vision open decision 1). No code changes in this record.
+Status: proposed. Option C does not comply with R7.3 as written. It takes effect only after the owner accepts this ADR and the R7.3 edit below merges in its own pull request. It waits for the owner (Tier 3, vision open decision 1). No code changes in this record.
 Requirements: R7.1, R7.2, R7.3, R7.7, R8.2 to R8.9, R9.1, R9.4, R10.5, R11.6, R13.9, R13.13, R13.40. Tracked in #99.
 
 ## Context
@@ -49,20 +49,20 @@ The vision lists three options. This section tests each one against the requirem
 
 ### C: a rule basis, `absolute` or `relative`, and a class derived at target or artifact scope
 
-- R7.3: kept for storage. One `findings` list. A finding of any basis goes in it. Not kept for the last sentence of R7.3 ("classes and rules apply with no special case"). See the section "R7.3 is a special case" below.
+- R7.3: needs an R7.3 edit. Storage fits: one `findings` list, and a finding of any basis goes in it. The last sentence of R7.3 ("classes and rules apply with no special case") does not fit, because class depends on the basis. C does not comply with R7.3 as written. See the section "R7.3 is a special case" below.
 - R8.2 to R8.7: kept, with the rules in section 7 for overrides, missing evidence, scope and the viewer list of fired rules (R8.6).
 - R11.6: kept. One classifier reads the basis from report data.
 - Precedent: `judge: 'oracle'` already steers a derived class from a data field. The empty check set already gives `missing`, not `match`. C extends both rules.
 - Additive at file level: yes. A new check and a new artifact `lint` are new files. Nothing runs by default (R5.1).
 - Additive at schema level: no. `pair` becomes optional. This is a breaking change of the report schema.
 - Pure logic: kept, with one rule. The classifier reads the basis from the report, never from a check module.
-- Cost of change: the highest edit count in old files (see Cost). It is the only option that meets R7.3, R8.7, R11.6 and R13.13 together.
+- Cost of change: the highest edit count in old files (see Cost). It is the only option that meets R8.7, R11.6 and R13.13 together. It needs an R7.3 edit to do so.
 
 Summary:
 
 | Criterion | A | B | C |
 | --- | --- | --- | --- |
-| R7.3 one findings list | fail | pass | pass |
+| R7.3 one findings list, no special case | fail | pass | needs an R7.3 edit |
 | R8.7 no false `match` | can be met, with new fields | fail | pass |
 | R13.13 no invented pair | pass | fail | pass |
 | R11.6 one reader path | fail | pass | pass |
@@ -246,7 +246,17 @@ R7.3 says findings of a check "go into the same `findings` list as findings of a
 
 Option C keeps the first sentence. It does not keep the second. In C, `explained` means "has a known cause" for a relative finding and "has an allowlist entry" for an absolute finding. Normaliser rules and `known_diffs` apply only to relative findings. The classifier branches on the basis. That is a special case by the plain reading of R7.3.
 
-So C needs an edit of R7.3. Proposed text: "Findings of a check go into the same `findings` list as findings of any artifact. A class applies by the basis of the check (section 8). Normaliser rules and known differences apply to relative checks only." The owner must direct this edit (Tier 3). The edit goes in the separate specification pull request.
+So C needs an edit of R7.3. C does not comply with R7.3 as written. The owner must direct the edit (Tier 3). It goes in its own pull request, and C takes effect only after that pull request merges. This record does not edit the specification.
+
+Exact change for that pull request, section 7 of `docs/specification.md`:
+
+```
+Before:
+- R7.3 Findings of a check go into the same `findings` list as findings of any artifact. Classes and rules apply with no special case.
+
+After:
+- R7.3 Findings of a check go into the same `findings` list as findings of any artifact. A class applies by the basis of the check (section 8). Normaliser rules and known differences apply to relative checks only.
+```
 
 The branch is small. One function, `findingIsExplained`, holds it. Both readers call that function, so R11.6 holds.
 
