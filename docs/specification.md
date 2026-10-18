@@ -296,7 +296,7 @@ skeleton manifest: 237 files under `static/tests/`.
 | Area | Files | Kind | Moves? |
 | --- | --- | --- | --- |
 | `visual` | 14 | Playwright capture, diff, report | yes, first (folds into the comparison tool) |
-| `behavior` | 22 | Playwright runner, contract API, shared contracts | the engine: yes. Project-owned contracts (`contracts/project/`, `tests/behavior/project/`) stay in the project. The shared contracts: open (R13.42). |
+| `behavior` | 22 | Playwright runner, contract API, shared contracts | the engine: yes. Project-owned contracts (`contracts/project/`, `tests/behavior/project/`) stay in the project. The shared contracts: yes, as opt-in packs (R13.42). |
 | `lib` | 45 | shared helpers | only what the moved areas use. A dependency check must come first. |
 | `cross-engine`, `browser-support` | 7 | engine-gap and support checks | yes, after `behavior` |
 | `fixtures.spec.js`, `fixtures.unverified.txt` | 2 | fixture checks | decide with `behavior` |
@@ -306,14 +306,14 @@ skeleton manifest: 237 files under `static/tests/`.
 - R13.13 The package owns scoped project commands, per-selection baselines, and persistent local history. A project keeps configuration, project contracts, and thin aliases. A one-time run stores evidence without inventing an A/B pair. Partial captures cannot replace a complete baseline. DDEV origin discovery is opt-in.
 
 - R13.8 `test-kit` must cover the Node side: capture, compare, behaviour, checks, speed, and the ESLint and Stylelint rules. PHP and Twig lint rules belong to a second package, `lint-kit`, in a separate issue. The dividing line is the toolchain and the channel (npm from a git tag against Composer from Packagist), not the purpose.
-- R13.9 Each move must be one pull request. After it, the project must work with no edit: a thin alias in the project calls the package (R13.7).
+- R13.9 Each move must be one pull request. While the package is alpha, a step may break a project. Such a step needs a changelog entry and a migration note. The project pins a tag (R13.27), so a break reaches it only when it updates the pin. Owner decision, 2026-10-18. After the owner declares beta, each move must leave the project working with no edit: a thin alias in the project calls the package (R13.7).
 - R13.10 A move must replace the manifest entries of the moved files with one pinned dependency. `verify-skeleton` and `sync-skeleton` must know the new state before the first move merges.
 - R13.11 A moved helper must not break a lint test that still imports it. The dependency check of `lib` must prove this before the move.
 - R13.12 The name of the package must fit the final scope. A rename after the first release is costly. The owner keeps the name `test-kit` (2026-10-08); the README must state the dividing line of R13.8.
 - R13.40 The ESLint and Stylelint rules must ship as entry points of the package. Their rule identifiers and the plugin namespace (`portadesign/...`) must not change before a major version, because project configs, disable comments and baselines name them. The entry-point shape (for example `@parisek/test-kit/eslint`) must be designed before the move.
 - R13.41 The package must own the engine of the behaviour suite: the registry, the discovery, the reporter, the Playwright config and the format of the allowlists. A contract written by one project stays in that project.
-- R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. They are coupled to those components. Component-specific shared contracts stay with the components in `tailwind-base`. The package owns the engine and contract API. The owner accepts this boundary on 2026-10-09.
-- R13.43 A move must keep the project-facing seam. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the move the same project files must keep working with a thin import from the package.
+- R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. Accessibility (`axe`) and the component packs must live in the package as opt-in named entry points. A pack must run only when the project selects it (R5.1). Project-owned contracts must stay in the project. A component-specific pack must be versioned per library major version. The runner must detect the version. An unsupported or undetectable version must be a non-pass state (R8.7). A pack moves only in its own pull request. The owner accepted this on 2026-10-18. It supersedes the acceptance of 2026-10-09.
+- R13.43 A move must keep the project-facing seam. While the package is alpha, R13.9 applies. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the owner declares beta, the same project files must keep working with a thin import from the package.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
 
@@ -322,8 +322,8 @@ Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public fro
 Decided by the owner (2026-10-08): `test-kit` reaches a project through a git tag, not through the npm registry.
 
 - R13.24 `test-kit` must be installed as a git dependency from the tags of `github:parisek/test-kit`. It must not be published to the npm registry. `package.json` must stay `private: true`, so a publish by mistake fails.
-- R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag.
-- R13.26 The tag must equal `version` in `package.json`. A workflow on tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`.
+- R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag. Only the owner tags a stable release. The agent may create a dev prerelease tag `vMAJOR.MINOR.PATCH-dev.N`. It creates the tag from `main`. It creates the tag only after a green cumulative test run on the tagged commit. A dev tag is not a release. Owner decision, 2026-10-18.
+- R13.26 A stable tag must equal `v` plus `version` in `package.json`. A dev tag must equal `v` plus `version` plus `-dev.N`. Here `version` is the base `X.Y.Z`. A workflow on a stable tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`. A dev tag creates no GitHub Release. Today `.github/workflows/release.yml` rejects a dev tag, and the run fails. Narrowing the trigger or accepting the red run is an open owner decision.
 - R13.27 Before 1.0 a project must pin an exact tag: `npm install -D github:parisek/test-kit#v0.2.0`. After 1.0 it may use a range: `#semver:^1`. The lockfile pins the commit, so a moved tag cannot change a project.
 - R13.28 The package must install without a build step. The `files` list in `package.json` decides what a project receives. The viewer build is committed. CI must verify that it matches its source.
 - R13.29 The scoped name `@parisek/test-kit` needs no ownership of an npm scope for a git install. The name stays.
@@ -336,7 +336,7 @@ Verified 2026-10-08 on a local copy with two tags: npm installs from a tag and f
 
 ## 14. Delivery plan
 
-One logical change per pull request. Each starts as a draft, assigned to the owner. The owner authorizes autonomous implementation, review, merge, and release through v0.1.0 on 2026-10-09. On the same date, the owner extends review and merge authority to low-risk changes. CI must be green and independent review must pass. A problem or material risk needs owner approval before merge. Later release authority stays with the owner.
+One logical change per pull request. Each starts as a draft, assigned to the owner. One merge rule applies. It is stated in `docs/development-loop.md` (Merge rule) and in `docs/vision.md` (Review and merge). The owner approves each milestone and every stable release.
 
 The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounded summary, and verified git installation. It enables screenshots only and no checks. HTML/status artifacts, rules, behavior, content, speed, and lint remain later milestones. Basic HTTP availability metadata is part of screenshot capture. The original plan below describes the full scope, not one release.
 
@@ -385,5 +385,5 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 3. Does measuring production for speed need a separate explicit command?
 4. How long are content snapshots kept, and who deletes them?
 5. Which language-detection library, after the section R7.6 check?
-6. (decided) Component-specific behavior contracts stay with components (R13.42).
+6. (decided 2026-10-18) Accessibility and component packs live in the package as opt-in named entry points. Project-owned contracts stay in the project (R13.42). This supersedes the decision of 2026-10-09.
 7. What does the project-facing seam of the ESLint and Stylelint configs look like after the move (R13.40, R13.43)? Today the canonical config is a synced `exact` file and the project imports it.

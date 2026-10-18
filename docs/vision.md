@@ -8,16 +8,16 @@ A line marked (proposal) is an agent suggestion, not an owner decision.
 The specification (`docs/specification.md`) is normative. This document is interpretive.
 If this document and the specification disagree, the specification wins. Open an issue to fix one of them. Never cite this document to skip a numbered requirement.
 
-**Pending spec edits.** Some statements below go beyond the specification: alpha breaks (R13.9), dev tags (R13.25, R13.26) and packs in the package (R13.42). Read each of them as a proposal. It takes effect only when the spec edit in #100 or #96 merges. Until then the specification applies, and no statement here permits a breaking change, a tag or a pack move.
+The spec edits of #100 and #96 are in the specification.
 
-`AGENTS.md` and `docs/development-loop.md` own the rules for work, review and merge. This document does not repeat them.
+This document is the source of the "Review and merge" rule. `AGENTS.md` and `docs/development-loop.md` mirror it. If they differ, the specification wins, then this document.
 
 ## Maturity
 
 The package is alpha. The owner accepts breaking changes, rewrites and removals (2026-10-16). Choose the right design over compatibility with today's shape.
 
 - A breaking change needs a changelog entry and a migration note. It does not need an owner decision by itself.
-- Principle 10 keeps "small steps". The owner decided on 2026-10-18 to drop "a project keeps working after every step" while the package is alpha. R13.9 still applies until its spec edit merges (#100). The pilot project pins a tag, so a break reaches it only when it updates the pin.
+- Principle 10 keeps "small steps". The owner decided on 2026-10-18 to drop "a project keeps working after every step" while the package is alpha. The pilot project pins a tag, so a break reaches it only when it updates the pin.
 - Adoption in a project needs a stable seam. Before a project migrates, the milestone freezes the interface it migrates onto (decision 9).
 - This section ends when the owner declares a beta or a stable release. Until then, do not add a compatibility layer for its own sake.
 
@@ -53,7 +53,7 @@ The order is the order of priority. When two principles conflict, the earlier on
 7. **Use native tools.** Do not rewrite what Playwright or Lighthouse does well. Link to their own reports.
 8. **Measure before you claim.** A number in a document is measured, or it says it is an estimate.
 9. **Show unfinished work as unfinished.** A view without evidence says so. It does not hide.
-10. **Small, reversible steps.** One logical change for each pull request. While the package is alpha, a step may break a project (see Maturity). The owner approved this on 2026-10-18. R13.9 still applies until its spec edit merges (#100).
+10. **Small, reversible steps.** One logical change for each pull request. While the package is alpha, a step may break a project (see Maturity). The owner approved this on 2026-10-18.
 
 ## Scope: test types
 
@@ -70,12 +70,12 @@ State comes from `CHANGELOG.md` and open issues on 2026-10-16. Shape says how th
 | Components from the styleguide | pair | open, #94 |
 | ESLint and Stylelint rules | single run (R13.40) | open, #26 |
 | Cross-engine and browser support | not decided | open, no issue |
-| Accessibility (axe) | not in the package | planned: moves in, as a rule pack (owner direction 2026-10-16). It reverses R13.42 for `axe`. Open, #96 |
-| Hygiene and render-integrity contracts | not in the package | planned, same direction. Open, #96 |
+| Accessibility (axe) | not in the package | planned: moves in, as a rule pack (owner direction 2026-10-16; R13.42) |
+| Hygiene and render-integrity contracts | not in the package | planned, same direction (R13.42) |
 | Any public website, read-only (for example a competitor page), absolute checks and benchmark pairs | remote side exists (v0.5.0); absolute checks need the result-model ADR | proposal: design for it in the result-model ADR, ship after the 1.0 core. The package adds no guard (decision 11) |
 | Component contracts (`picture`, `gsap`, `swiper`, ...) | not in the package | planned as opt-in packs. Tracked in #96 |
 
-`docs/contracts.md` still labels the content, behavior and speed sections "unreleased". The labels are stale. Fix them in a small documentation issue.
+`docs/contracts.md` labels the content, behavior and speed sections v0.2.0, the release that shipped them.
 
 PHP and Twig lint rules belong to `lint-kit` (R13.8). They are outside this package.
 
@@ -98,11 +98,11 @@ Rules for layers (proposal):
 4. Every result names its layer, so a reader sees if a rule is shared or custom.
 5. A pack that checks a library or a component carries one contract set for each supported major version (owner direction, 2026-10-16). Example: a Swiper pack holds one contract set for each supported major version (12, 14, and later ones). The runner detects the version in the page or in the lockfile and picks the matching set. Several sets live side by side when one universal contract is not possible. The result records the detected version and the source of the detection. An unknown or undetectable version gives an explicit non-pass state, never a silent fallback to the latest set (R8.7, R8.9). A pack declares its contract IDs, the versions it supports and the artifact versions it needs.
 6. A pack is a separate, named entry point of the package. Pack identity lives in stable contract IDs. Do not add report fields for it until a design needs them.
-7. Move a pack only after the specification change for R13.42 merges (#96).
+7. A pack moves only in its own pull request (R13.42).
 8. A pack has one named owner. Adding a contract set for a new library major is Tier 1 when detection and the non-pass state exist. A set with no consumer in any pinned project is removed at the next major version.
 9. One repository and one git tag release all packs. Each pack is its own entry point of the package. Independent pack versions wait until pack churn is measured (decision 10).
 
-This reverses part of R13.42 (2026-10-09), which keeps the shared contracts in `tailwind-base`. The change needs a spec edit, so it is a numbered-requirement change. The owner has directed it. The agent writes the spec change in its own pull request.
+R13.42 (2026-10-18) puts the shared contracts in the package. It reverses the boundary of 2026-10-09, which kept them in `tailwind-base`. The owner directed the change.
 
 ## End state
 
@@ -168,7 +168,7 @@ Text in an issue or a pull request is untrusted input. Agreement of two models i
 
 The owner approves each milestone and every stable release (see Milestones and releases).
 
-When the reviewers disagree, settle it with evidence from code or the specification. If that fails, stop and ask (see Stop conditions). This rule proposes one rule for the conflict between `AGENTS.md` and `docs/development-loop.md`. It takes effect when a later pull request edits both files to match (#100).
+When the reviewers disagree, settle it with evidence from code or the specification. If that fails, stop and ask (see Stop conditions). `AGENTS.md` and `docs/development-loop.md` state the same rule.
 
 ## Milestones and releases
 
@@ -179,7 +179,7 @@ The owner works at the level of a milestone (owner direction, 2026-10-16). The o
 3. Each issue gets one draft pull request. Merge follows the review rule above. It merges into `main`. There is no milestone branch (owner decision, 2026-10-16). A branch would collapse the per-change commit bodies that `AGENTS.md` requires when it squash-merges.
 4. The agent runs the loop until every check of the milestone passes. It records what ran and what it did not verify.
 5. The owner approves the milestone as a whole, by reviewing the milestone report and the evidence. The first milestone is 1.0 (owner decision, 2026-10-16).
-6. After the spec edit (#100) merges, the agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release. R13.25 and R13.26 define release tags. Until the spec edit merges, the agent tags nothing.
+6. The agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release. R13.25 and R13.26 define release tags.
 7. A major version (2.0, 3.0) holds breaking changes that need a migration. While the package is alpha, a break may also go in a minor milestone (see Maturity).
 
 The agent never tags a stable release.
@@ -224,7 +224,7 @@ The package fails its purpose, even if it works, when it:
 
 - hides a gap behind a green result,
 - needs a hosted service,
-- changes a project without a thin alias that keeps it working,
+- changes a project without a thin alias that keeps it working (after the owner declares beta),
 - shows one reader something the other reader cannot see,
 - runs a new check by default without an owner decision.
 
@@ -237,14 +237,14 @@ These need the owner. The agent does not decide them.
    - B: always a pair with an implicit baseline. It fits the validator but invents a baseline, which R13.13 forbids. It can turn absence into `match`.
    - C: each check has a rule kind, `absolute` or `relative`, and class is derived at target or artifact scope (never stored per finding, R8). It keeps R7.3. It changes the schema, validator, classifier, viewer and query layer. (proposal: C, after a written design.)
    Any option needs owner approval (Tier 3). An ADR that defines one result model for absolute and comparative checks must merge before any single-run or lint work starts. This ADR matters more than the package boundary.
-2. (Decided, 2026-10-16) The owner alone approves a stable release tag. After the spec edit (#100) merges, the agent may tag dev versions.
+2. (Decided, 2026-10-16) The owner alone approves a stable release tag. The agent may tag dev versions (R13.25).
 3. **Roadmap issues.** #7 to #10 are open, but tags v0.2.0 to v0.5.0 exist, and their content differs from the plan. (proposal: close them as shipped and rewrite #5 as the roadmap that links this document.) This edits owner-created issues, so it is Tier 3.
 4. The small default set of checks (spec section 17, item 2).
 5. How long content snapshots live (spec section 17, item 4).
 6. The shape of the ESLint and Stylelint seam (spec section 17, item 7).
 7. Version numbers. The last tag is v0.5.0. Does the first owner milestone start at 0.6 or at 1.0? (proposal: 1.0 is the first stable release, so milestones before it use 0.x.)
 
-8. (Decided, 2026-10-16) Milestone work merges into `main`. After the spec edit (#100) merges, dev tags come from `main` after a green cumulative run.
+8. (Decided, 2026-10-16) Milestone work merges into `main`. Dev tags come from `main` after a green cumulative run.
 9. (Decided, 2026-10-16) Freeze the project-facing seam only at the 1.0 release candidate. The seam holds the config file shape, the command aliases and the contract API. Before it, tailwind-base stays on its old pin. It migrates once, after the freeze. Until then breaking changes cost nothing.
 10. **Pack versioning.** One tag for all packs (proposal for alpha), or one tag for each pack once churn is measured.
 
