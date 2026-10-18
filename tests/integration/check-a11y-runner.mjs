@@ -44,6 +44,23 @@ try {
   assert.equal(failed.status, 'failed');
   assert.equal(run(failed).state, 'failed');
 
+  // Tags that match no rule give failed, never complete with no finding.
+  const noRule = await runAxe(page, { tags: ['wcag2z'] });
+  assert.equal(noRule.status, 'failed');
+  assert.match(noRule.reason, /No axe rule has the tag wcag2z/);
+  assert.equal(run(noRule).state, 'failed');
+  const tagged = await runAxe(page, { tags: ['wcag2a'] });
+  assert.equal(tagged.status, 'complete');
+  assert.ok(tagged.counts.passes + tagged.counts.violations > 0);
+
+  // Bad options give failed, never a throw.
+  for (const options of ['x', 5, [], { tags: [] }, { tags: [1] }, { timeoutMs: NaN }, { timeoutMs: -1 }, { timeoutMs: '5' }, { axePath: 5 }]) {
+    assert.equal((await runAxe(page, options)).status, 'failed', JSON.stringify(options));
+  }
+  assert.match((await runAxe(page, { timeoutMs: NaN })).reason, /timeoutMs must be/);
+  assert.equal((await runAxe(page, null)).status, 'complete');
+  assert.equal((await runAxe(page, undefined)).status, 'complete');
+
   // A closed page gives failed.
   const closed = await browser.newPage();
   await closed.close();

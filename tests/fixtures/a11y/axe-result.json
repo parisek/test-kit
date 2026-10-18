@@ -20,5 +20,6 @@
     }
   ],
   "incomplete": [],
+  "inapplicable": [{ "id": "audio-caption", "nodes": [] }],
   "passes": [{ "id": "html-has-lang", "nodes": [] }]
 }

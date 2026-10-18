@@ -6,7 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
-- Add the opt-in accessibility pack `@parisek/test-kit/packs/a11y` (R7.2, R13.42, R8.7, issue 102). It maps axe-core results to findings with layer `package`, the axe rule id, severity from impact, and evidence (selector, capped HTML, help URL). A thin runner `@parisek/test-kit/packs/a11y/runner` injects axe-core into a Playwright page. `axe-core` is an optional peer dependency. A missing run gives `missing` and a broken run gives `failed`, never `complete`. Nothing runs by default (R5.1). No report change.
+- Add the opt-in accessibility pack `@parisek/test-kit/packs/a11y` (R7.2, R13.42, R8.7, issue 102). It maps axe-core results to findings with layer `package`, the axe rule id, severity from impact, and evidence (selector, capped HTML, help URL). A thin runner `@parisek/test-kit/packs/a11y/runner` injects axe-core into a Playwright page. `axe-core` is an optional peer dependency. A missing run gives `missing`. A broken run, bad options or a run in which no rule ran gives `failed`. None gives `complete`. An axe `incomplete` rule gives a `warning` finding to review and does not open the check. Nothing runs by default (R5.1). No report change.
 - Add the pack entry point `@parisek/test-kit/packs` (R7.2, R13.42, R13.43). It defines packs, layers custom checks (package, project, component, page) and runs them with fail-closed states (R8.7). Nothing runs by default (R5.1). No report change: the code still writes `schemaVersion` 2.
 
 ### Changed

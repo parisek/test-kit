@@ -26,8 +26,14 @@ const plan = resolveChecks({ available: [a11yPack], packs: ['a11y'] });
 const result = runChecks(plan, { artifact: 'a11y', value: artifact }, { targetId: 'example-site', viewportId: 'desktop' });
 ```
 
-`runAxe` options: `tags` (axe rule tags; the default is the axe default rule set), `timeoutMs` (default 30000), `axePath` (path to `axe.min.js`).
+`runAxe` options: `tags` (a list of axe rule tags; the default is the axe default rule set), `timeoutMs` (a finite number from 1 to 2147483647; the default is 30000), `axePath` (path to `axe.min.js`). A bad option gives a `failed` artifact. It never throws.
+`runAxe` checks each tag with `axe.getRules`. A tag that matches no rule gives `failed`.
 The runner checks the top document. It does not inject axe into frames of other origins.
+
+Limits of the runner:
+
+- After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed` with the message "An earlier axe run on this page did not finish. Use a new page."
+- Axe runs inside the page. A hostile page can lock or replace `window.axe` and fake a clean result. This is inherent to in-page injection. Run the pack on pages you control.
 
 ## Artifact
 
@@ -35,11 +41,13 @@ The artifact is JSON-like data:
 
 - `tool`: `axe-core`.
 - `status`: `complete`, `missing` or `failed`.
-- With `complete`: `version`, `violations`, `incomplete` and `omittedNodes`. A rule has `id`, `impact`, `help`, `helpUrl` and `nodes` (`selector`, `html`).
+- With `complete`: `version`, `counts` (`passes`, `violations`, `incomplete`, `inapplicable`: numbers of rules), `violations`, `incomplete` and `omittedNodes`. A rule has `id`, `impact`, `help`, `helpUrl`, `nodeCount` and `nodes` (`selector`, `html`).
 - With `missing` or `failed`: `reason`.
 
-The reducer keeps at most 500 nodes, 300 characters of HTML and 300 characters of selector. It counts the nodes it leaves out in `omittedNodes`. The caps are chosen safety bounds, not measured numbers.
-`helpUrl` is kept only when it is an `https:` URL. Otherwise it is `null`.
+The reducer keeps at most 500 nodes, 300 characters of HTML and 300 characters of selector. It counts the violation nodes it leaves out in `omittedNodes`. For an incomplete rule it keeps at most 5 nodes and records `nodeCount`. The caps are chosen safety bounds, not measured numbers.
+`helpUrl` is kept only when it is an `https:` URL on `dequeuniversity.com` with no credentials. Otherwise it is `null`.
+`reduceAxeResults` never throws. A malformed result, more than 200 rules, a rule with no `nodes` list, a target nested deeper than 5 levels, or a run in which no rule ran gives a `failed` artifact with a reason.
+`axeFindings` does not trust a stored artifact. It checks every field again and fails closed.
 
 ## Findings
 
@@ -54,17 +62,27 @@ The check `a11y-axe` has basis `absolute` and layer `package`. Each violation no
 
 An impact outside this list makes the check `failed`.
 
+An axe `incomplete` rule (axe could not decide) gives one finding for each rule, even a rule with no node:
+
+| Field | Value |
+| --- | --- |
+| `severity` | `warning` |
+| `message` | `<rule id> needs review: <axe help text>` |
+| `evidence` | `ruleId`, `needsReview: true`, `impact`, `nodeCount`, `nodes` (up to 5), `helpUrl`. No `state`. |
+
 ## States (R8.7)
 
 | Case | Check state |
 | --- | --- |
 | No artifact | `missing` |
 | `status: missing` (for example axe-core is not installed) | `missing` |
-| `status: failed` (axe threw, timed out, or returned a malformed result) | `failed` |
-| An axe `incomplete` result (axe could not decide) | `missing`. The node is an `info` finding with `evidence.state` `incomplete`. |
+| `status: failed` (axe threw, timed out, bad options, or a malformed result) | `failed` |
+| No rule ran (all counts zero, or tags match no rule) | `failed` |
 | Nodes left out by the caps | `missing` |
-| A malformed artifact | `failed` |
-| Violations found, run complete | `complete`. The findings carry the result. |
+| A malformed or tampered artifact | `failed` |
+| Run complete, with violations or review warnings | `complete`. The findings carry the result. |
+
+Decision, made by the agent and to be ratified by the owner: an axe `incomplete` result does not open the check. Real pages nearly always have incomplete rules. A `missing` check drops all its findings from class aggregation (R8.12), so a real violation next to one undecidable rule would be lost. The review warning keeps the doubt visible and keeps the violations.
 
 `runAxe` never throws for a bad run. It returns an artifact with `missing` or `failed`.
 
