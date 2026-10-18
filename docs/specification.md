@@ -42,7 +42,7 @@ It must work for pages and for components with the same viewer. It must give a p
 | run | One capture of one side. It has an id and lives in `tests/visual/runs/<id>/`. |
 | pair | Two runs, A and B, compared. It has a **kind**. |
 | subject | One run checked on its own, with no pair. |
-| artifact | A kind of evidence in a run: `screenshot`, `html`, `status`, `behavior`, `lighthouse`, `content`. |
+| artifact | A kind of evidence in a run: `screenshot`, `html`, `status`, `behavior`, `lighthouse`, `content`, `lint`, `a11y`. |
 | check | A small module that reads one artifact and reports findings (heading outline, language). It has a **basis**: `absolute` or `relative` (R8.10). |
 | finding | One difference or defect on a target, in an artifact, optionally in a viewport. |
 | cause | A named reason that explains findings. It may be known (accepted) or unknown. |
@@ -63,7 +63,7 @@ It must work for pages and for components with the same viewer. It must give a p
 | `deploy` | production, earlier | production, now | none |
 | `adhoc` | any URL | any | by choice |
 
-- R3.1 The pair kind must decide which normalisers apply and which view opens first.
+- R3.1 For a pair, the pair kind must decide which normalisers apply and which view opens first.
 - R3.2 A pair across two environments must not be used to judge speed (see R6.5).
 - R3.3 A side may set `remote: true`. A remote side may use any HTTP or HTTPS origin without credentials or a path. Its capture must send GET and HEAD to that origin only. It must abort a frame or subresource of another origin and keep the capture. It must fail the capture on a redirect, popup or top-level navigation to another origin, and on any other method. Speed (`perf`) and DDEV discovery must refuse a remote side. A side without `remote: true` must stay local. (Issue #90)
 
@@ -168,16 +168,16 @@ Derived from findings, the basis of each check and `matchBelow`. Never stored.
 | Class | Relative basis | Absolute basis |
 | --- | --- | --- |
 | `match` | comparable evidence with no finding; `matchBelow` is a display hint | complete evidence with no finding |
-| `explained` | every finding has a known cause | every finding has an allowlist entry |
+| `explained` | every finding has a known cause | every finding has an allowlist entry (the allowlist is not specified yet; until it ships, an absolute finding is `unexplained`) |
 | `unexplained` | at least one finding with no known cause | at least one finding with no allowlist entry |
 | `oracle` | the target judges by a rule, not by ratio (`judge: oracle`). Never coloured by ratio. | same |
 
-- R8.12 A report may mix both bases. The class of a target is the worst class over all findings in scope.
+- R8.12 A report may mix both bases. Class derives from state first (R8.7). A scope whose artifact is not `complete` has no class. A finding of an artifact that is not `complete` never enters class aggregation. A scope with no findings and a missing, failed or incompatible artifact is never `match`. For the other scopes, the class of a target is the worst class over all findings in scope.
 
 - R8.1 The default `matchBelow` is 3 percent. It is a compass. The report must not call it a verdict.
 - R8.2 A row that names a rule outside the rule's scope must not be hidden by normalisation. Outside its scope it is a real difference. Normaliser rules apply to relative checks only, so no rule can hide an absolute finding. An override or allowlist entry outside its scope has no effect.
 - R8.3 A pair must show its noise floor. A measured difference below it is not a finding. An unmeasured floor is `null`, never zero. Without a measured floor, a nonzero screenshot ratio produces a finding. The `matchBelow` hint must not suppress that finding. The noise floor belongs to a pair. An absolute check has no noise floor.
-- R8.7 Measurement state is separate from class: `complete`, `missing`, `failed`, or `incompatible`. Missing evidence, capture failure, and incompatible settings must never become `match`. A query counts these states separately. This holds for absolute checks. A check that has no input gives `missing`, and so does an empty check set. A check that throws or times out gives no finding and a state that is not `complete`. An empty `findings` list says nothing about an artifact that is not `complete`.
+- R8.7 Measurement state is separate from class: `complete`, `missing`, `failed`, or `incompatible`. Missing evidence, capture failure, and incompatible settings must never become `match`. A query counts these states separately. This holds for absolute checks. A check with no input gives `missing`. An empty check set gives `missing`. A check that throws or times out gives no finding. Its artifact is not `complete`. An empty `findings` list says nothing about an artifact that is not `complete`.
 - R8.8 A screenshot finding applies to one target and viewport. A class uses findings in that same scope. Target aggregation considers all comparable viewport findings and retains incomplete measurement states.
 - R8.9 Comparison must reject incompatible viewport dimensions, artifact settings, or tool versions with an explicit diagnostic. A run preserves the settings it used. Labels and origins do not determine artifact compatibility.
 
@@ -198,7 +198,7 @@ rules: { id: "text" | { text, evidence, applies: { pairs?, artifacts?, kinds?, t
 
 The code writes version 2 until the report-shape change ships (ADR 0004). R9.7 to R9.11 describe version 3.
 
-- R9.1 A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1. Version 3 is not additive over version 2: `pair` becomes optional (R9.7). A reader of version 2 fails with a message at `schemaVersion`.
+- R9.1 A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1. Version 3 is not additive over version 2: `pair` becomes optional (R9.7). A reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion`.
 - R9.2 `report.json` must stay small. Large or tool-specific detail goes into sidecar files next to the run.
 - R9.3 `meta.tools` must list every tool with name, version and settings hash.
 
@@ -210,7 +210,7 @@ subject    kind: 'single-run', runId, key?
 checks     { <checkId>: { basis, layer, title } }
 entries[]  id, kind, title, path, group, judge?, note?, composedOf?, viewports[], artifacts, sample?
 causes[]   id, title, detail, known
-findings[] id, targetId, viewportId?, artifact, causeId, checkId?, runId?, layer?
+findings[] id, targetId, viewportId?, artifact, causeId, checkId?, runId?, layer?, location?
 overrides[] checkId, scope, reason, owner, layer
 rules      { id: string | { text, evidence, applies } }
 ```
@@ -230,8 +230,8 @@ runs/<id>/behavior/<target>/        trace, video, step screenshots
 - R9.7 A report has exactly one of `pair` and `subject`. `pair` is required for relative results. `subject` is required when there is no pair. `subject.key` is a hash of the run id. It replaces `pair.key` in the policy identity check, and it is present exactly when `meta.comparisonPolicyHash` exists. A `relative` check in a report with a `subject` is a validation error. A `subject` report must hold `rules: {}` and no `known_diffs`.
 - R9.8 The producer writes the `checks` catalog, one entry for each selected check. A `checkId` that is not in the catalog is a validation error. `layer` is the narrowest layer that contributed the rule that fired: `package`, `project`, `component` or `page`. An absolute finding carries `runId`: `aRunId` or `bRunId` in a pair report, `subject.runId` in a `subject` report. A relative finding carries no `runId`. A mismatch is a validation error.
 - R9.9 An absolute result sits at the scope of its evidence: `entries[].viewports[].artifacts.<kind>` or `entries[].artifacts.<kind>`. A `complete` artifact of an absolute-only kind (for example `lint`, or any artifact in a `subject` report) has this index entry and has no `a`, `b` or `diff`: `{ state, diagnostic?, evidence: { src, tool, version, settingsHash }, result: { violations, checks } }`. `result.checks` counts the executed checks. A count of 0 gives state `missing`. A relative artifact keeps `a`, `b` and `diff`. An unknown artifact kind is a validation error.
-- R9.10 The `content` artifact in a pair report keeps `a`, `b` and `diff` and may hold relative and absolute findings. Each finding is judged by its own basis. The artifact is `explained` only if every finding is.
-- R9.11 A `lint` finding has no `viewportId`. Its `targetId` is the component id when the file maps to a component, and otherwise the reserved id `@project` with entry kind `project`. The producer writes the `@project` entry. It is not a configured target.
+- R9.10 The `content` artifact in a pair report keeps `a`, `b` and `diff` and may hold relative and absolute findings. Each finding is judged by its own basis. The artifact is `explained` only if every finding is. Its state is `complete` only if all selected checks completed. The state is the worst state of its selected checks. A check in the catalog with no outcome reads as `missing`.
+- R9.11 A `lint` finding has no `viewportId`. It carries a `location`, bounded in size: `{ file, line, column }` or `{ selector }`. Its `targetId` is the component id when the file maps to a component, and otherwise the reserved id `@project` with entry kind `project`. The producer writes the `@project` entry. It is not a configured target.
 
 ---
 
@@ -271,7 +271,7 @@ An agent must not read a whole report. It asks for the part it needs.
 - R11.3 Crops must come from the full-resolution original, not from a reduced preview.
 - R11.4 `summary` should stay under about 5 kB for a normal report (estimate, not yet measured).
 - R11.5 Each answer has a `next` field that names what the agent may do. Recording a known difference stays a command with evidence (R5.3).
-- R11.6 A person and an agent open the same report and see the same classes. `summary` returns `subject` for a report with a subject and `pair` for a report with a pair. It returns `null` for the other.
+- R11.6 A person and an agent open the same report and see the same classes. `summary` returns `subject` for a report with a subject and `pair` for a report with a pair. It returns `subject: null` for a pair report and `pair: null` for a subject report.
 
 ---
 
