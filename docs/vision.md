@@ -51,7 +51,7 @@ The order is the order of priority. When two principles conflict, the earlier on
 7. **Use native tools.** Do not rewrite what Playwright or Lighthouse does well. Link to their own reports.
 8. **Measure before you claim.** A number in a document is measured, or it says it is an estimate.
 9. **Show unfinished work as unfinished.** A view without evidence says so. It does not hide.
-10. **Small, reversible steps.** One logical change for each pull request. While the package is alpha, a step may break a project (see Maturity). This section relaxes R13.9 until beta.
+10. **Small, reversible steps.** One logical change for each pull request. While the package is alpha, a step may break a project (see Maturity). The owner approved this on 2026-10-18. R13.9 still applies until its spec edit merges (#100).
 
 ## Scope: test types
 
@@ -113,9 +113,9 @@ The package is complete when these are true. Today's values are measured on 2026
 | Skeletons that pin the package and call it through thin aliases | `tailwind-base` only | `tailwind-base`, then the WordPress and Drupal skeletons |
 | Project update skills that call test-kit | not found in the skill folders (not verified by reading each skill) | the update workflow obtains scoped evidence (#28) |
 
-Measured here: `npm test` runs 156 unit tests. The `summary` of the synthetic six-target report is 1310 bytes.
+Measured here: `npm test` runs 161 unit tests (measured on 2026-10-18). The `summary` of the synthetic six-target report is 1310 bytes.
 
-I could not find local checkouts of the WordPress and Drupal skeletons. Their pin state is not measured.
+This review found no local checkouts of the WordPress and Drupal skeletons. Their pin state is not measured.
 
 Lane order follows the owner's stated order (proposal: confirm):
 
@@ -177,7 +177,7 @@ The owner works at the level of a milestone (owner direction, 2026-10-16). The o
 3. Each issue gets one draft pull request. Merge follows the review rule above. It merges into `main`. There is no milestone branch (owner decision, 2026-10-16). A branch would collapse the per-change commit bodies that `AGENTS.md` requires when it squash-merges.
 4. The agent runs the loop until every check of the milestone passes. It records what ran and what it did not verify.
 5. The owner approves the milestone as a whole, by reviewing the milestone report and the evidence. The first milestone is 1.0 (owner decision, 2026-10-16).
-6. The agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release.
+6. The agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release. R13.25 and R13.26 define release tags. A spec edit adds dev tags (#100).
 7. A major version (2.0, 3.0) holds breaking changes that need a migration. While the package is alpha, a break may also go in a minor milestone (see Maturity).
 
 The agent never tags a stable release.
