@@ -72,18 +72,17 @@ test('a file that maps to a component uses its id; others use @project (R9.11)',
 });
 
 test('a path never carries a host directory or traversal', () => {
-  assert.equal(relativeFile('/other/place/a.js', root), 'a.js');
-  assert.equal(relativeFile('/example-root/a/b.js', root), 'a/b.js');
-  assert.equal(relativeFile('./a/b.css', root), 'a/b.css');
-  assert.equal(relativeFile('/example-root/../private/x.js', root), 'x.js');
-  assert.equal(relativeFile('/example-root/a/../../etc/x.js', root), 'x.js');
-  assert.equal(relativeFile('../private/x.js', root), 'x.js');
-  assert.equal(relativeFile('file:///other/dir/y.js', root), 'y.js');
-  assert.equal(relativeFile('file:///example-root/src/y.js', root), 'src/y.js');
-  assert.equal(relativeFile('C:\\other\\z.js', root), 'z.js');
-  assert.equal(relativeFile('/real/root/a.js', ['/example-root', '/real/root']), 'a.js');
-  assert.equal(relativeFile('/real/root/sub/a.js', ['/example-root', '/real/root']), 'sub/a.js');
-  for (const bad of ['..', '/', '../..', 'file://%E0%A4%A']) assert.doesNotMatch(relativeFile(bad, root), /\.\.|^\//);
+  const out = (file, roots = root) => relativeFile(file, roots);
+  for (const [input, expected] of [['/other/place/a.js', '<outside>/a.js'], ['/example-root/../private/x.js', '<outside>/x.js'], ['/example-root/a/../../etc/x.js', '<outside>/x.js'],
+    ['../private/x.js', '<outside>/x.js'], ['file:///other/dir/y.js', '<outside>/y.js'], ['C:\\other\\z.js', '<outside>/z.js'], ['file://evil.example/example-root/src/a.js', '<outside>/a.js']]) {
+    assert.deepEqual(out(input), { file: expected, inRoot: false }, input);
+  }
+  for (const [input, expected] of [['/example-root/a/b.js', 'a/b.js'], ['./a/b.css', 'a/b.css'], ['file:///example-root/src/y.js', 'src/y.js'], ['file://localhost/example-root/src/y.js', 'src/y.js'],
+    ['file:///example-root/dir%20x/y.js', 'dir x/y.js'], ['a:b.js', 'a:b.js']]) assert.deepEqual(out(input), { file: expected, inRoot: true }, input);
+  assert.deepEqual(out('/real/root/a.js', ['/example-root', '/real/root']), { file: 'a.js', inRoot: true });
+  assert.deepEqual(out('/real/root/sub/a.js', ['/example-root', '/real/root']), { file: 'sub/a.js', inRoot: true });
+  for (const bad of ['..', '/', '../..', 'file://%E0%A4%A', 'file:///%E0%A4%A']) { const r = out(bad); assert.equal(r.inRoot, false, bad); assert.doesNotMatch(r.file, /\.\.|^\//); }
+  assert.equal(out('C:\\Proj\\src\\a.js', 'c:\\proj').file, 'src/a.js'); // Windows-style roots ignore case
 });
 
 test('malformed tool output is rejected, never read as clean', () => {
@@ -190,9 +189,10 @@ test('the runner reads the project tool, treats exit 1 with findings as a run, s
 
 test('a symlinked root still gives relative file names', async t => {
   const real = tmp();
-  const link = path.join(tmp(), 'link');
+  const holder = tmp();
+  const link = path.join(holder, 'link');
   symlinkSync(real, link);
-  t.after(() => rmSync(real, { recursive: true, force: true }));
+  t.after(() => { rmSync(real, { recursive: true, force: true }); rmSync(holder, { recursive: true, force: true }); });
   const body = JSON.stringify([{ filePath: path.join(realpathSync(real), 'src', 'a.js'), messages: [{ ruleId: 'x', severity: 2, message: 'm', line: 1, column: 1 }] }]);
   fakeProject({ eslint: { exit: 1, body } }, real);
   const value = await runLint({ root: link, tools: { eslint: { paths: ['src'] } } });
@@ -370,9 +370,9 @@ test('a file name with a trailing slash, control or bidi character is refused or
     const entry = { status: 'ok', total: 1, items: [{ severity: 'error', rule: 'r', message: 'm', location: { file: bad } }] };
     assert.equal(run({ tools: { eslint: entry, stylelint: clean } }).checks['eslint-rules'].state, 'failed');
   }
-  assert.equal(relativeFile('/example-root/src/a\u202e.js', root), 'unknown');
-  assert.equal(relativeFile('/example-root/dir\n/a.js', root), 'a.js');
-  assert.equal(relativeFile('/example-root/src/', root), 'src');
+  assert.deepEqual(relativeFile('/example-root/src/a\u202e.js', root), { file: '<outside>/unknown', inRoot: false });
+  assert.deepEqual(relativeFile('/example-root/dir\n/a.js', root), { file: '<outside>/a.js', inRoot: false });
+  assert.equal(relativeFile('/example-root/src/', root).file, 'src');
   assert.equal(checkRelativeFile('src/ok.js'), 'src/ok.js');
 });
 
@@ -385,4 +385,48 @@ test('a root is scrubbed before punctuation and left alone before a name charact
     [`${r}.eslintrc.json`, `${r}.eslintrc.json`], [`${r}.old/a.js`, `${r}.old/a.js`],
   ];
   for (const [input, expected] of cases) assert.equal(scrubRoots(input, r), expected, input);
+});
+
+test('an outside file never maps to a component, even when its base name is a mapped key (R9.11)', () => {
+  const value = { fileTargets: { 'a.js': 'example-card' }, tools: { stylelint: clean, eslint: { status: 'ok', ...normalizeEslint([
+    { filePath: '/example-root/a.js', messages: [{ ruleId: 'r', severity: 2, message: 'in root', line: 1, column: 1 }] },
+    { filePath: '/outside/a.js', messages: [{ ruleId: 'r', severity: 2, message: 'outside', line: 1, column: 1 }] },
+    { filePath: 'file://evil.example/a.js', messages: [{ ruleId: 'r', severity: 2, message: 'remote', line: 1, column: 1 }] },
+  ], { root }) } } };
+  const result = run(value);
+  assert.deepEqual(result.findings.map(f => [f.message, f.targetId, f.location.file]), [['in root', 'example-card', 'a.js'], ['outside', '@project', '<outside>/a.js'], ['remote', '@project', '<outside>/a.js']]);
+  // A stored item with the marker and no flag still fails closed to @project.
+  const marked = { status: 'ok', total: 1, items: [{ severity: 'error', rule: 'r', message: 'm', location: { file: '<outside>/a.js' } }] };
+  assert.equal(run({ fileTargets: { '<outside>/a.js': 'example-card' }, tools: { eslint: marked, stylelint: clean } }).findings[0].targetId, '@project');
+  assert.equal(run({ tools: { eslint: { ...marked, items: [{ ...marked.items[0], outside: 'yes' }] }, stylelint: clean } }).checks['eslint-rules'].state, 'failed');
+});
+
+test('a legal name with a colon is kept; a drive path and a URL are not names', () => {
+  assert.equal(checkRelativeFile('a:b.js'), 'a:b.js');
+  assert.equal(relativeFile('/example-root/dir/a:b.js', root).file, 'dir/a:b.js');
+  for (const bad of ['C:/x.js', 'c:\\x.js', 'http://x/y', 'file://x']) assert.throws(() => checkRelativeFile(bad), /file name/, bad);
+});
+
+test('file URLs with localhost and URL-encoded roots are scrubbed in messages', () => {
+  assert.equal(scrubRoots('at file://localhost/example-root/src/a.js', root), 'at src/a.js');
+  assert.equal(scrubRoots('at file:///example-root/src/a.js', root), 'at src/a.js');
+  assert.equal(scrubRoots('at /my%20root/src/a.js', '/my root'), 'at src/a.js');
+  assert.equal(scrubRoots('at file:///my%20root/src/a.js', '/my root'), 'at src/a.js');
+  assert.equal(scrubRoots('at file://evil.example/example-root/a.js', root), 'at file://evil.example/example-root/a.js');
+});
+
+test('root scrubbing ignores case for Windows-style roots and when asked', () => {
+  assert.equal(scrubRoots('Error in c:\\proj\\src\\a.js', 'C:\\Proj'), 'Error in src\\a.js');
+  assert.equal(scrubRoots('Error in C:/PROJ/src/a.js', 'c:/proj'), 'Error in src/a.js');
+  assert.equal(scrubRoots('see /Srv/Example-Root/a.js', '/srv/example-root', { ignoreCase: true }), 'see a.js');
+  assert.equal(scrubRoots('see /Srv/Example-Root/a.js', '/srv/example-root', { ignoreCase: false }), 'see /Srv/Example-Root/a.js');
+});
+
+test('every tool path is validated before any tool runs', async t => {
+  const dir = tmp();
+  const marker = path.join(dir, 'ran.txt');
+  fakeProject({ eslint: { script: `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'x'); process.exit(0);` } }, dir);
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  await assert.rejects(() => runLint({ root: dir, tools: { eslint: { paths: ['src'] }, stylelint: { paths: ['{/etc,x}'] } } }), /Invalid lint path/);
+  assert.equal(existsSync(marker), false);
 });

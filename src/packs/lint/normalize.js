@@ -23,40 +23,57 @@ const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 3)}...` :
 const isAbsolute = text => text.startsWith('/') || /^[A-Za-z]:\//.test(text);
 const baseName = text => cut(text.split('/').filter(part => part !== '' && part !== '.' && part !== '..').pop() || 'unknown', MAX_FILE);
 
-// Returns a path relative to one of the roots. The result never holds a host directory or a `..` segment.
-// A path outside every root keeps only its base name. `roots` is a string or a list (a root and its realpath).
+// The marker for a file outside the project root, or one with a rejected name. It is a valid relative path
+// for the stored-data check, but it names no real project file. A mapped file never matches it.
+export const OUTSIDE = '<outside>';
+const outsideName = base => { try { return checkRelativeFile(`${OUTSIDE}/${base}`); } catch { return `${OUTSIDE}/unknown`; } };
+const outside = text => ({ file: outsideName(baseName(text)), inRoot: false });
+
+// A file system with case-insensitive names: Windows-style roots always, and darwin or win32 hosts.
+export const caseless = root => /^[A-Za-z]:[\\/]/.test(root) || root.startsWith('\\\\') || process.platform === 'darwin' || process.platform === 'win32';
+
+// Returns { file, inRoot }. An in-root file is a normalized path relative to one of the roots, with no host directory
+// and no `..`. Only an in-root file may be looked up in `fileTargets`. A file outside every root, a file URL with a
+// remote host, a malformed URL and a rejected name all give `<outside>/<base name>` and inRoot false.
+// `roots` is a string or a list (a root and its realpath).
 export function relativeFile(file, roots) {
-  const found = rawRelativeFile(file, roots);
-  for (const candidate of [found, baseName(found)]) {
-    try { return checkRelativeFile(candidate); } catch { /* try the base name, then give up */ }
-  }
-  return 'unknown';
+  const found = locate(String(file), roots);
+  if (!found.inRoot) return found;
+  try { return { file: checkRelativeFile(found.file), inRoot: true }; } catch { return outside(found.file); }
 }
 
-function rawRelativeFile(file, roots) {
-  let text = String(file);
-  if (text.startsWith('file://')) {
-    try { text = decodeURIComponent(text.slice(7)); } catch { return 'unknown'; }
+function locate(input, roots) {
+  let text = input;
+  if (/^file:/i.test(text)) {
+    let url;
+    try { url = new URL(text); } catch { return outside('unknown'); }
+    if (url.protocol !== 'file:' || (url.hostname !== '' && url.hostname !== 'localhost')) return outside(url.pathname || 'unknown');
+    try { text = decodeURIComponent(url.pathname); } catch { return outside('unknown'); }
+    if (/^\/[A-Za-z]:\//.test(text)) text = text.slice(1);
   }
   text = text.replaceAll('\\', '/');
-  if (text.includes('\0')) return 'unknown';
+  if (text.includes('\0')) return outside('unknown');
   const clean = posix.normalize(text); // resolves `.` and `..` before any prefix test
   if (!isAbsolute(clean)) {
-    if (clean === '.' || clean === '..' || clean.startsWith('../')) return baseName(clean);
-    return cut(clean, MAX_FILE);
+    if (clean === '.' || clean === '..' || clean.startsWith('../')) return outside(clean);
+    return { file: cut(clean.replace(/\/+$/, ''), MAX_FILE), inRoot: true };
   }
   for (const root of [roots].flat().filter(item => typeof item === 'string' && item !== '')) {
     const base = posix.normalize(root.replaceAll('\\', '/')).replace(/\/+$/, '');
-    if (base !== '' && clean.startsWith(`${base}/`)) return cut(clean.slice(base.length + 1), MAX_FILE);
+    if (base === '') continue;
+    const ci = caseless(root);
+    const same = ci ? clean.toLowerCase().startsWith(`${base.toLowerCase()}/`) : clean.startsWith(`${base}/`);
+    if (same) return { file: cut(clean.slice(base.length + 1).replace(/\/+$/, ''), MAX_FILE), inRoot: true };
   }
-  return baseName(clean);
+  return outside(clean);
 }
 
 // A stored file name must already be a normalized relative path: no `..`, no `.` segment, no `//`,
-// not absolute, no drive letter, no URL scheme, no backslash, no NUL (R12.4).
+// not absolute, no drive-letter path (`C:/`), no URL (`scheme://`), no backslash, no NUL (R12.4).
+// A name with a colon, such as `a:b.js`, is a legal relative name and passes.
 export function checkRelativeFile(file) {
   if (typeof file !== 'string' || file === '' || file.length > MAX_FILE) throw new Error('A file name must be a short string.');
-  if (file.includes('\\') || file.includes('\0') || file.startsWith('/') || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(file)) throw new Error('A file name must be a relative path.');
+  if (file.includes('\\') || file.includes('\0') || file.startsWith('/') || /^[A-Za-z]:[\\/]/.test(file) || /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(file)) throw new Error('A file name must be a relative path.');
   if (/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/.test(file)) throw new Error('A file name must not hold control or bidi characters.');
   if (file.endsWith('/')) throw new Error('A file name must not end with a slash.');
   if (posix.normalize(file) !== file || file === '.' || file === '..' || file.startsWith('../')) throw new Error('A file name must be a normalized relative path.');
@@ -95,27 +112,34 @@ export function checkLocation(value) {
 
 // Removes the project root from a message, so a plugin message with an absolute path does not leak the host path.
 // A root followed by a separator is dropped. A bare root becomes `.`. Slash and backslash forms are both removed.
-export function scrubRoots(text, roots) {
-  const list = [roots].flat().filter(root => typeof root === 'string' && root !== '')
-    .flatMap(root => { const base = root.replace(/[\\/]+$/, ''); return [base, base.replaceAll('\\', '/'), base.replaceAll('/', '\\')]; })
-    .filter(root => !/^([A-Za-z]:)?$/.test(root)) // a filesystem root ('/', 'C:') would scrub everything: skip it
-    .sort((a, b) => b.length - a.length);
+export function scrubRoots(text, roots, { ignoreCase } = {}) {
   const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const encode = value => value.split('/').map(part => encodeURIComponent(part)).join('/');
+  const list = [];
+  for (const root of [roots].flat().filter(item => typeof item === 'string' && item !== '')) {
+    const base = root.replace(/[\\/]+$/, '');
+    const forms = [base, base.replaceAll('\\', '/'), base.replaceAll('/', '\\')];
+    for (const form of [...forms]) forms.push(encode(form)); // URL-encoded form, as in a file URL
+    for (const form of forms) if (!/^([A-Za-z]:)?$/.test(form)) list.push({ form, ci: ignoreCase ?? caseless(root) }); // a filesystem root would scrub everything
+  }
+  list.sort((a, b) => b.form.length - a.form.length);
   // A root matches only at a path start. It must be followed by a separator, or by a character that cannot continue a name.
   // A name character (letter, digit, `_ ~ @ -`) or a dot plus a name character means a sibling such as `root2` or `root.old`: no match.
-  // /srv/example-root2/x.js is not inside /srv/example-root.
   const before = '(?<![A-Za-z0-9_.~@/\\\\-])';
   let out = text;
-  for (const root of new Set(list)) {
-    out = out.replaceAll(`file://${root}`, root);
-    const base = escape(root);
-    out = out.replace(new RegExp(`${before}${base}[\\\\/]`, 'g'), '').replace(new RegExp(`${before}${base}(?![A-Za-z0-9_~@-]|\\.[A-Za-z0-9_~@-])`, 'g'), '.');
+  for (const { form, ci } of list) {
+    const flags = ci ? 'gi' : 'g';
+    const base = escape(form);
+    out = out.replace(new RegExp(`file://(?:localhost)?(?=${base})`, flags), '');
+    out = out.replace(new RegExp(`${before}${base}[\\\\/]`, flags), '').replace(new RegExp(`${before}${base}(?![A-Za-z0-9_~@-]|\\.[A-Za-z0-9_~@-])`, flags), '.');
   }
   return out;
 }
 
-function item(rule, severity, message, file, line, column, roots) {
+function item(rule, severity, message, place, line, column, roots) {
+  const { file, inRoot } = place;
   return {
+    ...(inRoot ? {} : { outside: true }),
     severity,
     rule: rule === null ? null : cut(rule, MAX_RULE),
     message: cut(scrubRoots(message, roots).trim() || 'The tool reported a problem.', MAX_MESSAGE),
@@ -133,7 +157,7 @@ export function normalizeEslint(output, { root } = {}) {
   const found = [];
   for (const entry of output) {
     if (!isObject(entry) || typeof entry.filePath !== 'string' || !Array.isArray(entry.messages)) throw new Error('ESLint output has a malformed file result.');
-    const file = relativeFile(entry.filePath, root);
+    const file = relativeFile(entry.filePath, root); // { file, inRoot }
     for (const message of entry.messages) {
       if (!isObject(message) || typeof message.message !== 'string') throw new Error('ESLint output has a malformed message.');
       if (message.severity !== 1 && message.severity !== 2) throw new Error('ESLint output has an unknown severity.');
@@ -153,7 +177,7 @@ export function normalizeStylelint(output, { root } = {}) {
     if (!isObject(entry) || typeof entry.source !== 'string' || !Array.isArray(entry.warnings)) throw new Error('Stylelint output has a malformed file result.');
     // An invalid option means the configuration is wrong. The run proves nothing.
     if (Array.isArray(entry.invalidOptionWarnings) && entry.invalidOptionWarnings.length > 0) throw new Error('Stylelint reported an invalid option in the configuration.');
-    const file = relativeFile(entry.source, root);
+    const file = relativeFile(entry.source, root); // { file, inRoot }
     for (const warning of entry.warnings) {
       if (!isObject(warning) || typeof warning.text !== 'string') throw new Error('Stylelint output has a malformed warning.');
       if (warning.severity !== 'error' && warning.severity !== 'warning') throw new Error('Stylelint output has an unknown severity.');

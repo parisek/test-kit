@@ -1,7 +1,7 @@
 // Pure. The opt-in lint pack: two absolute checks over the stored `lint` artifact (R7.2, R8.10, R9.9, R9.11).
 // A project selects the pack by name. Nothing runs by default (G3, R5.1).
 import { definePack } from '../define.js';
-import { checkLocation, copyFileTargets, TOOLS, MAX_ITEMS } from './normalize.js';
+import { checkLocation, copyFileTargets, OUTSIDE, TOOLS, MAX_ITEMS } from './normalize.js';
 
 const TITLES = { eslint: 'ESLint rules', stylelint: 'Stylelint rules' };
 const PROJECT = '@project';
@@ -14,12 +14,15 @@ const PROJECT = '@project';
 
 function copyItem(raw) {
   if (raw === null || typeof raw !== 'object') throw new Error('A stored lint item must be an object.');
-  const { severity, rule, message, location, ...rest } = raw; // one read of each field
+  const { severity, rule, message, location, outside, ...rest } = raw; // one read of each field
+  if (outside !== undefined && outside !== true) throw new Error('A stored lint item has a bad outside flag.');
   if (Object.keys(rest).length > 0) throw new Error('A stored lint item has an unknown key.');
   if (severity !== 'error' && severity !== 'warning') throw new Error('A stored lint item has a bad severity.');
   if (rule !== null && typeof rule !== 'string') throw new Error('A stored lint item has a bad rule.');
   if (typeof message !== 'string' || message.trim() === '') throw new Error('A stored lint item needs a message.');
-  return { severity, rule, message, location: checkLocation(location) };
+  const place = checkLocation(location);
+  // A file outside the root never maps to a component (R9.11). The marker prefix is also checked, so a missing flag fails closed.
+  return { severity, rule, message, location: place, outside: outside === true || place.file.startsWith(`${OUTSIDE}/`) };
 }
 
 function lintCheck(tool) {
@@ -38,8 +41,8 @@ function lintCheck(tool) {
       if (status === 'missing') return open(diagnostic ?? `${tool} is not installed in the project.`);
       if (status !== 'ok') throw new Error(String(diagnostic ?? `${tool} did not finish.`).slice(0, 300));
       if (!Array.isArray(rawItems) || rawItems.length > MAX_ITEMS || !Number.isInteger(total) || total < rawItems.length) throw new Error(`The stored ${tool} report is malformed.`);
-      const found = rawItems.map(copyItem).map(({ severity, rule, message, location }) => ({
-        targetId: targetOf(location.file), // R9.11: a file that maps to a component uses its id
+      const found = rawItems.map(copyItem).map(({ severity, rule, message, location, outside }) => ({
+        targetId: outside ? PROJECT : targetOf(location.file), // R9.11: a file that maps to a component uses its id
         severity, message, location, evidence: { tool, rule },
       }));
       // A cut list never reads as complete (R8.7).

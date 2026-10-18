@@ -99,8 +99,8 @@ function run(file, args, { cwd, timeout, grace, env }) {
     child.once('close', (exitCode, signal) => {
       // The leader has ended. Kill what is left in its group, on every path, before the result is returned.
       // ESRCH (nothing left) is ignored. A tool that left a child after exit 0 does not keep it running.
-      if (process.platform === 'win32') killGroup(child, 'SIGKILL'); // taskkill /T /F; untested
-      else sweepGroup(child.pid);
+      // On Windows nothing runs here: the leader pid is dead and may be reused, and taskkill cannot find its tree.
+      if (process.platform !== 'win32') sweepGroup(child.pid);
       done({ exitCode, signal: timedOut ? 'TIMEOUT' : signal, spawnError: false });
     });
     timers.push(setTimeout(() => {
@@ -152,6 +152,7 @@ export async function runLint({ root, tools, fileTargets, env, hoisted = false, 
   const names = Object.keys(tools);
   if (names.length === 0) throw new Error('runLint needs at least one tool.');
   for (const name of names) if (!TOOLS.includes(name)) throw new Error(`Unknown lint tool: ${name}`);
+  for (const name of names) validatePaths(tools[name]?.paths); // every tool is checked before any tool runs
   const map = copyFileTargets(fileTargets); // throws on a bad container, key or id
   const resolved = path.resolve(root);
   const real = await realpath(resolved).catch(() => resolved);
