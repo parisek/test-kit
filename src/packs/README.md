@@ -17,7 +17,7 @@ Check ids are unique across all layers. A narrower layer cannot replace a broade
 A narrower layer may switch a check off with an override: `checkId`, `layer`, `reason`, `owner` and an optional `scope` (`targets`, `artifacts`, `kinds`; R8.5, R8.13).
 A switched-off check has state `missing` and a diagnostic. Missing input is detected first, and an override does not remove that diagnostic. An override outside its scope has no effect (R8.2).
 
-A finding is a plain object with `severity` (`info`, `warning` or `error`), `message` and `evidence` (a plain object), and optionally `targetId`, `viewportId`, `artifact` and `checkId` (R7.2, ADR 0004).
+A finding is a plain object with `severity` (`info`, `warning` or `error`), `message` and `evidence` (a plain object), and optionally `targetId`, `viewportId`, `artifact`, `checkId` and `location` (R7.2, R9.11, ADR 0004). A `location` is `{ file, line?, column? }` or `{ selector }`. A `column` needs a `line`. Each string is at most 500 characters. A bad location makes the check `failed`.
 `targetId` falls back to `context.targetId`. A finding with no target is `failed`. A finding that names another artifact or check, carries an unknown key, or has a hole in the list is `failed`.
 The caps are 1000 findings, 1000 characters of message, and 10000 characters of evidence as JSON. The caps are chosen safety bounds, not measured numbers.
 `runChecks` copies each finding into a frozen plain object (R7.1).

@@ -1,15 +1,31 @@
 // Impure. Runs the project's own ESLint and Stylelint and returns the `lint` artifact value (R9.9).
 // It never bundles a linter and never runs unless a project calls it with explicit tools and paths (G3, R5.1).
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { mkdtemp, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { judgeRun, TOOLS } from './normalize.js';
+import { judgeRun, normalizeEslint, normalizeStylelint, TOOLS, MAX_OUTPUT_BYTES, TARGET_ID } from './normalize.js';
 
-const DEFAULT_TIMEOUT_MS = 120000; // chosen bound, not measured
+// Chosen bounds, not measured numbers.
+const DEFAULT_TIMEOUT_MS = 120000;
+const DEFAULT_KILL_GRACE_MS = 2000;
 const MAX_PATHS = 100;
-const PLAIN_PATH = /^[A-Za-z0-9_@./*{},-][A-Za-z0-9_@./*{},-]*$/;
+// No brace, comma, bracket or parenthesis: a shell-style brace list could expand to an absolute or parent path.
+const PLAIN_PATH = /^[A-Za-z0-9_@./*-]+$/;
+const NORMALIZERS = { eslint: normalizeEslint, stylelint: normalizeStylelint };
+
+// The child gets this reduced environment and nothing else. A project adds more with the `env` option.
+const ENV_NAMES = ['PATH', 'HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'LANG', 'LC_ALL', 'NO_COLOR', 'FORCE_COLOR'];
+export function childEnv(extra = {}, parent = process.env) {
+  const env = {};
+  for (const [name, value] of Object.entries(parent)) if (typeof value === 'string' && (ENV_NAMES.includes(name) || name.startsWith('NODE_'))) env[name] = value;
+  for (const [name, value] of Object.entries(extra ?? {})) {
+    if (typeof value !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('The env option needs string values and plain names.');
+    env[name] = value;
+  }
+  return env;
+}
 
 // A value that reaches a process must be a plain relative path or glob (AGENTS.md rules).
 export function validatePaths(paths) {
@@ -20,8 +36,10 @@ export function validatePaths(paths) {
   });
 }
 
-// Finds <root>/node_modules/<tool>, then each parent, as Node does. Returns { dir, version, bin } or null.
-export function findTool(root, tool) {
+// Finds <root>/node_modules/<tool>. With `hoisted: true` it also looks in each parent directory, as Node does,
+// for a monorepo. By default it stops at the project root, so a package above the project is never run.
+// Returns { version, bin } or null.
+export function findTool(root, tool, { hoisted = false } = {}) {
   for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
     const manifest = path.join(dir, 'node_modules', tool, 'package.json');
     if (existsSync(manifest)) {
@@ -31,47 +49,98 @@ export function findTool(root, tool) {
         if (typeof bin !== 'string' || typeof pkg.version !== 'string') return null;
         const full = path.resolve(path.dirname(manifest), bin);
         if (!full.startsWith(path.dirname(manifest) + path.sep)) return null;
-        return { version: pkg.version, bin: full };
+        return { version: pkg.version.slice(0, 50), bin: full };
       } catch { return null; }
     }
-    if (path.dirname(dir) === dir) return null;
+    if (!hoisted || path.dirname(dir) === dir) return null;
   }
 }
 
-const run = (file, args, cwd, timeout) => new Promise(resolve => {
-  execFile(process.execPath, [file, ...args], { cwd, timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true }, error => {
-    resolve({ exitCode: error ? (typeof error.code === 'number' ? error.code : null) : 0, signal: error?.signal ?? null, spawnError: error && typeof error.code !== 'number' && !error.signal ? error : null });
-  });
-});
+const killGroup = (child, signal) => {
+  try {
+    if (process.platform === 'win32') spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }).on('error', () => {});
+    else process.kill(-child.pid, signal); // the child leads its own process group, so this reaches its children too
+  } catch { try { child.kill(signal); } catch { /* already gone */ } }
+};
 
-async function runTool(root, tool, config, timeout) {
-  const found = findTool(root, tool);
+// Runs the tool and always settles. At the timeout it sends SIGTERM to the group, then SIGKILL after the grace time,
+// then it resolves even if the process never reports `close`. On Windows it uses `taskkill /T /F`; that path is not tested.
+// A tool that starts a process in a new session or group (setsid) escapes the group kill.
+function run(file, args, { cwd, timeout, grace, env }) {
+  return new Promise(resolve => {
+    let settled = false;
+    const timers = [];
+    const done = value => {
+      if (settled) return;
+      settled = true;
+      timers.forEach(clearTimeout);
+      resolve(value);
+    };
+    let child;
+    try {
+      child = spawn(process.execPath, [file, ...args], { cwd, env, stdio: 'ignore', windowsHide: true, detached: process.platform !== 'win32' });
+    } catch { done({ exitCode: null, signal: null, spawnError: true }); return; }
+    let timedOut = false;
+    child.once('error', () => done({ exitCode: null, signal: null, spawnError: true }));
+    child.once('close', (exitCode, signal) => done({ exitCode, signal: timedOut ? 'TIMEOUT' : signal, spawnError: false }));
+    timers.push(setTimeout(() => {
+      timedOut = true;
+      killGroup(child, 'SIGTERM');
+      timers.push(setTimeout(() => {
+        killGroup(child, 'SIGKILL');
+        timers.push(setTimeout(() => done({ exitCode: null, signal: 'TIMEOUT', spawnError: false }), 500)); // hard stop
+      }, grace));
+    }, timeout));
+  });
+}
+
+async function readBounded(file) {
+  const info = await stat(file);
+  if (info.size > MAX_OUTPUT_BYTES) return null;
+  return readFile(file, 'utf8');
+}
+
+async function runTool(root, roots, tool, config, options) {
+  const paths = validatePaths(config?.paths); // bad paths are reported before the tool lookup
+  const found = findTool(root, tool, options);
   if (!found) return { status: 'missing', diagnostic: `${tool} is not installed in the project. Add it as a project dependency.` };
-  const paths = validatePaths(config?.paths);
   const dir = await mkdtemp(path.join(tmpdir(), 'test-kit-lint-'));
   const file = path.join(dir, `${tool}.json`);
   try {
-    const args = ['-f', 'json', '-o', file, ...paths]; // both CLIs accept -f and -o
-    const result = await run(found.bin, args, root, timeout);
+    const result = await run(found.bin, ['-f', 'json', '-o', file, ...paths], { cwd: root, timeout: options.timeoutMs, grace: options.killGraceMs, env: options.env });
     if (result.spawnError) return { status: 'failed', version: found.version, diagnostic: `${tool} could not start.` };
     let text = '';
-    try { text = await readFile(file, 'utf8'); } catch { /* no output file: judgeRun reports it */ }
+    try { text = await readBounded(file); } catch { text = ''; } // no output file: judgeRun reports it
     const judged = judgeRun({ tool, exitCode: result.exitCode, signal: result.signal, text });
-    return judged.status === 'ok' ? { status: 'ok', version: found.version, output: judged.output } : { status: 'failed', version: found.version, diagnostic: judged.diagnostic };
+    if (judged.status !== 'ok') return { status: 'failed', version: found.version, diagnostic: judged.diagnostic };
+    // Only normalized, relative data is stored. The raw tool output, with its absolute paths, is dropped.
+    const { items, total } = NORMALIZERS[tool](judged.output, { root: roots });
+    return { status: 'ok', version: found.version, items, total };
+  } catch (error) {
+    return { status: 'failed', diagnostic: `${tool} output could not be used: ${String(error?.message ?? error).slice(0, 200)}` };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 }
 
 // tools: { eslint?: { paths: [...] }, stylelint?: { paths: [...] } }. A tool left out does not run.
-export async function runLint({ root, tools, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+// fileTargets: optional { "<relative file>": "<component id>" }. A file not listed maps to `@project` (R9.11).
+// env: optional extra environment variables for the child. hoisted: look for the tool above the root.
+export async function runLint({ root, tools, fileTargets, env, hoisted = false, timeoutMs = DEFAULT_TIMEOUT_MS, killGraceMs = DEFAULT_KILL_GRACE_MS }) {
   if (typeof root !== 'string' || root === '') throw new Error('runLint needs a project root.');
   if (!tools || typeof tools !== 'object') throw new Error('runLint needs tools.');
-  const out = {};
-  for (const tool of Object.keys(tools)) {
-    if (!TOOLS.includes(tool)) throw new Error(`Unknown lint tool: ${tool}`);
-    out[tool] = await runTool(root, tool, tools[tool], timeoutMs);
+  const names = Object.keys(tools);
+  if (names.length === 0) throw new Error('runLint needs at least one tool.');
+  for (const name of names) if (!TOOLS.includes(name)) throw new Error(`Unknown lint tool: ${name}`);
+  const map = {};
+  for (const [file, id] of Object.entries(fileTargets ?? {})) {
+    if (typeof id !== 'string' || !TARGET_ID.test(id)) throw new Error('fileTargets needs valid target ids.');
+    map[file] = id;
   }
-  if (Object.keys(out).length === 0) throw new Error('runLint needs at least one tool.');
-  return { root: path.resolve(root), tools: out };
+  const resolved = path.resolve(root);
+  const real = await realpath(resolved).catch(() => resolved);
+  const options = { env: childEnv(env), hoisted, timeoutMs, killGraceMs };
+  const out = {};
+  for (const name of names) out[name] = await runTool(resolved, [resolved, real], name, tools[name], options);
+  return { ...(Object.keys(map).length > 0 ? { fileTargets: map } : {}), tools: out };
 }

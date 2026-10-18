@@ -7,9 +7,9 @@ The pack runs only when the project selects `lint` in `resolveChecks` (G3, R5.1)
 
 | File | Pure | Holds |
 | --- | --- | --- |
-| `normalize.js` | yes | `normalizeEslint`, `normalizeStylelint`, `judgeRun`. They turn recorded JSON into findings. |
+| `normalize.js` | yes | `normalizeEslint`, `normalizeStylelint`, `judgeRun`, `relativeFile`. They turn recorded JSON into items. |
 | `pack.js` | yes | `lintPack`: the checks `eslint-rules` and `stylelint-rules`. Both are `absolute` and apply to the artifact `lint`. |
-| `runner.js` | no | `runLint({ root, tools })`. It starts the project's own linters and returns the artifact value. |
+| `runner.js` | no | `runLint(options)`. It starts the project's own linters and returns the artifact value. |
 
 Entry points: `@parisek/test-kit/packs/lint` (pure) and `@parisek/test-kit/packs/lint/runner` (starts processes).
 
@@ -20,27 +20,49 @@ import { resolveChecks, runChecks } from '@parisek/test-kit/packs';
 import { lintPack } from '@parisek/test-kit/packs/lint';
 import { runLint } from '@parisek/test-kit/packs/lint/runner';
 
-const value = await runLint({ root: process.cwd(), tools: { eslint: { paths: ['src'] }, stylelint: { paths: ['src'] } } });
+const value = await runLint({
+  root: process.cwd(),
+  tools: { eslint: { paths: ['src'] }, stylelint: { paths: ['src/**/*.css'] } },
+  fileTargets: { 'src/components/card/card.js': 'example-card' },
+});
 const plan = resolveChecks({ available: [lintPack], packs: ['lint'] });
 const result = runChecks(plan, { artifact: 'lint', value }, {});
 ```
 
 A tool left out of `tools` does not run, and its check is `missing`.
 
-## The artifact value
+## What the artifact stores
+
+Only normalized, relative data. The raw tool output and the absolute project root are not stored.
 
 ```json
-{ "root": "/path/to/project", "tools": { "eslint": { "status": "ok", "version": "9.0.0", "output": [] } } }
+{
+  "fileTargets": { "src/components/card/card.js": "example-card" },
+  "tools": {
+    "eslint": {
+      "status": "ok",
+      "version": "9.39.5",
+      "items": [{ "severity": "error", "rule": "no-console", "message": "Unexpected console statement.", "location": { "file": "src/app.js", "line": 3, "column": 5 } }],
+      "total": 1
+    }
+  }
+}
 ```
 
-`status` is `ok`, `missing` or `failed`. Only the runner writes it. `output` is the parsed JSON of the tool.
+`status` is `ok`, `missing` or `failed`. A `failed` or `missing` entry has a `diagnostic`. `items` holds at most 999 entries. `total` is the real count.
+A file path is relative to the project root. A path outside the root (or with `..`, or a `file://` URL) keeps only its base name. The runner collapses a symlinked root with `realpath`.
+The check validates the stored data again and fails closed. Only the runner should write it.
 
 ## The runner
 
-- It finds `node_modules/<tool>` from `root` upward, as Node does. It runs the `bin` of that package with the current Node. It uses no shell.
-- It runs `<tool> -f json -o <temp file> <paths>`. It reads the report from the file, not from stdout or stderr. Stylelint writes its report to stderr, so a file is the stable route. The temp directory is removed after the run.
-- `paths` are plain relative paths or globs. A path that starts with `-` or `/`, holds `..` or holds other characters is refused.
-- The timeout is 120000 ms, a chosen bound.
+- It looks for `node_modules/<tool>` in the project root only. With `hoisted: true` it also looks in each parent directory, for a monorepo.
+- It runs the `bin` of that package with the current Node, with no shell, in its own process group.
+- It runs `<tool> -f json -o <temp file> <paths>` and reads the report from the file. Stylelint writes its report to stderr, so a file is the stable route. It ignores stdout and stderr.
+- `paths` are plain relative paths or globs. Allowed characters: letters, digits, `_ @ . / * -`. A path that starts with `-` or `/`, holds `..`, a brace, a comma or a bracket is refused. The runner checks paths before it looks for the tool.
+- The report file must be at most 32 MiB (33554432 bytes, a chosen bound). A larger file is `failed`.
+- Timeout: 120000 ms (`timeoutMs`). At the timeout the runner sends SIGTERM to the process group, and SIGKILL after `killGraceMs` (2000 ms). It then resolves after 500 ms even if the process never closes. The result is `failed` with the signal `TIMEOUT`, and the temp directory is removed. Both times are chosen bounds.
+- Windows: the runner calls `taskkill /T /F`. This path is not tested. On POSIX a tool that starts a process in a new session (`setsid`) escapes the group kill.
+- Environment: the child gets only `PATH`, `HOME`, `USERPROFILE`, `TMPDIR`, `TEMP`, `TMP`, `SystemRoot`, `LANG`, `LC_ALL`, `NO_COLOR`, `FORCE_COLOR` and every `NODE_*` variable. The `env` option adds more (string values). Note that `NODE_OPTIONS` passes through.
 
 ## States (R8.7)
 
@@ -48,9 +70,12 @@ A tool left out of `tools` does not run, and its check is `missing`.
 | --- | --- |
 | Tool not selected | `missing` |
 | Tool not installed in the project | `missing` |
-| Exit code 0, or ESLint 1, or Stylelint 2, with matching JSON | `complete`, with the findings |
+| ESLint exit 0 or 1, or Stylelint exit 0 or 2, with matching JSON | `complete`, with the findings |
+| ESLint exit 2 (configuration problem, internal error or no matching file) | `failed` |
+| Stylelint exit 1 (fatal error, for example no matching file; no report file) | `failed` |
+| Stylelint exit 2 with empty `warnings` and an `invalidOptionWarnings` entry | `failed`, with a diagnostic that names the configuration problem |
 | Other exit code, signal, timeout, text that is not JSON, or an exit code that contradicts the JSON | `failed` |
-| Malformed JSON shape, unknown severity, Stylelint invalid option | `failed` |
+| Malformed JSON shape or unknown severity | `failed` |
 | More than 999 problems in one tool | `missing`. The list is cut and a marker finding says so. |
 
 Exit code 1 (ESLint) or 2 (Stylelint) with findings is a normal run, not a failed run.
@@ -58,22 +83,23 @@ A report with an exit code that contradicts its errors is `failed`: exit 0 with 
 
 ## Findings
 
-A finding has `severity`, `message` and `evidence`: `{ tool, rule, location }`. `location` is `{ file, line, column }` (R9.11). `rule` is `null` for an ESLint parse error.
+A finding has `severity`, `message`, `location` and `evidence: { tool, rule }` (R9.11). `location` is a top-level field, `{ file, line, column }`, and it is stored once. `rule` is `null` for an ESLint parse error.
 ESLint severity 2 is `error` and 1 is `warning`. Stylelint `error` and `warning` map the same way.
-The file is relative to `root`. A file outside `root` keeps only its base name, so no host path enters a finding.
 The finding has no `viewportId`. Do not set `viewportId` in the context.
-`targetId` is `context.targetId`, or the reserved id `@project`. The pack API requires `checkId` to equal the check id, so the rule id sits in `evidence.rule` and not in `checkId`.
+`targetId` is `fileTargets[file]` when the caller maps the file to a component id, and the reserved id `@project` otherwise (R9.11). `context.targetId` is not used.
+The pack API fixes `checkId` to the check id, so the rule id sits in `evidence.rule`.
 
 ## Open or not built
 
-- Mapping a file to a component target. The caller sets `context.targetId` today.
 - The `lint` index entry of the report and `settingsHash` (R9.9). Both need `schemaVersion` 3 (R13.9).
 - Allowlist `reason` and `owner`, and findings of completed checks in mixed artifacts. Both are open questions of ADR 0004.
 - Fix suggestions of the tools. The pack ignores them.
 
-## Sources checked on 2026-10-18
+## Sources and verification (2026-10-18)
 
 - ESLint `json` formatter: <https://eslint.org/docs/latest/use/formatters/>. ESLint exit codes: <https://eslint.org/docs/latest/use/command-line-interface>.
 - Stylelint result object: <https://stylelint.io/user-guide/node-api/>. Stylelint exit codes and stderr: <https://stylelint.io/user-guide/cli/>.
-
-The Stylelint pages do not describe the `json` formatter. The shape in `tests/fixtures/lint/stylelint.json` follows the documented result object (`source`, `errored`, `warnings`, `invalidOptionWarnings`). The fixtures are hand-written in the documented format. No real ESLint or Stylelint run produced them.
+- The Stylelint pages do not describe the `json` formatter. Its shape comes from the result object and from a real run.
+- Real runs: ESLint 9.39.5 and Stylelint 16.26.1 on Node 26.11.0. `eslint-real.json`, `stylelint-real.json` and `stylelint-invalid-option.json` come from those runs, with the project path replaced by `/example-root`. The exit codes in the table above were observed in these runs (ESLint 1 and 2, Stylelint 1 and 2).
+- `eslint.json` and `stylelint.json` are hand-written in the documented format.
+- Not run: ESLint 8 (legacy config), Stylelint 15 and 17, Windows, and a project with a shared config that prints warnings to the report. Other versions may differ.
