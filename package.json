@@ -12,6 +12,8 @@
     "./compat/selection": "./src/compat/selection.js",
     "./compat/harvest": "./src/compat/harvest-plan.js",
     "./packs": "./src/packs/index.js",
+    "./packs/a11y": "./src/packs/a11y/index.js",
+    "./packs/a11y/runner": "./src/packs/a11y/runner.js",
     "./packs/swiper": "./src/packs/versioned/swiper.js"
   },
   "files": [
@@ -38,9 +40,13 @@
   },
   "peerDependencies": {
     "@playwright/test": ">=1.49",
+    "axe-core": "^4.10.0",
     "lighthouse": "^13.5.0"
   },
   "peerDependenciesMeta": {
+    "axe-core": {
+      "optional": true
+    },
     "@playwright/test": {
       "optional": true
     },
@@ -54,6 +60,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",
+    "axe-core": "4.14.0",
     "lighthouse": "13.5.0"
   },
   "license": "MIT"
