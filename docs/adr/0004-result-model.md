@@ -1,6 +1,6 @@
 # ADR 0004: One result model for pair, single-run and lint results
 
-Status: proposed. Option C does not comply with R7.3 as written. It takes effect only after the owner accepts this ADR and the R7.3 edit below merges in its own pull request. It waits for the owner (Tier 3, vision open decision 1). No code changes in this record.
+Status: accepted by the owner in chat on 2026-10-18 ("Přijmout C a upravit R7.3"). This was the Tier 3 approval for vision open decision 1. Option C is the result model. It needed an R7.3 edit, and that edit merges with this acceptance. The open design questions below stay open. No code changes in this record.
 Requirements: R7.1, R7.2, R7.3, R7.7, R8.2 to R8.9, R9.1, R9.4, R10.5, R11.6, R13.9, R13.13, R13.40. Tracked in #99.
 
 ## Context
@@ -246,9 +246,9 @@ R7.3 says findings of a check "go into the same `findings` list as findings of a
 
 Option C keeps the first sentence. It does not keep the second. In C, `explained` means "has a known cause" for a relative finding and "has an allowlist entry" for an absolute finding. Normaliser rules and `known_diffs` apply only to relative findings. The classifier branches on the basis. That is a special case by the plain reading of R7.3.
 
-So C needs an edit of R7.3. C does not comply with R7.3 as written. The owner must direct the edit (Tier 3). It goes in its own pull request, and C takes effect only after that pull request merges. This record does not edit the specification.
+So C needs an edit of R7.3. C did not comply with R7.3 as written. The owner accepted C and directed the edit on 2026-10-18 (Tier 3). The edit merges in the same pull request that accepts this record. The other spec edits this record implies (see the list of spec edits in the consequences) stay for later pull requests.
 
-Exact change for that pull request, section 7 of `docs/specification.md`:
+Change made in section 7 of `docs/specification.md`:
 
 ```
 Before:
@@ -507,7 +507,7 @@ Not measured: the effort in hours, and the number of lines.
 - `explained` for absolute findings needs an allowlist design. It is the first follow-up issue. Until it ships, an absolute finding is `unexplained`.
 - Content checks keep the rule that only the findings of one side enter `findings`. With `runId` on the finding, this becomes a choice, not a habit. See "Open points".
 - `validateContentComparison` accepts only ids in `builtinChecks`. A project or component rule needs the catalog route. That is part of the producer change.
-- The spec edits this record implies: R7.2 (export `basis`), R7.3 (class by basis, rules for relative checks only; see "R7.3 is a special case"), the class table in section 8, the shape in section 9 (`checks`, `subject`, `runId`, `layer`, `overrides`, `schemaVersion` 3) and R10.5 (first view without a pair). They land in a separate pull request, after the owner approves this record (#100 and #96 cover related edits).
+- The spec edits this record implies: R7.2 (export `basis`), R7.3 (class by basis, rules for relative checks only; see "R7.3 is a special case"), the class table in section 8, the shape in section 9 (`checks`, `subject`, `runId`, `layer`, `overrides`, `schemaVersion` 3) and R10.5 (first view without a pair). The R7.3 edit landed with the acceptance on 2026-10-18. The others land in separate pull requests (#100 and #96 cover related edits).
 - Required classifier change for the `content` artifact. `artifactClass` returns `null` when `artifact === 'content'` and `selected.diff.checks` is not greater than 0, and `cellClass` returns `null` for a content-only cell with no `diff.checks` (`src/report/classify.js`). An absolute artifact index has `result.violations` and no `diff`. So in a `subject` report these functions always return `null` for `content`, and "complete evidence and no finding is `match`" never happens. So the absolute index gets a `result.checks` count of executed checks, like `diff.checks` today, and the classifier reads it for a `subject` report. An index with `checks: 0` gives state `missing`, as in the precedent. This is part of the classifier follow-up.
 - Follow-up issues, each opened after approval: report shape and validator; classifier branch for target scope and basis; allowlist binding; `lint` artifact and producer; viewer labels and first view; query changes. Their order and size are not decided here.
 
