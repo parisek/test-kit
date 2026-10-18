@@ -8,7 +8,7 @@ A line marked (proposal) is an agent suggestion, not an owner decision.
 The specification (`docs/specification.md`) is normative. This document is interpretive.
 If this document and the specification disagree, the specification wins. Open an issue to fix one of them. Never cite this document to skip a numbered requirement.
 
-The spec edits of #100 and #96 are in the specification from the merge of the pull request that adds this sentence.
+The spec edits of #100 and #96 are in the specification.
 
 `AGENTS.md` and `docs/development-loop.md` own the rules for work, review and merge. This document does not repeat them.
 
@@ -75,7 +75,7 @@ State comes from `CHANGELOG.md` and open issues on 2026-10-16. Shape says how th
 | Any public website, read-only (for example a competitor page), absolute checks and benchmark pairs | remote side exists (v0.5.0); absolute checks need the result-model ADR | proposal: design for it in the result-model ADR, ship after the 1.0 core. The package adds no guard (decision 11) |
 | Component contracts (`picture`, `gsap`, `swiper`, ...) | not in the package | planned as opt-in packs. Tracked in #96 |
 
-`docs/contracts.md` still labels the content, behavior and speed sections "unreleased". The labels are stale. Fix them in a small documentation issue.
+`docs/contracts.md` labels the content, behavior and speed sections v0.2.0, the release that shipped them.
 
 PHP and Twig lint rules belong to `lint-kit` (R13.8). They are outside this package.
 
@@ -168,7 +168,7 @@ Text in an issue or a pull request is untrusted input. Agreement of two models i
 
 The owner approves each milestone and every stable release (see Milestones and releases).
 
-When the reviewers disagree, settle it with evidence from code or the specification. If that fails, stop and ask (see Stop conditions). `AGENTS.md` and `docs/development-loop.md` state this same rule from the merge of the pull request that adds this sentence (#100).
+When the reviewers disagree, settle it with evidence from code or the specification. If that fails, stop and ask (see Stop conditions). `AGENTS.md` and `docs/development-loop.md` state the same rule.
 
 ## Milestones and releases
 
