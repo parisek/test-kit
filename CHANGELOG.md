@@ -12,6 +12,8 @@ Versions follow semver. Each release uses an immutable git tag.
 
 - Add the opt-in `lint` pack (`@parisek/test-kit/packs/lint`, R7.2, R8.10, R9.9, R9.11, #103). It reads ESLint and Stylelint JSON as two absolute checks, `eslint-rules` and `stylelint-rules`. A finding may carry a top-level `location` (R9.11). The runner `@parisek/test-kit/packs/lint/runner` starts the project's own linters in a process group with a timeout and a reduced environment. A missing tool gives `missing`, a crash or bad output gives `failed`, and exit code 1 with findings is a normal run (R8.7). Nothing runs by default (R5.1). No report change: `schemaVersion` stays 2.
 
+- Document the project seam, the upgrade from v0.5.0 and a migration guide for a project that pins an old version (issue 105, vision open decision 9). Documentation only. No code, configuration or report change: `docs/seam.md`, `docs/upgrade-from-0.5.md`, `docs/migration-guide-tailwind-base.md`.
+
 ### Changed
 
 - Align the specification with `docs/vision.md` (R13.9, R13.25, R13.26, R13.42). While the package is alpha, a step may break a project. Dev prerelease tags `vMAJOR.MINOR.PATCH-dev.N` are not releases. Accessibility and component packs move into the package as opt-in entry points.
