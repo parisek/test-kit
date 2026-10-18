@@ -108,7 +108,7 @@ Identity key. `validateReport` requires `isHash(report.pair.key)` whenever `meta
 - `subject.key` is a hash of the run id, built like `pairKey` in `src/rules/evidence.js`. It replaces `pair.key` for the policy identity check only.
 - `rules` (normalisers) and `known_diffs` are relative-only. They rewrite or excuse a difference between A and B. A `subject` report must hold `rules: {}` and no `known_diffs`. The validator rejects anything else.
 - `comparisonPolicyHash` may exist in a `subject` report. It then hashes the check policy, and the validator checks `subject.key` in place of `pair.key`.
-- The `kinds` axis of a rule scope (`normalizeScope`) gains the value `single-run`. The `pairs` axis keeps its name and matches `subject.key` as well.
+- The `kinds` axis of a rule scope (`normalizeScope`) gains the value `single-run`. The `pairs` axis keeps its name and does not apply to a `subject` report (point 7 of section 7).
 - Absolute `explained` uses the allowlist of section 7. It does not use `known_diffs` or any key of the report.
 
 ### 3. Run on a finding
@@ -529,6 +529,7 @@ The record cannot prove the answers below from the code. Each one states the que
 2. Selection per target. Where is it stored when a check or contract is selected for some targets and not for others? Candidates: a list of selected check ids on each entry, or a `scope.checks` list on each artifact. Constraints: the viewer tells an unselected check from a selected check with a missing outcome (R8.7); the field is derived from run settings and never invented by the viewer; it works in a `subject` report; it keeps `report.json` small (R9.2). Run-level selection is already encoded by the catalog (section 7, point 8).
 3. The absolute fingerprint (section 7, point 6).
 4. The allowlist file and its reason and owner fields (section 7, point 5).
+5. Completed checks in a non-complete artifact. A mixed `content` artifact is non-complete when one selected check throws. Findings of a non-complete artifact do not count toward a class ("A check that throws or cannot run"). So real findings of its completed checks drop out of class aggregation, and the scope reports the incomplete state instead of a class. It is never `match`. Should findings of completed checks keep counting? The spec states only the current rule.
 
 ## Open points
 
