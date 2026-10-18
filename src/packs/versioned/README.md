@@ -23,7 +23,7 @@ The caller reads the version. The project passes it in `context.versions[library
 
 A set has `library`, `major`, `owner`, `status`, `verifiedAgainst`, `sources`, `facts` and `contracts`.
 `status` is `verified` or `placeholder`. A verified set names the release and the sources it was checked against.
-`owner` must be a name, not `TODO` or `TBD`. `verifiedAgainst` must be an exact release of the set's major. Each caller field and list is read once and copied.
+`owner` must be a name, not `TODO` or `TBD`. This check is a heuristic: it matches whole words only, so `to-do`, `xx` and `???` pass. `facts` must be a plain object and is deep-frozen. `verifiedAgainst` must be an exact release of the set's major. Each caller field and list is read once and copied.
 A placeholder set runs every contract as `incomplete`, so it never passes.
 Every set of one library must declare the same contract ids and the same titles. A major cannot skip a contract, and the contract id stays stable across majors.
 

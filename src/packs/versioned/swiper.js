@@ -52,8 +52,9 @@ function contracts() {
         for (const instance of instances) {
           const slides = Array.isArray(instance?.slides) ? instance.slides.map(slide => asList(slide?.classes)) : null;
           if (!slides || slides.includes(null)) return open('The instance facts have a bad shape.');
+          if (slides.length === 0) return open('The instance has no slide, so the active slide is not proven.');
           const active = slides.filter(classes => classes.includes(facts.slideActiveClass)).length;
-          if (slides.length > 0 && active !== 1) found.push(bad(instance, `Expected one slide with ${facts.slideActiveClass}, found ${active}.`, { expected: 1, actual: active }));
+          if (active !== 1) found.push(bad(instance, `Expected one slide with ${facts.slideActiveClass}, found ${active}.`, { expected: 1, actual: active }));
         }
         return found;
       },

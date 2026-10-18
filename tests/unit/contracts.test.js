@@ -178,3 +178,28 @@ test('selectContractSet never falls back to another major', () => {
   assert.equal(selectContractSet(swiperSets, { version: '13.9.9', source: 'config' }).state, 'unsupported');
   assert.equal(selectContractSet(swiperSets, { version: 'next', source: 'config' }).state, 'unknown');
 });
+
+test('the active-slide contract stands alone: zero slides are missing, not one active is an error', () => {
+  const ok = { version: '14.3.0', source: 'lockfile' };
+  const inst = slides => ({ instances: [{ id: 'x', containerClasses: ['swiper-initialized'], wrapperClasses: ['swiper-wrapper'], slides: slides.map(active => ({ classes: active ? ['swiper-slide', 'swiper-slide-active'] : ['swiper-slide'] })) }] });
+  const check = value => run(value, ok).checks['swiper-active-slide'].state;
+  assert.equal(check(inst([])), 'missing');
+  assert.equal(run(inst([]), ok).findings.find(item => item.checkId === 'swiper-active-slide').evidence.state, 'incomplete');
+  assert.equal(run(inst([false]), ok).findings.filter(item => item.checkId === 'swiper-active-slide' && item.severity === 'error').length, 1);
+  assert.equal(run(inst([false, false]), ok).findings.filter(item => item.checkId === 'swiper-active-slide').length, 1);
+  assert.equal(run(inst([true, true]), ok).findings.filter(item => item.checkId === 'swiper-active-slide').length, 1);
+  assert.equal(run(inst([false, true]), ok).findings.filter(item => item.checkId === 'swiper-active-slide').length, 0);
+  assert.equal(check(inst([false, true])), 'complete');
+});
+
+test('set facts are a plain object and deeply frozen', () => {
+  const base = { library: 'example-lib', major: 1, owner: 'example-owner', status: 'placeholder', contracts: [{ id: 'a', title: 'A', check: () => [] }] };
+  for (const bad of [[], new Map(), 'x', null, new Date()]) assert.throws(() => defineContractSet({ ...base, facts: bad }), /plain object/);
+  const input = { nested: { list: ['a'] } };
+  const made = defineContractSet({ ...base, facts: input });
+  assert.ok(Object.isFrozen(made.facts.nested) && Object.isFrozen(made.facts.nested.list));
+  assert.throws(() => { made.facts.nested.list.push('b'); }, TypeError);
+  input.nested.list.push('c');
+  assert.deepEqual(made.facts.nested.list, ['a']);
+  assert.ok(Object.isFrozen(swiperSets[0].facts));
+});

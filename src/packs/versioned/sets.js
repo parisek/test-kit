@@ -1,6 +1,7 @@
 // Pure. Contract sets keyed by library major, and the pack that runs the matching set (R13.42, vision layers rule 5).
 // A set is data plus check functions. No DOM, no file system (R4.4). Nothing runs by default (R5.1).
 import { definePack, dense, isText } from '../define.js';
+import { deepFreeze } from '../snapshot.js';
 import { detectMajor } from './version.js';
 const ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const STATUSES = ['verified', 'placeholder'];
@@ -22,7 +23,7 @@ export function defineContractSet(set) {
     if (typeof verifiedAgainst !== 'string' || !RELEASE.test(verifiedAgainst) || Number(verifiedAgainst.split('.')[0]) !== major) throw new Error(`Verified set ${library} ${major} must name an exact release of major ${major} it was verified against.`);
     if (sources.length === 0) throw new Error(`Verified set ${library} ${major} must list its sources.`);
   }
-  if (!facts || typeof facts !== 'object') throw new Error(`Set ${library} ${major} needs facts.`);
+  if (!facts || typeof facts !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(facts))) throw new Error(`Set ${library} ${major} needs facts as a plain object.`);
   const listed = dense(rawContracts, `Set ${library} ${major} contracts`, 100);
   if (listed.length === 0) throw new Error(`Set ${library} ${major} needs 1 to 100 contracts.`);
   const contracts = [];
@@ -36,7 +37,7 @@ export function defineContractSet(set) {
   if (new Set(contracts.map(item => item.id)).size !== contracts.length) throw new Error(`Set ${library} ${major} has a duplicate contract id.`);
   return Object.freeze({
     library, major, owner, status, verifiedAgainst: status === 'verified' ? verifiedAgainst : null,
-    sources: Object.freeze(sources), facts: Object.freeze(structuredClone(facts)), contracts: Object.freeze(contracts),
+    sources: Object.freeze(sources), facts: deepFreeze(structuredClone(facts)), contracts: Object.freeze(contracts),
   });
 }
 
