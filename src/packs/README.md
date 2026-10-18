@@ -15,11 +15,17 @@ Every finding gets `layer` and `checkId`. The layer is the layer of the check th
 Check ids are unique across all layers. A narrower layer cannot replace a broader check.
 
 A narrower layer may switch a check off with an override: `checkId`, `layer`, `reason`, `owner` and an optional `scope` (`targets`, `artifacts`, `kinds`; R8.5, R8.13).
-A switched-off check has state `missing` and a diagnostic. An override outside its scope has no effect (R8.2).
+A switched-off check has state `missing` and a diagnostic. Missing input is detected first, and an override does not remove that diagnostic. An override outside its scope has no effect (R8.2).
+
+A finding is a plain object with `severity` (`info`, `warning` or `error`), `message` and `evidence` (a plain object), and optionally `targetId`, `viewportId`, `artifact` and `checkId` (R7.2, ADR 0004).
+`targetId` falls back to `context.targetId`. A finding with no target is `failed`. A finding that names another artifact or check, carries an unknown key, or has a hole in the list is `failed`.
+The caps are 1000 findings, 1000 characters of message, and 10000 characters of evidence as JSON. The caps are chosen safety bounds, not measured numbers.
+`runChecks` copies each finding into a frozen plain object, and gives each check a frozen copy of the stored input, so a check cannot change it (R7.1).
+It accepts only a plan from `resolveChecks`. A scope reads own keys only (`targets`, `artifacts`, `kinds`). Any other key makes the override invalid.
 
 Check state is `complete`, `missing` or `failed` (R8.7).
 A check that throws, returns a promise or returns a malformed list gives no finding and state `failed`.
-A check with no input, a relative check with no `context.before`, or a check that reports `evidence.state` of `incomplete` or `unknown` gives `missing`.
+A check with no input, a relative check with no `context.before`, a component check with no `context.components`, or a check that reports `evidence.state` of `incomplete` or `unknown` gives `missing`.
 An empty plan gives run state `missing`. The run state is `complete` only when every check is complete.
 
 Not built yet: threshold overrides, allowlists (ADR 0004, open question 4), library version detection (R13.42), and the `schemaVersion` 3 report fields (R13.9).

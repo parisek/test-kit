@@ -1,46 +1,90 @@
 // Pure. Runs a plan over one stored artifact. It fails closed (R8.7, R4.4).
+import { isResolvedPlan } from './layers.js';
 const OPEN_STATES = ['incomplete', 'unknown'];
+const SEVERITIES = ['info', 'warning', 'error'];
+const FINDING_KEYS = ['targetId', 'viewportId', 'artifact', 'checkId', 'severity', 'message', 'evidence'];
+// Chosen safety bounds, not measured numbers.
+const MAX_FINDINGS = 1000;
+const MAX_MESSAGE = 1000;
+const MAX_EVIDENCE = 10000;
+
 const inScope = (scope, facts) => Object.entries(scope).every(([key, values]) => {
   const fact = { targets: facts.targetId, artifacts: facts.artifact, kinds: facts.kind }[key];
   return typeof fact === 'string' && values.includes(fact);
 });
 const state = (state, entry, diagnostic) => ({ state, layer: entry.layer, packId: entry.packId, ...(diagnostic ? { diagnostic } : {}) });
+const isPlain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+const str = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max;
 
-function validFindings(result, id) {
-  if (!Array.isArray(result) || result.length > 1000) return false;
-  return result.every(item => item && typeof item === 'object' && !Array.isArray(item) && typeof item.message === 'string' && (item.checkId === undefined || item.checkId === id) && (item.severity === undefined || typeof item.severity === 'string'));
+function deepFreeze(value) {
+  if (value && typeof value === 'object') { Object.freeze(value); for (const key of Reflect.ownKeys(value)) deepFreeze(value[key]); }
+  return value;
+}
+const frozenCopy = value => (value === undefined || value === null ? value : deepFreeze(structuredClone(value)));
+
+// Copies one finding into a plain frozen object. It throws on any bad shape.
+// All reads of untrusted properties happen here, inside the try of one check.
+function normalizeFinding(item, id, input, context) {
+  if (!isPlain(item)) throw new Error('A finding must be a plain object.');
+  for (const key of Reflect.ownKeys(item)) if (!FINDING_KEYS.includes(key)) throw new Error('A finding has an unknown key.');
+  const { targetId = context.targetId, viewportId = context.viewportId, artifact = input.artifact, checkId = id, severity, message, evidence } = item;
+  if (!str(targetId, 200)) throw new Error('A finding needs a targetId.');
+  if (viewportId !== undefined && !str(viewportId, 200)) throw new Error('A finding has an invalid viewportId.');
+  if (artifact !== input.artifact || checkId !== id) throw new Error('A finding names another artifact or check.');
+  if (!SEVERITIES.includes(severity)) throw new Error('A finding needs severity info, warning or error.');
+  if (!str(message, MAX_MESSAGE)) throw new Error('A finding needs a message.');
+  if (!isPlain(evidence)) throw new Error('A finding needs an evidence object.');
+  const json = JSON.stringify(evidence);
+  if (typeof json !== 'string' || json.length > MAX_EVIDENCE) throw new Error('A finding has unusable or oversized evidence.');
+  return deepFreeze({ targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: JSON.parse(json) });
+}
+
+function normalizeResult(result, id, input, context) {
+  if (typeof result?.then === 'function') { result.then(undefined, () => {}); throw new Error('A check must be synchronous.'); }
+  if (!Array.isArray(result) || result.length > MAX_FINDINGS) throw new Error('A check must return a list of findings.');
+  const out = [];
+  for (let index = 0; index < result.length; index += 1) {
+    if (!Object.hasOwn(result, index)) throw new Error('A finding list has a hole.');
+    out.push(normalizeFinding(result[index], id, input, context));
+  }
+  return out;
 }
 
 export function runChecks(plan, input, context = {}) {
-  if (!plan || !Array.isArray(plan.checks) || !Array.isArray(plan.overrides)) throw new Error('Invalid check plan.');
+  if (!isResolvedPlan(plan)) throw new Error('Invalid check plan. Build it with resolveChecks.');
   if (!input || typeof input.artifact !== 'string' || input.artifact === '') throw new Error('Invalid check input.');
+  const value = frozenCopy(input.value);
+  const frozenContext = Object.freeze({ ...context, before: frozenCopy(context.before) });
+  const artifactInput = { artifact: input.artifact, value };
   const facts = { targetId: context.targetId, artifact: input.artifact, kind: context.kind };
-  const components = Array.isArray(context.components) ? context.components : [];
   const findings = [];
   const checks = {};
   const applied = [];
   for (const entry of plan.checks) {
     const { check, layer } = entry;
     if (!check.applies.artifacts.includes(input.artifact)) continue;
-    if (check.applies.components && !check.applies.components.some(name => components.includes(name))) continue;
+    let gap = null;
+    if (check.applies.components) {
+      if (!Array.isArray(context.components)) gap = 'A component check needs context.components.';
+      else if (!check.applies.components.some(name => context.components.includes(name))) continue;
+    }
+    if (!gap && (value === undefined || value === null)) gap = 'The check has no input.';
+    else if (!gap && check.basis === 'relative' && (context.before === undefined || context.before === null)) gap = 'A relative check needs a prior artifact in context.before.';
     const override = plan.overrides.find(item => item.checkId === check.id && inScope(item.scope, facts));
     if (override) {
       applied.push(override);
-      checks[check.id] = state('missing', entry, `Switched off by a ${override.layer} override. Reason: ${override.reason} Owner: ${override.owner}.`);
+      const why = `Switched off by a ${override.layer} override. Reason: ${override.reason} Owner: ${override.owner}.`;
+      checks[check.id] = state('missing', entry, gap ? `${gap} Also: ${why}` : why);
       continue;
     }
-    if (input.value === undefined || input.value === null) { checks[check.id] = state('missing', entry, 'The check has no input.'); continue; }
-    if (check.basis === 'relative' && (context.before === undefined || context.before === null)) { checks[check.id] = state('missing', entry, 'A relative check needs a prior artifact in context.before.'); continue; }
-    let result;
-    try { result = check.check(input.value, { ...context }); } catch (error) {
-      checks[check.id] = state('failed', entry, `The check threw: ${String(error?.message ?? error).slice(0, 200)}`);
+    if (gap) { checks[check.id] = state('missing', entry, gap); continue; }
+    let tagged;
+    try { tagged = normalizeResult(check.check(value, frozenContext), check.id, artifactInput, frozenContext).map(item => Object.freeze({ ...item, layer })); } catch (error) {
+      checks[check.id] = state('failed', entry, `The check failed: ${String(error?.message ?? error).slice(0, 200)}`);
       continue;
     }
-    if (typeof result?.then === 'function') result.then(undefined, () => {}); // a check is sync; drop a late rejection
-    if (!validFindings(result, check.id)) { checks[check.id] = state('failed', entry, 'The check returned a result that is not a list of findings.'); continue; }
-    const tagged = result.map(item => ({ ...item, checkId: check.id, layer }));
     findings.push(...tagged);
-    const open = tagged.some(item => OPEN_STATES.includes(item.evidence?.state));
+    const open = tagged.some(item => OPEN_STATES.includes(item.evidence.state));
     checks[check.id] = open ? state('missing', entry, 'The check reports incomplete or unknown evidence.') : state('complete', entry);
   }
   const states = Object.values(checks).map(item => item.state);

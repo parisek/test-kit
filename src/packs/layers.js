@@ -1,6 +1,9 @@
 // Pure. Builds the plan of checks and overrides. It runs nothing (R4.4, R5.1).
 import { LAYERS, definePack, validateCheck, isText, isList } from './define.js';
 const SCOPE_KEYS = ['targets', 'artifacts', 'kinds'];
+const resolved = new WeakSet();
+export const isResolvedPlan = plan => resolved.has(plan);
+const plain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const rank = layer => LAYERS.indexOf(layer);
 
 function validateOverride(item, byId) {
@@ -10,8 +13,9 @@ function validateOverride(item, byId) {
   if (!LAYERS.includes(item.layer) || rank(item.layer) <= rank(entry.layer)) throw new Error(`An override of ${item.checkId} must come from a layer narrower than ${entry.layer}.`);
   if (!isText(item.reason, 500) || !isText(item.owner)) throw new Error(`An override of ${item.checkId} needs a reason and an owner.`);
   const scope = item.scope ?? {};
-  if (typeof scope !== 'object' || Array.isArray(scope) || Object.keys(scope).some(key => !SCOPE_KEYS.includes(key)) || Object.values(scope).some(value => !isList(value))) throw new Error(`An override of ${item.checkId} has an invalid scope.`);
-  return Object.freeze({ checkId: item.checkId, layer: item.layer, reason: item.reason, owner: item.owner, scope: Object.freeze(Object.fromEntries(Object.entries(scope).map(([key, value]) => [key, Object.freeze([...value])]))) });
+  // Own keys only. A prototype, a symbol, a hidden key or an unknown key is invalid, so a bad scope never becomes global.
+  if (!plain(scope) || Reflect.ownKeys(scope).some(key => !SCOPE_KEYS.includes(key)) || SCOPE_KEYS.some(key => Object.hasOwn(scope, key) && !isList(scope[key]))) throw new Error(`An override of ${item.checkId} has an invalid scope.`);
+  return Object.freeze({ checkId: item.checkId, layer: item.layer, reason: item.reason, owner: item.owner, scope: Object.freeze(Object.fromEntries(SCOPE_KEYS.filter(key => Object.hasOwn(scope, key)).map(key => [key, scope[key]]).map(([key, value]) => [key, Object.freeze([...value])]))) });
 }
 
 export function resolveChecks({ available = [], packs = [], custom = [], overrides = [] } = {}) {
@@ -39,5 +43,7 @@ export function resolveChecks({ available = [], packs = [], custom = [], overrid
     byId.set(entry.check.id, Object.freeze(entry));
   }
   const records = overrides.map(item => validateOverride(item, byId));
-  return Object.freeze({ checks: Object.freeze([...byId.values()]), overrides: Object.freeze(records) });
+  const plan = Object.freeze({ checks: Object.freeze([...byId.values()]), overrides: Object.freeze(records) });
+  resolved.add(plan);
+  return plan;
 }

@@ -3,7 +3,11 @@ export const LAYERS = Object.freeze(['package', 'project', 'component', 'page'])
 export const BASES = Object.freeze(['absolute', 'relative']);
 const ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const text = (value, max = 200) => typeof value === 'string' && value.trim() !== '' && value.length <= max;
-const list = (value, max = 50) => Array.isArray(value) && value.length > 0 && value.length <= max && value.every(item => text(item, 100));
+const list = (value, max = 50) => {
+  if (!Array.isArray(value) || value.length === 0 || value.length > max) return false;
+  for (let index = 0; index < value.length; index += 1) if (!Object.hasOwn(value, index) || !text(value[index], 100)) return false;
+  return true;
+};
 
 export function validateCheck(check) {
   if (!check || typeof check !== 'object') throw new Error('A check must be an object.');
