@@ -61,6 +61,19 @@ try {
   assert.equal((await runAxe(page, null)).status, 'complete');
   assert.equal((await runAxe(page, undefined)).status, 'complete');
 
+  // A page whose evaluate never answers cannot hang the caller.
+  const started = Date.now();
+  const hung = await runAxe({ evaluate: () => new Promise(() => {}) }, { timeoutMs: 200 });
+  assert.equal(hung.status, 'failed');
+  assert.match(hung.reason, /did not finish in 200 ms/);
+  assert.ok(Date.now() - started < 3000);
+
+  // Two runs at once on one page: one wins, one fails with a clear reason, and the flag is released.
+  const both = await Promise.all([runAxe(page), runAxe(page)]);
+  assert.deepEqual(both.map(item => item.status).sort(), ['complete', 'failed']);
+  assert.match(both.find(item => item.status === 'failed').reason, /axe run is active/);
+  assert.equal((await runAxe(page)).status, 'complete');
+
   // A closed page gives failed.
   const closed = await browser.newPage();
   await closed.close();

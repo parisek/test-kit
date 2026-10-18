@@ -73,14 +73,35 @@ test('html and selector are capped, and help URLs are restricted', () => {
   assert.equal(safeUrl(URL_OK), true);
 });
 
-test('too many violation nodes are counted, and the check reports missing, never complete (R8.7)', () => {
+test('cut violation nodes keep the check complete: kept violations stay, one warning says the list is cut', () => {
   const nodes = Array.from({ length: LIMITS.nodes + 3 }, (_, index) => ({ target: [`#n${index}`], html: '<img>' }));
   const artifact = reduceAxeResults(base({ violations: [rule({ nodes })] }));
   assert.equal(artifact.omittedNodes, 3);
+  assert.equal(artifact.violations[0].omitted, 3);
+  assert.equal(artifact.violations[0].nodeCount, LIMITS.nodes + 3);
   assert.equal(artifact.violations[0].nodes.length, LIMITS.nodes);
   const result = run(artifact);
-  assert.equal(result.state, 'missing');
-  assert.equal(result.checks['a11y-axe'].state, 'missing');
+  assert.equal(result.state, 'complete');
+  assert.equal(result.findings.filter(f => f.severity === 'error').length, LIMITS.nodes);
+  const last = result.findings.at(-1);
+  assert.equal(last.severity, 'warning');
+  assert.deepEqual(last.evidence, { truncated: true, omittedNodes: 3 });
+  assert.equal('state' in last.evidence, false);
+  // A cut list is never a clean page: retained violations exist.
+  assert.ok(result.findings.some(f => f.severity === 'error'));
+});
+
+test('every violation rule gives a finding, even with no node (R8.7)', () => {
+  const result = run(reduceAxeResults(base({ violations: [rule({ nodes: [] })] })));
+  assert.equal(result.state, 'complete');
+  assert.equal(result.findings.length, 1);
+  assert.equal(result.findings[0].severity, 'error');
+  assert.equal(result.findings[0].evidence.nodeCount, 0);
+  // A rule whose nodes were all cut by the budget still gives a finding.
+  const many = Array.from({ length: LIMITS.nodes }, (_, index) => ({ target: [`#n${index}`], html: '<i>' }));
+  const cutAll = run(reduceAxeResults(base({ violations: [rule({ nodes: many }), rule({ id: 'region', nodes: [{ target: ['#z'], html: '<i>' }] })] })));
+  assert.equal(cutAll.state, 'complete');
+  assert.ok(cutAll.findings.some(f => f.evidence.ruleId === 'region' && f.severity === 'error'));
 });
 
 test('an axe incomplete rule is a warning to review; the check stays complete and keeps real violations', () => {
@@ -115,28 +136,51 @@ test('a missing axe run gives missing, a failed run gives failed (R8.7)', () => 
 
 test('a stored artifact is re-validated and fails closed', () => {
   const good = reduceAxeResults(raw());
-  const node = (extra) => ({ selector: '#a', html: '<i>', ...extra });
-  const sv = (extra = {}) => ({ id: 'x', impact: 'minor', help: 'h', helpUrl: null, nodeCount: 1, nodes: [node()], ...extra });
+  const node = extra => ({ selector: '#a', html: '<i>', ...extra });
+  const sv = (extra = {}) => ({ id: 'x', impact: 'minor', help: 'h', helpUrl: null, nodeCount: 1, omitted: 0, nodes: [node()], ...extra });
+  const withRules = (violations, extra = {}) => ({ ...good, counts: { ...good.counts, violations: violations.length }, violations, omittedNodes: 0, ...extra });
   const bad = [
     'text', [], { ...good, tool: 'other' }, { ...good, status: 'ok' }, { ...good, violations: 'x' }, { ...good, omittedNodes: -1 }, { ...good, omittedNodes: undefined },
     { ...good, version: undefined }, { ...good, counts: undefined }, { ...good, counts: { ...good.counts, passes: -1 } },
-    { ...good, violations: [sv({ impact: 'huge' })] },
-    { ...good, violations: [sv({ impact: 'constructor' })] },
-    { ...good, violations: [sv({ impact: 'hasOwnProperty' })] },
-    { ...good, violations: [sv(), null] },
-    { ...good, violations: [sv({ nodes: undefined })] },
-    { ...good, violations: [sv({ nodes: [node({ selector: { a: 1 } })] })] },
-    { ...good, violations: [sv({ nodes: [node({ html: 5 })] })] },
-    { ...good, violations: [sv({ nodes: [node({ html: 'x'.repeat(LIMITS.html + 1) })] })] },
-    { ...good, violations: [sv({ helpUrl: 'https://example.com/x' })] },
-    { ...good, violations: [sv({ help: { toString: 'x' } })] },
-    { ...good, violations: [sv({ id: {} })] },
-    { ...good, violations: [sv({ nodeCount: 'many' })] },
-    { ...good, incomplete: [sv({ impact: 5 })] },
+    { ...good, counts: { ...good.counts, passes: 1e9 + 1 } }, { ...good, counts: { ...good.counts, passes: 1.5 } },
+    { ...good, counts: { ...good.counts, violations: good.counts.violations + 1 } },
+    { ...good, counts: { ...good.counts, incomplete: 1 } },
+    withRules([sv({ impact: 'huge' })]), withRules([sv({ impact: 'constructor' })]), withRules([sv({ impact: 'hasOwnProperty' })]), withRules([sv({ impact: null })]),
+    withRules([sv(), null]), withRules([sv({ nodes: undefined })]),
+    withRules([sv({ nodes: [node({ selector: { a: 1 } })] })]), withRules([sv({ nodes: [node({ html: 5 })] })]),
+    withRules([sv({ nodes: [node({ html: 'x'.repeat(LIMITS.html + 1) })] })]),
+    withRules([sv({ helpUrl: 'https://example.com/x' })]), withRules([sv({ helpUrl: 'https://dequeuniversity.com:8443/x' })]), withRules([sv({ helpUrl: 'https://dequeuniversity.com/x y' })]), withRules([sv({ helpUrl: 'HTTPS://DEQUEUNIVERSITY.COM' })]),
+    withRules([sv({ help: { toString: 'x' } })]), withRules([sv({ id: {} })]),
+    withRules([sv({ nodeCount: 'many' })]), withRules([sv({ nodeCount: 1e9 + 1 })]),
+    withRules([sv({ nodeCount: 1, nodes: [] })]),            // a violation with nodeCount 1 and no node
+    withRules([sv({ nodeCount: 5 })]),                       // nodeCount is not retained plus omitted
+    withRules([sv({ omitted: 2 })]),                         // omitted without a matching count
+    withRules([sv({ omitted: -1, nodeCount: 0 })]),
+    withRules([sv({ omitted: 2, nodeCount: 3 })]),           // rule omitted does not match omittedNodes
+    withRules([sv({ nodes: Array.from({ length: LIMITS.nodes + 1 }, () => node()), nodeCount: LIMITS.nodes + 1 })]),
+    { ...good, incomplete: [sv({ impact: 5 })], counts: { ...good.counts, incomplete: 1 } },
+    { ...good, incomplete: [sv({ impact: null, nodeCount: 0 })], counts: { ...good.counts, incomplete: 1 } }, // 1 node kept but nodeCount 0
   ];
-  for (const value of bad) assert.equal(run(value).state, 'failed', JSON.stringify(value).slice(0, 100));
-  assert.match(run({ ...good, violations: [sv({ impact: 'constructor' })] }).checks['a11y-axe'].diagnostic, /unknown impact/);
+  for (const [index, value] of bad.entries()) assert.equal(run(value).state, 'failed', `case ${index}`);
+  assert.match(run(withRules([sv({ impact: 'constructor' })])).checks['a11y-axe'].diagnostic, /unknown impact/);
+  assert.match(run({ ...good, counts: { ...good.counts, violations: 9 } }).checks['a11y-axe'].diagnostic, /counts do not match/);
+  assert.match(run(withRules([sv({ nodeCount: 5 })])).checks['a11y-axe'].diagnostic, /inconsistent counts/);
   assert.equal(run(good).state, 'complete');
+  assert.equal(run(withRules([sv({ nodeCount: 0, nodes: [] })])).state, 'complete');
+});
+
+test('the reducer fails a violation with no usable impact, and keeps the check inside the evidence cap', () => {
+  for (const impact of [null, undefined, 'huge', 'constructor', 5]) assert.equal(reduceAxeResults(base({ violations: [rule({ impact })] })).status, 'failed', String(impact));
+  // Five incomplete nodes of control characters stay under the evidence cap after JSON escaping.
+  const nasty = '\u0001'.repeat(LIMITS.html);
+  const nodes = Array.from({ length: 9 }, () => ({ target: [nasty], html: nasty }));
+  const artifact = reduceAxeResults(base({ incomplete: [rule({ id: 'color-contrast', impact: null, nodes })] }));
+  const result = run(artifact);
+  assert.equal(result.state, 'complete');
+  assert.ok(JSON.stringify(result.findings[0].evidence).length <= 10000);
+  // The worst legal violation node fits as well.
+  const worst = run(reduceAxeResults(base({ violations: [rule({ nodes: [{ target: [nasty], html: nasty }] })] })));
+  assert.equal(worst.state, 'complete');
 });
 
 test('the reducer never throws: bad input gives a failed artifact', () => {

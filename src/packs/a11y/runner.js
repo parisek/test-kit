@@ -40,25 +40,33 @@ function readOptions(options) {
 
 // `page` is a Playwright page that is already on the URL to check.
 // Options: `tags` (axe rule tags, for example ['wcag2a', 'wcag2aa']), `timeoutMs`, `axePath` (path to axe.min.js).
+// Every step that touches the page runs inside the timer, so a busy page cannot hang the caller.
 export async function runAxe(page, options) {
   let timer;
+  let timedOut = false;
   try {
     const { tags, timeoutMs, axePath } = readOptions(options);
-    const source = await loadSource(axePath);
-    if (source === null) return gapArtifact('missing', 'axe-core is not installed.');
-    if (await page.evaluate(name => Boolean(globalThis[name]), BUSY)) throw new Error('An earlier axe run on this page did not finish. Use a new page.');
     const run = (async () => {
-      await page.evaluate(source);
-      return page.evaluate(async ({ runTags, busy }) => {
-        if (typeof globalThis.axe?.run !== 'function') throw new Error('axe did not load in the page.');
-        for (const tag of runTags ?? []) if (globalThis.axe.getRules([tag]).length === 0) throw new Error(`No axe rule has the tag ${tag}.`);
-        globalThis[busy] = true;
-        try { return await globalThis.axe.run(document, runTags ? { runOnly: { type: 'tag', values: runTags } } : {}); } finally { delete globalThis[busy]; }
-      }, { runTags: tags ?? null, busy: BUSY });
+      const source = await loadSource(axePath);
+      if (source === null) return gapArtifact('missing', 'axe-core is not installed.');
+      // One atomic step claims the page. A second run, or a run after an unfinished one, stops here.
+      const claimed = await page.evaluate(busy => { if (globalThis[busy]) return false; globalThis[busy] = true; return true; }, BUSY);
+      if (!claimed) throw new Error('An axe run is active on this page, or an earlier one did not finish. Use a new page.');
+      try {
+        await page.evaluate(source);
+        const raw = await page.evaluate(async runTags => {
+          if (typeof globalThis.axe?.run !== 'function') throw new Error('axe did not load in the page.');
+          for (const tag of runTags ?? []) if (globalThis.axe.getRules([tag]).length === 0) throw new Error(`No axe rule has the tag ${tag}.`);
+          return globalThis.axe.run(document, runTags ? { runOnly: { type: 'tag', values: runTags } } : {});
+        }, tags ?? null);
+        return reduceAxeResults(raw);
+      } finally {
+        // Only the run that claimed the page releases it. After a timeout the page stays claimed.
+        if (!timedOut) await page.evaluate(busy => { delete globalThis[busy]; }, BUSY).catch(() => {});
+      }
     })();
     run.catch(() => {}); // a late failure after a timeout is not an unhandled rejection
-    const raw = await Promise.race([run, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`axe did not finish in ${timeoutMs} ms. Do not reuse this page.`)), timeoutMs); })]);
-    return reduceAxeResults(raw);
+    return await Promise.race([run, new Promise((_, reject) => { timer = setTimeout(() => { timedOut = true; reject(new Error(`axe did not finish in ${timeoutMs} ms. Do not reuse this page.`)); }, timeoutMs); })]);
   } catch (error) {
     return gapArtifact('failed', error?.message ?? error);
   } finally {
