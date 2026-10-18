@@ -3,11 +3,12 @@ import { isResolvedPlan } from './layers.js';
 import { snapshotInput, deepFreeze } from './snapshot.js';
 const OPEN_STATES = ['incomplete', 'unknown'];
 const SEVERITIES = ['info', 'warning', 'error'];
-const FINDING_KEYS = ['targetId', 'viewportId', 'artifact', 'checkId', 'severity', 'message', 'evidence'];
+const FINDING_KEYS = ['targetId', 'viewportId', 'artifact', 'checkId', 'severity', 'message', 'evidence', 'location'];
 // Chosen safety bounds, not measured numbers.
 const MAX_FINDINGS = 1000;
 const MAX_MESSAGE = 1000;
 const MAX_EVIDENCE = 10000;
+const MAX_LOCATION = 500;
 
 const inScope = (scope, facts) => Object.entries(scope).every(([key, values]) => {
   const fact = { targets: facts.targetId, artifacts: facts.artifact, kinds: facts.kind }[key];
@@ -20,12 +21,28 @@ const describe = error => {
 };
 const str = (value, max) => typeof value === 'string' && value.trim() !== '' && value.length <= max;
 
+// A location is `{ file, line?, column? }` or `{ selector }`, bounded in size (R9.11, ADR 0004). It returns a new object.
+function copyLocation(value) {
+  if (!isPlain(value)) throw new Error('A finding has an invalid location.');
+  const { file, line, column, selector, ...rest } = value; // one read of each field
+  if (Object.keys(rest).length > 0) throw new Error('A location has an unknown key.');
+  const posInt = number => Number.isInteger(number) && number > 0;
+  if (selector !== undefined) {
+    if (file !== undefined || line !== undefined || column !== undefined || !str(selector, MAX_LOCATION)) throw new Error('A location needs a selector or a file, not both.');
+    return { selector };
+  }
+  if (!str(file, MAX_LOCATION)) throw new Error('A location needs a file or a selector.');
+  if (line !== undefined && !posInt(line)) throw new Error('A location has a bad line.');
+  if (column !== undefined && (line === undefined || !posInt(column))) throw new Error('A location has a bad column.');
+  return { file, ...(line !== undefined ? { line } : {}), ...(column !== undefined ? { column } : {}) };
+}
+
 // Copies one finding into a plain frozen object. It throws on any bad shape.
 // All reads of untrusted properties happen here, inside the try of one check.
 function normalizeFinding(item, id, input, context) {
   if (!isPlain(item)) throw new Error('A finding must be a plain object.');
   for (const key of Reflect.ownKeys(item)) if (!FINDING_KEYS.includes(key)) throw new Error('A finding has an unknown key.');
-  const { targetId = context.targetId, viewportId = context.viewportId, artifact = input.artifact, checkId = id, severity, message, evidence } = item;
+  const { targetId = context.targetId, viewportId = context.viewportId, artifact = input.artifact, checkId = id, severity, message, evidence, location } = item;
   if (!str(targetId, 200)) throw new Error('A finding needs a targetId.');
   if (viewportId !== undefined && !str(viewportId, 200)) throw new Error('A finding has an invalid viewportId.');
   if (artifact !== input.artifact || checkId !== id) throw new Error('A finding names another artifact or check.');
@@ -41,7 +58,8 @@ function normalizeFinding(item, id, input, context) {
   const copy = JSON.parse(json);
   if (!isPlain(copy)) throw new Error('Evidence is not a plain object after copying.');
   if (Object.hasOwn(evidence, 'state') !== Object.hasOwn(copy, 'state')) throw new Error('Evidence state did not survive copying.');
-  const finding = { targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: copy };
+  const place = location === undefined ? undefined : copyLocation(location);
+  const finding = { targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, ...(place ? { location: place } : {}), evidence: copy };
   deepFreeze(finding);
   return { open: OPEN_STATES.includes(copy.state), finding };
 }

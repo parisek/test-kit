@@ -10,6 +10,8 @@ Versions follow semver. Each release uses an immutable git tag.
 - Add the pack entry point `@parisek/test-kit/packs` (R7.2, R13.42, R13.43). It defines packs, layers custom checks (package, project, component, page) and runs them with fail-closed states (R8.7). Nothing runs by default (R5.1). No report change: the code still writes `schemaVersion` 2.
 - Add versioned component contracts to the packs API (R13.42, R8.7). `detectMajor` reads an exact version and its source. `defineContractSet` and `defineVersionedPack` build contract sets keyed by library major, each with an owner. The new entry point `@parisek/test-kit/packs/swiper` holds Swiper 12 and Swiper 14 sets. An unknown or unsupported version gives `missing`, never a pass. Nothing runs by default (R5.1).
 
+- Add the opt-in `lint` pack (`@parisek/test-kit/packs/lint`, R7.2, R8.10, R9.9, R9.11, #103). It reads ESLint and Stylelint JSON as two absolute checks, `eslint-rules` and `stylelint-rules`. A finding may carry a top-level `location` (R9.11). The runner `@parisek/test-kit/packs/lint/runner` starts the project's own linters in a process group with a timeout and a reduced environment. A missing tool gives `missing`, a crash or bad output gives `failed`, and exit code 1 with findings is a normal run (R8.7). Nothing runs by default (R5.1). No report change: `schemaVersion` stays 2.
+
 ### Changed
 
 - Align the specification with `docs/vision.md` (R13.9, R13.25, R13.26, R13.42). While the package is alpha, a step may break a project. Dev prerelease tags `vMAJOR.MINOR.PATCH-dev.N` are not releases. Accessibility and component packs move into the package as opt-in entry points.

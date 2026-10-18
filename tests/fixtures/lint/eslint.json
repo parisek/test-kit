@@ -1,0 +1,18 @@
+[
+  {
+    "filePath": "/example-root/src/app.js",
+    "messages": [
+      { "ruleId": "no-console", "severity": 2, "message": "Unexpected console statement.", "messageId": "unexpected", "line": 3, "column": 5, "endLine": 3, "endColumn": 17 },
+      { "ruleId": "eqeqeq", "severity": 1, "message": "Expected '===' and instead saw '=='.", "line": 9, "column": 12, "fix": { "range": [10, 12], "text": "===" } },
+      { "ruleId": null, "fatal": true, "severity": 2, "message": "Parsing error: Unexpected token", "line": 20, "column": 1 }
+    ],
+    "suppressedMessages": [],
+    "errorCount": 2,
+    "fatalErrorCount": 1,
+    "warningCount": 1,
+    "fixableErrorCount": 0,
+    "fixableWarningCount": 1,
+    "usedDeprecatedRules": []
+  },
+  { "filePath": "/example-root/src/clean.js", "messages": [], "suppressedMessages": [], "errorCount": 0, "fatalErrorCount": 0, "warningCount": 0, "fixableErrorCount": 0, "fixableWarningCount": 0, "usedDeprecatedRules": [] }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "source": "/example-root/src/app.css",
+    "deprecations": [],
+    "invalidOptionWarnings": [],
+    "parseErrors": [],
+    "errored": true,
+    "warnings": [
+      { "line": 4, "column": 3, "endLine": 4, "endColumn": 20, "rule": "color-no-invalid-hex", "severity": "error", "text": "Unexpected invalid hex color \"#ggg\" (color-no-invalid-hex)" },
+      { "line": 8, "column": 1, "endLine": 8, "endColumn": 5, "rule": "block-no-empty", "severity": "warning", "text": "Unexpected empty block (block-no-empty)" }
+    ]
+  },
+  { "source": "/example-root/src/clean.css", "deprecations": [], "invalidOptionWarnings": [], "parseErrors": [], "errored": false, "warnings": [] }
+]
