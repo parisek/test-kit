@@ -147,7 +147,7 @@ export function check(doc, ctx) { return [ /* { target, severity, message, evide
 
 - R7.1 A check must be a pure function of the stored artifact. A new check must run over an existing run without a new capture.
 - R7.2 A check must export `id`, `title`, `applies` and `check`. A CLI entry, if any, must sit behind an `import.meta.url` guard.
-- R7.3 Findings of a check go into the same `findings` list as findings of any artifact. Classes and rules apply with no special case.
+- R7.3 Findings of a check go into the same `findings` list as findings of any artifact. A class applies by the basis of the check (section 8). Normaliser rules and known differences apply to relative checks only.
 - R7.4 A run stores the version of each extractor that read its content. Two runs with different extractor versions must not be compared silently.
 - R7.5 Starter checks: heading outline (one `h1`, no skipped level), page language against the expected one, empty `title` and `alt`, broken internal links, text difference A against B.
 - R7.7 Content checks keep the stored pure check contract. Browser contracts keep `name`, `detect`, and `run`. An explicit name list selects checks or contracts. Unknown or duplicate names fail. An empty behavior selection records no executed assertion. A skipped contract does not prove a pass.
