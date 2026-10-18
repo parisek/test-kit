@@ -13,7 +13,8 @@
     "./compat/harvest": "./src/compat/harvest-plan.js",
     "./packs": "./src/packs/index.js",
     "./packs/a11y": "./src/packs/a11y/index.js",
-    "./packs/a11y/runner": "./src/packs/a11y/runner.js"
+    "./packs/a11y/runner": "./src/packs/a11y/runner.js",
+    "./packs/swiper": "./src/packs/versioned/swiper.js"
   },
   "files": [
     "bin",

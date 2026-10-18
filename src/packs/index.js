@@ -2,3 +2,5 @@
 export { LAYERS, BASES, definePack, validateCheck } from './define.js';
 export { resolveChecks } from './layers.js';
 export { runChecks } from './run.js';
+export { detectMajor, bundleBannerVersion, lockfileVersion, VERSION_SOURCES } from './versioned/version.js';
+export { defineContractSet, selectContractSet, defineVersionedPack } from './versioned/sets.js';
