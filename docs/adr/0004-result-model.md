@@ -149,7 +149,7 @@ Mixed artifact. "Absolute-only" describes the artifact kind, not one check. In a
 ### 6. Lint finding
 
 - Artifact: `lint`. Add it to the artifact lists in `validateReport`, `normalizeScope` and `queryArtifact`. At the same change, add `behavior` and `lighthouse` to `normalizeScope`, which lags today.
-- `targetId`: the component id when the file maps to a component in the project configuration. Otherwise the fixed project entry `project`, with entry kind `project`.
+- `targetId`: the component id when the file maps to a component in the project configuration. Otherwise the reserved id `@project`, with entry kind `project`. The target id pattern is `/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/` in `src/config/normalize.js` and `src/rules/model.js`. It requires a leading letter or digit, so a configured target can never be `@project`. The same trick is used for cause ids (`@normalization/...`). The `targets` axis of a rule scope rejects `@project` by the same pattern, so scope for the project entry needs its own rule. That belongs to the lint issue.
 - No `viewportId`. The file and the line go in `evidence`.
 - Evidence is the stored linter output in a sidecar under the run (R9.2, R9.4). The report holds an index entry only.
 - The entry-point shape of the linters (R13.40, spec section 17 item 7) stays open. This record does not decide it.
@@ -163,7 +163,7 @@ These rules follow R8.2 to R8.7 and vision layer rule 1.
 3. A narrower layer that switches a rule off writes an override record in the report: `checkId`, scope, reason, owner, layer. The check at that scope has state `missing` with a diagnostic. A disabled check proves nothing (R7.7). The query counts overrides.
 4. An override never hides a failed or missing run, a rule without evidence (R8.4) or an unexplained non-zero difference.
 5. An absolute finding may become `explained` only through an allowlist entry. The entry carries a reason and an owner. It binds to `checkId`, `targetId` and an absolute fingerprint. The absolute fingerprint is an open design (point 6). It does not bind to a run id or a pair key. Run ids change on each run, and an allowlist must outlive a run.
-6. Relative findings have the same gap today. A `behavior` or `lighthouse` finding has no `evidenceFingerprint`, so it cannot be `explained` through a cause today either (`src/compare/runs.js` sets the fingerprint only for `screenshot`, `html` and `content`). This is existing behavior. The record does not change it. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The fingerprint differs too. Today `evidenceFingerprint` is set only for `screenshot`, `html` and `content` findings, and `evidenceBinding` hashes both run ids (`src/compare/runs.js`, the loop before `validateReport`; `src/rules/record.js`, the binding check). Behavior and lighthouse findings have no fingerprint today, so they can never be `explained` today. An absolute fingerprint must hash the evidence of one run, not two. It must change when that evidence changes. It must not depend on the run id, or an allowlist entry dies with each run. Which bytes it hashes is open and is the first design task of the allowlist issue. Until it exists, the fail-closed rule holds. The validator and `findingIsExplained` need a second branch for it. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
+6. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The fingerprint differs too. Today `evidenceFingerprint` is set only for `screenshot`, `html` and `content` findings, and `evidenceBinding` hashes both run ids (`src/compare/runs.js`, the loop before `validateReport`; `src/rules/record.js`, the binding check). `behavior` and `lighthouse` findings, relative and absolute, have no fingerprint today, so they cannot be `explained` today. This is existing behavior. The record does not change it. An absolute fingerprint must hash the evidence of one run, not two. It must change when that evidence changes. It must not depend on the run id, or an allowlist entry dies with each run. Which bytes it hashes is open (open design question 3). The validator and `findingIsExplained` need a second branch for the allowlist. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
 
 7. R8.2, R8.3 and R8.5 for absolute checks:
    - R8.2 (a rule outside its scope does not hide a row): normaliser rules are relative-only (section 2). No absolute check has a normaliser, so nothing can hide an absolute finding. An override or allowlist entry outside its scope has no effect.
@@ -172,9 +172,11 @@ These rules follow R8.2 to R8.7 and vision layer rule 1.
 
 8. R8.6 (the viewer shows the rules that fired on the target; the other rules in scope are collapsed) for absolute checks:
    - Today `RuleAudit.vue` reads `report.rules`, `report.pair.key` and `html.diff.firedRuleIds`. Those are normaliser rules, and they stay relative-only (point 7).
-   - For an absolute check, "fired" means: the check has at least one finding on the target. "In scope" means: the check is selected for the target in the catalog and no override disables it there.
+   - For an absolute check, "fired" means: the check has at least one finding on the target. "In scope" means: the check is selected for the target and no override disables it there.
+   - What encodes selection today. Content checks are selected by one run-wide list, `run.settings.checks` (`src/content/compare-artifact.js:16`, `src/workflow/feedback.js:31,38`). Behavior contracts are selected by one run-wide list, `settings.enabled` (`src/behavior/index.js:17-28`). Neither is per target. So at run level, the catalog encodes selection: the producer writes a catalog entry exactly for each selected check. A check that is in the catalog and has no outcome at a scope is `missing`. A check that is not in the catalog is unselected. The viewer can tell the two apart at run level.
+   - Selection per target (for example, a contract that does not apply to a target) is not encoded anywhere. The ADR does not assert a field for it. It is open question 2.
    - The viewer lists the fired absolute checks first, each with its `checkId`, title, `layer` and finding count. It collapses the other checks in scope, in the same way as for rules. An override that disables a check at the target is shown in the collapsed list with its reason and owner (point 3). A check whose artifact is not `complete` is shown as `missing`, `failed` or `incompatible`, not as "no finding" (R8.7).
-   - The viewer change: `RuleAudit.vue` gets a second list, "Checks", fed by `report.checks`, `report.findings` and the overrides. It must not read `pair.key`, so it works in a `subject` report. The labels follow section 8 ("violation", "allowlisted", "no finding").
+   - The viewer change: `RuleAudit.vue` gets a second list, "Checks", fed by `report.checks`, `report.findings` and the overrides. It must not read `pair.key`, so it works in a `subject` report. The labels follow section 8 ("violation", "allowlisted", "no finding"). Until question 2 is decided, the list shows the checks of the catalog, and it does not claim to list per-target selection.
 
 ### 8. Classification
 
@@ -204,16 +206,19 @@ The table lists every place in `src/` that builds a report finding. The search: 
 | Producer (file) | Artifact | Catalog entry (`checkId`) | Basis | Layer | `runId` |
 | --- | --- | --- | --- | --- | --- |
 | `src/compare/runs.js:175` | `screenshot` | none (implicit) | relative | package | none |
+| `src/report/model.js:30` (`adaptV1`, the legacy adapter) | `screenshot` | none (implicit) | relative | package | none |
 | `src/compare/runs.js:183` | `html` | none (implicit) | relative | package | none |
 | `src/content/compare.js` through `runs.js:189`: `heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links` | `content` | the check id | absolute | package | `pair.bRunId` (today only side B enters the list) |
 | same: `text-difference` | `content` | `text-difference` | relative | package | none |
-| `src/behavior/compare-artifact.js:68` through `runs.js:193` | `behavior` | `behavior.<contract name>` | relative | by contract origin | none |
+| `src/behavior/compare-artifact.js:68` through `runs.js:193` | `behavior` | open: see "Open design questions", question 1 | relative | open (by contract origin) | none |
 | `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-change'` | `lighthouse` | `lighthouse-change` | relative | package | none |
 | `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-budget'` | `lighthouse` | `lighthouse-budget` | absolute | project | `pair.bRunId` |
 
 Content findings with `evidence.state` `unknown` or `incomplete` do not enter the report. `src/content/compare.js` drops them (`result.findings = ... filter(item => !['unknown', 'incomplete'].includes(item.evidence?.state))`) and sets `incomplete`, which makes the artifact state `missing`. This matches the rule for a failed check below: no finding, and a non-complete state.
 
-Behavior. The step id is the contract name (`id: contract.name` in `src/behavior/index.js`). The finding is built from a compared step whose state is `changed` or `failed` (`compareBehavior` in `src/behavior/compare.js`). So it is about the difference of A and B and its basis is `relative`. Each executed contract enters the report catalog as `behavior.<contract name>`. The contract name is already a plain identifier (`/^[a-z0-9][a-z0-9-]{0,79}$/`, `src/behavior/contracts.js`). The prefix keeps it apart from a content check id. The producer fills `layer` from the origin of the contract: `package` for a shared contract, `project` for a contract under `contracts/project/` or `tests/behavior/project/` (spec section 13), and `component` for a contract that sits next to one component. The producer must know the origin. Today the registry does not record it. That is part of the producer change. In a `subject` report the same contract registers as an absolute entry. Its result state is judged on its own, and `runId` is `subject.runId`. A skipped contract is not a finding today and stays so. It also does not prove a pass (R7.7). This record does not change that.
+Behavior. The identity of a behavior finding today is the step id, not the contract name. The finding id is `behavior-<target>-<viewport>-<step id>` and it has no other identity field (`src/behavior/compare-artifact.js:68`). A step id is one of `<contract>` (skipped, not applicable, or no marker), `<contract>-detect`, `<contract>-<N>` (instance N) or `<contract>-scoping` (`src/behavior/index.js`, the loop over `contracts`). The finding is built from a compared step whose state is `changed` or `failed` (`compareBehavior` in `src/behavior/compare.js`). So it is about the difference of A and B and its basis is `relative`. The contract name is a plain identifier (`/^[a-z0-9][a-z0-9-]{0,79}$/`, `src/behavior/contracts.js`). The ADR requires that the producer change keeps the contract name on the finding. Detect steps. `execute(`${contract.name}-detect`, ...)` records a step `<contract>-detect` (`src/behavior/index.js`). `compare-artifact.js:68` turns every step whose state is not `same` into a finding. It has no `-detect` filter. A failed or changed detect step would therefore get the identity `<contract>-detect`, which is not a contract name and has no catalog entry. `src/workflow/feedback.js` already skips a `-detect` step when it is `complete`. The validator rule "a `checkId` that is not in the catalog is an error" would reject such a finding. So the ADR does not claim that `behavior.<contract name>` is the identity. The requirement on the producer change is: every behavior finding, from any step, names its contract and a catalog entry that exists. Whether a detect finding folds into the contract entry or has its own entry is open question 1.
+
+The catalog is per report. The same contract is `relative` in a pair report and `absolute` in a `subject` report (section 1). The catalog entry is written by the producer for the mode of that report. How step ids map to a contract, and to a catalog entry, is open question 1. The layer of a behavior finding follows the origin of the contract: `package` for a shared contract, `project` for a contract under `contracts/project/` or `tests/behavior/project/` (spec section 13), and `component` for a contract that sits next to one component. Today the registry does not record the origin. That is part of the same open question. A skipped contract is not a finding today and stays so. It also does not prove a pass (R7.7). This record does not change that.
 
 Out of scope on purpose:
 
@@ -226,11 +231,11 @@ Out of scope on purpose:
   | content `missing` (no evidence, invalid evidence, or no checks selected) | artifact state `missing`. No finding. Never a pass |
   | content finding with `evidence.state` `unknown` or `incomplete` | the check state is `incomplete`. The artifact state is `missing`. The finding is not a violation and not a pass |
   | content finding with no such state | an absolute finding, `unexplained` until allowlisted |
-  | behavior step `failed` | absolute finding on `behavior.<contract>` (basis `absolute` in a `subject` report) |
+  | behavior step `failed` | a finding on the contract of the step (the catalog identity is open question 1). Basis `absolute` in a `subject` report |
   | behavior step `skipped` or `incompatible` | artifact state not `complete`. Never a pass (R7.7, R8.7) |
   | behavior `passed` | counted, not a finding |
 
-  The feedback summary keeps `contractId` for the contract. In a report, the contract is `checkId: behavior.<contract name>` (the table above). A later change aligns the two names. The producers' code is not changed here.
+  The feedback summary sets `contractId: step.id` (`src/workflow/feedback.js`). That is the step id, not the contract name, so it has the same identity gap as the report finding (open question 1).
 - New producers (`lint`, `a11y`, hygiene, render integrity). They register their own entries when they are built.
 
 The count is 5 report-finding call sites in `src/compare/runs.js`, 7 rows above. A producer that the grep did not find would be a gap. The grep ran on the files in `src/` only. It did not run on `frontend/`, which holds readers.
@@ -312,12 +317,12 @@ The finding has no `evidenceFingerprint`, because no absolute fingerprint exists
 
 ### Lint finding (absolute)
 
-Report has `subject: { "kind": "single-run", "runId": "run-1" }`. The target is the fixed project entry because the file does not map to a component:
+Report has `subject: { "kind": "single-run", "runId": "run-1" }`. The target is the reserved project entry because the file does not map to a component:
 
 ```json
 {
   "id": "f-3",
-  "targetId": "project",
+  "targetId": "@project",
   "artifact": "lint",
   "checkId": "eslint-no-console",
   "runId": "run-1",
@@ -332,7 +337,7 @@ The entry sits at target scope (section 5) and its artifact index has no `a`, `b
 
 ```json
 {
-  "id": "project",
+  "id": "@project",
   "kind": "project",
   "viewports": [],
   "artifacts": {
@@ -494,6 +499,15 @@ Not measured: the effort in hours, and the number of lines.
 - `validateContentComparison` accepts only ids in `builtinChecks`. A project or component rule needs the catalog route. That is part of the producer change.
 - The spec edits this record implies: R7.2 (export `basis`), R7.3 (class by basis, rules for relative checks only; see "R7.3 is a special case"), the class table in section 8, the shape in section 9 (`checks`, `subject`, `runId`, `layer`, `overrides`, `schemaVersion` 3) and R10.5 (first view without a pair). They land in a separate pull request, after the owner approves this record (#100 and #96 cover related edits).
 - Follow-up issues, each opened after approval: report shape and validator; classifier branch for target scope and basis; allowlist binding; `lint` artifact and producer; viewer labels and first view; query changes. Their order and size are not decided here.
+
+## Open design questions (decided in the implementation issue)
+
+The record cannot prove the answers below from the code. Each one states the question and the constraint the answer must meet.
+
+1. Behavior identity. How does a step id (`<contract>`, `<contract>-detect`, `<contract>-<N>`, `<contract>-scoping`) map to a contract, and to a catalog entry? Constraints: the report finding keeps the contract name; a failed or changed `-detect` step either folds into the contract entry or has its own catalog entry, and never produces an uncatalogued `checkId`; one catalog entry exists for each selected contract, not for each step; the catalog key does not collide with a content check id (a prefix such as `behavior.` is one way); the feedback summary uses the same identity (`contractId` is a step id today); the contract origin (package, project, component) is recorded by the registry, which does not do it today.
+2. Selection per target. Where is it stored when a check or contract is selected for some targets and not for others? Candidates: a list of selected check ids on each entry, or a `scope.checks` list on each artifact. Constraints: the viewer tells an unselected check from a selected check with a missing outcome (R8.7); the field is derived from run settings and never invented by the viewer; it works in a `subject` report; it keeps `report.json` small (R9.2). Run-level selection is already encoded by the catalog (section 7, point 8).
+3. The absolute fingerprint (section 7, point 6).
+4. The allowlist file and its reason and owner fields (section 7, point 5).
 
 ## Open points
 
