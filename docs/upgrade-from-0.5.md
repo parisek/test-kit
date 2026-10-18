@@ -1,0 +1,60 @@
+# Upgrade from v0.5.0 to `main`
+
+Status: measured on 2026-10-19. It serves issue #105 and R13.9.
+`main` is commit 245611d. Its `package.json` still says version `0.5.0`. No tag newer than `v0.5.0` exists (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). So "current main" is not an installable release yet. A project that wants it today pins a commit. A project that wants a tag waits for the next tag.
+
+## Result
+
+Nothing in the project-facing interface breaks. The change from v0.5.0 to `main` only adds files.
+
+## What changed
+
+Measured with `git diff v0.5.0 origin/main` (12 commits, `git log --oneline v0.5.0..origin/main`).
+
+| Area | Change | Evidence |
+| --- | --- | --- |
+| `src/` outside `src/packs/` | None | `git diff --name-only v0.5.0 origin/main -- src bin templates frontend viewer scripts` lists only `src/packs/` files. |
+| `bin/`, `templates/`, `viewer/` | None | Same command. |
+| CLI | None | `node bin/cli.js --help` prints the same bytes on both revisions. Both print `0.5.0` for `--version`. |
+| Configuration | None | `normalizeConfig` accepts the same keys. The shipped template gives the same result on both. `src/config/` is unchanged. |
+| Root export (`.`) | None | The list of exported names is the same on both. |
+| `package.json` `exports` | Six entries added | `./packs`, `./packs/a11y`, `./packs/a11y/runner`, `./packs/swiper`, `./packs/lint`, `./packs/lint/runner`. The three v0.5.0 entries stay. |
+| `package.json` peer dependencies | `axe-core` added as optional | `^4.10.0`, `peerDependenciesMeta.optional: true`. A project that does not use the axe runner needs nothing. |
+| `package.json` `files` | None | |
+| Release workflow | Narrower | `.github/workflows/release.yml` now runs on stable tags `vX.Y.Z` only. A dev tag `vX.Y.Z-dev.N` starts no run (R13.26). |
+| CI | One step added | `node tests/integration/check-a11y-runner.mjs`. |
+| Documentation | Added | `docs/vision.md`, `docs/adr/0004-result-model.md`, `docs/process-skills.md`, pack READMEs. The specification changed (R13.9, R13.25, R13.26, R13.42). |
+
+The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). No command and no configuration key selects them. A project that does not import them sees no change.
+
+## Steps
+
+1. Pin the new version. Today this means a commit, because no newer tag exists:
+   `npm install -D github:parisek/test-kit#<commit>`. Not verified: this exact install from a commit in a project. R13.27 asks for an exact tag. Wait for the tag if you can.
+2. Keep `test-kit.config.json` as it is. No key changes.
+3. Keep your project aliases as they are. No command or flag changes.
+4. Optional, only when you use `@parisek/test-kit/packs/a11y/runner`: `npm install -D axe-core@^4.10.0`.
+5. Run the checks in the list below.
+
+## What breaks
+
+- Shipped: nothing.
+- Planned, not in the code: `report.json` goes to `schemaVersion` 3. `pair` becomes optional. A reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion` (R9.1, `CHANGELOG.md`, Unreleased, Migration). The code still writes version 2 on `main`. No project change is needed today.
+- Stored `known_diffs` records bind a comparator policy hash. This change set does not alter the comparator, so existing records stay valid. Not verified on a real project.
+
+## Verification
+
+Run by the author of this document, in this repository, on 2026-10-19:
+
+- `npm test` on `main`: 267 tests, 267 pass, 0 fail. The vision (2026-10-18) states 161. The count rose as the pack tests merged.
+- `node tests/integration/check-consumer-install.mjs`: the packed package installs, reinstalls from its lockfile, and passes the CLI, import, query and viewer checks in three synthetic layouts (parent, WordPress, Drupal), using the offline npm cache. The script states that `init`, exact git release adoption and DDEV are not verified.
+- Export resolution: every entry in `exports` loads with `import()` on `main`.
+
+Not run, because no project checkout is in scope:
+
+| Command | Expected result | State |
+| --- | --- | --- |
+| `npx test-kit --version` | Prints the installed version, for example `0.5.0` for a commit of `main`. Exit 0. | Not run in a project |
+| `npx test-kit capture --side local --label before` | One JSON line with `id`, `state`, `manifestPath`. Exit 0 when `state` is `complete`. | Not run in a project |
+| `npx test-kit diff <run-a> <run-b> --output tests/visual/report` | One JSON line with `reportPath`. Exit 0. | Not run in a project |
+| `npx test-kit summary tests/visual/report/report.json --filter unexplained` | One JSON line. | Not run in a project |

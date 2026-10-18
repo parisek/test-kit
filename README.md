@@ -175,6 +175,9 @@ node bin/cli.js --help
 - [Screenshot contracts](docs/contracts.md).
 - [Local workflow](docs/usage.md).
 - [Release procedure](RELEASING.md).
+- [The project seam](docs/seam.md): what the 1.0 release candidate freezes.
+- [Upgrade from v0.5.0](docs/upgrade-from-0.5.md).
+- [Migration guide for a project that pins an old version](docs/migration-guide-tailwind-base.md).
 - [Roadmap](https://github.com/parisek/test-kit/issues/5).
 - [Scoped workflow and history](https://github.com/parisek/test-kit/issues/84).
 
