@@ -7,6 +7,7 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Changed
 
 - Align the specification with `docs/vision.md` (R13.9, R13.25, R13.26, R13.42). While the package is alpha, a step may break a project. Dev prerelease tags `vMAJOR.MINOR.PATCH-dev.N` are not releases. Accessibility and component packs move into the package as opt-in entry points.
+- Relabel the content, behavior and Lighthouse sections of `docs/contracts.md` from "(unreleased)" to "(v0.2.0)". They shipped in v0.2.0. This is separate from the merge rule and R13.x.
 - State one merge rule in `AGENTS.md` and `docs/development-loop.md`.
 
 ### Migration
