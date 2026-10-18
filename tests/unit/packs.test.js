@@ -245,3 +245,35 @@ test('holes in pack, check, available and override lists give a clear error', ()
   assert.throws(() => resolveChecks({ packs: sparse(1) }), /hole/);
   assert.throws(() => plan({ overrides: sparse(1) }), /hole/);
 });
+
+test('a check cannot change a Map, Set, Date or context that a later check reads', () => {
+  const seen = [];
+  const writer = mk('a-writer', { check: (v, c) => { v.map.set('k', 2); v.set.add(9); v.date.setTime(0); c.shared.map.set('k', 2); c.shared.set.add(9); return []; } });
+  const reader = mk('b-reader', { check: (v, c) => { seen.push([v.map.get('k'), v.set.has(9), v.date.getTime(), c.shared.map.get('k'), c.shared.set.has(9)]); return []; } });
+  const make = () => ({ map: new Map([['k', 1]]), set: new Set([1]), date: new Date(5) });
+  const value = make();
+  const context = { ...ctx, shared: make() };
+  const p = resolveChecks({ custom: [{ layer: 'project', check: writer }, { layer: 'project', check: reader }] });
+  const result = runChecks(p, { artifact: 'content', value }, context);
+  assert.deepEqual(seen, [[1, false, 5, 1, false]]);
+  assert.equal(result.checks['b-reader'].state, 'complete');
+  assert.equal(value.map.get('k'), 1); assert.equal(context.shared.set.has(9), false);
+});
+
+test('evidence toJSON cannot change evidence.state, and a hook or accessor never yields complete', () => {
+  const run = evidence => runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('c', { check: () => [fnd('m', { evidence })] }) }] }), input({ title: 'x' }), ctx);
+  for (const evidence of [{ state: 'incomplete', toJSON() { return { note: 'x' }; } }, { state: 'unknown', toJSON: () => ({}) }]) {
+    assert.notEqual(run(evidence).checks.c.state, 'complete');
+    assert.notEqual(run(evidence).state, 'complete');
+  }
+  assert.equal(run({ get state() { return 'incomplete'; } }).checks.c.state, 'missing');
+  assert.equal(run({ state: 'incomplete' }).checks.c.state, 'missing');
+  assert.equal(run({ state: 'Incomplete' }).checks.c.state, 'complete', 'only the lowercase value is an open state');
+});
+
+test('override scope kinds accepts only single-run (R8.5)', () => {
+  const ov = kinds => plan({ overrides: [{ checkId: 'example-title', layer: 'page', reason: 'r', owner: 'o', scope: { kinds } }] });
+  assert.throws(() => ov(['pair']), /scope/);
+  assert.throws(() => ov(['single-run', 'pair']), /scope/);
+  assert.doesNotThrow(() => ov(['single-run']));
+});

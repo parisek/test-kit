@@ -1,6 +1,7 @@
 // Pure. Builds the plan of checks and overrides. It runs nothing (R4.4, R5.1).
 import { LAYERS, dense, definePack, validateCheck, isText, isList } from './define.js';
 const SCOPE_KEYS = ['targets', 'artifacts', 'kinds'];
+const KINDS = ['single-run']; // R8.5 defines this value for the kinds axis
 const resolved = new WeakSet();
 export const isResolvedPlan = plan => resolved.has(plan);
 const plain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
@@ -14,7 +15,7 @@ function validateOverride(item, byId) {
   if (!isText(item.reason, 500) || !isText(item.owner)) throw new Error(`An override of ${item.checkId} needs a reason and an owner.`);
   const scope = item.scope ?? {};
   // Own keys only. A prototype, a symbol, a hidden key or an unknown key is invalid, so a bad scope never becomes global.
-  if (!plain(scope) || Reflect.ownKeys(scope).some(key => !SCOPE_KEYS.includes(key)) || SCOPE_KEYS.some(key => Object.hasOwn(scope, key) && !isList(scope[key]))) throw new Error(`An override of ${item.checkId} has an invalid scope.`);
+  if (!plain(scope) || Reflect.ownKeys(scope).some(key => !SCOPE_KEYS.includes(key)) || SCOPE_KEYS.some(key => Object.hasOwn(scope, key) && !isList(scope[key])) || (Object.hasOwn(scope, 'kinds') && !scope.kinds.every(kind => KINDS.includes(kind)))) throw new Error(`An override of ${item.checkId} has an invalid scope.`);
   return Object.freeze({ checkId: item.checkId, layer: item.layer, reason: item.reason, owner: item.owner, scope: Object.freeze(Object.fromEntries(SCOPE_KEYS.filter(key => Object.hasOwn(scope, key)).map(key => [key, scope[key]]).map(([key, value]) => [key, Object.freeze([...value])]))) });
 }
 

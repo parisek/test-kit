@@ -37,11 +37,16 @@ function normalizeFinding(item, id, input, context) {
   if (!SEVERITIES.includes(severity)) throw new Error('A finding needs severity info, warning or error.');
   if (!str(message, MAX_MESSAGE)) throw new Error('A finding needs a message.');
   if (!isPlain(evidence)) throw new Error('A finding needs an evidence object.');
-  const json = JSON.stringify(evidence);
+  // structuredClone ignores toJSON and throws on a function, so no hook can change what we read.
+  // The marker is read from this copy, before any serialisation.
+  const raw = structuredClone(evidence);
+  if (!isPlain(raw)) throw new Error('Evidence is not a plain object after copying.');
+  const open = OPEN_STATES.includes(raw.state);
+  const json = JSON.stringify(raw);
   if (typeof json !== 'string' || json.length > MAX_EVIDENCE) throw new Error('A finding has unusable or oversized evidence.');
   const copy = JSON.parse(json);
   if (!isPlain(copy)) throw new Error('Evidence is not a plain object after copying.');
-  return deepFreeze({ targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: copy });
+  return { open, finding: deepFreeze({ targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: copy }) };
 }
 
 function normalizeResult(result, id, input, context) {
@@ -57,10 +62,12 @@ function normalizeResult(result, id, input, context) {
 
 // The one function that turns untrusted check output into trusted data.
 // The caller runs it inside the try of that one check.
-function sanitize(check, layer, value, input, context) {
-  const findings = normalizeResult(check.check(value, context), check.id, input, context).map(item => Object.freeze({ ...item, layer }));
-  const open = findings.some(item => OPEN_STATES.includes(item.evidence.state));
-  return { findings, open };
+function sanitize(check, layer, snapshotValue, input, snapshot) {
+  // Each check gets its own fresh copy, so a Map, a Set or a Date that it changes cannot reach another check.
+  const value = deepFreeze(structuredClone(snapshotValue));
+  const context = deepFreeze(structuredClone(snapshot));
+  const items = normalizeResult(check.check(value, context), check.id, input, context);
+  return { findings: items.map(item => Object.freeze({ ...item.finding, layer })), open: items.some(item => item.open) };
 }
 
 export function runChecks(plan, input, context = {}) {
