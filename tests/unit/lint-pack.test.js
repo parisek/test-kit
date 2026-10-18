@@ -465,3 +465,12 @@ test('the file scheme is matched in any case, and a percent sign continues a nam
   assert.equal(scrubRoots('at File://LocalHost/srv/proj/c.js', '/srv/proj'), 'at c.js');
   assert.equal(scrubRoots('at /srv/proj%2Dold/c.js and /srv/proj/d.js', '/srv/proj'), 'at /srv/proj%2Dold/c.js and d.js');
 });
+
+test('a percent sign before the root blocks a match, and an encoded separator after it counts as a separator', () => {
+  assert.equal(scrubRoots('x%/srv/proj/a', '/srv/proj'), 'x%/srv/proj/a');
+  assert.equal(scrubRoots('x /srv/proj/a', '/srv/proj'), 'x a');
+  assert.equal(scrubRoots('at /srv/proj%2Fx.js', '/srv/proj'), 'at x.js');
+  assert.equal(scrubRoots('at /srv/proj%2fx.js and /srv/proj%5Cy.js and /srv/proj%5cz.js', '/srv/proj'), 'at x.js and y.js and z.js');
+  assert.equal(scrubRoots('at file:///srv/proj%2Fx.js', '/srv/proj'), 'at x.js');
+  assert.equal(scrubRoots('at /srv/proj%2Dold/x.js', '/srv/proj'), 'at /srv/proj%2Dold/x.js');
+});
