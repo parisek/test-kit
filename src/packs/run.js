@@ -35,6 +35,7 @@ function normalizeFinding(item, id, input, context) {
   // The caller's result was cloned once, so `evidence` is already our own copy.
   // The open marker is read from the stored copy. A `state` that is present but not a string is invalid.
   if (Object.hasOwn(evidence, 'state') && typeof evidence.state !== 'string') throw new Error('Evidence state must be a string.');
+  if (typeof evidence.state === 'string' && !OPEN_STATES.includes(evidence.state) && OPEN_STATES.includes(evidence.state.trim().toLowerCase())) throw new Error("Evidence state must be exactly 'incomplete' or 'unknown'.");
   const json = JSON.stringify(evidence);
   if (typeof json !== 'string' || json.length > MAX_EVIDENCE) throw new Error('A finding has unusable or oversized evidence.');
   const copy = JSON.parse(json);

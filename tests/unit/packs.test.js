@@ -255,7 +255,10 @@ test('evidence toJSON cannot change evidence.state, and a hook or accessor never
   }
   assert.equal(run({ get state() { return 'incomplete'; } }).checks.c.state, 'missing');
   assert.equal(run({ state: 'incomplete' }).checks.c.state, 'missing');
-  assert.equal(run({ state: 'Incomplete' }).checks.c.state, 'complete', 'only the lowercase value is an open state');
+  for (const state of ['Incomplete', ' unknown', 'UNKNOWN', 'incomplete ']) {
+    assert.equal(run({ state }).checks.c.state, 'failed', state);
+    assert.match(run({ state }).checks.c.diagnostic, /exactly 'incomplete' or 'unknown'/);
+  }
 });
 
 test('override scope kinds accepts only single-run (R8.5)', () => {
@@ -358,8 +361,10 @@ test('the snapshot keeps shared references and is frozen and shared by all check
   assert.equal(seen[1], seen[2], 'all checks get the same frozen snapshot');
   assert.equal(shared.n, 1);
   assert.equal(context.list.length, 0);
-  const cyclic = { name: 'x' }; cyclic.self = cyclic;
-  assert.equal(runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('cyc') }] }), { artifact: 'content', value: cyclic }, ctx).checks.cyc.state, 'complete');
+  const cyclic = { name: 'x', inner: {} }; cyclic.inner.self = cyclic;
+  const cyc = runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('cyc') }] }), { artifact: 'content', value: cyclic }, ctx);
+  assert.equal(cyc.checks.cyc.state, 'failed');
+  assert.match(cyc.checks.cyc.diagnostic, /value\.inner\.self is a cycle/);
 });
 
 test('depth limit: at the limit passes, above it fails with a message, very deep fails cleanly', () => {
@@ -390,4 +395,35 @@ test('the result of a check is read once: then, length and elements', () => {
   const result = runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('once', { check: () => list }) }] }), input({ title: 'x' }), ctx);
   assert.equal(result.checks.once.state, 'complete');
   assert.deepEqual(reads, { then: 1, length: 1, item: 1 });
+});
+
+test('depth is the real height of the graph, whatever the property order or sharing', () => {
+  const p = resolveChecks({ custom: [{ layer: 'project', check: mk('deep') }] });
+  const run = value => runChecks(p, { artifact: 'content', value }, ctx);
+  const nest = depth => { const root = {}; let node = root; for (let i = 0; i < depth; i += 1) { node.n = {}; node = node.n; } return root; };
+  const shared = nest(40); // a node with height 41; 227 + 41 is above the limit
+  const deepPath = nest(MAX_DEPTH - 30); // 226 levels, within the limit on its own
+  let tail = deepPath; while (tail.n) tail = tail.n; tail.s = shared;
+  const shallowFirst = { a: shared, b: deepPath };
+  const deepFirst = { b: deepPath, a: shared };
+  for (const value of [shallowFirst, deepFirst]) {
+    const out = run(value);
+    assert.equal(out.checks.deep.state, 'failed');
+    assert.match(out.checks.deep.diagnostic, /deeper than 256 levels/);
+  }
+  // A DAG with two links per node has few edges but real depth n.
+  const dag = n => { let node = {}; for (let i = 0; i < n; i += 1) node = { a: node, b: node }; return node; };
+  for (const n of [1000, 5000]) {
+    const out = run(dag(n));
+    assert.equal(out.checks.deep.state, 'failed');
+    assert.match(out.checks.deep.diagnostic, /deeper than 256 levels/, `n=${n}`);
+    assert.doesNotMatch(out.checks.deep.diagnostic, /call stack/);
+  }
+  assert.equal(run(dag(MAX_DEPTH - 1)).checks.deep.state, 'complete');
+  // A wide graph of shared nodes stays linear.
+  const hub = { x: 1 };
+  const wide = { list: Array.from({ length: 100000 }, () => ({ hub, other: hub })) };
+  const start = performance.now();
+  assert.equal(run(wide).checks.deep.state, 'complete');
+  assert.ok(performance.now() - start < 5000);
 });

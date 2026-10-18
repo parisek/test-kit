@@ -27,10 +27,12 @@ Input contract: the stored value and the context are JSON-like data. Allowed: pr
 One walk rejects everything else before any check runs: Map, Set, Date, ArrayBuffer, SharedArrayBuffer, typed arrays, DataView, RegExp, Error, class instances, functions, symbols, BigInt, accessors and sparse arrays. The run state is `failed`, each applicable check is `failed`, and the diagnostic names the type and the path, for example `value.items[3] is a Map`.
 One function sanitises the output of one check inside that check's try: it validates, copies, round-trips evidence through JSON, requires a plain object, reads `evidence.state` and adds `layer`. A whitespace-only message is invalid. A list with a hole is an error in `definePack` and `resolveChecks`.
 
-Nesting is limited to 256 levels, counted from the wrapper `{ value, context }`, so the value starts at level 1. The limit is a chosen safety bound, not a measured number. The walk is iterative, so a very deep input fails with a message and never overflows the stack.
+Nesting is limited to 256 levels, counted from the wrapper `{ value, context }`, so the value starts at level 1. The walk measures the real height of the graph with one memo per node, in any property order. A node that many paths share is measured once, and shared nodes are allowed.
+A cycle is rejected with the path where it closes. JSON-like data has no cycles.
+`undefined`, `-0`, `NaN` and `Infinity` are accepted as plain values. The contract is JSON-like, not JSON-exact. The limit is a chosen safety bound, not a measured number. The walk is iterative, so a very deep input fails with the depth message, before the clone, and never overflows the stack.
 `runChecks` takes ONE `structuredClone` of the value and the context together, so shared references stay shared (`value.ref === context.ref` holds). It deep-freezes the clone once. All checks get that same frozen snapshot. A write to it throws a `TypeError` and fails that check. The caller's objects are never read again.
 Evidence is copied with `structuredClone` before anything else. A `toJSON` hook or a function makes the check `failed`. The state marker is read from that copy.
-An open state is exactly `evidence.state` of `incomplete` or `unknown`, in lowercase.
+An open state is exactly `evidence.state` of `incomplete` or `unknown`, in lowercase and unpadded. A value that equals one of them only after `trim()` and `toLowerCase()` makes the check `failed`.
 Checks are synchronous (R7.1), so there is no timeout.
 An override scope `kinds` list accepts only `single-run` (R8.5).
 

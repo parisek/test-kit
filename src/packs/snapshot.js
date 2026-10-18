@@ -8,36 +8,72 @@ const typeName = value => {
   try { return Object.prototype.toString.call(value).slice(8, -1); } catch { return 'object'; }
 };
 
-// Walks without recursion. It throws an Error that names the path and the type.
-function inspect(root) {
-  const seen = new WeakSet();
-  const stack = [{ node: root, path: '', depth: 0 }];
-  while (stack.length > 0) {
-    const { node, path, depth } = stack.pop();
-    const type = typeof node;
-    if (node === null || type === 'string' || type === 'number' || type === 'boolean' || type === 'undefined') continue;
-    if (type !== 'object') throw new Error(`${shown(path) || 'input'} is a ${type}, which is not JSON-like data.`);
-    if (seen.has(node)) continue;
-    seen.add(node);
-    if (depth > MAX_DEPTH) throw new Error(`${shown(path)} is nested deeper than ${MAX_DEPTH} levels.`);
-    const proto = Object.getPrototypeOf(node);
-    const isArray = Array.isArray(node);
-    if (!(isArray ? proto === Array.prototype : proto === Object.prototype || proto === null)) throw new Error(`${shown(path) || 'input'} is a ${typeName(node)}, which is not JSON-like data.`);
-    const keys = Reflect.ownKeys(node);
-    if (isArray) {
-      const length = node.length;
-      if (keys.length !== length + 1) throw new Error(`${shown(path)} is a sparse array or has extra properties.`);
-      for (let index = 0; index < length; index += 1) if (!Object.hasOwn(node, index)) throw new Error(`${shown(path)}[${index}] is a hole in an array.`);
-    }
-    for (const key of keys) {
-      if (isArray && key === 'length') continue;
-      const where = isArray ? `${path}[${String(key)}]` : path === '' ? String(key) : `${path}.${String(key)}`;
-      if (typeof key === 'symbol') throw new Error(`${shown(where)} is a symbol key, which is not JSON-like data.`);
-      const descriptor = Object.getOwnPropertyDescriptor(node, key);
-      if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) throw new Error(`${shown(where)} is an accessor or hidden property, which is not JSON-like data.`);
-      stack.push({ node: descriptor.value, path: where, depth: depth + 1 });
-    }
+const ON_PATH = -1;
+
+// Checks one object and lists its children. It throws an Error that names the path and the type.
+function children(node, path) {
+  const proto = Object.getPrototypeOf(node);
+  const isArray = Array.isArray(node);
+  if (!(isArray ? proto === Array.prototype : proto === Object.prototype || proto === null)) throw new Error(`${shown(path) || 'input'} is a ${typeName(node)}, which is not JSON-like data.`);
+  const keys = Reflect.ownKeys(node);
+  if (isArray) {
+    const length = node.length;
+    if (keys.length !== length + 1) throw new Error(`${shown(path)} is a sparse array or has extra properties.`);
+    for (let index = 0; index < length; index += 1) if (!Object.hasOwn(node, index)) throw new Error(`${shown(path)}[${index}] is a hole in an array.`);
   }
+  const out = [];
+  for (const key of keys) {
+    if (isArray && key === 'length') continue;
+    const where = isArray ? `${path}[${String(key)}]` : path === '' ? String(key) : `${path}.${String(key)}`;
+    if (typeof key === 'symbol') throw new Error(`${shown(where)} is a symbol key, which is not JSON-like data.`);
+    const descriptor = Object.getOwnPropertyDescriptor(node, key);
+    if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) throw new Error(`${shown(where)} is an accessor or hidden property, which is not JSON-like data.`);
+    out.push({ child: descriptor.value, where });
+  }
+  return out;
+}
+
+// Iterative post-order walk. Each object gets a height (1 + the tallest child), computed once, so a
+// node that many paths reach is measured once and the walk is linear in nodes and edges. A node that is
+// reached again while it is still on the path is a cycle. The wrapper { value, context } is level 0.
+function inspect(root) {
+  const heights = new WeakMap(); // node -> height, or ON_PATH while the node is open
+  const frames = [];
+  let rootHeight = 0;
+  const enter = (node, path) => {
+    const type = typeof node;
+    if (node === null || type === 'string' || type === 'number' || type === 'boolean' || type === 'undefined') return 0;
+    if (type !== 'object') throw new Error(`${shown(path) || 'input'} is a ${type}, which is not JSON-like data.`);
+    if (heights.has(node)) {
+      const known = heights.get(node);
+      if (known === ON_PATH) throw new Error(`${shown(path)} is a cycle, which is not JSON-like data.`);
+      return known;
+    }
+    heights.set(node, ON_PATH);
+    frames.push({ node, path, list: children(node, path), index: 0, tallest: 0 });
+    return null;
+  };
+  const first = enter(root, '');
+  if (first !== null) return;
+  while (frames.length > 0) {
+    const frame = frames[frames.length - 1];
+    if (frame.index < frame.list.length) {
+      const { child, where } = frame.list[frame.index];
+      frame.index += 1;
+      const height = enter(child, where);
+      if (height !== null) frame.tallest = Math.max(frame.tallest, height);
+      continue;
+    }
+    frames.pop();
+    const height = 1 + frame.tallest;
+    heights.set(frame.node, height);
+    if (frames.length > 0) {
+      const parent = frames[frames.length - 1];
+      parent.tallest = Math.max(parent.tallest, height);
+      if (height > MAX_DEPTH) throw new Error(`${shown(frame.path)} is nested deeper than ${MAX_DEPTH} levels.`);
+    } else rootHeight = height;
+  }
+  return rootHeight;
 }
 
 function freeze(root) {
