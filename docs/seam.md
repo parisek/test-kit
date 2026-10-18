@@ -9,6 +9,7 @@ The seam is everything a project touches: its configuration file, the commands i
 
 - Before the release candidate tag, a break of any item costs nothing. The package is alpha (vision, Maturity; R13.9). A break needs a changelog entry and a migration note.
 - From the release candidate tag, a change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
+- The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The specification defines stable tags and `-dev.N` tags, and no form for a release candidate tag. `release.yml` runs on stable tags only. The form of the release candidate tag is undefined: owner decision.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
 - Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. No release candidate tag exists today.
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
@@ -28,7 +29,7 @@ Source of truth: `src/config/normalize.js` (`normalizeConfig`), read by `src/con
 
 The sketch in specification section 5 (`targets: { source: ... }`, `budgets`) is not the shipped shape. The code rejects `budgets`, `packs`, `allowlist`, `lint` and `a11y` as unsupported keys (measured on v0.5.0 and on `main`, 2026-10-19). Any other unknown key at any level also fails.
 
-Marking of the file as a whole: frozen for the keys in the table, with `schemaVersion: 1`. A new optional key is an addition. A new required key or a removed key is a break.
+Marking of the file as a whole: frozen for the keys in the table, with `schemaVersion: 1`. A new optional key is an addition. A new required key or a removed key is a break. The defaults and the values of the check IDs are not frozen (see the rows below).
 
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
@@ -111,6 +112,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 
 Other command facts:
 
+- The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
 - The default store directory `.test-kit` is stable (R12.1). Its content layout is not part of the seam.
 - `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today.
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
@@ -153,11 +155,11 @@ Source of truth: `src/packs/define.js`, `src/packs/layers.js`, `src/packs/run.js
 | `LAYERS` = `package`, `project`, `component`, `page` | Frozen | A pack check has layer `package`. |
 | `BASES` = `absolute`, `relative` | Frozen | R8.10. |
 | `resolveChecks({ available, packs, custom, overrides })` | Frozen | It runs nothing. It rejects unknown packs, duplicate IDs and bad overrides. A narrower layer cannot replace a broader check. |
-| An override: `checkId`, `layer`, `reason`, `owner`, optional `scope` (`targets`, `artifacts`, `kinds`) | Frozen | `scope.kinds` accepts only `single-run` (R8.5). An override makes the check `missing` with a diagnostic. |
+| An override: `checkId`, `layer`, `reason`, `owner`, optional `scope` (`targets`, `artifacts`, `kinds`) | Frozen | `scope.kinds` accepts only `single-run` (R8.5). An override makes the check `missing` with a diagnostic. It requires `reason` and `owner`. It is a different object from the allowlist, which stays open (ADR 0004, open question 4). |
 | `runChecks(plan, { artifact, value }, context)` | Frozen | Returns `{ state, findings, checks, overrides }`. Checks are synchronous. |
 | The finding: `severity` (`info`, `warning`, `error`), `message`, `evidence`; optional `targetId`, `viewportId`, `artifact`, `checkId`, `location` | Frozen | Unknown keys make the check `failed`. `layer` and `checkId` are set by `runChecks`. Caps: 1000 findings, 1000 characters of message, 10000 characters of evidence as JSON. These are chosen bounds, not measured numbers. A cap may rise without a break. |
 | `location`: `{ file, line?, column? }` or `{ selector }` | Frozen | R9.11. Each string is at most 500 characters. A `column` needs a `line`. |
-| States: check `complete`, `missing`, `failed`. Run state is the worst one | Frozen | R8.7. An open marker is exactly `evidence.state` of `incomplete` or `unknown`. |
+| States: check `complete`, `missing`, `failed`. Run state is the worst one | Experimental | R8.7 defines four states: `complete`, `missing`, `failed`, `incompatible` (ADR 0004, section 7, point 1 uses `incompatible` for absolute checks too). The pack code emits three. The set may gain `incompatible`. An open marker is exactly `evidence.state` of `incomplete` or `unknown`. |
 | The input contract: JSON-like data, one frozen snapshot, one read of each caller field, fail closed | Frozen | `src/packs/snapshot.js`. Nesting limit 256 is a chosen bound. |
 | The mapping of a pack finding to a `report.json` finding | Not frozen, change planned | The report finding has `id` and `causeId`. The pack finding has neither. No code maps one to the other. `schemaVersion` 3 (R9.8). |
 | Threshold overrides and allowlists | Not frozen, owner decision open | `src/packs/README.md` ("Not built yet"). ADR 0004, open question 4. |
@@ -171,7 +173,7 @@ Entry points in `package.json` `exports`. The list on `main` has nine entries. v
 | `./compat/selection`, `./compat/harvest` | Experimental | Planners for R4.3. `docs/migration-audit.md` and `CHANGELOG.md` 0.2.0 say legacy command replacement is open. |
 | `./packs` | Frozen for `definePack`, `validateCheck`, `resolveChecks`, `runChecks`, `LAYERS`, `BASES` | See the table above. |
 | `./packs` (`detectMajor`, `bundleBannerVersion`, `lockfileVersion`, `VERSION_SOURCES`, `defineContractSet`, `selectContractSet`, `defineVersionedPack`) | Experimental | Added in the same release cycle as the first pack. Only one library (Swiper) uses them. Vision open decision 10 (pack versioning) is open. |
-| `./packs/a11y` | Frozen for the pack ID `a11y` and the check ID `a11y-axe`. The artifact value is experimental | The browser step per component state, frame injection and the report fields are not built (`src/packs/a11y/README.md`). |
+| `./packs/a11y` | Experimental | The pack ID `a11y` and check ID `a11y-axe` wait for the artifact kind `a11y`, which the config rejects today. The browser step per component state, frame injection and the report fields are not built (`src/packs/a11y/README.md`). |
 | `./packs/a11y/runner` | Experimental | Needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
 | `./packs/swiper` | Experimental | The browser step that collects DOM facts and the version is not built (`src/packs/versioned/README.md`). |
 | `./packs/lint`, `./packs/lint/runner` | Not frozen, owner decision open | Specification section 17, item 7 and vision open decision 6 leave the ESLint and Stylelint seam open. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
@@ -218,7 +220,13 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 | Version numbers before the release candidate | Vision open decision 7. |
 | Speed measurement of production | Specification section 17, item 3. |
 
-## 8. What this document did not check
+## 8. Gaps found while writing this
+
+1. There is no `init` command. `AGENTS.md` says `init` copies `templates/`. Decision needed: build `init`, or fix `AGENTS.md`.
+2. No config key and no flag selects a pack. Packs work in code only, through `resolveChecks`. Decision needed: the shape of pack selection (section 1, table of open items).
+3. The six built-in checks export no `basis`, although R7.2 requires it. Decision needed: add `basis` before the release candidate, or wait for `schemaVersion` 3.
+
+## 9. What this document did not check
 
 - No release candidate tag exists. The freeze has no effect until the owner tags one.
 - No real project ran against `main`. Every statement about a project is derived from this repository.

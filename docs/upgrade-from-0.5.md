@@ -5,7 +5,7 @@ Status: measured on 2026-10-19. It serves issue #105 and R13.9.
 
 ## Result
 
-Nothing in the project-facing interface breaks. The change from v0.5.0 to `main` only adds files.
+Nothing in the project-facing interface breaks. Outside `src/packs/`, `src`, `bin`, `templates` and `viewer` do not change. The project-facing changes are additive and non-breaking. Other files changed too: `package.json` (exports, optional `axe-core` peer, `axe-core` devDependency), `package-lock.json`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `AGENTS.md`, `RELEASING.md`, `CHANGELOG.md` and the documents under `docs/`, plus tests and fixtures.
 
 ## What changed
 
@@ -31,9 +31,9 @@ The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). No command and n
 
 1. Pin the new version. Today this means a commit, because no newer tag exists:
    `npm install -D github:parisek/test-kit#<commit>`. Not verified: this exact install from a commit in a project. R13.27 asks for an exact tag. Wait for the tag if you can.
-2. Keep `test-kit.config.json` as it is. No key changes.
-3. Keep your project aliases as they are. No command or flag changes.
-4. Optional, only when you use `@parisek/test-kit/packs/a11y/runner`: `npm install -D axe-core@^4.10.0`.
+2. Keep `test-kit.config.json` as it is. No key changes. Not verified in a project.
+3. Keep your project aliases as they are. No command or flag changes. Not verified in a project.
+4. Optional, only when you use `@parisek/test-kit/packs/a11y/runner`: `npm install -D axe-core@^4.10.0`. Not verified in a project.
 5. Run the checks in the list below.
 
 ## What breaks

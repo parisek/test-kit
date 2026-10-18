@@ -10,12 +10,12 @@ Move once, after the owner tags the 1.0 release candidate. Before that tag a bre
 
 Two different moves share the word "migration". Keep them apart.
 
-1. The package pin moves from an old tag to the release candidate. This guide covers it in full.
-2. The project's own testing files move into the package (R13.9 to R13.11, R13.43). This is a plan. Much of it is not possible yet. See "What stays blocked".
+1. The package pin moves from an old tag to the release candidate. This guide covers it in full. Not verified.
+2. The project's own testing files move into the package (R13.9 to R13.11, R13.43). This is a plan. Much of it is not possible yet. See "What stays blocked". Not verified.
 
 ## Part 1: move the pin
 
-Measured with `git diff v0.2.1 origin/main` on 2026-10-19. All changes are additive.
+Measured with `git diff v0.2.1 origin/main` on 2026-10-19. The changes that reach a project are additive and non-breaking. The repository also changed outside the project interface (`package.json`, `package-lock.json`, CI and release workflows, `AGENTS.md`, `RELEASING.md`, documents).
 
 | Area | Change since v0.2.1 |
 | --- | --- |
@@ -32,16 +32,16 @@ Measured with `git diff v0.2.1 origin/main` on 2026-10-19. All changes are addit
 
 Steps:
 
-1. Read [seam.md](seam.md). Check that the project uses only frozen or experimental items. Mark any use of an item that is "not frozen".
-2. Install the exact tag (R13.27): `npm install -D github:parisek/test-kit#<tag>`. Replace `<tag>` with the release candidate tag. The lockfile records the commit.
-3. Install the browser peer: `npm install -D @playwright/test` and `npx playwright install chromium`. Add `lighthouse` only if the project runs `perf`.
-4. Leave `test-kit.config.json` unchanged. If the project has none, copy `node_modules/@parisek/test-kit/templates/test-kit.config.json` by hand. `test-kit init` does not exist.
-5. Keep the project aliases. Command names and required flags do not change in the frozen set.
+1. Read [seam.md](seam.md). Check that the project uses only frozen or experimental items. Mark any use of an item that is "not frozen". Not verified.
+2. Install the exact tag (R13.27): `npm install -D github:parisek/test-kit#<tag>`. Replace `<tag>` with the release candidate tag. The lockfile records the commit. Not verified.
+3. Install the browser peer: `npm install -D @playwright/test` and `npx playwright install chromium`. Add `lighthouse` only if the project runs `perf`. Not verified.
+4. Leave `test-kit.config.json` unchanged. If the project has none, copy `node_modules/@parisek/test-kit/templates/test-kit.config.json` by hand. `test-kit init` does not exist. Not verified.
+5. Keep the project aliases. Command names and required flags do not change in the frozen set. Not verified.
 6. Capture new runs after the move. Compare runs from one package version with each other. R8.9 rejects a comparison across incompatible tool versions. Not verified: whether a change of the package version makes an old run incompatible.
 
 ## Part 2: files that move into the package
 
-The plan is in specification section 13 (the "Scope over time" table) and in `docs/migration-audit.md`. It names these areas of `static/tests/`: `visual`, `behavior`, `lib`, `cross-engine`, `browser-support`, `eslint`, `stylelint`. The first four and the last two leave the project over several pull requests. `twig-cs-fixer` and `phpstan` go to `lint-kit`, not here.
+The plan is in specification section 13 (the "Scope over time" table) and in `docs/migration-audit.md`. It names these areas of `static/tests/`: `visual`, `behavior`, `lib`, `cross-engine`, `browser-support`, `eslint`, `stylelint`, `twig-cs-fixer`, `phpstan` (specification section 13, "Scope over time"). `visual` moves first. `behavior` moves as the engine, and project contracts stay. `lib` moves only for helpers that the moved areas use. `cross-engine` and `browser-support` move after `behavior`. `eslint` and `stylelint` move as entry points of this package (R13.40). `twig-cs-fixer` and `phpstan` go to `lint-kit`, not here.
 
 Size. `docs/vision.md` (End state) records 414 files in the moved areas of `tailwind-base` `static/tests/` on 2026-10-16: visual 293 including baselines, behavior 44, lib 46, eslint 17, stylelint 14. The author did not reproduce this number. `docs/migration-audit.md` counts differently (visual 15, behavior 22, a source-tree count of 2026-10-09 without baselines). Do not mix the two.
 
