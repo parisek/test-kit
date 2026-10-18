@@ -10,7 +10,8 @@
   "exports": {
     ".": "./src/index.js",
     "./compat/selection": "./src/compat/selection.js",
-    "./compat/harvest": "./src/compat/harvest-plan.js"
+    "./compat/harvest": "./src/compat/harvest-plan.js",
+    "./packs": "./src/packs/index.js"
   },
   "files": [
     "bin",
