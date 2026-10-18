@@ -13,7 +13,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Migration
 
-- No project change is needed. A project that pins a tag sees no change. `release.yml` rejects a dev tag with a red run and creates no GitHub Release. This is an open owner decision: narrow the trigger or accept the red run.
+- No project change is needed. A project that pins a tag sees no change. `release.yml` runs on stable tags only. A dev tag starts no run and creates no GitHub Release.
 
 ## [0.5.0] - 2026-10-13
 
