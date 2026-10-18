@@ -15,7 +15,7 @@ If this document and the specification disagree, the specification wins. Open an
 The package is alpha. The owner accepts breaking changes, rewrites and removals (2026-10-16). Choose the right design over compatibility with today's shape.
 
 - A breaking change needs a changelog entry and a migration note. It does not need an owner decision by itself.
-- Principle 10 keeps "small steps" but drops "a project keeps working after every step" while the package is alpha. The pilot project pins a tag, so a break reaches it only when it updates the pin.
+- Principle 10 keeps "small steps". The owner decided on 2026-10-18 to drop "a project keeps working after every step" while the package is alpha. R13.9 still applies until its spec edit merges (#100). The pilot project pins a tag, so a break reaches it only when it updates the pin.
 - Adoption in a project needs a stable seam. Before a project migrates, the milestone freezes the interface it migrates onto (decision 9).
 - This section ends when the owner declares a beta or a stable release. Until then, do not add a compatibility layer for its own sake.
 
@@ -177,7 +177,7 @@ The owner works at the level of a milestone (owner direction, 2026-10-16). The o
 3. Each issue gets one draft pull request. Merge follows the review rule above. It merges into `main`. There is no milestone branch (owner decision, 2026-10-16). A branch would collapse the per-change commit bodies that `AGENTS.md` requires when it squash-merges.
 4. The agent runs the loop until every check of the milestone passes. It records what ran and what it did not verify.
 5. The owner approves the milestone as a whole, by reviewing the milestone report and the evidence. The first milestone is 1.0 (owner decision, 2026-10-16).
-6. The agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release. R13.25 and R13.26 define release tags. A spec edit adds dev tags (#100).
+6. After the spec edit (#100) merges, the agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release. R13.25 and R13.26 define release tags. Until the spec edit merges, the agent tags nothing.
 7. A major version (2.0, 3.0) holds breaking changes that need a migration. While the package is alpha, a break may also go in a minor milestone (see Maturity).
 
 The agent never tags a stable release.
@@ -235,14 +235,14 @@ These need the owner. The agent does not decide them.
    - B: always a pair with an implicit baseline. It fits the validator but invents a baseline, which R13.13 forbids. It can turn absence into `match`.
    - C: each check has a rule kind, `absolute` or `relative`, and class is derived at target or artifact scope (never stored per finding, R8). It keeps R7.3. It changes the schema, validator, classifier, viewer and query layer. (proposal: C, after a written design.)
    Any option needs owner approval (Tier 3). An ADR that defines one result model for absolute and comparative checks must merge before any single-run or lint work starts. This ADR matters more than the package boundary.
-2. (Decided, 2026-10-16) The owner alone approves a stable release tag. The agent may tag dev versions.
+2. (Decided, 2026-10-16) The owner alone approves a stable release tag. After the spec edit (#100) merges, the agent may tag dev versions.
 3. **Roadmap issues.** #7 to #10 are open, but tags v0.2.0 to v0.5.0 exist, and their content differs from the plan. (proposal: close them as shipped and rewrite #5 as the roadmap that links this document.) This edits owner-created issues, so it is Tier 3.
 4. The small default set of checks (spec section 17, item 2).
 5. How long content snapshots live (spec section 17, item 4).
 6. The shape of the ESLint and Stylelint seam (spec section 17, item 7).
 7. Version numbers. The last tag is v0.5.0. Does the first owner milestone start at 0.6 or at 1.0? (proposal: 1.0 is the first stable release, so milestones before it use 0.x.)
 
-8. (Decided, 2026-10-16) Milestone work merges into `main`. Dev tags come from `main` after a green cumulative run.
+8. (Decided, 2026-10-16) Milestone work merges into `main`. After the spec edit (#100) merges, dev tags come from `main` after a green cumulative run.
 9. (Decided, 2026-10-16) Freeze the project-facing seam only at the 1.0 release candidate. The seam holds the config file shape, the command aliases and the contract API. Before it, tailwind-base stays on its old pin. It migrates once, after the freeze. Until then breaking changes cost nothing.
 10. **Pack versioning.** One tag for all packs (proposal for alpha), or one tag for each pack once churn is measured.
 
