@@ -37,21 +37,23 @@ function normalizeFinding(item, id, input, context) {
   if (!SEVERITIES.includes(severity)) throw new Error('A finding needs severity info, warning or error.');
   if (!str(message, MAX_MESSAGE)) throw new Error('A finding needs a message.');
   if (!isPlain(evidence)) throw new Error('A finding needs an evidence object.');
-  // structuredClone ignores toJSON and throws on a function, so no hook can change what we read.
-  // The marker is read from this copy, before any serialisation.
-  const raw = structuredClone(evidence);
-  if (!isPlain(raw)) throw new Error('Evidence is not a plain object after copying.');
-  const open = OPEN_STATES.includes(raw.state);
-  const json = JSON.stringify(raw);
+  // The caller's result was cloned once, so `evidence` is already our own copy.
+  // The open marker is read from the stored copy. A `state` that is present but not a string is invalid.
+  if (Object.hasOwn(evidence, 'state') && typeof evidence.state !== 'string') throw new Error('Evidence state must be a string.');
+  const json = JSON.stringify(evidence);
   if (typeof json !== 'string' || json.length > MAX_EVIDENCE) throw new Error('A finding has unusable or oversized evidence.');
   const copy = JSON.parse(json);
   if (!isPlain(copy)) throw new Error('Evidence is not a plain object after copying.');
-  return { open, finding: deepFreeze({ targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: copy }) };
+  if (Object.hasOwn(evidence, 'state') !== Object.hasOwn(copy, 'state')) throw new Error('Evidence state did not survive copying.');
+  return { open: OPEN_STATES.includes(copy.state), finding: deepFreeze({ targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: copy }) };
 }
 
-function normalizeResult(result, id, input, context) {
-  if (typeof result?.then === 'function') { result.then(undefined, () => {}); throw new Error('A check must be synchronous.'); }
-  if (!Array.isArray(result) || result.length > MAX_FINDINGS) throw new Error('A check must return a list of findings.');
+function normalizeResult(returned, id, input, context) {
+  if (typeof returned?.then === 'function') { returned.then(undefined, () => {}); throw new Error('A check must be synchronous.'); }
+  if (!Array.isArray(returned) || returned.length > MAX_FINDINGS) throw new Error('A check must return a list of findings.');
+  // One clone of the whole result reads every getter, length and element once. Only the clone is validated and stored.
+  const result = structuredClone(returned);
+  if (result.length > MAX_FINDINGS) throw new Error('A check must return a list of findings.');
   const out = [];
   for (let index = 0; index < result.length; index += 1) {
     if (!Object.hasOwn(result, index)) throw new Error('A finding list has a hole.');
@@ -72,7 +74,9 @@ function sanitize(check, layer, snapshotValue, input, snapshot) {
 
 export function runChecks(plan, input, context = {}) {
   if (!isResolvedPlan(plan)) throw new Error('Invalid check plan. Build it with resolveChecks.');
-  if (!input || typeof input.artifact !== 'string' || input.artifact === '') throw new Error('Invalid check input.');
+  if (!input || typeof input !== 'object') throw new Error('Invalid check input.');
+  const { artifact, value: inputValue } = input; // one read of each field
+  if (typeof artifact !== 'string' || artifact === '') throw new Error('Invalid check input.');
   if (!isPlain(context)) throw new Error('Invalid check context.');
   const findings = [];
   const checks = {};
@@ -81,17 +85,17 @@ export function runChecks(plan, input, context = {}) {
   let value;
   let snapshot;
   try {
-    value = frozenCopy(input.value);
+    value = frozenCopy(inputValue);
     snapshot = deepFreeze(structuredClone(context));
   } catch {
-    for (const entry of plan.checks) if (entry.check.applies.artifacts.includes(input.artifact)) checks[entry.check.id] = state('failed', entry, 'The input or context cannot be copied, so no check ran.');
+    for (const entry of plan.checks) if (entry.check.applies.artifacts.includes(artifact)) checks[entry.check.id] = state('failed', entry, 'The input or context cannot be copied, so no check ran.');
     return { state: 'failed', findings, checks, overrides: applied };
   }
-  const artifactInput = Object.freeze({ artifact: input.artifact, value });
-  const facts = { targetId: snapshot.targetId, artifact: input.artifact, kind: snapshot.kind };
+  const artifactInput = Object.freeze({ artifact, value });
+  const facts = { targetId: snapshot.targetId, artifact, kind: snapshot.kind };
   for (const entry of plan.checks) {
     const { check, layer } = entry;
-    if (!check.applies.artifacts.includes(input.artifact)) continue;
+    if (!check.applies.artifacts.includes(artifact)) continue;
     let gap = null;
     if (check.applies.components) {
       if (!Array.isArray(snapshot.components)) gap = 'A component check needs context.components.';

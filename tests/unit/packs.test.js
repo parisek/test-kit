@@ -277,3 +277,41 @@ test('override scope kinds accepts only single-run (R8.5)', () => {
   assert.throws(() => ov(['single-run', 'pair']), /scope/);
   assert.doesNotThrow(() => ov(['single-run']));
 });
+
+test('a caller value is read once: a list that changes between reads is never stored', () => {
+  const flip = (first, second) => { let reads = 0; return new Proxy([first], { get(target, key, receiver) { if (key === '0') { reads += 1; return reads === 1 ? first : second; } return Reflect.get(target, key, receiver); } }); };
+  const scope = kinds => plan({ overrides: [{ checkId: 'example-title', layer: 'page', reason: 'r', owner: 'o', scope: { kinds } }] });
+  // The list passes on its first read and would be 'pair' on a second read. Only the validated copy is stored.
+  const stored = scope(flip('single-run', 'pair')).overrides[0].scope.kinds;
+  assert.deepEqual([...stored], ['single-run']);
+  assert.throws(() => scope(flip('pair', 'single-run')), /scope/);
+  // Accessor-backed items and fields of a check definition are read once as well.
+  let titleReads = 0;
+  const applies = { get artifacts() { titleReads += 1; return titleReads === 1 ? ['content'] : ['html']; } };
+  const defined = definePack({ id: 'once', title: 't', owner: 'o', checks: [{ ...titleCheck, id: 'once-check', applies }] });
+  assert.deepEqual([...defined.checks[0].applies.artifacts], ['content']);
+  assert.equal(titleReads, 1);
+  let idReads = 0;
+  const pack = { get id() { idReads += 1; return idReads === 1 ? 'first-pack' : 'second-pack'; }, title: 't', owner: 'o', checks: [mk('x')] };
+  assert.equal(definePack(pack).id, 'first-pack');
+  let layerReads = 0;
+  const item = { get layer() { layerReads += 1; return layerReads === 1 ? 'project' : 'package'; }, check: mk('y') };
+  assert.equal(resolveChecks({ custom: [item] }).checks[0].layer, 'project');
+  let artifactReads = 0;
+  const reads = { get artifact() { artifactReads += 1; return artifactReads === 1 ? 'content' : 'html'; }, value: { title: 'x' } };
+  assert.equal(runChecks(plan(), reads, ctx).checks['example-title'].state, 'complete');
+  assert.equal(artifactReads, 1);
+});
+
+test('a present evidence.state that is not a closed string never ends complete', () => {
+  const run = evidence => runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('c', { check: () => [fnd('m', { evidence })] }) }] }), input({ title: 'x' }), ctx);
+  for (const state of [1, 0, NaN, null, undefined, true, ['incomplete'], { v: 'incomplete' }, new Date(0), 1n]) {
+    const result = run({ state });
+    assert.equal(result.checks.c.state, 'failed', String(state));
+    assert.notEqual(result.state, 'complete');
+  }
+  assert.equal(run({ state: 'incomplete' }).checks.c.state, 'missing');
+  assert.equal(run({ state: 'unknown' }).checks.c.state, 'missing');
+  assert.equal(run({ state: 'fine' }).checks.c.state, 'complete');
+  assert.equal(run({}).checks.c.state, 'complete');
+});

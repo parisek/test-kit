@@ -33,6 +33,9 @@ An open state is exactly `evidence.state` of `incomplete` or `unknown`, in lower
 Checks are synchronous (R7.1), so there is no timeout.
 An override scope `kinds` list accepts only `single-run` (R8.5).
 
+Rule for all input: the code reads each caller field, list and getter once, validates that copy, and stores only that copy. A getter or Proxy that returns another value on a second read has no effect.
+A `state` in evidence must be a string when present. Any other type makes the check `failed`.
+
 Check state is `complete`, `missing` or `failed` (R8.7).
 A check that throws, returns a promise or returns a malformed list gives no finding and state `failed`.
 A check with no input, a relative check with no `context.before`, a component check with no `context.components`, or a check that reports `evidence.state` of `incomplete` or `unknown` gives `missing`.
