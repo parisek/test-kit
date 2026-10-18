@@ -5,7 +5,7 @@ import { mkdtemp, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { judgeRun, normalizeEslint, normalizeStylelint, TOOLS, MAX_OUTPUT_BYTES, TARGET_ID } from './normalize.js';
+import { judgeRun, normalizeEslint, normalizeStylelint, TOOLS, MAX_OUTPUT_BYTES, copyFileTargets } from './normalize.js';
 
 // Chosen bounds, not measured numbers.
 const DEFAULT_TIMEOUT_MS = 120000;
@@ -15,11 +15,12 @@ const MAX_PATHS = 100;
 const PLAIN_PATH = /^[A-Za-z0-9_@./*-]+$/;
 const NORMALIZERS = { eslint: normalizeEslint, stylelint: normalizeStylelint };
 
-// The child gets this reduced environment and nothing else. A project adds more with the `env` option.
+// The child gets this named list and nothing else. No NODE_* variable passes: NODE_OPTIONS can preload code,
+// and NODE_PATH, NODE_AUTH_TOKEN and NODE_TLS_* change trust. A project adds any of them with the `env` option.
 const ENV_NAMES = ['PATH', 'HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'LANG', 'LC_ALL', 'NO_COLOR', 'FORCE_COLOR'];
 export function childEnv(extra = {}, parent = process.env) {
   const env = {};
-  for (const [name, value] of Object.entries(parent)) if (typeof value === 'string' && (ENV_NAMES.includes(name) || name.startsWith('NODE_'))) env[name] = value;
+  for (const [name, value] of Object.entries(parent)) if (typeof value === 'string' && ENV_NAMES.includes(name)) env[name] = value;
   for (const [name, value] of Object.entries(extra ?? {})) {
     if (typeof value !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('The env option needs string values and plain names.');
     env[name] = value;
@@ -57,10 +58,11 @@ export function findTool(root, tool, { hoisted = false } = {}) {
 }
 
 const killGroup = (child, signal) => {
+  if (!Number.isInteger(child.pid)) return;
   try {
     if (process.platform === 'win32') spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }).on('error', () => {});
     else process.kill(-child.pid, signal); // the child leads its own process group, so this reaches its children too
-  } catch { try { child.kill(signal); } catch { /* already gone */ } }
+  } catch { /* ESRCH: nothing left in the group */ }
 };
 
 // Runs the tool and always settles. At the timeout it sends SIGTERM to the group, then SIGKILL after the grace time,
@@ -82,7 +84,12 @@ function run(file, args, { cwd, timeout, grace, env }) {
     } catch { done({ exitCode: null, signal: null, spawnError: true }); return; }
     let timedOut = false;
     child.once('error', () => done({ exitCode: null, signal: null, spawnError: true }));
-    child.once('close', (exitCode, signal) => done({ exitCode, signal: timedOut ? 'TIMEOUT' : signal, spawnError: false }));
+    child.once('close', (exitCode, signal) => {
+      // The leader has ended. Kill what is left in its group, on every path, before the result is returned.
+      // ESRCH (nothing left) is ignored. A tool that left a child after exit 0 does not keep it running.
+      if (process.platform !== 'win32') killGroup(child, 'SIGKILL');
+      done({ exitCode, signal: timedOut ? 'TIMEOUT' : signal, spawnError: false });
+    });
     timers.push(setTimeout(() => {
       timedOut = true;
       killGroup(child, 'SIGTERM');
@@ -132,11 +139,7 @@ export async function runLint({ root, tools, fileTargets, env, hoisted = false, 
   const names = Object.keys(tools);
   if (names.length === 0) throw new Error('runLint needs at least one tool.');
   for (const name of names) if (!TOOLS.includes(name)) throw new Error(`Unknown lint tool: ${name}`);
-  const map = {};
-  for (const [file, id] of Object.entries(fileTargets ?? {})) {
-    if (typeof id !== 'string' || !TARGET_ID.test(id)) throw new Error('fileTargets needs valid target ids.');
-    map[file] = id;
-  }
+  const map = copyFileTargets(fileTargets); // throws on a bad container, key or id
   const resolved = path.resolve(root);
   const real = await realpath(resolved).catch(() => resolved);
   const options = { env: childEnv(env), hoisted, timeoutMs, killGraceMs };

@@ -4,7 +4,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { resolveChecks, runChecks } from '../../src/packs/index.js';
-import { lintPack, normalizeEslint, normalizeStylelint, judgeRun, relativeFile, MAX_FINDINGS, MAX_ITEMS } from '../../src/packs/lint/index.js';
+import { lintPack, copyFileTargets, scrubRoots, normalizeEslint, normalizeStylelint, judgeRun, relativeFile, MAX_FINDINGS, MAX_ITEMS } from '../../src/packs/lint/index.js';
 import { runLint, validatePaths, findTool, childEnv } from '../../src/packs/lint/runner.js';
 
 const fixture = name => readFileSync(new URL(`../fixtures/lint/${name}`, import.meta.url), 'utf8');
@@ -151,8 +151,9 @@ test('lint paths must be plain relative paths, with no brace list', () => {
 });
 
 test('the child gets a reduced environment', () => {
-  const env = childEnv({ EXTRA: '1' }, { PATH: '/bin', HOME: '/h', SECRET_TOKEN: 's', NODE_ENV: 'x', AWS_KEY: 'k' });
-  assert.deepEqual(env, { PATH: '/bin', HOME: '/h', NODE_ENV: 'x', EXTRA: '1' });
+  const env = childEnv({ EXTRA: '1' }, { PATH: '/bin', HOME: '/h', SECRET_TOKEN: 's', NODE_ENV: 'x', NODE_OPTIONS: '--require x', NODE_PATH: '/p', NODE_AUTH_TOKEN: 't', NODE_EXTRA_CA_CERTS: '/c', AWS_KEY: 'k' });
+  assert.deepEqual(env, { PATH: '/bin', HOME: '/h', EXTRA: '1' });
+  assert.deepEqual(childEnv({ NODE_OPTIONS: '--no-warnings' }, {}), { NODE_OPTIONS: '--no-warnings' });
   assert.throws(() => childEnv({ 'bad name': '1' }, {}));
   assert.throws(() => childEnv({ A: 1 }, {}));
 });
@@ -262,4 +263,63 @@ test('an output file over the size cap is failed', async t => {
   const value = await runLint({ root: dir, tools: { eslint: { paths: ['src'] } } });
   assert.equal(value.tools.eslint.status, 'failed');
   assert.match(value.tools.eslint.diagnostic, /no usable report/);
+});
+
+const GRANDCHILD = pidFile => `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+const waitFor = async (file, ms = 5000) => { const end = Date.now() + ms; while (!existsSync(file) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 20)); };
+const spawnGrandchild = (child, pidFile) => `const fs = require('node:fs'); require('node:child_process').spawn(process.execPath, [${JSON.stringify(child)}], { stdio: 'ignore' });
+while (!fs.existsSync(${JSON.stringify(pidFile)})) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);`;
+
+test('a SIGTERM-ignoring grandchild dies when the leader exits on SIGTERM', { skip: process.platform === 'win32' }, async t => {
+  const dir = tmp();
+  const pidFile = path.join(dir, 'g.pid');
+  const child = path.join(dir, 'g.js');
+  writeFileSync(child, GRANDCHILD(pidFile));
+  fakeProject({ eslint: { script: `${spawnGrandchild(child, pidFile)}\nsetInterval(() => {}, 1000);` } }, dir);
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const value = await runLint({ root: dir, tools: { eslint: { paths: ['src'] } }, timeoutMs: 1000, killGraceMs: 200 });
+  assert.equal(value.tools.eslint.status, 'failed');
+  const pid = Number(readFileSync(pidFile, 'utf8'));
+  await new Promise(resolve => setTimeout(resolve, 300));
+  assert.equal(alive(pid), false);
+});
+
+test('a SIGTERM-ignoring grandchild dies when the tool exits 0 and leaves it behind', { skip: process.platform === 'win32' }, async t => {
+  const dir = tmp();
+  const pidFile = path.join(dir, 'g.pid');
+  const child = path.join(dir, 'g.js');
+  writeFileSync(child, GRANDCHILD(pidFile));
+  const write = "const a = process.argv; require('node:fs').writeFileSync(a[a.indexOf('-o') + 1], '[]'); process.exit(0);";
+  fakeProject({ eslint: { script: `${spawnGrandchild(child, pidFile)}\n${write}` } }, dir);
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const value = await runLint({ root: dir, tools: { eslint: { paths: ['src'] } } });
+  assert.equal(value.tools.eslint.status, 'ok');
+  const pid = Number(readFileSync(pidFile, 'utf8'));
+  await new Promise(resolve => setTimeout(resolve, 300));
+  assert.equal(alive(pid), false);
+});
+
+test('fileTargets: container, keys and ids are validated, and __proto__ is refused', () => {
+  assert.deepEqual(copyFileTargets({ 'src/a.js': 'example-card' }), { 'src/a.js': 'example-card' });
+  assert.deepEqual(copyFileTargets(undefined), {});
+  for (const bad of [null, 'x', [], 5, { '../a.js': 'x' }, { '/a.js': 'x' }, { 'file:///a.js': 'x' }, { 'a/../b.js': 'x' }, { './a.js': 'x' }, { 'a\\b.js': 'x' }, { 'C:/a.js': 'x' }, { '': 'x' }, JSON.parse('{"__proto__":"example-card"}'), Object.create({ inherited: 1 })]) assert.throws(() => copyFileTargets(bad), /fileTargets|file name/, JSON.stringify(bad));
+  assert.equal(run({ fileTargets: JSON.parse('{"__proto__":"example-card"}'), tools: { eslint: clean, stylelint: clean } }).state, 'failed');
+});
+
+test('a stored artifact with a traversal or absolute file never gives a complete finding', () => {
+  for (const file of ['../private/x.js', '/etc/passwd', 'file:///etc/passwd', 'a/../../b.js', 'C:/x.js', 'a\\b.js']) {
+    const entry = { status: 'ok', total: 1, items: [{ severity: 'error', rule: 'r', message: 'm', location: { file } }] };
+    const result = run({ tools: { eslint: entry, stylelint: clean } });
+    assert.equal(result.checks['eslint-rules'].state, 'failed', file);
+    assert.deepEqual(result.findings, []);
+  }
+  assert.equal(run({ fileTargets: { '../x.js': 'example-card' }, tools: { eslint: clean, stylelint: clean } }).state, 'failed');
+});
+
+test('the root is scrubbed from message text', () => {
+  assert.equal(scrubRoots('Cannot read /example-root/src/a.js and /real/root', ['/example-root', '/real/root']), 'Cannot read src/a.js and .');
+  assert.equal(scrubRoots('see file:///example-root/x.css', root), 'see x.css');
+  assert.equal(scrubRoots('C:\\proj\\src\\a.js', 'C:\\proj'), 'src\\a.js');
+  const { items } = normalizeEslint([{ filePath: '/example-root/a.js', messages: [{ ruleId: 'plugin/x', severity: 2, message: 'Failed in /example-root/lib/rule.js', line: 1, column: 1 }] }], { root });
+  assert.equal(items[0].message, 'Failed in lib/rule.js');
 });

@@ -14,6 +14,7 @@ export const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
 const MAX_MESSAGE = 1000;
 const MAX_FILE = 500;
 const MAX_RULE = 200;
+const MAX_FILE_TARGETS = 10000; // chosen bound, not measured
 export const TARGET_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -43,22 +44,59 @@ export function relativeFile(file, roots) {
   return baseName(clean);
 }
 
+// A stored file name must already be a normalized relative path: no `..`, no `.` segment, no `//`,
+// not absolute, no drive letter, no URL scheme, no backslash, no NUL (R12.4).
+export function checkRelativeFile(file) {
+  if (typeof file !== 'string' || file === '' || file.length > MAX_FILE) throw new Error('A file name must be a short string.');
+  if (file.includes('\\') || file.includes('\0') || file.startsWith('/') || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(file)) throw new Error('A file name must be a relative path.');
+  if (posix.normalize(file) !== file || file === '.' || file === '..' || file.startsWith('../')) throw new Error('A file name must be a normalized relative path.');
+  return file;
+}
+
+// Reads a caller map once and returns a plain frozen-shape copy: { "<relative file>": "<target id>" }.
+// The container must be a plain object. A bad key, a bad id or `__proto__` throws. It returns a new object.
+export function copyFileTargets(raw) {
+  if (raw === undefined) return {};
+  if (raw === null || typeof raw !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(raw))) throw new Error('fileTargets must be a plain object.');
+  const entries = Object.entries(raw); // own keys, one read
+  if (entries.length > MAX_FILE_TARGETS) throw new Error('fileTargets is too large.');
+  const out = {};
+  for (const [file, id] of entries) {
+    if (file === '__proto__') throw new Error('fileTargets must not hold the key __proto__.');
+    checkRelativeFile(file);
+    if (typeof id !== 'string' || !TARGET_ID.test(id)) throw new Error('fileTargets holds an invalid target id.');
+    Object.defineProperty(out, file, { value: id, enumerable: true, writable: true, configurable: true });
+  }
+  return out;
+}
+
 // Validates a stored or produced location. Throws on a bad shape. Returns a new plain object (R9.11).
 export function checkLocation(value) {
   if (!isObject(value)) throw new Error('A location must be an object.');
   const { file, line, column, ...rest } = value; // one read of each field
   if (Object.keys(rest).length > 0) throw new Error('A location has an unknown key.');
-  if (typeof file !== 'string' || file === '' || file.length > MAX_FILE) throw new Error('A location needs a file.');
+  checkRelativeFile(file);
   if (line !== undefined && !isPosInt(line)) throw new Error('A location has a bad line.');
   if (column !== undefined && (line === undefined || !isPosInt(column))) throw new Error('A location has a bad column.');
   return { file, ...(line !== undefined ? { line } : {}), ...(column !== undefined ? { column } : {}) };
 }
 
-function item(rule, severity, message, file, line, column) {
+// Removes the project root from a message, so a plugin message with an absolute path does not leak the host path.
+// A root followed by a separator is dropped. A bare root becomes `.`. Slash and backslash forms are both removed.
+export function scrubRoots(text, roots) {
+  const list = [roots].flat().filter(root => typeof root === 'string' && root !== '')
+    .flatMap(root => { const base = root.replace(/[\\/]+$/, ''); return [base, base.replaceAll('\\', '/'), base.replaceAll('/', '\\')]; })
+    .filter(root => root !== '').sort((a, b) => b.length - a.length);
+  let out = text;
+  for (const root of new Set(list)) out = out.replaceAll(`file://${root}`, root).replaceAll(`${root}/`, '').replaceAll(`${root}\\`, '').replaceAll(root, '.');
+  return out;
+}
+
+function item(rule, severity, message, file, line, column, roots) {
   return {
     severity,
     rule: rule === null ? null : cut(rule, MAX_RULE),
-    message: cut(message.trim() || 'The tool reported a problem.', MAX_MESSAGE),
+    message: cut(scrubRoots(message, roots).trim() || 'The tool reported a problem.', MAX_MESSAGE),
     location: { file, ...(isPosInt(line) ? { line } : {}), ...(isPosInt(line) && isPosInt(column) ? { column } : {}) },
   };
 }
@@ -78,7 +116,7 @@ export function normalizeEslint(output, { root } = {}) {
       if (!isObject(message) || typeof message.message !== 'string') throw new Error('ESLint output has a malformed message.');
       if (message.severity !== 1 && message.severity !== 2) throw new Error('ESLint output has an unknown severity.');
       if (message.ruleId !== null && message.ruleId !== undefined && typeof message.ruleId !== 'string') throw new Error('ESLint output has a malformed rule id.');
-      found.push(item(message.ruleId ?? null, message.severity === 2 ? 'error' : 'warning', message.message, file, message.line, message.column));
+      found.push(item(message.ruleId ?? null, message.severity === 2 ? 'error' : 'warning', message.message, file, message.line, message.column, root));
     }
   }
   return result(found);
@@ -101,7 +139,7 @@ export function normalizeStylelint(output, { root } = {}) {
       const rule = warning.rule ?? null;
       // Stylelint appends " (rule)" to the text. The rule has its own field.
       const text = rule && warning.text.endsWith(` (${rule})`) ? warning.text.slice(0, -(rule.length + 3)) : warning.text;
-      found.push(item(rule, warning.severity, text, file, warning.line, warning.column));
+      found.push(item(rule, warning.severity, text, file, warning.line, warning.column, root));
     }
   }
   return result(found);

@@ -50,8 +50,9 @@ Only normalized, relative data. The raw tool output and the absolute project roo
 ```
 
 `status` is `ok`, `missing` or `failed`. A `failed` or `missing` entry has a `diagnostic`. `items` holds at most 999 entries. `total` is the real count.
-A file path is relative to the project root. A path outside the root (or with `..`, or a `file://` URL) keeps only its base name. The runner collapses a symlinked root with `realpath`.
+A file path is relative to the project root. A path outside the root (or with `..`, or a `file://` URL) keeps only its base name. The runner collapses a symlinked root with `realpath`. The project root (and its realpath) is also removed from message text, so a plugin message does not leak the host path. Other absolute paths in a message are not scrubbed.
 The check validates the stored data again and fails closed. Only the runner should write it.
+`fileTargets` must be a plain object. Each key must be a normalized relative path (no `..`, no `.` segment, not absolute, no drive letter, no URL scheme, no backslash). Each value must be a target id. The key `__proto__` is refused. A bad map makes the check `failed`. The same file rule applies to every stored `location.file`: a traversal or absolute path never gives a complete finding.
 
 ## The runner
 
@@ -60,9 +61,9 @@ The check validates the stored data again and fails closed. Only the runner shou
 - It runs `<tool> -f json -o <temp file> <paths>` and reads the report from the file. Stylelint writes its report to stderr, so a file is the stable route. It ignores stdout and stderr.
 - `paths` are plain relative paths or globs. Allowed characters: letters, digits, `_ @ . / * -`. A path that starts with `-` or `/`, holds `..`, a brace, a comma or a bracket is refused. The runner checks paths before it looks for the tool.
 - The report file must be at most 32 MiB (33554432 bytes, a chosen bound). A larger file is `failed`.
-- Timeout: 120000 ms (`timeoutMs`). At the timeout the runner sends SIGTERM to the process group, and SIGKILL after `killGraceMs` (2000 ms). It then resolves after 500 ms even if the process never closes. The result is `failed` with the signal `TIMEOUT`, and the temp directory is removed. Both times are chosen bounds.
+- Timeout: 120000 ms (`timeoutMs`). At the timeout the runner sends SIGTERM to the process group, and SIGKILL after `killGraceMs` (2000 ms). It then resolves after 500 ms even if the process never closes. On every path (timeout, normal exit, crash) the runner also sends SIGKILL to the whole group after the leader ends, so a child that ignores SIGTERM or that the tool left behind after exit 0 does not survive. Nothing left in the group (ESRCH) is ignored. The result is `failed` with the signal `TIMEOUT`, and the temp directory is removed. Both times are chosen bounds.
 - Windows: the runner calls `taskkill /T /F`. This path is not tested. On POSIX a tool that starts a process in a new session (`setsid`) escapes the group kill.
-- Environment: the child gets only `PATH`, `HOME`, `USERPROFILE`, `TMPDIR`, `TEMP`, `TMP`, `SystemRoot`, `LANG`, `LC_ALL`, `NO_COLOR`, `FORCE_COLOR` and every `NODE_*` variable. The `env` option adds more (string values). Note that `NODE_OPTIONS` passes through.
+- Environment: the child gets only `PATH`, `HOME`, `USERPROFILE`, `TMPDIR`, `TEMP`, `TMP`, `SystemRoot`, `LANG`, `LC_ALL`, `NO_COLOR` and `FORCE_COLOR`. No `NODE_*` variable passes, because `NODE_OPTIONS` can preload code and `NODE_PATH`, `NODE_AUTH_TOKEN` and `NODE_TLS_*` change trust. A project adds any of them with the `env` option (string values, plain names).
 
 ## States (R8.7)
 
