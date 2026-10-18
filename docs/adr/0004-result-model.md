@@ -1,6 +1,6 @@
 # ADR 0004: One result model for pair, single-run and lint results
 
-Status: proposed. Option C does not comply with R7.3 as written. It takes effect only after the owner accepts this ADR and the R7.3 edit below merges in its own pull request. It waits for the owner (Tier 3, vision open decision 1). No code changes in this record.
+Status: accepted by the owner in chat on 2026-10-18 ("Přijmout C a upravit R7.3"). This was the Tier 3 approval for vision open decision 1. Option C is the result model. It needed an R7.3 edit, and that edit merges with this acceptance. The open design questions below stay open. No code changes in this record.
 Requirements: R7.1, R7.2, R7.3, R7.7, R8.2 to R8.9, R9.1, R9.4, R10.5, R11.6, R13.9, R13.13, R13.40. Tracked in #99.
 
 ## Context
@@ -108,7 +108,7 @@ Identity key. `validateReport` requires `isHash(report.pair.key)` whenever `meta
 - `subject.key` is a hash of the run id, built like `pairKey` in `src/rules/evidence.js`. It replaces `pair.key` for the policy identity check only.
 - `rules` (normalisers) and `known_diffs` are relative-only. They rewrite or excuse a difference between A and B. A `subject` report must hold `rules: {}` and no `known_diffs`. The validator rejects anything else.
 - `comparisonPolicyHash` may exist in a `subject` report. It then hashes the check policy, and the validator checks `subject.key` in place of `pair.key`.
-- The `kinds` axis of a rule scope (`normalizeScope`) gains the value `single-run`. The `pairs` axis keeps its name and matches `subject.key` as well.
+- The `kinds` axis of a rule scope (`normalizeScope`) gains the value `single-run`. The `pairs` axis keeps its name and does not apply to a `subject` report (point 7 of section 7).
 - Absolute `explained` uses the allowlist of section 7. It does not use `known_diffs` or any key of the report.
 
 ### 3. Run on a finding
@@ -246,9 +246,9 @@ R7.3 says findings of a check "go into the same `findings` list as findings of a
 
 Option C keeps the first sentence. It does not keep the second. In C, `explained` means "has a known cause" for a relative finding and "has an allowlist entry" for an absolute finding. Normaliser rules and `known_diffs` apply only to relative findings. The classifier branches on the basis. That is a special case by the plain reading of R7.3.
 
-So C needs an edit of R7.3. C does not comply with R7.3 as written. The owner must direct the edit (Tier 3). It goes in its own pull request, and C takes effect only after that pull request merges. This record does not edit the specification.
+So C needs an edit of R7.3. C did not comply with R7.3 as written. The owner accepted C and directed the edit on 2026-10-18 (Tier 3). The edit merges in the same pull request that accepts this record. The other spec edits this record implies (see the list of spec edits in the consequences) stay for later pull requests.
 
-Exact change for that pull request, section 7 of `docs/specification.md`:
+Change made in section 7 of `docs/specification.md`:
 
 ```
 Before:
@@ -502,12 +502,22 @@ Not measured: the effort in hours, and the number of lines.
 
 ## Consequences
 
-- C is additive at file level and not additive at schema level. `schemaVersion` goes to 3. The package is alpha, so a break needs a changelog entry and a migration note (vision, Maturity). R13.9 still applies until the spec edit in #100 merges. The change cannot ship before that.
+- C is additive at file level and not additive at schema level. `schemaVersion` goes to 3. The package is alpha, so a break needs a changelog entry and a migration note (vision, Maturity). R13.9 now allows an alpha step to break a project, with a changelog entry and a migration note.
 - The seam freezes at the 1.0 release candidate (vision decision 9). The result shape must be settled before it.
 - `explained` for absolute findings needs an allowlist design. It is the first follow-up issue. Until it ships, an absolute finding is `unexplained`.
 - Content checks keep the rule that only the findings of one side enter `findings`. With `runId` on the finding, this becomes a choice, not a habit. See "Open points".
 - `validateContentComparison` accepts only ids in `builtinChecks`. A project or component rule needs the catalog route. That is part of the producer change.
-- The spec edits this record implies: R7.2 (export `basis`), R7.3 (class by basis, rules for relative checks only; see "R7.3 is a special case"), the class table in section 8, the shape in section 9 (`checks`, `subject`, `runId`, `layer`, `overrides`, `schemaVersion` 3) and R10.5 (first view without a pair). They land in a separate pull request, after the owner approves this record (#100 and #96 cover related edits).
+- The spec edits this record implies: R7.2 (export `basis`), R7.3 (class by basis, rules for relative checks only; see "R7.3 is a special case"), the class table in section 8, the shape in section 9 (`checks`, `subject`, `runId`, `layer`, `overrides`, `schemaVersion` 3) and R10.5 (first view without a pair). The R7.3 edit landed with the acceptance on 2026-10-18. The other edits landed in the pull request "align spec sections with accepted ADR 0004":
+
+  | Edit | Where it landed |
+  | --- | --- |
+  | `basis` export | R7.2 and the check example |
+  | basis, `checkId`, class by basis, mixed findings | R8.10 to R8.12 and the class table |
+  | R8.2, R8.3, R8.5, R8.6, R8.7 for absolute checks | the same requirements, with R8.13 for overrides |
+  | `subject`, `checks`, `runId`, `layer`, `overrides`, `schemaVersion` 3 | section 9, R9.1 and R9.7 to R9.11 |
+  | first view without a pair, one reader path | R10.5 and R11.6 |
+
+  Left out on purpose, because an open design question decides them: behavior identity (question 1), selection per target (question 2), the absolute fingerprint (question 3), and the allowlist file with its reason and owner (question 4). The labels for the absolute basis (open point 2) stay out as well. `docs/contracts.md` keeps describing the shipped version 2 report. It changes when the code writes version 3.
 - Required classifier change for the `content` artifact. `artifactClass` returns `null` when `artifact === 'content'` and `selected.diff.checks` is not greater than 0, and `cellClass` returns `null` for a content-only cell with no `diff.checks` (`src/report/classify.js`). An absolute artifact index has `result.violations` and no `diff`. So in a `subject` report these functions always return `null` for `content`, and "complete evidence and no finding is `match`" never happens. So the absolute index gets a `result.checks` count of executed checks, like `diff.checks` today, and the classifier reads it for a `subject` report. An index with `checks: 0` gives state `missing`, as in the precedent. This is part of the classifier follow-up.
 - Follow-up issues, each opened after approval: report shape and validator; classifier branch for target scope and basis; allowlist binding; `lint` artifact and producer; viewer labels and first view; query changes. Their order and size are not decided here.
 
@@ -519,6 +529,7 @@ The record cannot prove the answers below from the code. Each one states the que
 2. Selection per target. Where is it stored when a check or contract is selected for some targets and not for others? Candidates: a list of selected check ids on each entry, or a `scope.checks` list on each artifact. Constraints: the viewer tells an unselected check from a selected check with a missing outcome (R8.7); the field is derived from run settings and never invented by the viewer; it works in a `subject` report; it keeps `report.json` small (R9.2). Run-level selection is already encoded by the catalog (section 7, point 8).
 3. The absolute fingerprint (section 7, point 6).
 4. The allowlist file and its reason and owner fields (section 7, point 5).
+5. Completed checks in a non-complete artifact. A mixed `content` artifact is non-complete when one selected check throws. Findings of a non-complete artifact do not count toward a class ("A check that throws or cannot run"). So real findings of its completed checks drop out of class aggregation, and the scope reports the incomplete state instead of a class. It is never `match`. Should findings of completed checks keep counting? The spec states only the current rule.
 
 ## Open points
 

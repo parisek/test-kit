@@ -41,11 +41,12 @@ It must work for pages and for components with the same viewer. It must give a p
 | target | One thing to compare: a page path or a component. A path may differ per side. |
 | run | One capture of one side. It has an id and lives in `tests/visual/runs/<id>/`. |
 | pair | Two runs, A and B, compared. It has a **kind**. |
-| artifact | A kind of evidence in a run: `screenshot`, `html`, `status`, `behavior`, `lighthouse`, `content`. |
-| check | A small module that reads one artifact and reports findings (heading outline, language). |
+| subject | One run checked on its own, with no pair. |
+| artifact | A kind of evidence in a run: `screenshot`, `html`, `status`, `behavior`, `lighthouse`, `content`, `lint`, `a11y`. |
+| check | A small module that reads one artifact and reports findings (heading outline, language). It has a **basis**: `absolute` or `relative` (R8.10). |
 | finding | One difference or defect on a target, in an artifact, optionally in a viewport. |
 | cause | A named reason that explains findings. It may be known (accepted) or unknown. |
-| class | `match`, `explained`, `unexplained`, `oracle`. Derived, never stored. Only comparable evidence has a class. |
+| class | `match`, `explained`, `unexplained`, `oracle`. Derived, never stored. Only complete evidence has a class. |
 | normaliser | A rule that removes a known environment difference before comparing. It has evidence. |
 | noise floor | The difference between a side and itself. It sets the smallest meaningful change. |
 
@@ -62,7 +63,7 @@ It must work for pages and for components with the same viewer. It must give a p
 | `deploy` | production, earlier | production, now | none |
 | `adhoc` | any URL | any | by choice |
 
-- R3.1 The pair kind must decide which normalisers apply and which view opens first.
+- R3.1 For a pair, the pair kind must decide which normalisers apply and which view opens first.
 - R3.2 A pair across two environments must not be used to judge speed (see R6.5).
 - R3.3 A side may set `remote: true`. A remote side may use any HTTP or HTTPS origin without credentials or a path. Its capture must send GET and HEAD to that origin only. It must abort a frame or subresource of another origin and keep the capture. It must fail the capture on a redirect, popup or top-level navigation to another origin, and on any other method. Speed (`perf`) and DDEV discovery must refuse a remote side. A side without `remote: true` must stay local. (Issue #90)
 
@@ -141,13 +142,15 @@ A check is one file. It reads an artifact and returns findings.
 // checks/heading-outline.mjs
 export const id = 'heading-outline';
 export const title = 'Heading outline';
+export const basis = 'absolute';
 export const applies = { artifacts: ['html'] };
 export function check(doc, ctx) { return [ /* { target, severity, message, evidence } */ ]; }
 ```
 
+- A check without `basis` is relative. The absolute parts of R7.2, R7.3, R8.2 to R8.13 and R9.7 to R9.11 take effect with `schemaVersion` 3 (R13.9). Until then the shipped behaviour stands.
 - R7.1 A check must be a pure function of the stored artifact. A new check must run over an existing run without a new capture.
-- R7.2 A check must export `id`, `title`, `applies` and `check`. A CLI entry, if any, must sit behind an `import.meta.url` guard.
-- R7.3 Findings of a check go into the same `findings` list as findings of any artifact. Classes and rules apply with no special case.
+- R7.2 A check must export `id`, `title`, `basis`, `applies` and `check`. A CLI entry, if any, must sit behind an `import.meta.url` guard.
+- R7.3 Findings of a check go into the same `findings` list as findings of any artifact. A class applies by the basis of the check (section 8). Normaliser rules and known differences apply to relative checks only.
 - R7.4 A run stores the version of each extractor that read its content. Two runs with different extractor versions must not be compared silently.
 - R7.5 Starter checks: heading outline (one `h1`, no skipped level), page language against the expected one, empty `title` and `alt`, broken internal links, text difference A against B.
 - R7.7 Content checks keep the stored pure check contract. Browser contracts keep `name`, `detect`, and `run`. An explicit name list selects checks or contracts. Unknown or duplicate names fail. An empty behavior selection records no executed assertion. A skipped contract does not prove a pass.
@@ -158,19 +161,25 @@ export function check(doc, ctx) { return [ /* { target, severity, message, evide
 
 ## 8. Classification
 
-Derived from findings and `matchBelow`. Never stored.
+Derived from findings, the basis of each check and `matchBelow`. Never stored.
 
-| Class | Meaning |
-| --- | --- |
-| `match` | comparable evidence with no finding; `matchBelow` is a display hint |
-| `explained` | every finding has a known cause |
-| `unexplained` | at least one finding with no known cause |
-| `oracle` | the target judges by a rule, not by ratio (`judge: oracle`). Never coloured by ratio. |
+- A check without `basis` is relative. The absolute parts of R7.2, R7.3, R8.2 to R8.13 and R9.7 to R9.11 take effect with `schemaVersion` 3 (R13.9). Until then the shipped behaviour stands.
+- R8.10 Every check has a basis, `absolute` or `relative`. A `relative` check reports a difference between A and B and needs a pair. An `absolute` check reports on one run and needs no pair. The basis belongs to the check, not to the finding.
+- R8.11 A finding names its check with `checkId`. A finding with no `checkId` is `relative`. A finding of an absolute check always has a `checkId`, whatever its artifact, and the catalog of the report lists it (section 9). A finding of the `screenshot` or `html` comparison has no `checkId`. A finding of any other artifact must have one.
+
+| Class | Relative basis | Absolute basis |
+| --- | --- | --- |
+| `match` | comparable evidence with no finding; `matchBelow` is a display hint | complete evidence with no finding |
+| `explained` | every finding has a known cause | every finding has an allowlist entry (the allowlist is not specified yet; until it ships, an absolute finding is `unexplained`) |
+| `unexplained` | at least one finding with no known cause | at least one finding with no allowlist entry |
+| `oracle` | the target judges by a rule, not by ratio (`judge: oracle`). Never coloured by ratio. | same |
+
+- R8.12 A report may mix both bases. Class derives from state first (R8.7). A scope whose artifact is not `complete` has class `null`, and the summary counts it as incomplete. A finding of an artifact that is not `complete` never enters class aggregation. Such a scope is never `match`, even with no findings. A scope with a complete artifact and no findings is `match`. For the other scopes, the class of a target is the worst class over all findings in scope. The order, worst first, is `unexplained`, `explained`, `oracle`, `match`.
 
 - R8.1 The default `matchBelow` is 3 percent. It is a compass. The report must not call it a verdict.
-- R8.2 A row that names a rule outside the rule's scope must not be hidden by normalisation. Outside its scope it is a real difference.
-- R8.3 A pair must show its noise floor. A measured difference below it is not a finding. An unmeasured floor is `null`, never zero. Without a measured floor, a nonzero screenshot ratio produces a finding. The `matchBelow` hint must not suppress that finding.
-- R8.7 Measurement state is separate from class: `complete`, `missing`, `failed`, or `incompatible`. Missing evidence, capture failure, and incompatible settings must never become `match`. A query counts these states separately.
+- R8.2 A row that names a rule outside the rule's scope must not be hidden by normalisation. Outside its scope it is a real difference. Normaliser rules apply to relative checks only, so no rule can hide an absolute finding. An override or allowlist entry outside its scope has no effect. The allowlist is not specified yet (ADR 0004 open question 4).
+- R8.3 A pair must show its noise floor. A measured difference below it is not a finding. An unmeasured floor is `null`, never zero. Without a measured floor, a nonzero screenshot ratio produces a finding. The `matchBelow` hint must not suppress that finding. The noise floor belongs to a pair. An absolute check has no noise floor.
+- R8.7 Measurement state is separate from class: `complete`, `missing`, `failed`, or `incompatible`. Missing evidence, capture failure, and incompatible settings must never become `match`. A query counts these states separately. This holds for absolute checks. A check with no input gives `missing`. An empty check set gives `missing`. A check that throws or times out gives no finding. Its artifact is not `complete`. An empty `findings` list says nothing about an artifact that is not `complete`.
 - R8.8 A screenshot finding applies to one target and viewport. A class uses findings in that same scope. Target aggregation considers all comparable viewport findings and retains incomplete measurement states.
 - R8.9 Comparison must reject incompatible viewport dimensions, artifact settings, or tool versions with an explicit diagnostic. A run preserves the settings it used. Labels and origins do not determine artifact compatibility.
 
@@ -181,24 +190,30 @@ rules: { id: "text" | { text, evidence, applies: { pairs?, artifacts?, kinds?, t
 ```
 
 - R8.4 A rule must carry its evidence. A rule without evidence must not be accepted.
-- R8.5 A list in `applies` limits that axis. A missing list means no limit on that axis.
-- R8.6 The viewer shows the rules that fired on the target. The other rules in scope are collapsed.
+- R8.5 A list in `applies` limits that axis. A missing list means no limit on that axis. The same holds for the scope of an override or an allowlist entry on the axes `artifacts`, `targets` and `kinds`. The `kinds` axis takes the value `single-run`. The `pairs` axis does not apply to a `subject` report. The allowlist is not specified yet (ADR 0004 open question 4).
+- R8.6 The viewer shows the rules that fired on the target. The other rules in scope are collapsed. For an absolute check, a check fired when it has at least one finding on the target. The viewer lists the fired checks first, each with its `checkId`, title, `layer` and finding count, and collapses the other checks of the catalog. A check whose artifact is not `complete` shows as `missing`, `failed` or `incompatible`, never as a check with no finding.
+- R8.13 A narrower layer may switch an absolute check off. This writes an override record in the report (section 9), and the check has state `missing` with a diagnostic. A disabled check proves nothing (R7.7). An override must never hide a failed or missing run, a rule without evidence (R8.4) or an unexplained non-zero difference. A query counts overrides.
 
 ---
 
-## 9. Report format (schemaVersion 2)
+## 9. Report format (schemaVersion 3)
 
-- R9.1 `report.json` is additive over version 1. A file without `schemaVersion` is version 1 and is adapted. Nothing is dropped.
+The code writes version 2 until the report-shape change ships (ADR 0004). R9.7 to R9.11 describe version 3.
+
+- R9.1 A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1. Version 3 is not additive over version 2: `pair` becomes optional (R9.7). A reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion`.
 - R9.2 `report.json` must stay small. Large or tool-specific detail goes into sidecar files next to the run.
 - R9.3 `meta.tools` must list every tool with name, version and settings hash.
 
 ```
 meta       project, title, generated, matchBelow, primaryViewport, viewports[], groups?, tools[], sample?
 runs[]     id, side, label, at, captures
-pair       kind, aRunId, bRunId
+pair       kind, aRunId, bRunId          (exactly one of pair and subject)
+subject    kind: 'single-run', runId, key?
+checks     { <checkId>: { basis, layer, title } }
 entries[]  id, kind, title, path, group, judge?, note?, composedOf?, viewports[], artifacts, sample?
 causes[]   id, title, detail, known
-findings[] id, targetId, viewportId?, artifact, causeId
+findings[] id, targetId, viewportId?, artifact, causeId, checkId?, runId?, layer?, location?
+overrides[] checkId, scope, reason, owner, layer
 rules      { id: string | { text, evidence, applies } }
 ```
 
@@ -214,6 +229,11 @@ runs/<id>/behavior/<target>/        trace, video, step screenshots
 - R9.4 `report.json` holds, per artifact, an index entry: kind, path of the sidecar, tool, version, settings hash.
 - R9.6 The v0.1 serialized config, run, and screenshot report contract is `docs/contracts.md`. A comparison preserves raw captures. It does not rewrite the original evidence.
 - R9.5 A component and a page use the same report. A page lists its components in `composedOf`. The viewer shows "composed of" and, on the component, "used on".
+- R9.7 A report has exactly one of `pair` and `subject`. `pair` is required for relative results. `subject` is required when there is no pair. `subject.key` is a hash of the run id. It replaces `pair.key` in the policy identity check, and it is present exactly when `meta.comparisonPolicyHash` exists. A `relative` check in a report with a `subject` is a validation error. A `subject` report must hold `rules: {}` and no `known_diffs`.
+- R9.8 The producer writes the `checks` catalog, one entry for each selected check. A `checkId` that is not in the catalog is a validation error. `layer` is the narrowest layer that contributed the rule that fired: `package`, `project`, `component` or `page`. An absolute finding carries `runId`: `aRunId` or `bRunId` in a pair report, `subject.runId` in a `subject` report. A relative finding carries no `runId`. A mismatch is a validation error.
+- R9.9 An absolute result sits at the scope of its evidence: `entries[].viewports[].artifacts.<kind>` or `entries[].artifacts.<kind>`. A `complete` artifact of an absolute-only kind (for example `lint`, or any artifact in a `subject` report) has this index entry and has no `a`, `b` or `diff`: `{ state, diagnostic?, evidence: { src, tool, version, settingsHash }, result: { violations, checks } }`. `result.checks` counts the executed checks. A count of 0 gives state `missing`. A relative artifact keeps `a`, `b` and `diff`. An unknown artifact kind is a validation error.
+- R9.10 The `content` artifact in a pair report keeps `a`, `b` and `diff` and may hold relative and absolute findings. Each finding is judged by its own basis. The artifact is `explained` only if every finding is. Its state is `complete` only if all selected checks completed. The state is the worst state of its selected checks. A check in the catalog with no outcome reads as `missing`. This holds for run-level selection. Selection per target is open (ADR 0004 open question 2). The per-check outcomes (check id, and a state of `passed`, `failed` or `incomplete`) live in the sidecar, not in `report.json`. So a completed check with no findings differs from a check with no outcome.
+- R9.11 A `lint` finding has no `viewportId`. It carries a `location`, bounded in size: `{ file, line, column }` or `{ selector }`. Its `targetId` is the component id when the file maps to a component, and otherwise the reserved id `@project` with entry kind `project`. The producer writes the `@project` entry. It is not a configured target.
 
 ---
 
@@ -225,7 +245,7 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
 - R10.2 The toolbar must fit one row at 1100 px and wider. It hides parts in a fixed order below that.
 - R10.3 The left column must collapse with a button and with the `[` key. The choice must persist. On a phone it is a drawer.
 - R10.4 Views: target detail, matrix (target by viewport), findings grouped by cause, timeline of runs, speed (only when the run has the artifact), content (only when checks ran).
-- R10.5 The first view depends on the pair kind: `convergence` and `adhoc` open detail; `self-baseline` and `deploy` open matrix; `update` and `migration` open findings.
+- R10.5 The first view depends on the pair kind: `convergence` and `adhoc` open detail; `self-baseline` and `deploy` open matrix; `update` and `migration` open findings. A report with a `subject` opens findings.
 - R10.6 Report data must never become markup. Text only.
 - R10.7 Every state change must go through one action list. Views must not write state.
 - R10.8 The viewer must work in light and dark theme and at phone width with no horizontal page scroll.
@@ -253,7 +273,7 @@ An agent must not read a whole report. It asks for the part it needs.
 - R11.3 Crops must come from the full-resolution original, not from a reduced preview.
 - R11.4 `summary` should stay under about 5 kB for a normal report (estimate, not yet measured).
 - R11.5 Each answer has a `next` field that names what the agent may do. Recording a known difference stays a command with evidence (R5.3).
-- R11.6 A person and an agent open the same pair and see the same classes.
+- R11.6 A person and an agent open the same report and see the same classes. `summary` returns `subject` for a report with a subject and `pair` for a report with a pair. It returns `subject: null` for a pair report and `pair: null` for a subject report.
 
 ---
 
@@ -296,7 +316,7 @@ skeleton manifest: 237 files under `static/tests/`.
 | Area | Files | Kind | Moves? |
 | --- | --- | --- | --- |
 | `visual` | 14 | Playwright capture, diff, report | yes, first (folds into the comparison tool) |
-| `behavior` | 22 | Playwright runner, contract API, shared contracts | the engine: yes. Project-owned contracts (`contracts/project/`, `tests/behavior/project/`) stay in the project. The shared contracts: open (R13.42). |
+| `behavior` | 22 | Playwright runner, contract API, shared contracts | the engine: yes. Project-owned contracts (`contracts/project/`, `tests/behavior/project/`) stay in the project. The shared contracts: yes, as opt-in packs (R13.42). |
 | `lib` | 45 | shared helpers | only what the moved areas use. A dependency check must come first. |
 | `cross-engine`, `browser-support` | 7 | engine-gap and support checks | yes, after `behavior` |
 | `fixtures.spec.js`, `fixtures.unverified.txt` | 2 | fixture checks | decide with `behavior` |
@@ -306,14 +326,14 @@ skeleton manifest: 237 files under `static/tests/`.
 - R13.13 The package owns scoped project commands, per-selection baselines, and persistent local history. A project keeps configuration, project contracts, and thin aliases. A one-time run stores evidence without inventing an A/B pair. Partial captures cannot replace a complete baseline. DDEV origin discovery is opt-in.
 
 - R13.8 `test-kit` must cover the Node side: capture, compare, behaviour, checks, speed, and the ESLint and Stylelint rules. PHP and Twig lint rules belong to a second package, `lint-kit`, in a separate issue. The dividing line is the toolchain and the channel (npm from a git tag against Composer from Packagist), not the purpose.
-- R13.9 Each move must be one pull request. After it, the project must work with no edit: a thin alias in the project calls the package (R13.7).
+- R13.9 Each move must be one pull request. While the package is alpha, a step may break a project. Such a step needs a changelog entry and a migration note. The project pins a tag (R13.27), so a break reaches it only when it updates the pin. Owner decision, 2026-10-18. After the owner declares beta, each move must leave the project working with no edit: a thin alias in the project calls the package (R13.7).
 - R13.10 A move must replace the manifest entries of the moved files with one pinned dependency. `verify-skeleton` and `sync-skeleton` must know the new state before the first move merges.
 - R13.11 A moved helper must not break a lint test that still imports it. The dependency check of `lib` must prove this before the move.
 - R13.12 The name of the package must fit the final scope. A rename after the first release is costly. The owner keeps the name `test-kit` (2026-10-08); the README must state the dividing line of R13.8.
 - R13.40 The ESLint and Stylelint rules must ship as entry points of the package. Their rule identifiers and the plugin namespace (`portadesign/...`) must not change before a major version, because project configs, disable comments and baselines name them. The entry-point shape (for example `@parisek/test-kit/eslint`) must be designed before the move.
 - R13.41 The package must own the engine of the behaviour suite: the registry, the discovery, the reporter, the Playwright config and the format of the allowlists. A contract written by one project stays in that project.
-- R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. They are coupled to those components. Component-specific shared contracts stay with the components in `tailwind-base`. The package owns the engine and contract API. The owner accepts this boundary on 2026-10-09.
-- R13.43 A move must keep the project-facing seam. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the move the same project files must keep working with a thin import from the package.
+- R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. Accessibility (`axe`) and the component packs must live in the package as opt-in named entry points. A pack must run only when the project selects it (R5.1). Project-owned contracts must stay in the project. A component-specific pack must be versioned per library major version. The runner must detect the version. An unsupported or undetectable version must be a non-pass state (R8.7). A pack moves only in its own pull request. The owner accepted this on 2026-10-18. It supersedes the acceptance of 2026-10-09.
+- R13.43 A move must keep the project-facing seam. While the package is alpha, R13.9 applies. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the owner declares beta, the same project files must keep working with a thin import from the package.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
 
@@ -322,8 +342,8 @@ Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public fro
 Decided by the owner (2026-10-08): `test-kit` reaches a project through a git tag, not through the npm registry.
 
 - R13.24 `test-kit` must be installed as a git dependency from the tags of `github:parisek/test-kit`. It must not be published to the npm registry. `package.json` must stay `private: true`, so a publish by mistake fails.
-- R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag.
-- R13.26 The tag must equal `version` in `package.json`. A workflow on tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`.
+- R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag. Only the owner tags a stable release. The agent may create a dev prerelease tag `vMAJOR.MINOR.PATCH-dev.N`. It creates the tag from `main`. It creates the tag only after a green cumulative test run on the tagged commit. A dev tag is not a release. Owner decision, 2026-10-18.
+- R13.26 A stable tag must equal `v` plus `version` in `package.json`. A dev tag must equal `v` plus `version` plus `-dev.N`. Here `version` is the base `X.Y.Z`. A workflow on a stable tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`. A dev tag creates no GitHub Release. The trigger of `.github/workflows/release.yml` matches stable tags only, so a dev tag starts no run. Owner decision, 2026-10-18.
 - R13.27 Before 1.0 a project must pin an exact tag: `npm install -D github:parisek/test-kit#v0.2.0`. After 1.0 it may use a range: `#semver:^1`. The lockfile pins the commit, so a moved tag cannot change a project.
 - R13.28 The package must install without a build step. The `files` list in `package.json` decides what a project receives. The viewer build is committed. CI must verify that it matches its source.
 - R13.29 The scoped name `@parisek/test-kit` needs no ownership of an npm scope for a git install. The name stays.
@@ -336,7 +356,7 @@ Verified 2026-10-08 on a local copy with two tags: npm installs from a tag and f
 
 ## 14. Delivery plan
 
-One logical change per pull request. Each starts as a draft, assigned to the owner. The owner authorizes autonomous implementation, review, merge, and release through v0.1.0 on 2026-10-09. On the same date, the owner extends review and merge authority to low-risk changes. CI must be green and independent review must pass. A problem or material risk needs owner approval before merge. Later release authority stays with the owner.
+One logical change per pull request. Each starts as a draft, assigned to the owner. One merge rule applies. It is stated in `docs/development-loop.md` (Merge rule) and in `docs/vision.md` (Review and merge). The owner approves each milestone and every stable release.
 
 The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounded summary, and verified git installation. It enables screenshots only and no checks. HTML/status artifacts, rules, behavior, content, speed, and lint remain later milestones. Basic HTTP availability metadata is part of screenshot capture. The original plan below describes the full scope, not one release.
 
@@ -385,5 +405,5 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 3. Does measuring production for speed need a separate explicit command?
 4. How long are content snapshots kept, and who deletes them?
 5. Which language-detection library, after the section R7.6 check?
-6. (decided) Component-specific behavior contracts stay with components (R13.42).
+6. (decided 2026-10-18) Accessibility and component packs live in the package as opt-in named entry points. Project-owned contracts stay in the project (R13.42). This supersedes the decision of 2026-10-09.
 7. What does the project-facing seam of the ESLint and Stylelint configs look like after the move (R13.40, R13.43)? Today the canonical config is a synced `exact` file and the project imports it.

@@ -243,7 +243,7 @@ the CLI and viewer classes (R11.6). A residual normalized difference, stale evid
 missing scope, or failed requested measurement cannot become a match.
 No check defaults or snapshot retention policy are introduced.
 
-## Opt-in content extension (unreleased)
+## Opt-in content extension (v0.2.0)
 
 Requirements: R6.4, R7.1–R7.5, R8.7, R9.4, R12.3.
 
@@ -273,7 +273,7 @@ validated sidecar. Content retention and the default check set remain open.
 The writer rejects a report above 16,000,000 bytes before it writes report.json.
 Split a large target or viewport selection. Detailed evidence stays local.
 
-## Opt-in behavior extension (unreleased)
+## Opt-in behavior extension (v0.2.0)
 
 Requirements: R4.2, R6.2–R6.4, R8.7–R8.9, R13.41–R13.43.
 
@@ -297,7 +297,7 @@ The report indexes bounded A/B step comparison sidecars. Indexed screenshots
 and traces stay local. ZIP traces are served as attachments. A behavior query
 bounds steps by count and serialized size and records omissions.
 
-## Opt-in Lighthouse extension (unreleased)
+## Opt-in Lighthouse extension (v0.2.0)
 
 Requirements: R6.5–R6.12, R8.7–R8.9, R9.2, R10.4, R11.6.
 

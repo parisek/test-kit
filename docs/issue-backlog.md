@@ -49,7 +49,7 @@ Do not merge removal before the pinned package release exists.
 | 0.4.0 | TK-16 | Compatible lint entry points. |
 | 0.5.0 | TK-17–TK-18 | Speed evidence and the agent update workflow. |
 
-The owner authorizes autonomous release through v0.1.0 after independent review and green CI. The owner creates later release tags after acceptance.
+Merge follows the one merge rule in `docs/development-loop.md`. Only the owner tags a stable release.
 Milestones are a plan, not a schedule. Use PATCH releases for fixes between them.
 The first milestone may split further if integration evidence calls for it.
 
