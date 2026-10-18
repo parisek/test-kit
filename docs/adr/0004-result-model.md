@@ -88,7 +88,7 @@ A check module exports `basis` next to `id`, `title`, `applies` and `check` (a s
 checks   { <checkId>: { basis: 'absolute' | 'relative', layer, title } }
 ```
 
-A finding names its check with `checkId`. A `checkId` that is not in the catalog is a validation error. A screenshot or HTML finding has no `checkId`. Its basis is `relative` by definition.
+A finding names its check with `checkId`. A `checkId` that is not in the catalog is a validation error. A finding of artifact `screenshot` or `html` has no `checkId`. Its basis is `relative` by definition, and these two artifacts have no absolute check. A finding of every other artifact (`content`, `behavior`, `lighthouse`, `lint`, `a11y`) must have a `checkId`. The table "Finding producers" below lists every producer.
 
 Class stays derived and never stored (section 8). The basis is a property of the rule, not of the finding. So C does not store class per finding.
 
@@ -97,7 +97,7 @@ Class stays derived and never stored (section 8). The basis is a property of the
 A report has exactly one of `pair` and `subject`.
 
 - `pair`: as today. Required for relative results.
-- `subject`: `{ kind: 'single-run', runId }`. Required when there is no pair.
+- `subject`: `{ kind: 'single-run', runId, key? }`. Required when there is no pair. `key` is required exactly when `meta.comparisonPolicyHash` exists, and absent otherwise. The examples below have no policy hash, so they have no `key`.
 
 `schemaVersion` becomes 3. Reasons: a reader of version 2 fails with a clear message at `schemaVersion`, not with a message about `pair.kind`. The tool adapts a version 2 file to version 3 without dropping a field (R9.1).
 
@@ -142,7 +142,9 @@ An absolute-only artifact has no side A or side B. Its index entry is:
 
 The validator branch that changes is the `complete` check in `validateReport` (`src/report/model.js`). Today a `complete` artifact must have `a`, `b` and `diff` with provenance, and `diff.changed` as a boolean. The new rule: a `complete` artifact of an absolute-only kind (`lint`, `a11y`, and any artifact in a `subject` report) must have `evidence` and `result.violations` and must not have `a`, `b` or `diff`. A relative artifact keeps the old rule. The validator also loops over target-scope `entry.artifacts`, which it ignores today. It loops over a fixed list of kinds, so `lint` is not validated at all today. An unknown kind must fail in the new validator.
 
-`targetState` and `targetClass` get a target-scope branch. Without it, a lint-only target has no viewports and reads as `missing` (see Context).
+`targetState` and `targetClass` get a target-scope branch.
+
+Mixed artifact. "Absolute-only" describes the artifact kind, not one check. In a pair report, the `content` artifact keeps `a`, `b` and `diff`. It holds relative checks (`text-difference`) and absolute checks (`heading-outline`, `lang`) side by side. The producer writes the absolute findings with `runId: pair.bRunId`. The class at the artifact scope uses all findings of that artifact. Each finding is judged by its own basis: a relative finding is `explained` through a known cause, an absolute finding through an allowlist entry. The artifact is `explained` only if every finding is. Until the allowlist ships, one absolute finding makes the artifact `unexplained`. `diff.changed` stays `findings.length > 0` of side B, as in `compareContentSnapshots` today. The artifact state is `complete` only if all selected checks completed. Without it, a lint-only target has no viewports and reads as `missing` (see Context).
 
 ### 6. Lint finding
 
@@ -160,8 +162,13 @@ These rules follow R8.2 to R8.7 and vision layer rule 1.
 2. A check that has no input gives `missing`. An empty check set for a run gives `missing` (the current behavior).
 3. A narrower layer that switches a rule off writes an override record in the report: `checkId`, scope, reason, owner, layer. The check at that scope has state `missing` with a diagnostic. A disabled check proves nothing (R7.7). The query counts overrides.
 4. An override never hides a failed or missing run, a rule without evidence (R8.4) or an unexplained non-zero difference.
-5. An absolute finding may become `explained` only through an allowlist entry. The entry carries a reason and an owner. It binds to `checkId`, `targetId` and the finding fingerprint. It does not bind to a run id or a pair key. Run ids change on each run, and an allowlist must outlive a run.
-6. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The validator and `findingIsExplained` need a second branch for it. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
+5. An absolute finding may become `explained` only through an allowlist entry. The entry carries a reason and an owner. It binds to `checkId`, `targetId` and an absolute fingerprint. The absolute fingerprint is an open design (point 6). It does not bind to a run id or a pair key. Run ids change on each run, and an allowlist must outlive a run.
+6. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The fingerprint differs too. Today `evidenceFingerprint` is set only for `screenshot`, `html` and `content` findings, and `evidenceBinding` hashes both run ids (`src/compare/runs.js`, the loop before `validateReport`; `src/rules/record.js`, the binding check). Behavior and lighthouse findings have no fingerprint today, so they can never be `explained` today. An absolute fingerprint must hash the evidence of one run, not two. It must change when that evidence changes. It must not depend on the run id, or an allowlist entry dies with each run. Which bytes it hashes is open and is the first design task of the allowlist issue. Until it exists, the fail-closed rule holds. The validator and `findingIsExplained` need a second branch for it. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
+
+7. R8.2, R8.3 and R8.5 for absolute checks:
+   - R8.2 (a rule outside its scope does not hide a row): normaliser rules are relative-only (section 2). No absolute check has a normaliser, so nothing can hide an absolute finding. An override or allowlist entry outside its scope has no effect.
+   - R8.3 (noise floor): the noise floor is a property of a pair. It is relative-only. An absolute check has no floor, and an absolute value is not hidden by one. The budget rule keeps its present form (`median > budget`).
+   - R8.5 (a list in `applies` limits that axis; a missing list means no limit): the same rule applies to the scope of an override or allowlist entry on the axes `artifacts`, `targets` and `kinds` (value `single-run`). The `pairs` axis does not apply to a `subject` report.
 
 ### 8. Classification
 
@@ -183,6 +190,31 @@ R10.5 picks the first view from `pair.kind`. A report with a `subject` opens the
 ### 10. Pure logic
 
 The classifier, the validator and the scope rules stay pure. They read basis, layer and overrides from report data. They do not import a check, read a file or use the DOM (R4.4).
+
+## Finding producers
+
+The table lists every place in `src/` that builds a report finding. The search: `grep -rnE "findings\.push|findings: \[|causeId" src --include='*.js'`, then a read of each hit. The report findings are assembled in `src/compare/runs.js`. The lines are 175 (screenshot), 183 (html), 189 (content), 193 (behavior) and 199 (lighthouse).
+
+| Producer (file) | Artifact | Catalog entry (`checkId`) | Basis | Layer | `runId` |
+| --- | --- | --- | --- | --- | --- |
+| `src/compare/runs.js:175` | `screenshot` | none (implicit) | relative | package | none |
+| `src/compare/runs.js:183` | `html` | none (implicit) | relative | package | none |
+| `src/content/compare.js` through `runs.js:189`: `heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links` | `content` | the check id | absolute | package | `pair.bRunId` (today only side B enters the list) |
+| same: `text-difference` | `content` | `text-difference` | relative | package | none |
+| `src/behavior/compare-artifact.js:68` through `runs.js:193` | `behavior` | `behavior.<contract name>` | relative | by contract origin | none |
+| `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-change'` | `lighthouse` | `lighthouse-change` | relative | package | none |
+| `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-budget'` | `lighthouse` | `lighthouse-budget` | absolute | project | `pair.bRunId` |
+
+Behavior. The step id is the contract name (`id: contract.name` in `src/behavior/index.js`). The finding is built from a compared step whose state is `changed` or `failed` (`compareBehavior` in `src/behavior/compare.js`). So it is about the difference of A and B and its basis is `relative`. Each executed contract enters the report catalog as `behavior.<contract name>`. The contract name is already a plain identifier (`/^[a-z0-9][a-z0-9-]{0,79}$/`, `src/behavior/contracts.js`). The prefix keeps it apart from a content check id. The producer fills `layer` from the origin of the contract: `package` for a shared contract, `project` for a contract under `contracts/project/` or `tests/behavior/project/` (spec section 13), and `component` for a contract that sits next to one component. The producer must know the origin. Today the registry does not record it. That is part of the producer change. In a `subject` report the same contract registers as an absolute entry. Its result state is judged on its own, and `runId` is `subject.runId`. A skipped contract is not a finding today and stays so. It also does not prove a pass (R7.7). This record does not change that.
+
+Out of scope on purpose:
+
+- `status`. It produces no report finding. The classifier excludes `status` findings (`src/report/classify.js`).
+- `src/cli/perf.js:85`. It builds run-level budget findings in `run.performance.findings`. They are not report findings, and no pair exists on that path. They are the one absolute, single-run finding that exists in code today (`evaluateBudgets` takes one artifact). They carry `cause: 'performance-budget'`, `metric`, `value`, `budget`, `targetId` and `viewportId`, and no `checkId`. They follow the `lighthouse-budget` entry when this path gains a report. Until then they may lack a `checkId`.
+- `src/workflow/feedback.js:23`. It copies findings into a bounded feedback summary. It already carries `checkId` and `contractId`. The summary will carry the new `checkId` and the `behavior.` prefix without a schema change. It is a reader, not a producer.
+- New producers (`lint`, `a11y`, hygiene, render integrity). They register their own entries when they are built.
+
+The count is 5 report-finding call sites in `src/compare/runs.js`, 7 rows above. A producer that the grep did not find would be a gap. The grep ran on the files in `src/` only. It did not run on `frontend/`, which holds readers.
 
 ## R7.3 is a special case
 
@@ -224,12 +256,21 @@ Report has `pair: { "kind": "update", "aRunId": "run-a", "bRunId": "run-b" }`. T
   "targetId": "home",
   "viewportId": "desktop",
   "artifact": "html",
-  "causeId": null,
+  "message": "HTML response bytes differ.",
+  "evidenceFingerprint": "sha256:<64 hex digits>",
   "layer": "package"
 }
 ```
 
-This differs from today by one field, `layer`. Class: `unexplained` until a known cause matches (unchanged).
+Today this finding has `id`, `targetId`, `viewportId`, `artifact` and `message` (`src/compare/runs.js:183`). `compare/runs.js` adds `evidenceFingerprint` later for `screenshot`, `html` and `content` findings (`src/compare/runs.js`, the loop that sets `finding.evidenceFingerprint`). `causeId` and `acceptance` appear only when a known cause matches. The one new field here is `layer`. Class: `unexplained` until a known cause matches (unchanged).
+
+Reshaped or new fields in all examples of this section, stated once:
+
+- New on every finding: `layer`.
+- New on absolute findings: `runId`.
+- New on findings of `content`, `behavior`, `lighthouse`, `lint` and `a11y`: `checkId`. Content findings have it today. Behavior and lighthouse findings do not.
+- New and optional: `location` (`{ file, line, column }` or `{ selector }`), bounded in size. Report findings carry no `evidence` field today, and this record adds none (R9.2). Detail stays in the sidecar. The examples therefore have no `evidence` field.
+- Kept as they are today: top-level `metric`, `value`, `budget`, `state`, `delta`, `noiseFloor` and `cause` on Lighthouse findings (`src/perf/model.js`).
 
 ### Single-run result (absolute)
 
@@ -245,16 +286,15 @@ Report has `subject: { "kind": "single-run", "runId": "run-1" }` and no `pair`.
   "runId": "run-1",
   "layer": "package",
   "severity": "warning",
-  "message": "The page has no h1.",
-  "evidence": {}
+  "message": "The page must have one h1 heading."
 }
 ```
 
-Class at the target: `unexplained` (a finding with no allowlist entry; see section 7 point 6). With complete evidence and no finding the class is `match`. With no stored snapshot the state is `missing` and the class is `null`.
+The finding has no `evidenceFingerprint`, because no absolute fingerprint exists yet (section 7 point 6). Class at the target: `unexplained` (a finding with no allowlist entry). With complete evidence and no finding the class is `match`. With no stored snapshot the state is `missing` and the class is `null`.
 
 ### Lint finding (absolute)
 
-Report has `subject: { "kind": "single-run", "runId": "run-1", "key": "sha256:<64 hex digits>" }`. The target is the fixed project entry because the file does not map to a component:
+Report has `subject: { "kind": "single-run", "runId": "run-1" }`. The target is the fixed project entry because the file does not map to a component:
 
 ```json
 {
@@ -266,7 +306,7 @@ Report has `subject: { "kind": "single-run", "runId": "run-1", "key": "sha256:<6
   "layer": "project",
   "severity": "error",
   "message": "Unexpected console statement.",
-  "evidence": { "file": "src/example-site/header.js", "line": 12, "column": 3 }
+  "location": { "file": "src/example-site/header.js", "line": 12, "column": 3 }
 }
 ```
 
@@ -303,8 +343,8 @@ The schema has a viewport axis and no state axis. This record adds none. A compo
   "runId": "run-1",
   "layer": "component",
   "severity": "error",
-  "message": "Element has insufficient color contrast.",
-  "evidence": { "rule": "color-contrast", "selector": ".example-site-button" }
+  "message": "color-contrast: Element has insufficient color contrast.",
+  "location": { "selector": ".example-site-button" }
 }
 ```
 
@@ -321,7 +361,7 @@ The model maps them as follows:
 | `performance-change` | `lighthouse-change` | `relative` | `package` | none. It is about the difference of A and B beyond the noise floor |
 | `performance-budget` | `lighthouse-budget` | `absolute` | `project` | `runId` is `pair.bRunId` |
 
-Why `bRunId`. `comparePerformance` tests `right.median > budget`, where `right` is side B. The sidecar validator checks `input.value === b.metrics[metric].median`. So a budget finding is a fact about run B. The validator rule: a finding with `checkId: 'lighthouse-budget'` must have `runId` equal to `pair.bRunId`, and `evidence.value` must equal the B median of the sidecar. Budget on side A is not evaluated today. A later change may add it with `runId` set to `pair.aRunId`. `evaluateBudgets` already works on one artifact with no pair, so in a `subject` report the same finding carries `runId: subject.runId`.
+Why `bRunId`. `comparePerformance` tests `right.median > budget`, where `right` is side B. The sidecar validator checks `input.value === b.metrics[metric].median`. So a budget finding is a fact about run B. `cause` stays as a top-level field, as today. The validator rule: a finding with `checkId: 'lighthouse-budget'` must have `runId` equal to `pair.bRunId`, and `value` must equal the B median of the sidecar (the sidecar validator checks this today). Budget on side A is not evaluated today. A later change may add it with `runId` set to `pair.aRunId`. `evaluateBudgets` already works on one artifact with no pair, so in a `subject` report the same finding carries `runId: subject.runId`.
 
 The producer keeps `cause` in the sidecar. It derives `checkId` when it writes the report finding. `cause` is not a cause id of `report.causes` (that is `causeId`). The names stay apart on purpose. A `lighthouse` finding with no `checkId` is a validation error, because the artifact has checks of both bases. For `screenshot` and `html` the basis stays implicit (`relative`).
 
@@ -334,23 +374,30 @@ Classification. The classifier looks up the basis of `lighthouse-budget` in the 
     "targetId": "home",
     "viewportId": "mobile",
     "artifact": "lighthouse",
+    "cause": "performance-budget",
     "checkId": "lighthouse-budget",
     "runId": "run-b",
     "layer": "project",
     "severity": "warning",
-    "message": "lcp exceeds its budget.",
-    "evidence": { "metric": "lcp", "value": 3100, "budget": 2500 }
+    "metric": "lcp",
+    "value": 3100,
+    "budget": 2500,
+    "message": "lcp exceeds its budget."
   },
   {
     "id": "f-6",
     "targetId": "home",
     "viewportId": "mobile",
     "artifact": "lighthouse",
+    "cause": "performance-change",
     "checkId": "lighthouse-change",
     "layer": "package",
     "severity": "warning",
-    "message": "lcp regression exceeds the observed noise floor.",
-    "evidence": { "metric": "lcp", "state": "regression", "delta": 400, "noiseFloor": 120 }
+    "metric": "lcp",
+    "state": "regression",
+    "delta": 400,
+    "noiseFloor": 120,
+    "message": "lcp regression exceeds the observed noise floor."
   }
 ]
 ```
@@ -359,7 +406,12 @@ The numbers are an example, not a measurement. The budget rule is the current on
 
 ### A check that throws or cannot run (absolute)
 
-A check that throws, times out or has no input produces no finding. It sets the state of its artifact. It never produces an empty findings list and never `match` (R8.7, R7.7):
+A check that throws, times out or has no input produces no finding. It sets the state of its artifact to `failed` or `missing`. An empty report-level `findings` list is valid when an artifact is not `complete`. The list is silent about that artifact. It does not mean "no problem". The rule that keeps R8.7:
+
+- Class derives from state first. `artifactClass` returns `null` when the artifact state is not `complete` (`src/report/classify.js`). `cellClass` and `targetClass` do the same. An empty list therefore never gives `match` for that scope.
+- A finding of a non-complete artifact does not count toward a class. `targetClass` already filters `screenshot` and `html` findings by `state === 'complete'`. The new classifier applies the same filter to every artifact.
+- The summary counts the scope as incomplete, and a query counts `failed` and `missing` separately (R8.7).
+- The validator rejects an artifact with state `complete` and no `result`. It accepts an empty `findings` list for any state.
 
 ```json
 {
