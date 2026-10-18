@@ -9,7 +9,7 @@ Decisions of 2026-10-18:
 3. The script may merge a pull request itself when the full merge rule holds. Every Tier 3 item always goes to the owner.
 4. The review gate is advisory only. The CI check `review-gate` shows a status and blocks nothing. The project does not enforce reviewer identity. All comments may come from one GitHub account. See "Trade-off of the advisory gate".
 
-This document turns the loop in `docs/vision.md` ("Milestones and releases", "Review and merge") into three skills, a script and CI checks. It cites the vision and does not change the rule. It adds mechanisms that enforce the rule. A follow-up pull request syncs `AGENTS.md` and `docs/development-loop.md` with this design (see "Where the skills live"). Until that pull request merges, those two files describe the current practice.
+This document turns the loop in `docs/vision.md` ("Milestones and releases", "Review and merge") into three skills, a script and CI checks. It cites the vision and does not change the rule. It adds mechanisms that check and report on the rule. Most of them do not block a merge (see "Trade-off of the advisory gate"). A follow-up pull request syncs `AGENTS.md` and `docs/development-loop.md` with this design (see "Where the skills live"). Until that pull request merges, those two files describe the current practice.
 
 ## Principle
 
@@ -24,7 +24,7 @@ A skill is a short instruction that calls a script. An invariant that can fail a
 | 3 | | Opens one draft pull request for each issue | | Runs on every push |
 | 4 | | | Each reviews the head SHA in a fresh context and posts a review record | `review-gate` shows the state of the records. It blocks nothing |
 | 5 | | Fixes findings in a new commit. Goes back to step 4 | | |
-| 6 | Decides every Tier 3 item | Marks the draft ready, then merges, when the full merge rule holds (see "Merge rule map" and "Merge steps") | | Runs the required checks |
+| 6 | Decides every Tier 3 item | Marks the draft ready, then merges, when the full merge rule holds (see "Merge rule map" and "Merge steps") | | Runs the checks |
 | 7 | | Tags a dev version from `main` after a green cumulative run | | Runs the cumulative suite |
 | 8 | Approves the milestone from the report. Tags every stable release | Writes the milestone report | | |
 
@@ -43,8 +43,8 @@ Skill 2 (`milestone-run`) merges only when all items of the vision's merge rule 
 | --- | --- |
 | Codex and Claude review independently and both approve | Script (gate). `review-gate` (CI, advisory) shows the same result. Both read the review records |
 | Each review is bound to the SHA that merges | Script (gate) and `review-gate` (advisory). The record SHA must equal the head SHA. The script merges with `gh pr merge --match-head-commit <sha>`. A new push changes the head SHA and voids every earlier review |
-| CI is green, including the checkable items | Required status checks (`ci`, `pr-title`, `tier-3-gate`, `pr-fields-check`). The script reads the check state at the head SHA. `review-gate` is not in this list |
-| The change is not a Tier 3 item | `tier-3-gate` (CI, required) for the categories it can detect. Reviewers judge the rest (see "Tier 3 coverage") |
+| CI is green, including the checkable items | The script reads the state of every check at the head SHA: `Node 20`, `Node 22`, `Local screenshot pipeline` (all three in workflow `CI`) and `conventional-pr-title` (workflow `Lint PR Title`), `tier-3-gate` and `pr-fields-check`. `review-gate` is shown but the script decides from the records itself. These checks block a merge only after the owner creates the ruleset (see "Trade-off of the advisory gate") |
+| The change is not a Tier 3 item | `tier-3-gate` (CI) for the categories it can detect. For all categories the script refuses when any counted record has `tier` 3 or `default_behavior` other than `none` (see "Record validation"). Reviewers judge the rest (see "Tier 3 coverage") |
 | The author gives no decisive approval | Script (gate) and `review-gate` (advisory). No record counts when its reviewer field is `author`. The author is never one of the two reviewers |
 | Each reviewer states the evidence examined and what it left unverified | Review record fields `evidence` and `unverified`. Script and `review-gate` fail when either field is empty |
 | No security impact, no unexpected file, no missing test, no material risk | Reviewers state each one in the record (`security`, `unexpected_files`, `tests`, `risk`). CI checks the security-relevant paths and the presence of test files in the diff. Any finding goes to the owner, even when both reviewers agree |
@@ -80,7 +80,7 @@ Rules:
 - The record carries no run id. GitHub gives each comment an `id`, a `created_at` and an `updated_at`. The script and `review-gate` use these real values, not a value that the reviewer writes.
 - The script and `review-gate` read only the latest record of each reviewer, by comment `created_at`. An older record never counts.
 - A record whose comment was edited (`updated_at` differs from `created_at`) does not count. The reviewer posts a new comment instead.
-- Every field is required. A missing field, a parse error, an empty `evidence` or `unverified` list, or a SHA that differs from the head SHA is a fail.
+- Every field is required. "Record validation" lists the parse rules and the content rules. A record that breaks a parse rule is a fail.
 - The record counts as an approval only when `verdict` is `fits` and every field is complete (see "Verdicts").
 - Text in a record is untrusted input. Code parses it as data and never passes it to a shell or to an expression.
 
@@ -99,8 +99,37 @@ The owner chose this on 2026-10-18. The review gate is advisory only. Plainly:
 - A forged review, or a missing review, is caught only by audit. CI does not catch it.
 - The script checks the records before it merges. The script is code that the same agent runs. So the control is the honesty of the agent, plus the audit sampling of the owner. Nothing else stops a dishonest or broken agent.
 - The merge rule in `docs/vision.md` stays the rule. This design does not weaken it. It only says which part a machine enforces and which part rests on honesty and audit.
-- What CI still enforces: the required checks `ci`, `pr-title`, `tier-3-gate` and `pr-fields-check`.
-- A required check on `main` needs a branch ruleset. On 2026-10-18 `main` had no branch protection (the GitHub API returned 404 for the protection of `main`). The owner sets the ruleset. Until then, no check blocks a merge, including the required ones.
+- Other checks are `Node 20`, `Node 22`, `Local screenshot pipeline`, `conventional-pr-title`, `tier-3-gate` and `pr-fields-check`. They are also advisory today. They block a merge only after the owner creates the ruleset below. Even then `tier-3-gate` and `pr-fields-check` only block what a machine can detect.
+- A required check on `main` needs a ruleset. On 2026-10-18 `main` had no branch protection (the GitHub API returned 404) and the repository had no rulesets (the `rulesets` API returned `[]`). The owner creates the ruleset. Until it exists, no check blocks a merge. The ruleset lists these exact check names: `Node 20`, `Node 22`, `Local screenshot pipeline` (all three in workflow `CI`) and `conventional-pr-title` (workflow `Lint PR Title`), and then `tier-3-gate` and `pr-fields-check`. `review-gate` stays out of the list.
+
+## Record validation
+
+One module, `scripts/milestone/records.js`, parses and validates records. The merge script and the `review-gate` workflow both import it. The advisory status and the merge decision therefore cannot diverge. `review-gate` checks out the default branch only to load this module. It never checks out the pull request.
+
+The module returns for each reviewer `counted` (true or false) and a reason. A record is counted only when all parse rules hold. The script then applies the content rules to the two counted records and to the template in the pull request body.
+
+Parse rules (a failure means the record is not counted, which is a fail):
+- Exactly one JSON block after the marker. All 15 fields of the schema exist with the right type.
+- `sha` is 40 hex characters and equals the head SHA. The comment is unedited.
+- `verdict` is `fits`, `needs-owner` or `conflicts`.
+- `evidence`, `unverified`, `requirements` and `citations` are non-empty arrays of non-empty strings.
+- Each `requirements` entry matches `R[0-9]+(\.[0-9]+)?` and exists in `docs/specification.md`.
+- Each `citations` entry matches `path:line`. The path is a relative path in the repository.
+
+Content rules (a failure means no merge and an owner question, even when the verdict is `fits`):
+
+| Field | Accepted value for a merge | Other value |
+| --- | --- | --- |
+| `tier` | 1 or 2, and equal to the `tier` in the template | Owner question. `tier` 3 is always Tier 3 |
+| `principle` | Equal to the `principle` in the template | Owner question |
+| `requirements` | Equal, as a set, to `requirements` in the template | Owner question |
+| `default_behavior` | `none` | Owner question (Tier 3) |
+| `security` | `none` | Owner question |
+| `unexpected_files` | `none` | Owner question |
+| `tests` | `present` or `docs-only`, and equal to `tests` in the template | Owner question |
+| `risk` | `none` | Owner question |
+
+A Tier 3 item that only a reviewer sees (`tier` 3 or `default_behavior` other than `none` in a record) stops the merge, even when `tier-3-gate` saw nothing.
 
 ## Verdicts
 
@@ -130,14 +159,24 @@ Rules:
 
 Output. In mode `pr` the output is the review record (see "Review record"). It has the same fields and the same names. In mode `issue` the output is the same JSON block with `"mode": "issue"`, and without `sha`, `evidence`, `unverified`, `unexpected_files` and `tests`. `review-gate` and the script ignore a block with `"mode": "issue"`.
 
-| Field | Value |
+The fields are the 15 fields of the JSON block in "Review record". "Record validation" gives the accepted values.
+
+| Field | Meaning |
 | --- | --- |
+| mode | `pr` or `issue` |
+| reviewer | `codex`, `claude` or `author` |
+| sha | The head SHA that the review covers (mode `pr` only) |
+| verdict | `fits`, `needs-owner` or `conflicts` |
 | principle | The number of the principle the change serves |
 | tier | 1, 2 or 3, from the vision |
 | requirements | The R-numbers the change meets or changes |
 | default_behavior | `none` or a description. Any new default is Tier 3 |
+| evidence | What the reviewer examined (mode `pr` only) |
+| unverified | What the reviewer did not verify (mode `pr` only) |
 | security | `none` or the path and the reason |
-| verdict | `fits`, `needs-owner` or `conflicts` |
+| unexpected_files | `none` or the files |
+| tests | `present`, `docs-only` or `none: <reason>` (mode `pr` only) |
+| risk | `none` or the risk |
 | citations | File and line for each claim |
 
 `fits` is a cited judgement. It is never the only gate.
@@ -160,11 +199,11 @@ The skill calls a script that:
 The script runs these steps in this order. Any failure stops it with no change.
 
 1. Read the head SHA. Read the review records, the labels and the check state at that SHA.
-2. Check every item of "Merge rule map". Stop when one fails.
+2. Check every item of "Merge rule map" and every rule of "Record validation". Stop when one fails. When a counted record fails a content rule (not a parse rule), write an owner question and do not merge.
 3. Mark the draft ready: `gh pr ready <number>`. GitHub does not merge a draft. The pull request stays a draft until this step, as `AGENTS.md` requires. Only this script marks a pull request ready. An author agent never does.
 4. Read the head SHA again. If it differs from step 1, stop. Start again at step 1 on the next run.
-5. Wait for the required checks at the head SHA. A `ready_for_review` event may start CI again.
-6. Merge: `gh pr merge <number> --squash --match-head-commit <sha>`. GitHub refuses the merge if a push arrived after step 4.
+5. Wait for the checks at the head SHA. `ci.yml` and `pr-title.yml` do not list the `ready_for_review` event, so marking ready starts no new run of them (unverified for GitHub defaults; the script reads the check state that exists at the head SHA and waits only for checks still pending).
+6. Merge: `gh pr merge <number> --squash --match-head-commit <sha> --subject "<pull request title>" --body-file <file>`. The script passes the subject and the body itself, because the default squash message does not carry the commit body that `AGENTS.md` requires (what was rejected or left alone). The body comes from the pull request body section "Left alone" and the two record `risk` fields. GitHub refuses the merge if a push arrived after step 4.
 7. Write the merge to the milestone log: PR number, head SHA, comment ids of the two records, check state.
 
 The script may merge itself (owner decision of 2026-10-18). Every Tier 3 item always goes to the owner. The script never merges a Tier 3 item, even when the label is present. The owner merges it.
@@ -185,16 +224,16 @@ A pull request template holds fields that the author fills and that CI can check
 
 ### Template fields and their checker
 
-`pr-fields-check` (required status check) reads the template from the pull request body and the diff from the API. It never runs code from the pull request. Each field has one checker:
+`pr-fields-check` (a status check; required only after the ruleset exists) reads the template from the pull request body and the diff from the API. It never runs code from the pull request. Trigger: `pull_request_target` with types `opened`, `edited`, `synchronize`, `reopened` and `ready_for_review`. Permissions: `contents: read`, `pull-requests: read`, `statuses: write`. It runs from the base branch and reads `scripts/milestone/security-paths.json` from the base branch, because a pull request could edit that list. Each field has one checker:
 
 | Field | Value | Checker and rule |
 | --- | --- | --- |
-| `tier` | 1, 2 or 3 | `pr-fields-check`. The value must be 1, 2 or 3. It must be 3 when `tier-3-gate` detects a Tier 3 category. Reviewers state the tier in the record, and it must match |
-| `principle` | A number | `pr-fields-check`. The number must be a principle number in the "Principles" list of `docs/vision.md`. The script counts the list |
-| `requirements` | R-numbers or `none: <reason>` | `pr-fields-check`. Each R-number must exist in `docs/specification.md`. `none` needs a reason |
+| `tier` | 1, 2 or 3 | `pr-fields-check`. The value must be 1, 2 or 3. It must be 3 when `tier-3-gate` detects a Tier 3 category. The script compares it with the record (see "Record validation") |
+| `principle` | A number | `pr-fields-check`. The number must be a principle number in the "Principles" list of `docs/vision.md`. The script counts the list. The script compares it with the record |
+| `requirements` | R-numbers or `none: <reason>` | `pr-fields-check`. Each R-number must exist in `docs/specification.md`. `none` needs a reason. The script compares the set with the record |
 | `default_behavior` | `none` or a description | Reviewers. CI checks only that the field is present. A value other than `none` makes the change Tier 3, and the script does not merge it |
 | `runtime_dependency` | `none` or a package name | `pr-fields-check`. It diffs `dependencies` in `package.json` and the lockfile. The field must name every added runtime package, or be `none` when the diff adds none |
-| `tests` | `present`, `docs-only` or `none: <reason>` | `pr-fields-check`. `present` needs a changed file under `tests/` or a `*.test.js` file. `docs-only` needs a diff that touches only `docs/` and `*.md` files. `none` goes to the owner |
+| `tests` | `present`, `docs-only` or `none: <reason>` | `pr-fields-check`. `present` needs a changed file under `tests/` or a `*.test.js` file. `docs-only` needs a diff that touches only `docs/` and `*.md` files. `none` goes to the owner. The script compares the value with the record |
 | `security_path` | `none` or a list of paths | `pr-fields-check`. It matches the diff against the list in `scripts/milestone/security-paths.json` (for example `.github/workflows/`, `scripts/milestone/`, `src/capture/`, `viewer/`). The field must list every match |
 
 ### Review gate
@@ -203,21 +242,25 @@ A pull request template holds fields that the author fills and that CI can check
 
 Trigger. The workflow `.github/workflows/review-gate.yml` runs on two events:
 - `issue_comment` with types `created`, `edited` and `deleted`. It acts only when `github.event.issue.pull_request` is set.
-- `pull_request_target` with types `opened`, `synchronize`, `reopened` and `ready_for_review`. A push sets the status back to `pending` for the new head SHA.
+- `pull_request_target` with types `opened`, `synchronize`, `reopened` and `ready_for_review`. Every event recomputes the status from the records at the current head SHA. After a push there is no record for the new SHA, so the status is `pending`. `ready_for_review` recomputes the same way. It does not reset the status.
 
 Both events run the workflow file from the default branch. The workflow does not check out the pull request. It does not run code from the pull request. It reads the comments and the head SHA through the GitHub API, parses each record as data, and writes a commit status named `review-gate` on the head SHA through the commit status API (permissions `statuses: write` and `pull-requests: read`, no other). It sets `success` only when the latest `codex` record and the latest `claude` record each are complete, unedited, have the verdict `fits` and carry the current head SHA. Otherwise it sets `failure` or `pending` and writes the reason in the status description.
 
 ### Tier 3 gate
 
-`tier-3-gate` (required status check). It fails when the pull request touches a Tier 3 category that CI can detect and the pull request lacks a valid approval label (see below).
+`tier-3-gate` (a status check; required only after the ruleset exists). It fails when the pull request touches a Tier 3 category that CI can detect and the pull request lacks a valid approval label (see below).
 
 Label rules for `tier-3-approved` and `dependency-approved`:
 - Only the owner may apply them. The check reads the labeler from the issue events API (`actor` of the `labeled` event) and ignores a label that another actor applied. This binds to a GitHub account, not to a person. If an agent runs under the owner's account, it can apply the label. The audit covers this.
-- The label binds to the head SHA by push time. The check accepts the label only when the `labeled` event is later than the push time of the head commit. Push time is the `created_at` of the `PushEvent` in the repository events API whose `payload.head` equals the head SHA. The check does not use the commit date or the author date, because the author sets them and can set them in the past. When the API returns no matching `PushEvent`, the check fails closed and ignores the label. (The events API lists only recent events, up to 90 days. For an older pull request, the owner pushes again.)
-- The workflow also removes the label on every `synchronize` event. A new push voids the label. The owner applies it again.
+- The label binds to the head SHA. Two guards apply:
+  1. The workflow removes the label on every `synchronize` event. A new push voids the label. The owner applies it again. This is the main guard. It depends on the workflow running in time.
+  2. The check accepts the label only when the `labeled` event is later than the push time of the head SHA. Push time is the earliest `created_at` of the check suites for the head SHA (`GET /repos/{owner}/{repo}/commits/{sha}/check-suites`). GitHub creates a check suite when it receives the push, so the time is not set by the author. The check does not use the commit date or the author date, because the author sets them and can set them in the past.
+- The check does not use the repository Events API. That API keeps at most 300 events and 30 days (Codex finding). It showed about 9 days of window in this repository (page 3 of 100 events ended 2026-10-09). It can also lag by hours.
+- Limits of the check-suite source (unverified, not yet run): a suite may appear a few seconds after the push. If the API returns no suite for the head SHA, the check fails closed and ignores the label. The workflow then retries (it runs again on the next event, and the owner can re-run it). A late source therefore delays a Tier 3 approval. It never grants one.
 - The check runs from the base branch. It uses `pull_request_target`, or a required workflow or ruleset, so the pull request cannot edit the check that judges it. The workflow does not check out or run code from the pull request head.
-- The check is a required status check on `main` (it needs the ruleset from "Trade-off of the advisory gate").
+- The check blocks a merge only after the ruleset from "Trade-off of the advisory gate" exists.
 - The check triggers on `labeled`, `unlabeled` and `synchronize`.
+- Permissions: `statuses: write`, `pull-requests: write` (to remove a label) and `contents: read`. The default token of this repository is read-only (`default_workflow_permissions` is `read`, checked 2026-10-18), so the workflow file must declare these permissions.
 
 ### Stable tag protection
 
@@ -225,16 +268,18 @@ Only the owner may create a stable release tag (decision of 2026-10-16). A repos
 - Target: tags that match `v*`. Exclude `v*-dev.*`, because the agent may tag dev versions.
 - Rules: restrict creation, update and deletion.
 - Bypass list: the owner only.
-- `release.yml` runs on `v*` tags. It does not decide who may tag. The ruleset does.
+- `release.yml` runs on stable tags only (`v[0-9]+.[0-9]+.[0-9]+`, checked on `main` after PR #110). A dev tag starts no Release run (R13.26). `release.yml` does not decide who may tag. The ruleset does.
+- Precondition in the vision ("Milestones and releases", item 6): the agent tags nothing until the spec edit #100 merges. #100 is closed, so the agent may tag dev versions after a green cumulative run.
+- The ruleset does not exist yet (see "Trade-off of the advisory gate").
 - Limit: a ruleset binds a GitHub account. If the agent runs under the owner's account, the ruleset does not stop it. Then the rule "the agent never tags a stable release" rests on the honesty of the agent. The audit checks every stable tag against the milestone report.
 
 ## Audit sampling
 
 Review identity and the labels are not enforced, so the owner audits on sample. The audit is how the owner finds a forged or missing review.
 
-Sample size. For each milestone, the milestone report lists every merged pull request. The script picks the sample with a fixed rule, so the agent cannot choose it:
+Sample size. For each milestone, the milestone report lists every merged pull request. The sample rule is fixed. The seed is not secret, so the agent could compute the sample. The owner therefore holds a salt that the owner picks after the last merge of the milestone, and recomputes the sample:
 - Always: every pull request that touched a security path, every pull request merged while `review-gate` was not `success`, and every stable tag.
-- Plus a random sample of the other pull requests: `max(2, ceil(10% of them))`. The script sorts them by the SHA-256 of `<milestone>:<pull request number>` and takes the first ones.
+- Plus a random sample of the other pull requests: `max(2, ceil(10% of them))`. The owner runs the script with the salt. It sorts them in ascending order by the hex SHA-256 of `<salt>:<pull request number>`, breaks a tie by the lower pull request number, and takes the first ones.
 
 Cost. The owner needs about 10 minutes for one pull request. This is an estimate, not a measurement. The first milestone measures the real time, and this document then states the measured value.
 
@@ -249,15 +294,16 @@ Result. A failed re-check is a material risk. The owner stops auto-merge for the
 
 ## Tier 3 coverage
 
-The vision lists seven Tier 3 categories. CI detects three of them. Reviewers judge the rest. A category that only reviewers judge goes to the owner through the record fields (`needs-owner`) and through the rule that the script never merges a Tier 3 item.
+The vision lists seven Tier 3 categories. CI detects two of them (`docs/vision.md` and runtime dependencies). Reviewers judge the rest. A category that only reviewers judge goes to the owner through the record fields (`needs-owner`) and through the rule that the script never merges a Tier 3 item.
 
 | Tier 3 category (`docs/vision.md`) | Detected by |
 | --- | --- |
 | Any change to `docs/vision.md` | CI: diff of that file |
 | A change to a principle, goal or non-goal | Reviewers. CI sees it only when the change is in `docs/vision.md` |
 | A new runtime dependency | CI: diff of the `dependencies` field in `package.json` and of the lockfile |
-| A change to a default, to retention, or to the default check set | Reviewers (the record field `default behavior`) |
-| A stable release tag, and a merge of a milestone into `main` | CI: release tags (`release.yml` runs on tags). The script never pushes a stable tag |
+| A change to a default, to retention, or to the default check set | Reviewers (the record field `default_behavior`) |
+| A stable release tag | Not detected by a workflow: `release.yml` runs after the tag exists. The control is the tag ruleset, which does not exist yet. The script never pushes a stable tag. The audit checks every stable tag |
+| A merge of a milestone into `main` | Does not apply. There is no milestone branch (vision, "Milestones and releases"). Each pull request merges into `main` on its own |
 | An edit of an issue the owner created | Reviewers and the script. CI does not see issue edits |
 | Anything that sends data off the machine | Reviewers |
 
@@ -267,7 +313,7 @@ A `devDependencies` change is not a runtime dependency. CI does not require `dep
 
 `AGENTS.md` ("PR + Review workflow") and the vision merge rule must say the same. This design does not edit `AGENTS.md`. The follow-up pull request that builds the skills applies this text. It replaces the first bullet of the section:
 
-> - One logical change for each pull request. A pull request is a draft, assigned to `parisek`. The owner authorizes autonomous review and merge of low-risk changes (2026-10-09; process details 2026-10-18). A change merges when the merge rule in `docs/vision.md` holds: two independent reviews (Codex and Claude) bound to the head SHA, green required checks, no Tier 3 item, and no security impact, unexpected file, missing test or material risk. The merge script `scripts/milestone/` checks the review records, marks the draft ready and merges. An author agent never marks its own pull request ready and never approves it. The CI check `review-gate` is advisory. The owner audits a sample of merged pull requests (`docs/process-skills.md`, "Audit sampling"). Send a problem or material risk to the owner for approval. The owner approves every milestone and every stable release.
+> - One logical change for each pull request. A pull request is a draft, assigned to `parisek`. The owner authorizes autonomous review and merge of low-risk changes (2026-10-09; process details 2026-10-18). A change merges when the merge rule in `docs/vision.md` holds: two independent reviews (Codex and Claude) bound to the head SHA, green checks, no Tier 3 item, and no security impact, unexpected file, missing test or material risk. The merge script `scripts/milestone/` checks the review records, marks the draft ready and merges. An author agent never marks its own pull request ready and never approves it. The CI check `review-gate` is advisory. The owner audits a sample of merged pull requests (`docs/process-skills.md`, "Audit sampling"). Send a problem or material risk to the owner for approval. The owner approves every milestone and every stable release.
 
 The text keeps three existing facts: draft pull requests, assignment to `parisek`, and escalation of risks. It replaces "independent review must pass" with the exact rule. It also names who marks a pull request ready, which `AGENTS.md` leaves open today.
 
