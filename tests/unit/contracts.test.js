@@ -34,11 +34,17 @@ test('detectMajor gives unknown for everything it cannot prove (R8.7)', () => {
   }
 });
 
-test('detectMajor reads each field once', () => {
+test('detectMajor reads only own enumerable data fields, once', () => {
+  const inherited = Object.create({ version: '12.2.0', source: 'lockfile' });
+  assert.equal(detectMajor(inherited).state, 'unknown');
+  assert.equal(selectContractSet(swiperSets, inherited).state, 'unknown');
+  assert.equal(detectMajor(Object.create({ version: '12.2.0' }, { source: { value: 'lockfile', enumerable: true } })).state, 'unknown');
   let reads = 0;
-  const input = { get version() { reads += 1; return reads === 1 ? '12.0.0' : '14.0.0'; }, get source() { return 'lockfile'; } };
-  assert.equal(detectMajor(input).major, 12);
-  assert.equal(reads, 1);
+  assert.equal(detectMajor({ get version() { reads += 1; return '12.0.0'; }, source: 'lockfile' }).state, 'unknown');
+  assert.equal(reads, 0);
+  assert.equal(detectMajor(Object.defineProperties({}, { version: { value: '12.0.0' }, source: { value: 'lockfile' } })).state, 'unknown'); // not enumerable
+  const bare = Object.assign(Object.create(null), { version: '14.3.0', source: 'lockfile' });
+  assert.equal(detectMajor(bare).major, 14);
 });
 
 test('helpers read the banner of a bundle and a lockfile', () => {
@@ -46,10 +52,19 @@ test('helpers read the banner of a bundle and a lockfile', () => {
   assert.deepEqual(bundleBannerVersion(banner, 'Swiper'), { version: '14.3.0', source: 'bundle-banner' });
   assert.equal(bundleBannerVersion('var a = 1;', 'Swiper'), null);
   assert.equal(bundleBannerVersion(banner, '(a+)+'), null);
+  assert.equal(bundleBannerVersion('/*\n * Other 14.3.0\n', 'Swiper'), null);
+  const hostile = `/*${' \t'.repeat(1000)}x`;
+  const started = performance.now();
+  assert.equal(bundleBannerVersion(hostile, 'Swiper'), null);
+  assert.ok(performance.now() - started < 200, 'the banner parse is linear');
   assert.deepEqual(lockfileVersion(load('swiper-lock'), 'swiper'), { version: '14.3.0', source: 'lockfile' });
   assert.equal(lockfileVersion(load('swiper-lock'), 'gsap'), null);
   assert.equal(lockfileVersion({ packages: { 'node_modules/swiper': {} } }, 'swiper'), null);
   assert.equal(lockfileVersion(null, 'swiper'), null);
+  const nested = major => ({ packages: { 'node_modules/swiper': { version: '14.3.0' }, 'node_modules/other/node_modules/swiper': { version: `${major}.0.0` } } });
+  assert.equal(lockfileVersion(nested(14), 'swiper').version, '14.3.0');
+  assert.equal(lockfileVersion(nested(12), 'swiper'), null); // a second copy of another major leaves the version unknown
+  assert.equal(lockfileVersion({ packages: { 'node_modules/xswiper': { version: '1.0.0' }, 'node_modules/swiper': { version: '14.3.0' } } }, 'swiper').version, '14.3.0');
 });
 
 test('Swiper 12 and 14 sets are keyed by major, name an owner and run side by side', () => {
@@ -120,22 +135,40 @@ test('a placeholder set cannot pass', () => {
   assert.equal(result.checks['example-lib-version'].state, 'complete');
   assert.equal(result.state, 'missing');
   assert.match(result.findings.find(item => item.checkId === 'example-lib-basic').message, /placeholder/);
+  assert.match(result.findings.find(item => item.checkId === 'example-lib-version').message, /placeholder/);
+  assert.doesNotMatch(result.findings.find(item => item.checkId === 'example-lib-version').message, /applies/);
 });
 
 test('set and pack definitions fail closed', () => {
   const base = { library: 'example-lib', major: 1, owner: 'example-owner', status: 'verified', verifiedAgainst: '1.0.0', sources: ['https://example.com/docs'], facts: {}, contracts: [{ id: 'a', title: 'A', check: () => [] }] };
+  const set = (major, ids = ['a']) => ({ ...base, major, verifiedAgainst: `${major}.0.0`, contracts: ids.map(id => ({ id, title: id, check: () => [] })) });
   assert.ok(Object.isFrozen(defineContractSet(base)));
   for (const bad of [{ ...base, owner: '' }, { ...base, owner: undefined }, { ...base, major: 1.5 }, { ...base, major: '1' }, { ...base, status: 'guess' }, { ...base, verifiedAgainst: '' }, { ...base, sources: [] },
-    { ...base, library: 'Bad Name' }, { ...base, contracts: [] }, { ...base, contracts: [{ id: 'a', title: 'A', check: () => [] }, { id: 'a', title: 'A', check: () => [] }] }, { ...base, contracts: [{ id: 'a', title: 'A' }] }, null]) {
+    { ...base, library: 'Bad Name' }, { ...base, owner: 'TODO' }, { ...base, owner: 'tbd' }, { ...base, verifiedAgainst: '2.0.0' }, { ...base, verifiedAgainst: '1.0.0-beta.1' }, { ...base, verifiedAgainst: '1' }, { ...base, sources: ['ok', 5] }, { ...base, contracts: [] }, { ...base, contracts: [{ id: 'a', title: 'A', check: () => [] }, { id: 'a', title: 'A', check: () => [] }] }, { ...base, contracts: [{ id: 'a', title: 'A' }] }, null]) {
     assert.throws(() => defineContractSet(bad));
   }
-  const set = (major, ids = ['a']) => ({ ...base, major, contracts: ids.map(id => ({ id, title: id, check: () => [] })) });
   const make = sets => defineVersionedPack({ id: 'example-lib', title: 'Example', owner: 'example-owner', library: 'example-lib', sets });
   assert.ok(make([set(1), set(2)]));
   assert.throws(() => make([set(1), set(1)]), /one major/);
   assert.throws(() => make([set(1), set(2, ['a', 'b'])]), /same contract ids/);
   assert.throws(() => make([{ ...set(1), library: 'other-lib' }]), /must be for/);
   assert.throws(() => make([]), /needs contract sets/);
+  const retitled = set(2); retitled.contracts = [{ id: 'a', title: 'Other title', check: () => [] }];
+  assert.throws(() => make([set(1), retitled]), /different title/);
+  assert.throws(() => defineVersionedPack({ id: 'example-lib', title: 'Example', owner: 'TBD', library: 'example-lib', sets: [set(1)] }), /owner/);
+});
+
+test('definitions read each caller field and list once', () => {
+  const base = { library: 'example-lib', major: 1, owner: 'example-owner', status: 'verified', verifiedAgainst: '1.0.0', facts: {}, contracts: [{ id: 'a', title: 'A', check: () => [] }] };
+  let reads = 0;
+  const sources = [];
+  Object.defineProperty(sources, 0, { get() { reads += 1; return reads === 1 ? 'https://example.com/docs' : { evil: true }; }, enumerable: true });
+  const made = defineContractSet({ ...base, sources });
+  assert.deepEqual(made.sources, ['https://example.com/docs']);
+  assert.equal(reads, 1);
+  let titleReads = 0;
+  const contract = { id: 'a', check: () => [], get title() { titleReads += 1; return titleReads === 1 ? 'A' : ''; } };
+  assert.equal(defineContractSet({ ...base, sources: ['x'], contracts: [contract] }).contracts[0].title, 'A');
 });
 
 test('selectContractSet never falls back to another major', () => {

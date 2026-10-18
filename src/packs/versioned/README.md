@@ -15,14 +15,17 @@ Nothing runs by default. A project must select the pack (G3, R5.1).
 `version` is an exact release string (`12.2.0`, `v14.3.0`, `14`) or a whole major number. `source` is `lockfile`, `bundle-banner` or `config`.
 A range (`^12.0.0`), a tag (`latest`), a prerelease (`14.0.0-beta.2`), a bad source or a missing value gives `unknown`.
 The code never guesses and never falls back to another major (R8.7, R8.9).
+`detectMajor` reads only own enumerable data fields, once. An inherited field or a getter gives `unknown`.
+`lockfileVersion` looks at every copy of the package, top level and nested. If the copies have different majors, it returns `null` and the version stays unknown. It does not choose a copy.
 The caller reads the version. The project passes it in `context.versions[library]` as `{ version, source }`.
 
 ## Contract sets
 
 A set has `library`, `major`, `owner`, `status`, `verifiedAgainst`, `sources`, `facts` and `contracts`.
 `status` is `verified` or `placeholder`. A verified set names the release and the sources it was checked against.
+`owner` must be a name, not `TODO` or `TBD`. `verifiedAgainst` must be an exact release of the set's major. Each caller field and list is read once and copied.
 A placeholder set runs every contract as `incomplete`, so it never passes.
-Every set of one library must declare the same contract ids. A major cannot skip a contract, and the contract id stays stable across majors.
+Every set of one library must declare the same contract ids and the same titles. A major cannot skip a contract, and the contract id stays stable across majors.
 
 ## Pack behaviour
 
