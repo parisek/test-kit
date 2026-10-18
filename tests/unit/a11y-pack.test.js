@@ -148,9 +148,9 @@ test('the reducer never throws: bad input gives a failed artifact', () => {
     base({ violations: new Array(2) }), base({ violations: [rule({ nodes: undefined })] }), base({ violations: [rule({ nodes: [{ target: deep, html: 'x' }] })] }),
     base({ violations: [rule({ nodes: [{ target: wide, html: 'x' }] })] }), base({ violations: [rule({ nodes: [{ target: [5], html: 'x' }] })] }),
     base({ violations: [rule({ nodes: [{ target: ['a'], html: {} }] })] }), base({ violations: many }), base({ inapplicable: undefined }), base({ passes: 'x' })];
-  for (const value of cases) {
+  for (const [index, value] of cases.entries()) {
     const artifact = reduceAxeResults(value);
-    assert.equal(artifact.status, 'failed', JSON.stringify(value)?.slice(0, 80));
+    assert.equal(artifact.status, 'failed', `case ${index}`);
     assert.equal(typeof artifact.reason, 'string');
   }
   assert.match(reduceAxeResults(base({ violations: many })).reason, /more than 200 rules/);
