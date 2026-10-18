@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { definePack, resolveChecks, runChecks, LAYERS } from '../../src/packs/index.js';
+import { MAX_DEPTH } from '../../src/packs/snapshot.js';
 import { examplePack, titleCheck, throwingCheck } from '../fixtures/packs/example-pack.js';
 
 const input = (value = { title: '' }) => ({ artifact: 'content', value });
@@ -232,7 +233,7 @@ test('hostile check outputs and contexts never end complete and never hide other
     const out = run(() => [], options);
     assert.equal(out.state, 'failed', name);
     assert.deepEqual(out.findings, [], name);
-    for (const item of Object.values(out.checks)) { assert.equal(item.state, 'failed', name); assert.match(item.diagnostic, /cannot be copied/, name); }
+    for (const item of Object.values(out.checks)) { assert.equal(item.state, 'failed', name); assert.match(item.diagnostic, /cannot be used/, name); }
   }
 });
 
@@ -244,20 +245,6 @@ test('holes in pack, check, available and override lists give a clear error', ()
   assert.throws(() => resolveChecks({ custom: sparse(1) }), /hole/);
   assert.throws(() => resolveChecks({ packs: sparse(1) }), /hole/);
   assert.throws(() => plan({ overrides: sparse(1) }), /hole/);
-});
-
-test('a check cannot change a Map, Set, Date or context that a later check reads', () => {
-  const seen = [];
-  const writer = mk('a-writer', { check: (v, c) => { v.map.set('k', 2); v.set.add(9); v.date.setTime(0); c.shared.map.set('k', 2); c.shared.set.add(9); return []; } });
-  const reader = mk('b-reader', { check: (v, c) => { seen.push([v.map.get('k'), v.set.has(9), v.date.getTime(), c.shared.map.get('k'), c.shared.set.has(9)]); return []; } });
-  const make = () => ({ map: new Map([['k', 1]]), set: new Set([1]), date: new Date(5) });
-  const value = make();
-  const context = { ...ctx, shared: make() };
-  const p = resolveChecks({ custom: [{ layer: 'project', check: writer }, { layer: 'project', check: reader }] });
-  const result = runChecks(p, { artifact: 'content', value }, context);
-  assert.deepEqual(seen, [[1, false, 5, 1, false]]);
-  assert.equal(result.checks['b-reader'].state, 'complete');
-  assert.equal(value.map.get('k'), 1); assert.equal(context.shared.set.has(9), false);
 });
 
 test('evidence toJSON cannot change evidence.state, and a hook or accessor never yields complete', () => {
@@ -334,11 +321,73 @@ test('getters on override and check fields are read once (stored value equals va
   assert.deepEqual([...resolveChecks({ custom: [{ layer: 'component', check }] }).checks[0].check.applies.components], ['header']);
 });
 
-test('a Map nested in the value is isolated per check and plain data is shared frozen', () => {
+
+test('input is JSON-like data: other types are rejected before any check runs, with type and path', () => {
+  const ran = [];
+  const p = resolveChecks({ custom: [{ layer: 'project', check: mk('probe', { check: () => { ran.push(1); return []; } }) }] });
+  const run = (value, context = ctx) => runChecks(p, { artifact: 'content', value }, context);
+  class Sample { constructor() { this.a = 1; } }
+  const accessor = {}; Object.defineProperty(accessor, 'a', { get: () => 1, enumerable: true });
+  const cases = {
+    'value.map': new Map(), 'value.set': new Set(), 'value.date': new Date(0), 'value.buffer': new ArrayBuffer(1), 'value.shared': new SharedArrayBuffer(1),
+    'value.typed': new Uint8Array(new SharedArrayBuffer(1)), 'value.typed2': new Uint8Array(2), 'value.view': new DataView(new ArrayBuffer(1)),
+    'value.regexp': /x/, 'value.error': new Error('e'), 'value.instance': new Sample(), 'value.fn': () => {}, 'value.sym': Symbol('s'), 'value.big': 1n,
+    'value.accessor': accessor, 'value.sparse': new Array(2),
+  };
+  for (const [path, bad] of Object.entries(cases)) {
+    const result = run({ [path.slice(6)]: bad });
+    assert.equal(result.state, 'failed', path);
+    assert.equal(result.checks.probe.state, 'failed', path);
+    assert.ok(result.checks.probe.diagnostic.includes(path), `${path}: ${result.checks.probe.diagnostic}`);
+  }
+  assert.match(run({ a: [{ m: new Map() }] }).checks.probe.diagnostic, /value\.a\[0\]\.m is a Map/);
+  assert.match(run({}, { ...ctx, set: new Set() }).checks.probe.diagnostic, /context\.set is a Set/);
+  assert.deepEqual(ran, []);
+});
+
+test('the snapshot keeps shared references and is frozen and shared by all checks', () => {
   const seen = [];
-  const a = mk('a-writer', { check: v => { v.outer.get('k').count += 1; v.outer.set('n', 1); return []; } });
-  const b = mk('b-reader', { check: v => { seen.push([v.outer.get('k').count, v.outer.has('n')]); return []; } });
-  const result = runChecks(resolveChecks({ custom: [{ layer: 'project', check: a }, { layer: 'project', check: b }] }), { artifact: 'content', value: { outer: new Map([['k', { count: 0 }]]) } }, ctx);
-  assert.deepEqual(seen, [[0, false]]);
-  assert.equal(result.checks['b-reader'].state, 'complete');
+  const a = mk('a-first', { check: (v, c) => { seen.push(v.ref === c.ref); assert.throws(() => { v.ref.n = 2; }, TypeError); assert.throws(() => { c.list.push(1); }, TypeError); seen.push(v); return []; } });
+  const b = mk('b-second', { check: v => { seen.push(v); return []; } });
+  const shared = { n: 1 };
+  const value = { ref: shared };
+  const context = { ...ctx, ref: shared, list: [] };
+  const result = runChecks(resolveChecks({ custom: [{ layer: 'project', check: a }, { layer: 'project', check: b }] }), { artifact: 'content', value }, context);
+  assert.equal(result.checks['a-first'].state, 'complete');
+  assert.equal(seen[0], true);
+  assert.equal(seen[1], seen[2], 'all checks get the same frozen snapshot');
+  assert.equal(shared.n, 1);
+  assert.equal(context.list.length, 0);
+  const cyclic = { name: 'x' }; cyclic.self = cyclic;
+  assert.equal(runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('cyc') }] }), { artifact: 'content', value: cyclic }, ctx).checks.cyc.state, 'complete');
+});
+
+test('depth limit: at the limit passes, above it fails with a message, very deep fails cleanly', () => {
+  const nest = depth => { const root = {}; let node = root; for (let i = 0; i < depth; i += 1) { node.n = {}; node = node.n; } return root; };
+  const p = resolveChecks({ custom: [{ layer: 'project', check: mk('deep') }] });
+  const run = value => runChecks(p, { artifact: 'content', value }, ctx);
+  // value is at depth 1 inside the wrapper, so the root object of nest(n) sits at depth 1 and its deepest node at depth n + 1.
+  assert.equal(MAX_DEPTH, 256);
+  assert.equal(run(nest(MAX_DEPTH - 1)).checks.deep.state, 'complete');
+  const over = run(nest(MAX_DEPTH));
+  assert.equal(over.checks.deep.state, 'failed');
+  assert.match(over.checks.deep.diagnostic, /deeper than 256 levels/);
+  const huge = run(nest(20000));
+  assert.equal(huge.checks.deep.state, 'failed');
+  assert.match(huge.checks.deep.diagnostic, /deeper than 256 levels/);
+});
+
+test('the result of a check is read once: then, length and elements', () => {
+  const reads = { then: 0, length: 0, item: 0 };
+  const list = new Proxy([fnd('m')], {
+    get(target, key, receiver) {
+      if (key === 'then') { reads.then += 1; return undefined; }
+      if (key === 'length') reads.length += 1;
+      if (key === '0') reads.item += 1;
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  const result = runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('once', { check: () => list }) }] }), input({ title: 'x' }), ctx);
+  assert.equal(result.checks.once.state, 'complete');
+  assert.deepEqual(reads, { then: 1, length: 1, item: 1 });
 });

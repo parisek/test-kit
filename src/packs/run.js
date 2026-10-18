@@ -1,5 +1,6 @@
 // Pure. Runs a plan over one stored artifact. It fails closed (R8.7, R4.4).
 import { isResolvedPlan } from './layers.js';
+import { snapshotInput, deepFreeze } from './snapshot.js';
 const OPEN_STATES = ['incomplete', 'unknown'];
 const SEVERITIES = ['info', 'warning', 'error'];
 const FINDING_KEYS = ['targetId', 'viewportId', 'artifact', 'checkId', 'severity', 'message', 'evidence'];
@@ -18,26 +19,6 @@ const describe = error => {
   try { return String(error?.message ?? error).slice(0, 200); } catch { return 'The check threw a value that cannot be read.'; }
 };
 const str = (value, max) => typeof value === 'string' && value.trim() !== '' && value.length <= max;
-
-// Types that stay mutable after Object.freeze, or that freeze cannot cover.
-const isByRef = value => value instanceof Map || value instanceof Set || value instanceof Date || value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-// Freezes plain data once. It returns true when the data holds a by-reference type, so each check needs its own copy.
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return false;
-  seen.add(value);
-  let byRef = isByRef(value);
-  if (!byRef) Object.freeze(value);
-  for (const key of byRef ? [] : Reflect.ownKeys(value)) byRef = deepFreeze(value[key], seen) || byRef;
-  // A Map or Set holds entries that freeze does not reach. Walk them only to find nested by-reference types.
-  if (value instanceof Map) for (const [k, v] of value) { deepFreeze(k, seen); deepFreeze(v, seen); }
-  if (value instanceof Set) for (const v of value) deepFreeze(v, seen);
-  return byRef;
-}
-const frozenCopy = value => {
-  if (value === undefined || value === null) return { value, byRef: false };
-  const copy = structuredClone(value);
-  return { value: copy, byRef: deepFreeze(copy) };
-};
 
 // Copies one finding into a plain frozen object. It throws on any bad shape.
 // All reads of untrusted properties happen here, inside the try of one check.
@@ -65,28 +46,24 @@ function normalizeFinding(item, id, input, context) {
 }
 
 function normalizeResult(returned, id, input, context) {
-  if (typeof returned?.then === 'function') { returned.then(undefined, () => {}); throw new Error('A check must be synchronous.'); }
-  if (!Array.isArray(returned) || returned.length > MAX_FINDINGS) throw new Error('A check must return a list of findings.');
-  // One clone of the whole result reads every getter, length and element once. Only the clone is validated and stored.
-  const result = structuredClone(returned);
-  if (result.length > MAX_FINDINGS) throw new Error('A check must return a list of findings.');
-  const out = [];
-  for (let index = 0; index < result.length; index += 1) {
-    if (!Object.hasOwn(result, index)) throw new Error('A finding list has a hole.');
-    out.push(normalizeFinding(result[index], id, input, context));
+  const then = returned === null || returned === undefined ? undefined : returned.then; // one read
+  if (typeof then === 'function') { then.call(returned, undefined, () => {}); throw new Error('A check must be synchronous.'); }
+  if (!Array.isArray(returned)) throw new Error('A check must return a list of findings.');
+  const length = returned.length; // one read
+  if (length > MAX_FINDINGS) throw new Error('A check must return a list of findings.');
+  const items = [];
+  for (let index = 0; index < length; index += 1) {
+    if (!Object.hasOwn(returned, index)) throw new Error('A finding list has a hole.');
+    items.push(returned[index]); // one read of each element
   }
-  return out;
+  // One clone reads every getter of every finding once. Only the clone is validated and stored.
+  return structuredClone(items).map(item => normalizeFinding(item, id, input, context));
 }
 
 // The one function that turns untrusted check output into trusted data.
 // The caller runs it inside the try of that one check.
-function sanitize(check, layer, snapshotValue, input, snapshot) {
-  // Frozen plain data is shared. A snapshot with a Map, Set, Date or buffer gives each check its own fresh copy.
-  let value = snapshotValue.value;
-  let context = snapshot.value;
-  if (snapshotValue.byRef) { value = structuredClone(value); deepFreeze(value); }
-  if (snapshot.byRef) { context = structuredClone(context); deepFreeze(context); }
-  const items = normalizeResult(check.check(value, context), check.id, input, context);
+function sanitize(check, layer, snapshot, input) {
+  const items = normalizeResult(check.check(snapshot.value, snapshot.context), check.id, input, snapshot.context);
   return { findings: items.map(item => Object.freeze({ ...item.finding, layer })), open: items.some(item => item.open) };
 }
 
@@ -99,18 +76,17 @@ export function runChecks(plan, input, context = {}) {
   const findings = [];
   const checks = {};
   const applied = [];
-  // One snapshot of the stored value and the whole context. The loop never reads the caller's objects again.
-  let valueSnap;
-  let contextSnap;
+  // One frozen snapshot of the value and the context, shared by all checks. The loop never reads the caller's objects again.
+  let snap;
   try {
-    valueSnap = frozenCopy(inputValue);
-    contextSnap = frozenCopy(context);
-  } catch {
-    for (const entry of plan.checks) if (entry.check.applies.artifacts.includes(artifact)) checks[entry.check.id] = state('failed', entry, 'The input or context cannot be copied, so no check ran.');
+    snap = snapshotInput(inputValue, context);
+  } catch (error) {
+    const why = `The input cannot be used, so no check ran: ${describe(error)}`;
+    for (const entry of plan.checks) if (entry.check.applies.artifacts.includes(artifact)) checks[entry.check.id] = state('failed', entry, why);
     return { state: 'failed', findings, checks, overrides: applied };
   }
-  const value = valueSnap.value;
-  const snapshot = contextSnap.value;
+  const value = snap.value;
+  const snapshot = snap.context;
   const artifactInput = Object.freeze({ artifact });
   const facts = { targetId: snapshot.targetId, artifact, kind: snapshot.kind };
   for (const entry of plan.checks) {
@@ -132,7 +108,7 @@ export function runChecks(plan, input, context = {}) {
     }
     if (gap) { checks[check.id] = state('missing', entry, gap); continue; }
     let result;
-    try { result = sanitize(check, layer, valueSnap, artifactInput, contextSnap); } catch (error) {
+    try { result = sanitize(check, layer, snap, artifactInput); } catch (error) {
       checks[check.id] = state('failed', entry, `The check failed: ${describe(error)}`);
       continue;
     }

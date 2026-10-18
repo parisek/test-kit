@@ -20,15 +20,15 @@ A switched-off check has state `missing` and a diagnostic. Missing input is dete
 A finding is a plain object with `severity` (`info`, `warning` or `error`), `message` and `evidence` (a plain object), and optionally `targetId`, `viewportId`, `artifact` and `checkId` (R7.2, ADR 0004).
 `targetId` falls back to `context.targetId`. A finding with no target is `failed`. A finding that names another artifact or check, carries an unknown key, or has a hole in the list is `failed`.
 The caps are 1000 findings, 1000 characters of message, and 10000 characters of evidence as JSON. The caps are chosen safety bounds, not measured numbers.
-`runChecks` copies each finding into a frozen plain object, and gives each check a frozen copy of the stored input, so a check cannot change it (R7.1).
+`runChecks` copies each finding into a frozen plain object (R7.1).
 It accepts only a plan from `resolveChecks`. A scope reads own keys only (`targets`, `artifacts`, `kinds`). Any other key makes the override invalid.
 
-`runChecks` takes one deep-frozen snapshot of the stored value and of the whole context before the loop. It never reads the caller's objects again, so a check cannot change the caller's data or starve another check.
-If the value or the context cannot be copied (a function, a Proxy), no check runs. Every check that applies to the artifact has state `failed`, and the run state is `failed`.
+Input contract: the stored value and the context are JSON-like data. Allowed: primitives, arrays and plain objects (prototype `Object.prototype` or none). Stored artifacts are JSON sidecars (R9.2, R9.4).
+One walk rejects everything else before any check runs: Map, Set, Date, ArrayBuffer, SharedArrayBuffer, typed arrays, DataView, RegExp, Error, class instances, functions, symbols, BigInt, accessors and sparse arrays. The run state is `failed`, each applicable check is `failed`, and the diagnostic names the type and the path, for example `value.items[3] is a Map`.
 One function sanitises the output of one check inside that check's try: it validates, copies, round-trips evidence through JSON, requires a plain object, reads `evidence.state` and adds `layer`. A whitespace-only message is invalid. A list with a hole is an error in `definePack` and `resolveChecks`.
 
-The run takes one frozen snapshot of the value and the context. Plain objects and arrays in it are shared by all checks, because frozen data cannot change. When the snapshot holds a Map, Set, Date or buffer, each check gets its own fresh copy of it, so a change by one check cannot reach another check.
-A class instance in the value becomes a plain object, because `structuredClone` flattens it.
+Nesting is limited to 256 levels, counted from the wrapper `{ value, context }`, so the value starts at level 1. The limit is a chosen safety bound, not a measured number. The walk is iterative, so a very deep input fails with a message and never overflows the stack.
+`runChecks` takes ONE `structuredClone` of the value and the context together, so shared references stay shared (`value.ref === context.ref` holds). It deep-freezes the clone once. All checks get that same frozen snapshot. A write to it throws a `TypeError` and fails that check. The caller's objects are never read again.
 Evidence is copied with `structuredClone` before anything else. A `toJSON` hook or a function makes the check `failed`. The state marker is read from that copy.
 An open state is exactly `evidence.state` of `incomplete` or `unknown`, in lowercase.
 Checks are synchronous (R7.1), so there is no timeout.
