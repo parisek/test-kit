@@ -11,7 +11,9 @@
     ".": "./src/index.js",
     "./compat/selection": "./src/compat/selection.js",
     "./compat/harvest": "./src/compat/harvest-plan.js",
-    "./packs": "./src/packs/index.js"
+    "./packs": "./src/packs/index.js",
+    "./packs/lint": "./src/packs/lint/index.js",
+    "./packs/lint/runner": "./src/packs/lint/runner.js"
   },
   "files": [
     "bin",

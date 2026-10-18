@@ -46,3 +46,4 @@ An empty plan gives run state `missing`. The run state is `complete` only when e
 
 Not built yet: threshold overrides, allowlists (ADR 0004, open question 4), library version detection (R13.42), and the `schemaVersion` 3 report fields (R13.9).
 The six built-in content checks in `src/checks` stay as they are. They have no `basis`.
+- Lint pack: [lint/README.md](lint/README.md).
