@@ -32,7 +32,7 @@ function contracts() {
           const container = asList(instance?.containerClasses);
           const wrapper = instance?.wrapperClasses === null ? null : asList(instance?.wrapperClasses);
           const slides = Array.isArray(instance?.slides) ? instance.slides.map(slide => asList(slide?.classes)) : null;
-          if (!container || !slides || slides.includes(null)) return open('The instance facts have a bad shape.');
+          if (!container || !slides || slides.includes(null)) return [...found, ...open('The instance facts have a bad shape.')];
           if (!container.includes(facts.initializedClass)) found.push(bad(instance, `The container lacks ${facts.initializedClass}.`, { expected: facts.initializedClass }));
           if (!wrapper || !wrapper.includes(facts.wrapperClass)) found.push(bad(instance, `The wrapper lacks ${facts.wrapperClass}.`, { expected: facts.wrapperClass }));
           if (slides.length === 0) found.push(bad(instance, 'The instance has no slide.'));
@@ -51,8 +51,8 @@ function contracts() {
         const found = [];
         for (const instance of instances) {
           const slides = Array.isArray(instance?.slides) ? instance.slides.map(slide => asList(slide?.classes)) : null;
-          if (!slides || slides.includes(null)) return open('The instance facts have a bad shape.');
-          if (slides.length === 0) return open('The instance has no slide, so the active slide is not proven.');
+          if (!slides || slides.includes(null)) return [...found, ...open('The instance facts have a bad shape.')];
+          if (slides.length === 0) return [...found, ...open('The instance has no slide, so the active slide is not proven.')];
           const active = slides.filter(classes => classes.includes(facts.slideActiveClass)).length;
           if (active !== 1) found.push(bad(instance, `Expected one slide with ${facts.slideActiveClass}, found ${active}.`, { expected: 1, actual: active }));
         }

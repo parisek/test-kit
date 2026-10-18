@@ -1,7 +1,7 @@
 // Pure. Contract sets keyed by library major, and the pack that runs the matching set (R13.42, vision layers rule 5).
 // A set is data plus check functions. No DOM, no file system (R4.4). Nothing runs by default (R5.1).
 import { definePack, dense, isText } from '../define.js';
-import { deepFreeze } from '../snapshot.js';
+import { deepFreeze, inspectJsonLike } from '../snapshot.js';
 import { detectMajor } from './version.js';
 const ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const STATUSES = ['verified', 'placeholder'];
@@ -24,6 +24,8 @@ export function defineContractSet(set) {
     if (sources.length === 0) throw new Error(`Verified set ${library} ${major} must list its sources.`);
   }
   if (!facts || typeof facts !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(facts))) throw new Error(`Set ${library} ${major} needs facts as a plain object.`);
+  // Same JSON-like walk as runChecks uses. It runs before the clone, so a Map, a class instance, a cycle or a deep graph fails with a clear message.
+  try { inspectJsonLike(facts); } catch (error) { throw new Error(`Set ${library} ${major} facts: ${error.message}`); }
   const listed = dense(rawContracts, `Set ${library} ${major} contracts`, 100);
   if (listed.length === 0) throw new Error(`Set ${library} ${major} needs 1 to 100 contracts.`);
   const contracts = [];

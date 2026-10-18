@@ -203,3 +203,30 @@ test('set facts are a plain object and deeply frozen', () => {
   assert.deepEqual(made.facts.nested.list, ['a']);
   assert.ok(Object.isFrozen(swiperSets[0].facts));
 });
+
+test('set facts must be JSON-like data, checked before the clone', () => {
+  const base = { library: 'example-lib', major: 3, owner: 'example-owner', status: 'placeholder', contracts: [{ id: 'a', title: 'A', check: () => [] }] };
+  class Box {}
+  const cyc = { a: {} }; cyc.a.back = cyc;
+  let deep = {}; for (let i = 0; i < 3000; i += 1) deep = { d: deep };
+  const cases = [
+    [{ m: new Map() }, /Set example-lib 3 facts: m is a Map/], [{ s: new Set() }, /s is a Set/], [{ d: new Date() }, /d is a Date/], [{ t: new Uint8Array(2) }, /t is a Uint8Array/],
+    [{ b: new Box() }, /b is a Object|b is a Box|b is a/], [{ f() {} }, /f is a function/], [cyc, /cycle/], [deep, /nested deeper than 256/],
+  ];
+  for (const [facts, message] of cases) assert.throws(() => defineContractSet({ ...base, facts }), error => error instanceof Error && !(error instanceof RangeError) && message.test(error.message), String(message));
+  assert.ok(defineContractSet({ ...base, facts: { ok: [1, { a: 'b' }] } }));
+});
+
+test('earlier error findings stay when a later instance is incomplete', () => {
+  const ok = { version: '12.2.0', source: 'lockfile' };
+  const bad = { id: 'one', containerClasses: [], wrapperClasses: null, slides: [{ classes: ['swiper-slide'] }] };
+  const value = { instances: [bad, { id: 'two', containerClasses: 'oops', wrapperClasses: [], slides: [] }] };
+  const structure = run(value, ok).findings.filter(item => item.checkId === 'swiper-structure');
+  assert.equal(structure.length, 3);
+  assert.equal(structure.filter(item => item.severity === 'error' && item.evidence.state === undefined).length, 2);
+  assert.equal(structure.at(-1).evidence.state, 'incomplete');
+  const active = run({ instances: [{ ...bad, slides: [{ classes: ['swiper-slide'] }] }, { id: 'two', slides: [] }] }, ok).findings.filter(item => item.checkId === 'swiper-active-slide');
+  assert.equal(active.length, 2);
+  assert.equal(active[0].evidence.actual, 0);
+  assert.equal(active[1].evidence.state, 'incomplete');
+});
