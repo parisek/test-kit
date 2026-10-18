@@ -100,4 +100,4 @@ export function snapshotInput(value, context) {
   return copy;
 }
 
-export { freeze as deepFreeze };
+export { freeze as deepFreeze, inspect as inspectJsonLike };

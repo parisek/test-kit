@@ -27,7 +27,7 @@ A site changes while its public face must stay correct. The cause may be a depen
 
 `test-kit` answers one question: **what is different between side A and side B, and is each difference explained?** (spec section 1)
 
-The package also runs checks over one stored run (R7.1). How such single-run results enter a report is an open decision (see Open decisions).
+The package also runs checks over one stored run (R7.1). Single-run results enter a report through the result model of ADR 0004 (see Open decisions, item 1).
 
 One package replaces the copies of test tools in every project. A project adds configuration and targets. The package holds the engine, the viewer, the checks and the query interface.
 
@@ -232,11 +232,16 @@ The package fails its purpose, even if it works, when it:
 
 These need the owner. The agent does not decide them.
 
-1. **Single-run results (lint, content checks over one run, cross-engine).** The schema requires a pair today (`src/report/model.js`). Review found that no option fits unchanged.
-   - A: a single-run report with `findings[]` and no class. It breaks R7.3 (one shared findings list) and needs a report without a pair.
-   - B: always a pair with an implicit baseline. It fits the validator but invents a baseline, which R13.13 forbids. It can turn absence into `match`.
-   - C: each check has a rule kind, `absolute` or `relative`, and class is derived at target or artifact scope (never stored per finding, R8). It keeps R7.3. It changes the schema, validator, classifier, viewer and query layer. (proposal: C, after a written design.)
-   Any option needs owner approval (Tier 3). An ADR that defines one result model for absolute and comparative checks must merge before any single-run or lint work starts. This ADR matters more than the package boundary.
+1. (Decided, 2026-10-18) **Single-run results (lint, content checks over one run, cross-engine).** The owner accepted option C of [ADR 0004](adr/0004-result-model.md) (Tier 3 approval in chat, 2026-10-18). The spec follows it in R7.2, R7.3 and R8.10 to R8.13. The code does not follow it yet.
+   - A: a single-run report with `findings[]` and no class. It breaks R7.3.
+   - B: always a pair with an implicit baseline. It invents a baseline, which R13.13 forbids.
+   - C (accepted): each check has a basis, `absolute` or `relative`. Class is derived at target or artifact scope and never stored (ADR 0004 section 8, R8).
+   The schema requires a pair today. These design questions stay open for the implementation issue:
+   - behavior identity,
+   - selection per target,
+   - the absolute fingerprint,
+   - the allowlist file with its reason and owner,
+   - whether findings of completed checks in a mixed artifact keep counting toward a class.
 2. (Decided, 2026-10-16) The owner alone approves a stable release tag. The agent may tag dev versions (R13.25).
 3. **Roadmap issues.** #7 to #10 are open, but tags v0.2.0 to v0.5.0 exist, and their content differs from the plan. (proposal: close them as shipped and rewrite #5 as the roadmap that links this document.) This edits owner-created issues, so it is Tier 3.
 4. The small default set of checks (spec section 17, item 2).
