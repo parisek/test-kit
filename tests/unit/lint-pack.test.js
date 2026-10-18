@@ -375,3 +375,14 @@ test('a file name with a trailing slash, control or bidi character is refused or
   assert.equal(relativeFile('/example-root/src/', root), 'src');
   assert.equal(checkRelativeFile('src/ok.js'), 'src/ok.js');
 });
+
+test('a root is scrubbed before punctuation and left alone before a name character', () => {
+  const r = '/srv/example-root';
+  const cases = [
+    [`see ${r}.`, 'see ..'], [`${r}: bad`, '.: bad'], [`"${r}"`, '"."'], [`${r}/a.js`, 'a.js'], [`${r}\\a.js`, 'a.js'],
+    [`(${r})`, '(.)'], [`${r}, next`, '., next'],
+    [`${r}-old/a.js`, `${r}-old/a.js`], [`${r}_x/a.js`, `${r}_x/a.js`], [`${r}2/a.js`, `${r}2/a.js`],
+    [`${r}.eslintrc.json`, `${r}.eslintrc.json`], [`${r}.old/a.js`, `${r}.old/a.js`],
+  ];
+  for (const [input, expected] of cases) assert.equal(scrubRoots(input, r), expected, input);
+});

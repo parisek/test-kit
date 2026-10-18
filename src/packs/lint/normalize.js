@@ -101,14 +101,15 @@ export function scrubRoots(text, roots) {
     .filter(root => !/^([A-Za-z]:)?$/.test(root)) // a filesystem root ('/', 'C:') would scrub everything: skip it
     .sort((a, b) => b.length - a.length);
   const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // A root matches only at a path start and only before a separator, the end, or a non-path character.
+  // A root matches only at a path start. It must be followed by a separator, or by a character that cannot continue a name.
+  // A name character (letter, digit, `_ ~ @ -`) or a dot plus a name character means a sibling such as `root2` or `root.old`: no match.
   // /srv/example-root2/x.js is not inside /srv/example-root.
   const before = '(?<![A-Za-z0-9_.~@/\\\\-])';
   let out = text;
   for (const root of new Set(list)) {
     out = out.replaceAll(`file://${root}`, root);
     const base = escape(root);
-    out = out.replace(new RegExp(`${before}${base}[\\\\/]`, 'g'), '').replace(new RegExp(`${before}${base}(?=$|[\\s'"\`:;,()\\[\\]<>])`, 'g'), '.');
+    out = out.replace(new RegExp(`${before}${base}[\\\\/]`, 'g'), '').replace(new RegExp(`${before}${base}(?![A-Za-z0-9_~@-]|\\.[A-Za-z0-9_~@-])`, 'g'), '.');
   }
   return out;
 }
