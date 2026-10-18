@@ -395,10 +395,13 @@ test('an outside file never maps to a component, even when its base name is a ma
   ], { root }) } } };
   const result = run(value);
   assert.deepEqual(result.findings.map(f => [f.message, f.targetId, f.location.file]), [['in root', 'example-card', 'a.js'], ['outside', '@project', '<outside>/a.js'], ['remote', '@project', '<outside>/a.js']]);
-  // A stored item with the marker and no flag still fails closed to @project.
-  const marked = { status: 'ok', total: 1, items: [{ severity: 'error', rule: 'r', message: 'm', location: { file: '<outside>/a.js' } }] };
+  // A real in-root file in a directory named `<outside>` is an ordinary name: no flag, so it maps by name.
+  const real = { status: 'ok', total: 1, items: [{ severity: 'error', rule: 'r', message: 'm', location: { file: '<outside>/a.js' } }] };
+  assert.equal(run({ fileTargets: { '<outside>/a.js': 'example-card' }, tools: { eslint: real, stylelint: clean } }).findings[0].targetId, 'example-card');
+  assert.equal(relativeFile('/example-root/<outside>/a.js', root).inRoot, true);
+  const marked = { ...real, items: [{ ...real.items[0], outside: true }] };
   assert.equal(run({ fileTargets: { '<outside>/a.js': 'example-card' }, tools: { eslint: marked, stylelint: clean } }).findings[0].targetId, '@project');
-  assert.equal(run({ tools: { eslint: { ...marked, items: [{ ...marked.items[0], outside: 'yes' }] }, stylelint: clean } }).checks['eslint-rules'].state, 'failed');
+  assert.equal(run({ tools: { eslint: { ...real, items: [{ ...real.items[0], outside: 'yes' }] }, stylelint: clean } }).checks['eslint-rules'].state, 'failed');
 });
 
 test('a legal name with a colon is kept; a drive path and a URL are not names', () => {
@@ -429,4 +432,17 @@ test('every tool path is validated before any tool runs', async t => {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   await assert.rejects(() => runLint({ root: dir, tools: { eslint: { paths: ['src'] }, stylelint: { paths: ['{/etc,x}'] } } }), /Invalid lint path/);
   assert.equal(existsSync(marker), false);
+});
+
+test('an encoded separator or NUL in a file URL is malformed and outside', () => {
+  for (const url of ['file:///example-root/a%2Fb.js', 'file:///example-root/a%5Cb.js', 'file:///example-root/a%5cb.js', 'file:///example-root/a%00b.js']) {
+    assert.deepEqual(relativeFile(url, root), { file: '<outside>/unknown', inRoot: false }, url);
+  }
+  assert.deepEqual(relativeFile('file:///example-root/a%20b.js', root), { file: 'a b.js', inRoot: true });
+});
+
+test('a Windows file URL is scrubbed for a drive-letter root, ignoring case', () => {
+  assert.equal(scrubRoots('at file:///c:/users/me/proj/c.js', 'C:\\Users\\Me\\proj'), 'at c.js');
+  assert.equal(scrubRoots('at file://localhost/C:/Users/Me/proj/c.js', 'C:\\Users\\Me\\proj'), 'at c.js');
+  assert.equal(scrubRoots('at file:///c:/users/me/proj2/c.js', 'C:\\Users\\Me\\proj'), 'at file:///c:/users/me/proj2/c.js');
 });

@@ -1,7 +1,7 @@
 // Pure. The opt-in lint pack: two absolute checks over the stored `lint` artifact (R7.2, R8.10, R9.9, R9.11).
 // A project selects the pack by name. Nothing runs by default (G3, R5.1).
 import { definePack } from '../define.js';
-import { checkLocation, copyFileTargets, OUTSIDE, TOOLS, MAX_ITEMS } from './normalize.js';
+import { checkLocation, copyFileTargets, TOOLS, MAX_ITEMS } from './normalize.js';
 
 const TITLES = { eslint: 'ESLint rules', stylelint: 'Stylelint rules' };
 const PROJECT = '@project';
@@ -21,8 +21,8 @@ function copyItem(raw) {
   if (rule !== null && typeof rule !== 'string') throw new Error('A stored lint item has a bad rule.');
   if (typeof message !== 'string' || message.trim() === '') throw new Error('A stored lint item needs a message.');
   const place = checkLocation(location);
-  // A file outside the root never maps to a component (R9.11). The marker prefix is also checked, so a missing flag fails closed.
-  return { severity, rule, message, location: place, outside: outside === true || place.file.startsWith(`${OUTSIDE}/`) };
+  // A file outside the root never maps to a component (R9.11). Only the flag decides, not the file name.
+  return { severity, rule, message, location: place, outside: outside === true };
 }
 
 function lintCheck(tool) {

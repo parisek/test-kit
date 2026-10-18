@@ -23,8 +23,8 @@ const cut = (text, max) => (text.length > max ? `${text.slice(0, max - 3)}...` :
 const isAbsolute = text => text.startsWith('/') || /^[A-Za-z]:\//.test(text);
 const baseName = text => cut(text.split('/').filter(part => part !== '' && part !== '.' && part !== '..').pop() || 'unknown', MAX_FILE);
 
-// The marker for a file outside the project root, or one with a rejected name. It is a valid relative path
-// for the stored-data check, but it names no real project file. A mapped file never matches it.
+// The display prefix for a file outside the project root, or one with a rejected name. The pack decides by the
+// `outside` flag of the item only, never by this prefix, so a real in-root path with this prefix is an ordinary name.
 export const OUTSIDE = '<outside>';
 const outsideName = base => { try { return checkRelativeFile(`${OUTSIDE}/${base}`); } catch { return `${OUTSIDE}/unknown`; } };
 const outside = text => ({ file: outsideName(baseName(text)), inRoot: false });
@@ -48,6 +48,7 @@ function locate(input, roots) {
     let url;
     try { url = new URL(text); } catch { return outside('unknown'); }
     if (url.protocol !== 'file:' || (url.hostname !== '' && url.hostname !== 'localhost')) return outside(url.pathname || 'unknown');
+    if (/%(?:2f|5c|00)/i.test(url.pathname)) return outside('unknown'); // an encoded separator or NUL is malformed, as in fileURLToPath
     try { text = decodeURIComponent(url.pathname); } catch { return outside('unknown'); }
     if (/^\/[A-Za-z]:\//.test(text)) text = text.slice(1);
   }
@@ -130,7 +131,7 @@ export function scrubRoots(text, roots, { ignoreCase } = {}) {
   for (const { form, ci } of list) {
     const flags = ci ? 'gi' : 'g';
     const base = escape(form);
-    out = out.replace(new RegExp(`file://(?:localhost)?(?=${base})`, flags), '');
+    out = out.replace(new RegExp(`file://(?:localhost)?/?(?=${base}(?:[\\\\/]|(?![A-Za-z0-9_~@-]|\\.[A-Za-z0-9_~@-])))`, flags), '');
     out = out.replace(new RegExp(`${before}${base}[\\\\/]`, flags), '').replace(new RegExp(`${before}${base}(?![A-Za-z0-9_~@-]|\\.[A-Za-z0-9_~@-])`, flags), '.');
   }
   return out;
