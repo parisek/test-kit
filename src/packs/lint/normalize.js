@@ -58,7 +58,9 @@ export function checkRelativeFile(file) {
 export function copyFileTargets(raw) {
   if (raw === undefined) return {};
   if (raw === null || typeof raw !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(raw))) throw new Error('fileTargets must be a plain object.');
-  const entries = Object.entries(raw); // own keys, one read
+  const entries = Object.entries(raw); // own enumerable string keys, one read
+  // A symbol key or a non-enumerable key is not JSON-like and would vanish from `entries`. Refuse it.
+  if (Reflect.ownKeys(raw).length !== entries.length) throw new Error('fileTargets must hold only plain string keys.');
   if (entries.length > MAX_FILE_TARGETS) throw new Error('fileTargets is too large.');
   const out = {};
   for (const [file, id] of entries) {
@@ -86,9 +88,18 @@ export function checkLocation(value) {
 export function scrubRoots(text, roots) {
   const list = [roots].flat().filter(root => typeof root === 'string' && root !== '')
     .flatMap(root => { const base = root.replace(/[\\/]+$/, ''); return [base, base.replaceAll('\\', '/'), base.replaceAll('/', '\\')]; })
-    .filter(root => root !== '').sort((a, b) => b.length - a.length);
+    .filter(root => !/^([A-Za-z]:)?$/.test(root)) // a filesystem root ('/', 'C:') would scrub everything: skip it
+    .sort((a, b) => b.length - a.length);
+  const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // A root matches only at a path start and only before a separator, the end, or a non-path character.
+  // /srv/example-root2/x.js is not inside /srv/example-root.
+  const before = '(?<![A-Za-z0-9_.~@/\\\\-])';
   let out = text;
-  for (const root of new Set(list)) out = out.replaceAll(`file://${root}`, root).replaceAll(`${root}/`, '').replaceAll(`${root}\\`, '').replaceAll(root, '.');
+  for (const root of new Set(list)) {
+    out = out.replaceAll(`file://${root}`, root);
+    const base = escape(root);
+    out = out.replace(new RegExp(`${before}${base}[\\\\/]`, 'g'), '').replace(new RegExp(`${before}${base}(?=$|[\\s'"\`:;,()\\[\\]<>])`, 'g'), '.');
+  }
   return out;
 }
 

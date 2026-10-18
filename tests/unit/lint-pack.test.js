@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { resolveChecks, runChecks } from '../../src/packs/index.js';
 import { lintPack, copyFileTargets, scrubRoots, normalizeEslint, normalizeStylelint, judgeRun, relativeFile, MAX_FINDINGS, MAX_ITEMS } from '../../src/packs/lint/index.js';
-import { runLint, validatePaths, findTool, childEnv } from '../../src/packs/lint/runner.js';
+import { runLint, validatePaths, findTool, childEnv, sweepGroup } from '../../src/packs/lint/runner.js';
 
 const fixture = name => readFileSync(new URL(`../fixtures/lint/${name}`, import.meta.url), 'utf8');
 const eslintText = fixture('eslint.json');
@@ -322,4 +322,43 @@ test('the root is scrubbed from message text', () => {
   assert.equal(scrubRoots('C:\\proj\\src\\a.js', 'C:\\proj'), 'src\\a.js');
   const { items } = normalizeEslint([{ filePath: '/example-root/a.js', messages: [{ ruleId: 'plugin/x', severity: 2, message: 'Failed in /example-root/lib/rule.js', line: 1, column: 1 }] }], { root });
   assert.equal(items[0].message, 'Failed in lib/rule.js');
+});
+
+test('sweepGroup skips an empty group and kills a live one', () => {
+  const calls = [];
+  const gone = (pid, signal) => { calls.push([pid, signal]); const error = new Error('no such process'); error.code = 'ESRCH'; throw error; };
+  assert.equal(sweepGroup(4242, gone), 'skipped');
+  assert.deepEqual(calls, [[-4242, 0]]); // only the probe ran, no SIGKILL
+  const live = [];
+  assert.equal(sweepGroup(4242, (pid, signal) => { live.push([pid, signal]); }), 'killed');
+  assert.deepEqual(live, [[-4242, 0], [-4242, 'SIGKILL']]);
+  const denied = () => { const error = new Error('not permitted'); error.code = 'EPERM'; throw error; };
+  assert.equal(sweepGroup(4242, denied), 'skipped');
+  for (const pid of [0, 1, -5, 1.5, undefined]) assert.equal(sweepGroup(pid, () => assert.fail('must not signal')), 'skipped');
+});
+
+test('a root is scrubbed only at a path boundary', () => {
+  assert.equal(scrubRoots('Error in /srv/example-root2/private.js', '/srv/example-root'), 'Error in /srv/example-root2/private.js');
+  assert.equal(scrubRoots('/srv/example-root/a.js and /srv/example-root2/b.js', '/srv/example-root'), 'a.js and /srv/example-root2/b.js');
+  assert.equal(scrubRoots('at (/srv/example-root) and "/srv/example-root": bad', '/srv/example-root'), 'at (.) and ".": bad');
+  assert.equal(scrubRoots('/srv/example-root', '/srv/example-root'), '.');
+  assert.equal(scrubRoots('x/other/srv/example-root/a.js', '/srv/example-root'), 'x/other/srv/example-root/a.js');
+});
+
+test('a filesystem root is never scrubbed and runLint refuses it', async () => {
+  assert.equal(scrubRoots('/etc/passwd and C:\\x', ['/', 'C:\\', 'C:/', '']), '/etc/passwd and C:\\x');
+  const root0 = path.parse(process.cwd()).root;
+  const value = await runLint({ root: root0, tools: { eslint: { paths: ['src'] }, stylelint: { paths: ['src'] } } });
+  assert.equal(value.tools.eslint.status, 'failed');
+  assert.match(value.tools.stylelint.diagnostic, /filesystem root/);
+  assert.equal(run(value).state, 'failed');
+});
+
+test('fileTargets refuses a symbol key and a non-enumerable key', () => {
+  const symbolic = { 'src/a.js': 'example-card', [Symbol('x')]: 'example-card' };
+  assert.throws(() => copyFileTargets(symbolic), /plain string keys/);
+  const hidden = { 'src/a.js': 'example-card' };
+  Object.defineProperty(hidden, 'src/b.js', { value: 'example-card', enumerable: false });
+  assert.throws(() => copyFileTargets(hidden), /plain string keys/);
+  assert.equal(run({ fileTargets: symbolic, tools: { eslint: clean, stylelint: clean } }).state, 'failed');
 });

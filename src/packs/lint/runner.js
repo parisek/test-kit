@@ -65,6 +65,18 @@ const killGroup = (child, signal) => {
   } catch { /* ESRCH: nothing left in the group */ }
 };
 
+// After the leader was reaped, kill what is left in its group. The probe `kill(-pid, 0)` throws when the group is empty
+// (ESRCH) or not ours (EPERM): then nothing is killed. If it succeeds, the group still has live members. A process group id
+// cannot be reused while any member lives, so those members are descendants of the tool. The check-then-kill window is
+// a few microseconds; a group of the same id can appear in it only if the last member exits and the kernel hands the
+// pid out again in that time. That is negligible. `kill` is injectable for tests. Returns 'skipped' or 'killed'.
+export function sweepGroup(pid, kill = process.kill.bind(process)) {
+  if (!Number.isInteger(pid) || pid <= 1) return 'skipped';
+  try { kill(-pid, 0); } catch { return 'skipped'; }
+  try { kill(-pid, 'SIGKILL'); } catch { return 'skipped'; }
+  return 'killed';
+}
+
 // Runs the tool and always settles. At the timeout it sends SIGTERM to the group, then SIGKILL after the grace time,
 // then it resolves even if the process never reports `close`. On Windows it uses `taskkill /T /F`; that path is not tested.
 // A tool that starts a process in a new session or group (setsid) escapes the group kill.
@@ -87,7 +99,8 @@ function run(file, args, { cwd, timeout, grace, env }) {
     child.once('close', (exitCode, signal) => {
       // The leader has ended. Kill what is left in its group, on every path, before the result is returned.
       // ESRCH (nothing left) is ignored. A tool that left a child after exit 0 does not keep it running.
-      if (process.platform !== 'win32') killGroup(child, 'SIGKILL');
+      if (process.platform === 'win32') killGroup(child, 'SIGKILL'); // taskkill /T /F; untested
+      else sweepGroup(child.pid);
       done({ exitCode, signal: timedOut ? 'TIMEOUT' : signal, spawnError: false });
     });
     timers.push(setTimeout(() => {
@@ -142,6 +155,11 @@ export async function runLint({ root, tools, fileTargets, env, hoisted = false, 
   const map = copyFileTargets(fileTargets); // throws on a bad container, key or id
   const resolved = path.resolve(root);
   const real = await realpath(resolved).catch(() => resolved);
+  // A filesystem root ('/' or a drive root) is never a project root: the scan and the path scrub would cover the machine.
+  if (path.parse(resolved).root === resolved || path.parse(real).root === real) {
+    const failed = { status: 'failed', diagnostic: 'The project root is a filesystem root. Run lint from a project directory.' };
+    return { tools: Object.fromEntries(names.map(name => [name, failed])) };
+  }
   const options = { env: childEnv(env), hoisted, timeoutMs, killGraceMs };
   const out = {};
   for (const name of names) out[name] = await runTool(resolved, [resolved, real], name, tools[name], options);
