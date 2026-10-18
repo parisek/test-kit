@@ -26,6 +26,14 @@ const baseName = text => cut(text.split('/').filter(part => part !== '' && part 
 // Returns a path relative to one of the roots. The result never holds a host directory or a `..` segment.
 // A path outside every root keeps only its base name. `roots` is a string or a list (a root and its realpath).
 export function relativeFile(file, roots) {
+  const found = rawRelativeFile(file, roots);
+  for (const candidate of [found, baseName(found)]) {
+    try { return checkRelativeFile(candidate); } catch { /* try the base name, then give up */ }
+  }
+  return 'unknown';
+}
+
+function rawRelativeFile(file, roots) {
   let text = String(file);
   if (text.startsWith('file://')) {
     try { text = decodeURIComponent(text.slice(7)); } catch { return 'unknown'; }
@@ -49,6 +57,8 @@ export function relativeFile(file, roots) {
 export function checkRelativeFile(file) {
   if (typeof file !== 'string' || file === '' || file.length > MAX_FILE) throw new Error('A file name must be a short string.');
   if (file.includes('\\') || file.includes('\0') || file.startsWith('/') || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(file)) throw new Error('A file name must be a relative path.');
+  if (/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/.test(file)) throw new Error('A file name must not hold control or bidi characters.');
+  if (file.endsWith('/')) throw new Error('A file name must not end with a slash.');
   if (posix.normalize(file) !== file || file === '.' || file === '..' || file.startsWith('../')) throw new Error('A file name must be a normalized relative path.');
   return file;
 }

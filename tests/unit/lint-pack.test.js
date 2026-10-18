@@ -4,7 +4,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { resolveChecks, runChecks } from '../../src/packs/index.js';
-import { lintPack, copyFileTargets, scrubRoots, normalizeEslint, normalizeStylelint, judgeRun, relativeFile, MAX_FINDINGS, MAX_ITEMS } from '../../src/packs/lint/index.js';
+import { lintPack, checkRelativeFile, copyFileTargets, scrubRoots, normalizeEslint, normalizeStylelint, judgeRun, relativeFile, MAX_FINDINGS, MAX_ITEMS } from '../../src/packs/lint/index.js';
 import { runLint, validatePaths, findTool, childEnv, sweepGroup } from '../../src/packs/lint/runner.js';
 
 const fixture = name => readFileSync(new URL(`../fixtures/lint/${name}`, import.meta.url), 'utf8');
@@ -361,4 +361,17 @@ test('fileTargets refuses a symbol key and a non-enumerable key', () => {
   Object.defineProperty(hidden, 'src/b.js', { value: 'example-card', enumerable: false });
   assert.throws(() => copyFileTargets(hidden), /plain string keys/);
   assert.equal(run({ fileTargets: symbolic, tools: { eslint: clean, stylelint: clean } }).state, 'failed');
+});
+
+test('a file name with a trailing slash, control or bidi character is refused or reduced', () => {
+  for (const bad of ['src/', 'src/a\n.js', 'a\r.js', 'a\u0000.js', 'a\u202e.js', 'a\u2066b.js', 'a\u200f.js', 'a\u007f.js']) {
+    assert.throws(() => checkRelativeFile(bad), /file name/, JSON.stringify(bad));
+    assert.throws(() => copyFileTargets({ [bad]: 'example-card' }), /file name/);
+    const entry = { status: 'ok', total: 1, items: [{ severity: 'error', rule: 'r', message: 'm', location: { file: bad } }] };
+    assert.equal(run({ tools: { eslint: entry, stylelint: clean } }).checks['eslint-rules'].state, 'failed');
+  }
+  assert.equal(relativeFile('/example-root/src/a\u202e.js', root), 'unknown');
+  assert.equal(relativeFile('/example-root/dir\n/a.js', root), 'a.js');
+  assert.equal(relativeFile('/example-root/src/', root), 'src');
+  assert.equal(checkRelativeFile('src/ok.js'), 'src/ok.js');
 });
