@@ -305,7 +305,7 @@ test('a caller value is read once: a list that changes between reads is never st
 
 test('a present evidence.state that is not a closed string never ends complete', () => {
   const run = evidence => runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('c', { check: () => [fnd('m', { evidence })] }) }] }), input({ title: 'x' }), ctx);
-  for (const state of [1, 0, NaN, null, undefined, true, ['incomplete'], { v: 'incomplete' }, new Date(0), 1n]) {
+  for (const state of [1, 0, NaN, null, undefined, true, ['incomplete'], { v: 'incomplete' }, new Date(0), 1n, new String('unknown'), new String('incomplete'), new Number(1), new Boolean(true)]) {
     const result = run({ state });
     assert.equal(result.checks.c.state, 'failed', String(state));
     assert.notEqual(result.state, 'complete');
@@ -314,4 +314,31 @@ test('a present evidence.state that is not a closed string never ends complete',
   assert.equal(run({ state: 'unknown' }).checks.c.state, 'missing');
   assert.equal(run({ state: 'fine' }).checks.c.state, 'complete');
   assert.equal(run({}).checks.c.state, 'complete');
+});
+
+test('getters on override and check fields are read once (stored value equals validated value)', () => {
+  const once = (first, second) => { let reads = 0; return () => { reads += 1; return reads === 1 ? first : second; }; };
+  const base = { checkId: 'example-title', layer: 'page', reason: 'r', owner: 'o' };
+  const make = extra => plan({ overrides: [Object.defineProperties({ ...base }, Object.fromEntries(Object.entries(extra).map(([key, get]) => [key, { get, enumerable: true }])))] }).overrides[0];
+  assert.equal(make({ reason: once('valid', { x: 1 }) }).reason, 'valid');
+  assert.equal(make({ owner: once('valid', { x: 1 }) }).owner, 'valid');
+  assert.equal(make({ checkId: once('example-title', 'zzz') }).checkId, 'example-title');
+  assert.equal(make({ layer: once('page', 'package') }).layer, 'page');
+  const scope = { get kinds() { return once(['single-run'], ['x'])(); } };
+  assert.deepEqual([...make({ scope: () => scope }).scope.kinds], ['single-run']);
+  const packs = once([mk('p1')], []);
+  const pack = { id: 'getter-pack', title: 't', owner: 'o', get checks() { return packs(); } };
+  assert.equal(definePack(pack).checks.length, 1);
+  const comps = once(['header'], ['other']);
+  const check = mk('c-getter', { applies: { artifacts: ['content'], get components() { return comps(); } } });
+  assert.deepEqual([...resolveChecks({ custom: [{ layer: 'component', check }] }).checks[0].check.applies.components], ['header']);
+});
+
+test('a Map nested in the value is isolated per check and plain data is shared frozen', () => {
+  const seen = [];
+  const a = mk('a-writer', { check: v => { v.outer.get('k').count += 1; v.outer.set('n', 1); return []; } });
+  const b = mk('b-reader', { check: v => { seen.push([v.outer.get('k').count, v.outer.has('n')]); return []; } });
+  const result = runChecks(resolveChecks({ custom: [{ layer: 'project', check: a }, { layer: 'project', check: b }] }), { artifact: 'content', value: { outer: new Map([['k', { count: 0 }]]) } }, ctx);
+  assert.deepEqual(seen, [[0, false]]);
+  assert.equal(result.checks['b-reader'].state, 'complete');
 });

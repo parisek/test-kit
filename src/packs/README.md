@@ -27,7 +27,8 @@ It accepts only a plan from `resolveChecks`. A scope reads own keys only (`targe
 If the value or the context cannot be copied (a function, a Proxy), no check runs. Every check that applies to the artifact has state `failed`, and the run state is `failed`.
 One function sanitises the output of one check inside that check's try: it validates, copies, round-trips evidence through JSON, requires a plain object, reads `evidence.state` and adds `layer`. A whitespace-only message is invalid. A list with a hole is an error in `definePack` and `resolveChecks`.
 
-Each check also gets its own fresh frozen copy of the value and the context. A Map, Set or Date that one check changes cannot reach another check.
+The run takes one frozen snapshot of the value and the context. Plain objects and arrays in it are shared by all checks, because frozen data cannot change. When the snapshot holds a Map, Set, Date or buffer, each check gets its own fresh copy of it, so a change by one check cannot reach another check.
+A class instance in the value becomes a plain object, because `structuredClone` flattens it.
 Evidence is copied with `structuredClone` before anything else. A `toJSON` hook or a function makes the check `failed`. The state marker is read from that copy.
 An open state is exactly `evidence.state` of `incomplete` or `unknown`, in lowercase.
 Checks are synchronous (R7.1), so there is no timeout.
