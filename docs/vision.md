@@ -8,7 +8,7 @@ A line marked (proposal) is an agent suggestion, not an owner decision.
 The specification (`docs/specification.md`) is normative. This document is interpretive.
 If this document and the specification disagree, the specification wins. Open an issue to fix one of them. Never cite this document to skip a numbered requirement.
 
-**Pending spec edits.** Some statements below go beyond the specification: alpha breaks (R13.9), dev tags (R13.25, R13.26) and packs in the package (R13.42). Read each of them as a proposal. It takes effect only when the spec edit in #100 or #96 merges. Until then the specification applies, and no statement here permits a breaking change, a tag or a pack move.
+The spec edits for alpha breaks (R13.9), dev tags (R13.25, R13.26) and packs in the package (R13.42) merged in the pull request that closes #100 and #96.
 
 `AGENTS.md` and `docs/development-loop.md` own the rules for work, review and merge. This document does not repeat them.
 
@@ -17,7 +17,7 @@ If this document and the specification disagree, the specification wins. Open an
 The package is alpha. The owner accepts breaking changes, rewrites and removals (2026-10-16). Choose the right design over compatibility with today's shape.
 
 - A breaking change needs a changelog entry and a migration note. It does not need an owner decision by itself.
-- Principle 10 keeps "small steps". The owner decided on 2026-10-18 to drop "a project keeps working after every step" while the package is alpha. R13.9 still applies until its spec edit merges (#100). The pilot project pins a tag, so a break reaches it only when it updates the pin.
+- Principle 10 keeps "small steps". The owner decided on 2026-10-18 to drop "a project keeps working after every step" while the package is alpha. The pilot project pins a tag, so a break reaches it only when it updates the pin.
 - Adoption in a project needs a stable seam. Before a project migrates, the milestone freezes the interface it migrates onto (decision 9).
 - This section ends when the owner declares a beta or a stable release. Until then, do not add a compatibility layer for its own sake.
 
@@ -53,7 +53,7 @@ The order is the order of priority. When two principles conflict, the earlier on
 7. **Use native tools.** Do not rewrite what Playwright or Lighthouse does well. Link to their own reports.
 8. **Measure before you claim.** A number in a document is measured, or it says it is an estimate.
 9. **Show unfinished work as unfinished.** A view without evidence says so. It does not hide.
-10. **Small, reversible steps.** One logical change for each pull request. While the package is alpha, a step may break a project (see Maturity). The owner approved this on 2026-10-18. R13.9 still applies until its spec edit merges (#100).
+10. **Small, reversible steps.** One logical change for each pull request. While the package is alpha, a step may break a project (see Maturity). The owner approved this on 2026-10-18.
 
 ## Scope: test types
 
@@ -179,7 +179,7 @@ The owner works at the level of a milestone (owner direction, 2026-10-16). The o
 3. Each issue gets one draft pull request. Merge follows the review rule above. It merges into `main`. There is no milestone branch (owner decision, 2026-10-16). A branch would collapse the per-change commit bodies that `AGENTS.md` requires when it squash-merges.
 4. The agent runs the loop until every check of the milestone passes. It records what ran and what it did not verify.
 5. The owner approves the milestone as a whole, by reviewing the milestone report and the evidence. The first milestone is 1.0 (owner decision, 2026-10-16).
-6. After the spec edit (#100) merges, the agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release. R13.25 and R13.26 define release tags. Until the spec edit merges, the agent tags nothing.
+6. After the spec edit (#100) merges, the agent may tag dev versions, for example `v1.2.0-dev.1`, only when the cumulative test suite passes on the tagged commit. Only the owner approves and tags a stable release. R13.25 and R13.26 define release tags.
 7. A major version (2.0, 3.0) holds breaking changes that need a migration. While the package is alpha, a break may also go in a minor milestone (see Maturity).
 
 The agent never tags a stable release.

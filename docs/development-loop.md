@@ -88,7 +88,7 @@ DDEV names and databases. Never stop another worker's environment.
 Workers report issue, branch, base/head SHAs, changed contracts, checks, blockers,
 and the next action. The coordinator integrates evidence and opens or updates
 draft PRs. Independent review may run beside unrelated implementation, but does
-not consume the author's session. Respect the release-specific authorization below.
+not consume the author's session. Respect the merge rule below.
 
 ## Execution cycle
 
@@ -106,9 +106,10 @@ not consume the author's session. Respect the release-specific authorization bel
    not a successful check.
 9. Review the final head. If the diff changes after review, review the changed
    surface again. Record which exact SHA the review covers.
-10. For v0.1.0, merge after final independent review and green CI. For later work, leave the PR as a draft for the owner. Select another independent issue,
-    or wait for a merge or a decision. Use the native stack exception below for
-    an approved cohesive feature with dependent layers.
+10. Merge by the merge rule below. If the rule does not yet hold, leave the PR
+    as a draft. Select another independent issue, or wait for a review or a
+    decision. Use the native stack exception below for an approved cohesive
+    feature with dependent layers.
 
 ## Native GitHub planning and review
 
@@ -122,7 +123,7 @@ that reviewers can assess separately. Keep independent work on separate branches
 A stack stays in one repository. Cross-repository migration PRs use issue links.
 
 Use `gh stack init`, `gh stack add`, and `gh stack submit --auto`. The last command
-creates drafts by default. Keep each PR a draft until final review and CI pass. Use merge commands only within the release-specific authorization below. Assign
+creates drafts by default. Keep each PR a draft until final review and CI pass. Use merge commands only under the merge rule below. Assign
 each PR to `parisek`, link its leaf issue, and describe its layer and prerequisites.
 Do not emulate native stacks by changing PR base branches manually.
 
@@ -156,6 +157,23 @@ that fact. A fresh session with the same model gives independent context, but
 does not fulfill a requirement for a different model. Record reviews as comments,
 not formal approvals. An author cannot approve its own PR.
 
+## Merge rule
+
+One merge rule applies. `AGENTS.md` and `docs/vision.md` ("Review and merge" in
+"How the agent decides") state the same rule. A change merges when all of these hold:
+
+- Codex and Claude review it independently and both approve. Each review is bound
+  to the commit SHA that merges.
+- CI is green.
+- The change is not a Tier 3 item of the vision.
+- The author gives no decisive approval for the change.
+- The change has no security impact, no unexpected file, no missing test and no
+  material risk. Send any of these to the owner, even when both reviewers agree.
+
+The owner approves each milestone and every stable release. The agent never tags
+a stable release. After the specification edit of #100 merges (R13.25), the agent
+may tag a dev prerelease from `main` after a green cumulative run.
+
 ## Durable state and continuation
 
 GitHub issues and PRs hold public progress. Local `.test-kit/` state holds private
@@ -173,7 +191,7 @@ for local work. A prompt alone does not make DDEV or a second model available.
 
 Owner authorization in the Codex chat on 2026-10-09: create issues and draft PRs,
 repair review and CI findings, select skeletons, and use a designated local
-Drupal pilot. All target access stays local. A later instruction authorizes autonomous merge and release through v0.1.0. Later milestones keep owner merge and release authority. The pilot identity and paths stay in ignored local state.
+Drupal pilot. All target access stays local. The pilot identity and paths stay in ignored local state.
 
 The owner accepts these choices in the Codex chat on 2026-10-09: MIT licence;
 screenshot A/B, viewer, and summary for the first version;
@@ -188,10 +206,10 @@ error wording, and fixes within the approved contract.
 
 Remaining owner decisions: cross-engine scope, later check defaults, snapshot
 deletion policy, breaking project interfaces, review provider availability, and
-an optional spending limit. Merge and release through v0.1.0 are authorized; later milestones require owner approval.
+an optional spending limit.
 
 Accepted boundary: local targets only; automatic implementation, review repair,
-issues and draft PRs within accepted scope; autonomous merge and release through v0.1.0 after independent review and green CI. Record the
+issues and draft PRs within accepted scope. Merge follows the merge rule below. Record the
 operational goal and review provider before enabling continuous execution.
 
 ## Sources

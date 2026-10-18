@@ -306,13 +306,14 @@ skeleton manifest: 237 files under `static/tests/`.
 - R13.13 The package owns scoped project commands, per-selection baselines, and persistent local history. A project keeps configuration, project contracts, and thin aliases. A one-time run stores evidence without inventing an A/B pair. Partial captures cannot replace a complete baseline. DDEV origin discovery is opt-in.
 
 - R13.8 `test-kit` must cover the Node side: capture, compare, behaviour, checks, speed, and the ESLint and Stylelint rules. PHP and Twig lint rules belong to a second package, `lint-kit`, in a separate issue. The dividing line is the toolchain and the channel (npm from a git tag against Composer from Packagist), not the purpose.
-- R13.9 Each move must be one pull request. After it, the project must work with no edit: a thin alias in the project calls the package (R13.7).
+- R13.9 Each move must be one pull request. After it, the project must work with no edit: a thin alias in the project calls the package (R13.7). While the package is alpha (before the owner declares a beta), a step may break a project. Such a step needs a changelog entry and a migration note. The project pins a tag (R13.27), so a break reaches it only when it updates the pin. Owner decision, 2026-10-18.
 - R13.10 A move must replace the manifest entries of the moved files with one pinned dependency. `verify-skeleton` and `sync-skeleton` must know the new state before the first move merges.
 - R13.11 A moved helper must not break a lint test that still imports it. The dependency check of `lib` must prove this before the move.
 - R13.12 The name of the package must fit the final scope. A rename after the first release is costly. The owner keeps the name `test-kit` (2026-10-08); the README must state the dividing line of R13.8.
 - R13.40 The ESLint and Stylelint rules must ship as entry points of the package. Their rule identifiers and the plugin namespace (`portadesign/...`) must not change before a major version, because project configs, disable comments and baselines name them. The entry-point shape (for example `@parisek/test-kit/eslint`) must be designed before the move.
 - R13.41 The package must own the engine of the behaviour suite: the registry, the discovery, the reporter, the Playwright config and the format of the allowlists. A contract written by one project stays in that project.
 - R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. They are coupled to those components. Component-specific shared contracts stay with the components in `tailwind-base`. The package owns the engine and contract API. The owner accepts this boundary on 2026-10-09.
+  The owner accepted a new boundary on 2026-10-18. It supersedes the acceptance of 2026-10-09. Accessibility (`axe`) and component packs live in the package as opt-in named entry points. A pack runs only when the project selects it (R5.1). Project-owned contracts stay in the project. A component-specific pack is versioned per library major version. The runner detects the version, and an unsupported or undetectable version is a non-pass state (R8.7). No pack moves before this change merges.
 - R13.43 A move must keep the project-facing seam. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the move the same project files must keep working with a thin import from the package.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
@@ -322,8 +323,8 @@ Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public fro
 Decided by the owner (2026-10-08): `test-kit` reaches a project through a git tag, not through the npm registry.
 
 - R13.24 `test-kit` must be installed as a git dependency from the tags of `github:parisek/test-kit`. It must not be published to the npm registry. `package.json` must stay `private: true`, so a publish by mistake fails.
-- R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag.
-- R13.26 The tag must equal `version` in `package.json`. A workflow on tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`.
+- R13.25 A release must be a tag `vMAJOR.MINOR.PATCH` on `main`. A tag must never move and must never be deleted. A fix is a new tag. Only the owner tags a stable release. The agent may create a dev prerelease tag `vMAJOR.MINOR.PATCH-dev.N` from `main`, and only after a green cumulative test run on the tagged commit. A dev tag is not a release. Owner decision, 2026-10-18.
+- R13.26 The tag must equal `version` in `package.json`. A workflow on tag push must check that, run the tests, and create a GitHub Release from the matching section of `CHANGELOG.md`. A dev tag creates no GitHub Release.
 - R13.27 Before 1.0 a project must pin an exact tag: `npm install -D github:parisek/test-kit#v0.2.0`. After 1.0 it may use a range: `#semver:^1`. The lockfile pins the commit, so a moved tag cannot change a project.
 - R13.28 The package must install without a build step. The `files` list in `package.json` decides what a project receives. The viewer build is committed. CI must verify that it matches its source.
 - R13.29 The scoped name `@parisek/test-kit` needs no ownership of an npm scope for a git install. The name stays.
@@ -385,5 +386,5 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 3. Does measuring production for speed need a separate explicit command?
 4. How long are content snapshots kept, and who deletes them?
 5. Which language-detection library, after the section R7.6 check?
-6. (decided) Component-specific behavior contracts stay with components (R13.42).
+6. (decided 2026-10-18) Accessibility and component packs live in the package as opt-in named entry points. Project-owned contracts stay in the project (R13.42). This supersedes the decision of 2026-10-09.
 7. What does the project-facing seam of the ESLint and Stylelint configs look like after the move (R13.40, R13.43)? Today the canonical config is a synced `exact` file and the project imports it.

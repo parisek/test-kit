@@ -53,7 +53,14 @@ Everything in this repository is English: code, comments, documents, commit mess
 
 ## PR + Review workflow
 
-- One logical change for each pull request. A pull request is a draft, assigned to `parisek`. The owner authorizes autonomous review and merge of low-risk changes on 2026-10-09. CI must be green and independent review must pass before merge. Send a problem or material risk to the owner for approval. The owner approves releases after v0.1.0.
+- One logical change for each pull request. A pull request is a draft, assigned to `parisek`.
+- One merge rule applies. It is the rule "Review and merge" in `docs/vision.md`, section "How the agent decides". A change merges when all of these hold:
+  - Codex and Claude review it independently and both approve. Each review is bound to the commit SHA that merges.
+  - CI is green.
+  - The change is not a Tier 3 item of the vision.
+  - The author gives no decisive approval for the change.
+  - The change has no security impact, no unexpected file, no missing test and no material risk. Send any of these to the owner, even when both reviewers agree.
+  - The owner approves each milestone and every stable release.
 - The pull request title is a Conventional Commit (`feat(capture): ...`). Pull requests are squash-merged and the title becomes the commit subject. The `pr-title` workflow checks it.
 - The commit body records what was rejected or left alone. A diff cannot show a non-change.
 - After you open a pull request or push to it, wait for CI. A pull request is not ready until the checks are green or you explained the failure.
