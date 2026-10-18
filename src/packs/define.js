@@ -9,6 +9,17 @@ const list = (value, max = 50) => {
   return true;
 };
 
+// Copies a list by index. A hole is an error, never a skipped entry.
+export function dense(list, name) {
+  if (!Array.isArray(list)) throw new Error(`${name} must be a list.`);
+  const out = [];
+  for (let index = 0; index < list.length; index += 1) {
+    if (!Object.hasOwn(list, index)) throw new Error(`${name} has a hole at index ${index}.`);
+    out.push(list[index]);
+  }
+  return out;
+}
+
 export function validateCheck(check) {
   if (!check || typeof check !== 'object') throw new Error('A check must be an object.');
   const { id, title, basis, applies, check: run } = check;
@@ -30,7 +41,7 @@ export function definePack(pack) {
   if (!text(pack.title)) throw new Error(`Pack ${pack.id} needs a title.`);
   if (!text(pack.owner)) throw new Error(`Pack ${pack.id} needs a named owner.`);
   if (!Array.isArray(pack.checks) || pack.checks.length === 0 || pack.checks.length > 100) throw new Error(`Pack ${pack.id} needs 1 to 100 checks.`);
-  const checks = pack.checks.map(validateCheck);
+  const checks = dense(pack.checks, `Pack ${pack.id} checks`).map(validateCheck);
   if (new Set(checks.map(item => item.id)).size !== checks.length) throw new Error(`Pack ${pack.id} has a duplicate check id.`);
   return Object.freeze({ id: pack.id, title: pack.title, owner: pack.owner, checks: Object.freeze(checks) });
 }

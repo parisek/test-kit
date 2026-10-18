@@ -1,5 +1,5 @@
 // Pure. Builds the plan of checks and overrides. It runs nothing (R4.4, R5.1).
-import { LAYERS, definePack, validateCheck, isText, isList } from './define.js';
+import { LAYERS, dense, definePack, validateCheck, isText, isList } from './define.js';
 const SCOPE_KEYS = ['targets', 'artifacts', 'kinds'];
 const resolved = new WeakSet();
 export const isResolvedPlan = plan => resolved.has(plan);
@@ -19,7 +19,7 @@ function validateOverride(item, byId) {
 }
 
 export function resolveChecks({ available = [], packs = [], custom = [], overrides = [] } = {}) {
-  if (![available, packs, custom, overrides].every(Array.isArray)) throw new Error('Invalid pack selection.');
+  available = dense(available, 'available'); packs = dense(packs, 'packs'); custom = dense(custom, 'custom'); overrides = dense(overrides, 'overrides');
   const known = new Map();
   for (const pack of available.map(definePack)) {
     if (known.has(pack.id)) throw new Error(`Duplicate pack ${pack.id}.`);

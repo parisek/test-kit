@@ -23,6 +23,10 @@ The caps are 1000 findings, 1000 characters of message, and 10000 characters of 
 `runChecks` copies each finding into a frozen plain object, and gives each check a frozen copy of the stored input, so a check cannot change it (R7.1).
 It accepts only a plan from `resolveChecks`. A scope reads own keys only (`targets`, `artifacts`, `kinds`). Any other key makes the override invalid.
 
+`runChecks` takes one deep-frozen snapshot of the stored value and of the whole context before the loop. It never reads the caller's objects again, so a check cannot change the caller's data or starve another check.
+If the value or the context cannot be copied (a function, a Proxy), no check runs. Every check that applies to the artifact has state `failed`, and the run state is `failed`.
+One function sanitises the output of one check inside that check's try: it validates, copies, round-trips evidence through JSON, requires a plain object, reads `evidence.state` and adds `layer`. A whitespace-only message is invalid. A list with a hole is an error in `definePack` and `resolveChecks`.
+
 Check state is `complete`, `missing` or `failed` (R8.7).
 A check that throws, returns a promise or returns a malformed list gives no finding and state `failed`.
 A check with no input, a relative check with no `context.before`, a component check with no `context.components`, or a check that reports `evidence.state` of `incomplete` or `unknown` gives `missing`.

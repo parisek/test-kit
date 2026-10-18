@@ -14,7 +14,10 @@ const inScope = (scope, facts) => Object.entries(scope).every(([key, values]) =>
 });
 const state = (state, entry, diagnostic) => ({ state, layer: entry.layer, packId: entry.packId, ...(diagnostic ? { diagnostic } : {}) });
 const isPlain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
-const str = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max;
+const describe = error => {
+  try { return String(error?.message ?? error).slice(0, 200); } catch { return 'The check threw a value that cannot be read.'; }
+};
+const str = (value, max) => typeof value === 'string' && value.trim() !== '' && value.length <= max;
 
 function deepFreeze(value) {
   if (value && typeof value === 'object') { Object.freeze(value); for (const key of Reflect.ownKeys(value)) deepFreeze(value[key]); }
@@ -36,7 +39,9 @@ function normalizeFinding(item, id, input, context) {
   if (!isPlain(evidence)) throw new Error('A finding needs an evidence object.');
   const json = JSON.stringify(evidence);
   if (typeof json !== 'string' || json.length > MAX_EVIDENCE) throw new Error('A finding has unusable or oversized evidence.');
-  return deepFreeze({ targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: JSON.parse(json) });
+  const copy = JSON.parse(json);
+  if (!isPlain(copy)) throw new Error('Evidence is not a plain object after copying.');
+  return deepFreeze({ targetId, ...(viewportId !== undefined ? { viewportId } : {}), artifact, checkId, severity, message, evidence: copy });
 }
 
 function normalizeResult(result, id, input, context) {
@@ -50,26 +55,43 @@ function normalizeResult(result, id, input, context) {
   return out;
 }
 
+// The one function that turns untrusted check output into trusted data.
+// The caller runs it inside the try of that one check.
+function sanitize(check, layer, value, input, context) {
+  const findings = normalizeResult(check.check(value, context), check.id, input, context).map(item => Object.freeze({ ...item, layer }));
+  const open = findings.some(item => OPEN_STATES.includes(item.evidence.state));
+  return { findings, open };
+}
+
 export function runChecks(plan, input, context = {}) {
   if (!isResolvedPlan(plan)) throw new Error('Invalid check plan. Build it with resolveChecks.');
   if (!input || typeof input.artifact !== 'string' || input.artifact === '') throw new Error('Invalid check input.');
-  const value = frozenCopy(input.value);
-  const frozenContext = Object.freeze({ ...context, before: frozenCopy(context.before) });
-  const artifactInput = { artifact: input.artifact, value };
-  const facts = { targetId: context.targetId, artifact: input.artifact, kind: context.kind };
+  if (!isPlain(context)) throw new Error('Invalid check context.');
   const findings = [];
   const checks = {};
   const applied = [];
+  // One snapshot of the stored value and the whole context. The loop never reads the caller's objects again.
+  let value;
+  let snapshot;
+  try {
+    value = frozenCopy(input.value);
+    snapshot = deepFreeze(structuredClone(context));
+  } catch {
+    for (const entry of plan.checks) if (entry.check.applies.artifacts.includes(input.artifact)) checks[entry.check.id] = state('failed', entry, 'The input or context cannot be copied, so no check ran.');
+    return { state: 'failed', findings, checks, overrides: applied };
+  }
+  const artifactInput = Object.freeze({ artifact: input.artifact, value });
+  const facts = { targetId: snapshot.targetId, artifact: input.artifact, kind: snapshot.kind };
   for (const entry of plan.checks) {
     const { check, layer } = entry;
     if (!check.applies.artifacts.includes(input.artifact)) continue;
     let gap = null;
     if (check.applies.components) {
-      if (!Array.isArray(context.components)) gap = 'A component check needs context.components.';
-      else if (!check.applies.components.some(name => context.components.includes(name))) continue;
+      if (!Array.isArray(snapshot.components)) gap = 'A component check needs context.components.';
+      else if (!check.applies.components.some(name => snapshot.components.includes(name))) continue;
     }
     if (!gap && (value === undefined || value === null)) gap = 'The check has no input.';
-    else if (!gap && check.basis === 'relative' && (context.before === undefined || context.before === null)) gap = 'A relative check needs a prior artifact in context.before.';
+    else if (!gap && check.basis === 'relative' && (snapshot.before === undefined || snapshot.before === null)) gap = 'A relative check needs a prior artifact in context.before.';
     const override = plan.overrides.find(item => item.checkId === check.id && inScope(item.scope, facts));
     if (override) {
       applied.push(override);
@@ -78,14 +100,13 @@ export function runChecks(plan, input, context = {}) {
       continue;
     }
     if (gap) { checks[check.id] = state('missing', entry, gap); continue; }
-    let tagged;
-    try { tagged = normalizeResult(check.check(value, frozenContext), check.id, artifactInput, frozenContext).map(item => Object.freeze({ ...item, layer })); } catch (error) {
-      checks[check.id] = state('failed', entry, `The check failed: ${String(error?.message ?? error).slice(0, 200)}`);
+    let result;
+    try { result = sanitize(check, layer, value, artifactInput, snapshot); } catch (error) {
+      checks[check.id] = state('failed', entry, `The check failed: ${describe(error)}`);
       continue;
     }
-    findings.push(...tagged);
-    const open = tagged.some(item => OPEN_STATES.includes(item.evidence.state));
-    checks[check.id] = open ? state('missing', entry, 'The check reports incomplete or unknown evidence.') : state('complete', entry);
+    findings.push(...result.findings);
+    checks[check.id] = result.open ? state('missing', entry, 'The check reports incomplete or unknown evidence.') : state('complete', entry);
   }
   const states = Object.values(checks).map(item => item.state);
   const overall = states.includes('failed') ? 'failed' : states.length === 0 || states.includes('missing') ? 'missing' : 'complete';

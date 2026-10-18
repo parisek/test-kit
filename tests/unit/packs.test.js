@@ -183,3 +183,65 @@ test('a component check runs only for a target that shows the component', () => 
   assert.throws(() => resolveChecks({ custom: [{ layer: 'project', check }] }));
   assert.throws(() => resolveChecks({ custom: [{ layer: 'component', check: mk('no-comp') }] }));
 });
+
+test('hostile check outputs and contexts never end complete and never hide other checks', () => {
+  const good = { layer: 'project', check: mk('good', { check: () => [fnd('good finding')] }) };
+  const run = (check, { value = { title: 'x' }, context = ctx, extra = [] } = {}) =>
+    runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('hostile', { check }) }, good, ...extra] }), { artifact: 'content', value }, context);
+  const thrownNoMessage = Object.create(null);
+  const outputs = {
+    'toJSON hides incomplete marker': () => [fnd('m', { evidence: { toJSON: () => [{ state: 'incomplete' }] } })],
+    'toJSON returns a string': () => [fnd('m', { evidence: { toJSON: () => 'ok' } })],
+    'toJSON returns null': () => [fnd('m', { evidence: { toJSON: () => null } })],
+    'toJSON returns a number': () => [fnd('m', { evidence: { toJSON: () => 1 } })],
+    'toJSON returns undefined': () => [fnd('m', { evidence: { toJSON: () => undefined } })],
+    'toJSON throws': () => [fnd('m', { evidence: { toJSON() { throw new Error('t'); } } })],
+    'whitespace-only message': () => [fnd('   ')],
+    'severity getter throws': () => [{ get severity() { throw new Error('s'); }, message: 'm', evidence: {} }],
+    'evidence getter throws': () => [{ severity: 'info', message: 'm', get evidence() { throw new Error('e'); } }],
+    'proxy finding': () => [new Proxy({}, { getPrototypeOf() { throw new Error('p'); } })],
+    'sparse list': () => { const list = [fnd('m')]; list.length = 2; return list; },
+    'throws an object with a throwing message getter': () => { throw { get message() { throw new Error('m'); } }; },
+    'throws an object with a throwing toString': () => { throw { toString() { throw new Error('ts'); } }; },
+    'throws an object with no prototype': () => { throw thrownNoMessage; },
+    'throws null': () => { throw null; },
+  };
+  for (const [name, check] of Object.entries(outputs)) {
+    const result = run(check);
+    assert.equal(result.checks.hostile.state, 'failed', name);
+    assert.equal(typeof result.checks.hostile.diagnostic, 'string', name);
+    assert.equal(result.state, 'failed', name);
+    assert.equal(result.checks.good.state, 'complete', `${name}: sibling survives`);
+    assert.deepEqual(result.findings.map(f => f.checkId), ['good'], name);
+  }
+  // A check cannot change the caller's context or starve a later component check.
+  const components = ['header'];
+  const header = { layer: 'component', check: mk('header-rule', { applies: { artifacts: ['content'], components: ['header'] }, check: () => [fnd('header')] }) };
+  const result = run(c => { c.components.length = 0; return []; }, { context: { ...ctx, components }, extra: [header] });
+  assert.deepEqual(components, ['header']);
+  assert.equal(result.checks.hostile.state, 'failed');
+  assert.equal(result.checks['header-rule'].state, 'complete');
+  assert.notEqual(result.state, 'complete');
+  // A non-cloneable input or context fails closed with a diagnostic.
+  for (const [name, options] of Object.entries({
+    'function in value': { value: { title: 'x', fn() {} } },
+    'function in before': { context: { ...ctx, before: { fn() {} } } },
+    'function in context': { context: { ...ctx, fn() {} } },
+    'proxy context': { context: new Proxy({ ...ctx }, {}) },
+  })) {
+    const out = run(() => [], options);
+    assert.equal(out.state, 'failed', name);
+    assert.deepEqual(out.findings, [], name);
+    for (const item of Object.values(out.checks)) { assert.equal(item.state, 'failed', name); assert.match(item.diagnostic, /cannot be copied/, name); }
+  }
+});
+
+test('holes in pack, check, available and override lists give a clear error', () => {
+  const sparse = n => { const list = new Array(n); return list; };
+  const withHole = [mk('a'), , mk('b')];
+  assert.throws(() => definePack({ id: 'p', title: 'p', owner: 'o', checks: withHole }), /hole/);
+  assert.throws(() => resolveChecks({ available: [examplePack, ,] }), /hole/);
+  assert.throws(() => resolveChecks({ custom: sparse(1) }), /hole/);
+  assert.throws(() => resolveChecks({ packs: sparse(1) }), /hole/);
+  assert.throws(() => plan({ overrides: sparse(1) }), /hole/);
+});
