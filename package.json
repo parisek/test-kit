@@ -11,7 +11,8 @@
     ".": "./src/index.js",
     "./compat/selection": "./src/compat/selection.js",
     "./compat/harvest": "./src/compat/harvest-plan.js",
-    "./packs": "./src/packs/index.js"
+    "./packs": "./src/packs/index.js",
+    "./packs/swiper": "./src/packs/versioned/swiper.js"
   },
   "files": [
     "bin",

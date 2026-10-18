@@ -1,0 +1,36 @@
+{
+  "good": {
+    "instances": [
+      {
+        "id": "hero",
+        "containerClasses": ["swiper", "swiper-initialized", "swiper-horizontal"],
+        "wrapperClasses": ["swiper-wrapper"],
+        "slides": [
+          { "classes": ["swiper-slide", "swiper-slide-active", "swiper-slide-fully-visible"] },
+          { "classes": ["swiper-slide", "swiper-slide-next"] }
+        ]
+      }
+    ]
+  },
+  "noActive": {
+    "instances": [
+      {
+        "id": "hero",
+        "containerClasses": ["swiper", "swiper-initialized"],
+        "wrapperClasses": ["swiper-wrapper"],
+        "slides": [{ "classes": ["swiper-slide"] }, { "classes": ["swiper-slide"] }]
+      }
+    ]
+  },
+  "notInitialized": {
+    "instances": [
+      {
+        "id": "hero",
+        "containerClasses": ["swiper"],
+        "wrapperClasses": null,
+        "slides": [{ "classes": ["swiper-slide", "swiper-slide-active"] }]
+      }
+    ]
+  },
+  "empty": { "instances": [] }
+}

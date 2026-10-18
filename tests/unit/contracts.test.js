@@ -1,0 +1,147 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolveChecks, runChecks, detectMajor, bundleBannerVersion, lockfileVersion, defineContractSet, defineVersionedPack, selectContractSet } from '../../src/packs/index.js';
+import { swiperPack, swiperSets } from '../../src/packs/versioned/swiper.js';
+
+const load = name => JSON.parse(readFileSync(new URL(`../fixtures/contracts/${name}.json`, import.meta.url), 'utf8'));
+const dom = load('swiper-dom');
+const plan = () => resolveChecks({ available: [swiperPack], packs: ['swiper'] });
+const run = (value, swiper, extra = {}) => runChecks(plan(), { artifact: 'behavior', value }, { targetId: 'example-site', components: ['swiper'], versions: { swiper }, ...extra });
+const states = result => Object.fromEntries(Object.entries(result.checks).map(([id, item]) => [id, item.state]));
+
+test('detectMajor reads exact versions and records the source (R13.42)', () => {
+  assert.deepEqual(detectMajor({ version: '12.2.0', source: 'lockfile' }), { state: 'detected', major: 12, version: '12.2.0', source: 'lockfile' });
+  assert.equal(detectMajor({ version: 'v14.3.0', source: 'bundle-banner' }).major, 14);
+  assert.equal(detectMajor({ version: '14', source: 'config' }).major, 14);
+  assert.deepEqual(detectMajor({ version: 12, source: 'config' }), { state: 'detected', major: 12, version: '12', source: 'config' });
+  assert.ok(Object.isFrozen(detectMajor({ version: '12.0.0', source: 'lockfile' })));
+});
+
+test('detectMajor gives unknown for everything it cannot prove (R8.7)', () => {
+  const bad = [
+    { version: '^12.0.0', source: 'lockfile' }, { version: '~12', source: 'lockfile' }, { version: '>=12', source: 'lockfile' }, { version: '14.0.0-beta.2', source: 'lockfile' },
+    { version: 'latest', source: 'lockfile' }, { version: '', source: 'lockfile' }, { version: ' 12.0.0', source: 'lockfile' }, { version: '012.0.0', source: 'lockfile' },
+    { version: '12.2.0.1', source: 'lockfile' }, { version: '99999.0.0', source: 'lockfile' }, { version: 12.5, source: 'config' }, { version: -1, source: 'config' },
+    { version: NaN, source: 'config' }, { version: null, source: 'lockfile' }, { version: undefined, source: 'lockfile' }, { version: ['12'], source: 'lockfile' },
+    { version: '12.2.0', source: 'page-global' }, { version: '12.2.0' }, { version: '12.2.0', source: 'LOCKFILE' }, null, undefined, 'x', 12,
+  ];
+  for (const input of bad) {
+    const result = detectMajor(input);
+    assert.equal(result.state, 'unknown', JSON.stringify(input));
+    assert.equal(result.major, null);
+    assert.ok(result.diagnostic);
+  }
+});
+
+test('detectMajor reads each field once', () => {
+  let reads = 0;
+  const input = { get version() { reads += 1; return reads === 1 ? '12.0.0' : '14.0.0'; }, get source() { return 'lockfile'; } };
+  assert.equal(detectMajor(input).major, 12);
+  assert.equal(reads, 1);
+});
+
+test('helpers read the banner of a bundle and a lockfile', () => {
+  const banner = '/**\n * Swiper 14.3.0\n * Most modern mobile touch slider\n */\n';
+  assert.deepEqual(bundleBannerVersion(banner, 'Swiper'), { version: '14.3.0', source: 'bundle-banner' });
+  assert.equal(bundleBannerVersion('var a = 1;', 'Swiper'), null);
+  assert.equal(bundleBannerVersion(banner, '(a+)+'), null);
+  assert.deepEqual(lockfileVersion(load('swiper-lock'), 'swiper'), { version: '14.3.0', source: 'lockfile' });
+  assert.equal(lockfileVersion(load('swiper-lock'), 'gsap'), null);
+  assert.equal(lockfileVersion({ packages: { 'node_modules/swiper': {} } }, 'swiper'), null);
+  assert.equal(lockfileVersion(null, 'swiper'), null);
+});
+
+test('Swiper 12 and 14 sets are keyed by major, name an owner and run side by side', () => {
+  assert.deepEqual(swiperSets.map(item => item.major), [12, 14]);
+  for (const set of swiperSets) { assert.equal(set.owner, 'test-kit'); assert.equal(set.status, 'verified'); assert.ok(set.sources.length > 0); }
+  assert.equal(swiperPack.owner, 'test-kit');
+  for (const [version, major] of [['12.2.0', 12], ['14.3.0', 14]]) {
+    const result = run(dom.good, { version, source: 'lockfile' });
+    assert.equal(result.state, 'complete', version);
+    const info = result.findings.find(item => item.checkId === 'swiper-version');
+    assert.equal(info.evidence.major, major);
+    assert.equal(info.evidence.detectedVersion, version);
+    assert.equal(info.evidence.source, 'lockfile');
+    assert.equal(info.layer, 'package');
+  }
+});
+
+test('a contract finding records the set, the detected version and the source', () => {
+  const result = run(dom.noActive, { version: '14.3.0', source: 'bundle-banner' });
+  const finding = result.findings.find(item => item.checkId === 'swiper-active-slide');
+  assert.equal(finding.severity, 'error');
+  assert.equal(finding.evidence.contractSet.major, 14);
+  assert.equal(finding.evidence.contractSet.detectedVersion, '14.3.0');
+  assert.equal(finding.evidence.contractSet.source, 'bundle-banner');
+  assert.equal(finding.evidence.contractSet.owner, 'test-kit');
+  assert.equal(result.state, 'complete'); // the check ran; the finding is the failure signal
+  const structure = run(dom.notInitialized, { version: '12.2.0', source: 'lockfile' }).findings.filter(item => item.checkId === 'swiper-structure');
+  assert.equal(structure.length, 2);
+  assert.match(structure.map(item => item.message).join(' '), /swiper-initialized/);
+});
+
+test('an unknown or unsupported version never passes and no contract runs (R8.7)', () => {
+  const cases = [undefined, null, { version: '^12.0.0', source: 'lockfile' }, { version: '13.0.0', source: 'lockfile' }, { version: '11.2.10', source: 'lockfile' }, { version: '15.0.0', source: 'lockfile' }, { version: '12.2.0', source: 'page-global' }, { version: '14.0.0-beta.2', source: 'lockfile' }];
+  for (const swiper of cases) {
+    const result = run(dom.good, swiper);
+    assert.notEqual(result.state, 'complete', JSON.stringify(swiper));
+    assert.deepEqual(states(result), { 'swiper-version': 'missing', 'swiper-structure': 'missing', 'swiper-active-slide': 'missing' });
+    assert.ok(result.findings.every(item => item.severity === 'error' && item.evidence.state === 'unknown'));
+    assert.ok(result.findings.every(item => !item.evidence.contractSet));
+    assert.ok(result.findings.every(item => Array.isArray(item.evidence.supportedMajors)));
+    assert.match(result.checks['swiper-version'].diagnostic, /incomplete or unknown/);
+  }
+  assert.match(run(dom.good, { version: '13.0.0', source: 'lockfile' }).findings[0].message, /Supported majors: 12, 14/);
+});
+
+test('missing facts, no instance and a missing component list never pass', () => {
+  const ok = { version: '12.2.0', source: 'lockfile' };
+  assert.equal(run(dom.empty, ok).checks['swiper-structure'].state, 'missing');
+  assert.equal(run({ instances: [{ id: 'x' }] }, ok).checks['swiper-structure'].state, 'missing');
+  assert.equal(run({ instances: [{ id: 'x', containerClasses: 'swiper', wrapperClasses: [], slides: [] }] }, ok).checks['swiper-structure'].state, 'missing');
+  assert.equal(run(null, ok).state, 'missing');
+  const noComponents = runChecks(plan(), { artifact: 'behavior', value: dom.good }, { targetId: 'example-site', versions: { swiper: ok } });
+  assert.equal(noComponents.state, 'missing');
+  const other = runChecks(plan(), { artifact: 'behavior', value: dom.good }, { targetId: 'example-site', components: ['gsap'], versions: { swiper: ok } });
+  assert.deepEqual(other.checks, {});
+});
+
+test('the pack runs nothing unless the project selects it (R5.1)', () => {
+  const none = resolveChecks({ available: [swiperPack] });
+  assert.equal(runChecks(none, { artifact: 'behavior', value: dom.good }, { components: ['swiper'] }).state, 'missing');
+});
+
+test('a placeholder set cannot pass', () => {
+  const holder = major => defineContractSet({ library: 'example-lib', major, owner: 'example-owner', status: 'placeholder', facts: {}, contracts: [{ id: 'basic', title: 'Basic', check: () => [] }] });
+  const pack = defineVersionedPack({ id: 'example-lib', title: 'Example', owner: 'example-owner', library: 'example-lib', sets: [holder(1), holder(2)] });
+  const result = runChecks(resolveChecks({ available: [pack], packs: ['example-lib'] }), { artifact: 'behavior', value: {} }, { targetId: 'example-site', components: ['example-lib'], versions: { 'example-lib': { version: '2.0.0', source: 'config' } } });
+  assert.equal(result.checks['example-lib-basic'].state, 'missing');
+  assert.equal(result.checks['example-lib-version'].state, 'complete');
+  assert.equal(result.state, 'missing');
+  assert.match(result.findings.find(item => item.checkId === 'example-lib-basic').message, /placeholder/);
+});
+
+test('set and pack definitions fail closed', () => {
+  const base = { library: 'example-lib', major: 1, owner: 'example-owner', status: 'verified', verifiedAgainst: '1.0.0', sources: ['https://example.com/docs'], facts: {}, contracts: [{ id: 'a', title: 'A', check: () => [] }] };
+  assert.ok(Object.isFrozen(defineContractSet(base)));
+  for (const bad of [{ ...base, owner: '' }, { ...base, owner: undefined }, { ...base, major: 1.5 }, { ...base, major: '1' }, { ...base, status: 'guess' }, { ...base, verifiedAgainst: '' }, { ...base, sources: [] },
+    { ...base, library: 'Bad Name' }, { ...base, contracts: [] }, { ...base, contracts: [{ id: 'a', title: 'A', check: () => [] }, { id: 'a', title: 'A', check: () => [] }] }, { ...base, contracts: [{ id: 'a', title: 'A' }] }, null]) {
+    assert.throws(() => defineContractSet(bad));
+  }
+  const set = (major, ids = ['a']) => ({ ...base, major, contracts: ids.map(id => ({ id, title: id, check: () => [] })) });
+  const make = sets => defineVersionedPack({ id: 'example-lib', title: 'Example', owner: 'example-owner', library: 'example-lib', sets });
+  assert.ok(make([set(1), set(2)]));
+  assert.throws(() => make([set(1), set(1)]), /one major/);
+  assert.throws(() => make([set(1), set(2, ['a', 'b'])]), /same contract ids/);
+  assert.throws(() => make([{ ...set(1), library: 'other-lib' }]), /must be for/);
+  assert.throws(() => make([]), /needs contract sets/);
+});
+
+test('selectContractSet never falls back to another major', () => {
+  const found = selectContractSet(swiperSets, { version: '14.0.0', source: 'config' });
+  assert.equal(found.state, 'selected');
+  assert.equal(found.set.major, 14);
+  assert.equal(selectContractSet(swiperSets, { version: '13.9.9', source: 'config' }).state, 'unsupported');
+  assert.equal(selectContractSet(swiperSets, { version: 'next', source: 'config' }).state, 'unknown');
+});

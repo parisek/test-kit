@@ -7,6 +7,7 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Added
 
 - Add the pack entry point `@parisek/test-kit/packs` (R7.2, R13.42, R13.43). It defines packs, layers custom checks (package, project, component, page) and runs them with fail-closed states (R8.7). Nothing runs by default (R5.1). No report change: the code still writes `schemaVersion` 2.
+- Add versioned component contracts to the packs API (R13.42, R8.7). `detectMajor` reads an exact version and its source. `defineContractSet` and `defineVersionedPack` build contract sets keyed by library major, each with an owner. The new entry point `@parisek/test-kit/packs/swiper` holds Swiper 12 and Swiper 14 sets. An unknown or unsupported version gives `missing`, never a pass. Nothing runs by default (R5.1).
 
 ### Changed
 
