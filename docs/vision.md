@@ -10,7 +10,7 @@ If this document and the specification disagree, the specification wins. Open an
 
 The spec edits of #100 and #96 are in the specification.
 
-`AGENTS.md` and `docs/development-loop.md` own the rules for work, review and merge. This document does not repeat them.
+This document is the source of the "Review and merge" rule. `AGENTS.md` and `docs/development-loop.md` mirror it. If they differ, the specification wins, then this document.
 
 ## Maturity
 
@@ -224,7 +224,7 @@ The package fails its purpose, even if it works, when it:
 
 - hides a gap behind a green result,
 - needs a hosted service,
-- changes a project without a thin alias that keeps it working,
+- changes a project without a thin alias that keeps it working (after the owner declares beta),
 - shows one reader something the other reader cannot see,
 - runs a new check by default without an owner decision.
 

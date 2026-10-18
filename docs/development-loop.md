@@ -160,8 +160,8 @@ own PR.
 
 ## Merge rule
 
-One merge rule applies. `AGENTS.md` and `docs/vision.md` ("Review and merge" in
-"How the agent decides") state the same rule. A change merges when all of these hold:
+One merge rule applies. `docs/vision.md` ("Review and merge" in "How the agent decides") is the
+source of this rule. `AGENTS.md` and this section mirror it. A change merges when all of these hold:
 
 - Codex and Claude review it independently and both approve. Each review is bound
   to the commit SHA that merges.
