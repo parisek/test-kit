@@ -5,6 +5,7 @@ import { checkLocation, copyFileTargets, TOOLS, MAX_ITEMS } from './normalize.js
 
 const TITLES = { eslint: 'ESLint rules', stylelint: 'Stylelint rules' };
 const PROJECT = '@project';
+const isPlain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 
 // The `lint` artifact value is JSON data. It holds only normalized, relative data:
 //   { fileTargets?: { "<relative file>": "<component id>" },
@@ -32,11 +33,17 @@ function lintCheck(tool) {
     basis: 'absolute',
     applies: { artifacts: ['lint'] },
     check(value) {
-      const targets = copyFileTargets(value?.fileTargets); // a bad map throws, so the check is failed
+      // A malformed container is `failed`. Only a well-formed `tools` object without the key means "not selected".
+      if (!isPlain(value)) throw new Error('The stored lint artifact must be an object.');
+      const { fileTargets, tools } = value; // one read of each field
+      if (!isPlain(tools)) throw new Error('The stored lint artifact needs a tools object.');
+      const targets = copyFileTargets(fileTargets); // a bad map throws, so the check is failed
       const targetOf = file => (Object.hasOwn(targets, file) ? targets[file] : PROJECT);
-      const entry = value?.tools?.[tool];
+      const selected = Object.hasOwn(tools, tool);
+      const entry = selected ? tools[tool] : undefined;
+      if (selected && !isPlain(entry)) throw new Error(`The stored ${tool} entry must be an object.`);
       const open = message => [{ targetId: PROJECT, severity: 'info', message: String(message).slice(0, 900), evidence: { tool, state: 'incomplete' } }];
-      if (entry === undefined || entry === null) return open(`${TITLES[tool]} did not run. The project did not select this tool.`);
+      if (!selected) return open(`${TITLES[tool]} did not run. The project did not select this tool.`);
       const { status, diagnostic, items: rawItems, total } = entry; // one read of each field
       if (status === 'missing') return open(diagnostic ?? `${tool} is not installed in the project.`);
       if (status !== 'ok') throw new Error(String(diagnostic ?? `${tool} did not finish.`).slice(0, 300));

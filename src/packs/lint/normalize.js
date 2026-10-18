@@ -125,14 +125,14 @@ export function scrubRoots(text, roots, { ignoreCase } = {}) {
   }
   list.sort((a, b) => b.form.length - a.form.length);
   // A root matches only at a path start. It must be followed by a separator, or by a character that cannot continue a name.
-  // A name character (letter, digit, `_ ~ @ -`) or a dot plus a name character means a sibling such as `root2` or `root.old`: no match.
+  // A name character (letter, digit, `_ ~ @ % -`) or a dot plus a name character means a sibling such as `root2` or `root.old`: no match.
   const before = '(?<![A-Za-z0-9_.~@/\\\\-])';
   let out = text;
   for (const { form, ci } of list) {
     const flags = ci ? 'gi' : 'g';
     const base = escape(form);
-    out = out.replace(new RegExp(`file://(?:localhost)?/?(?=${base}(?:[\\\\/]|(?![A-Za-z0-9_~@-]|\\.[A-Za-z0-9_~@-])))`, flags), '');
-    out = out.replace(new RegExp(`${before}${base}[\\\\/]`, flags), '').replace(new RegExp(`${before}${base}(?![A-Za-z0-9_~@-]|\\.[A-Za-z0-9_~@-])`, flags), '.');
+    out = out.replace(new RegExp(`[Ff][Ii][Ll][Ee]://(?:[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt])?/?(?=${base}(?:[\\\\/]|(?![A-Za-z0-9_~@%-]|\\.[A-Za-z0-9_~@%-])))`, flags), '');
+    out = out.replace(new RegExp(`${before}${base}[\\\\/]`, flags), '').replace(new RegExp(`${before}${base}(?![A-Za-z0-9_~@%-]|\\.[A-Za-z0-9_~@%-])`, flags), '.');
   }
   return out;
 }

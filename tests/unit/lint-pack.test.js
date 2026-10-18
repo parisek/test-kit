@@ -446,3 +446,22 @@ test('a Windows file URL is scrubbed for a drive-letter root, ignoring case', ()
   assert.equal(scrubRoots('at file://localhost/C:/Users/Me/proj/c.js', 'C:\\Users\\Me\\proj'), 'at c.js');
   assert.equal(scrubRoots('at file:///c:/users/me/proj2/c.js', 'C:\\Users\\Me\\proj'), 'at file:///c:/users/me/proj2/c.js');
 });
+
+test('a malformed artifact container is failed, not "not selected" (R8.7)', () => {
+  for (const tools of ['bad', [], null, 5, true]) {
+    const result = run({ tools });
+    assert.equal(result.checks['eslint-rules'].state, 'failed', JSON.stringify(tools));
+    assert.equal(result.state, 'failed');
+  }
+  for (const value of [[], 'text', 5, true, { tools: undefined }, {}]) assert.equal(run(value).state, 'failed', JSON.stringify(value));
+  for (const entry of ['x', [], null, 5]) assert.equal(run({ tools: { eslint: entry, stylelint: clean } }).checks['eslint-rules'].state, 'failed', JSON.stringify(entry));
+  // No input at all is "missing" by R8.7, before the check runs. A well-formed tools object without the key is "not selected".
+  assert.equal(run(null).state, 'missing');
+  assert.equal(run({ tools: {} }).checks['eslint-rules'].state, 'missing');
+});
+
+test('the file scheme is matched in any case, and a percent sign continues a name', () => {
+  assert.equal(scrubRoots('at FILE:///srv/proj/c.js', '/srv/proj'), 'at c.js');
+  assert.equal(scrubRoots('at File://LocalHost/srv/proj/c.js', '/srv/proj'), 'at c.js');
+  assert.equal(scrubRoots('at /srv/proj%2Dold/c.js and /srv/proj/d.js', '/srv/proj'), 'at /srv/proj%2Dold/c.js and d.js');
+});
