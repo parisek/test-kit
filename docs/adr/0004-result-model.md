@@ -50,7 +50,7 @@ The vision lists three options. This section tests each one against the requirem
 ### C: a rule basis, `absolute` or `relative`, and a class derived at target or artifact scope
 
 - R7.3: kept for storage. One `findings` list. A finding of any basis goes in it. Not kept for the last sentence of R7.3 ("classes and rules apply with no special case"). See the section "R7.3 is a special case" below.
-- R8.2 to R8.7: kept, with the rules below for overrides and missing evidence.
+- R8.2 to R8.7: kept, with the rules in section 7 for overrides, missing evidence, scope and the viewer list of fired rules (R8.6).
 - R11.6: kept. One classifier reads the basis from report data.
 - Precedent: `judge: 'oracle'` already steers a derived class from a data field. The empty check set already gives `missing`, not `match`. C extends both rules.
 - Additive at file level: yes. A new check and a new artifact `lint` are new files. Nothing runs by default (R5.1).
@@ -163,12 +163,18 @@ These rules follow R8.2 to R8.7 and vision layer rule 1.
 3. A narrower layer that switches a rule off writes an override record in the report: `checkId`, scope, reason, owner, layer. The check at that scope has state `missing` with a diagnostic. A disabled check proves nothing (R7.7). The query counts overrides.
 4. An override never hides a failed or missing run, a rule without evidence (R8.4) or an unexplained non-zero difference.
 5. An absolute finding may become `explained` only through an allowlist entry. The entry carries a reason and an owner. It binds to `checkId`, `targetId` and an absolute fingerprint. The absolute fingerprint is an open design (point 6). It does not bind to a run id or a pair key. Run ids change on each run, and an allowlist must outlive a run.
-6. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The fingerprint differs too. Today `evidenceFingerprint` is set only for `screenshot`, `html` and `content` findings, and `evidenceBinding` hashes both run ids (`src/compare/runs.js`, the loop before `validateReport`; `src/rules/record.js`, the binding check). Behavior and lighthouse findings have no fingerprint today, so they can never be `explained` today. An absolute fingerprint must hash the evidence of one run, not two. It must change when that evidence changes. It must not depend on the run id, or an allowlist entry dies with each run. Which bytes it hashes is open and is the first design task of the allowlist issue. Until it exists, the fail-closed rule holds. The validator and `findingIsExplained` need a second branch for it. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
+6. Relative findings have the same gap today. A `behavior` or `lighthouse` finding has no `evidenceFingerprint`, so it cannot be `explained` through a cause today either (`src/compare/runs.js` sets the fingerprint only for `screenshot`, `html` and `content`). This is existing behavior. The record does not change it. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The fingerprint differs too. Today `evidenceFingerprint` is set only for `screenshot`, `html` and `content` findings, and `evidenceBinding` hashes both run ids (`src/compare/runs.js`, the loop before `validateReport`; `src/rules/record.js`, the binding check). Behavior and lighthouse findings have no fingerprint today, so they can never be `explained` today. An absolute fingerprint must hash the evidence of one run, not two. It must change when that evidence changes. It must not depend on the run id, or an allowlist entry dies with each run. Which bytes it hashes is open and is the first design task of the allowlist issue. Until it exists, the fail-closed rule holds. The validator and `findingIsExplained` need a second branch for it. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
 
 7. R8.2, R8.3 and R8.5 for absolute checks:
    - R8.2 (a rule outside its scope does not hide a row): normaliser rules are relative-only (section 2). No absolute check has a normaliser, so nothing can hide an absolute finding. An override or allowlist entry outside its scope has no effect.
    - R8.3 (noise floor): the noise floor is a property of a pair. It is relative-only. An absolute check has no floor, and an absolute value is not hidden by one. The budget rule keeps its present form (`median > budget`).
    - R8.5 (a list in `applies` limits that axis; a missing list means no limit): the same rule applies to the scope of an override or allowlist entry on the axes `artifacts`, `targets` and `kinds` (value `single-run`). The `pairs` axis does not apply to a `subject` report.
+
+8. R8.6 (the viewer shows the rules that fired on the target; the other rules in scope are collapsed) for absolute checks:
+   - Today `RuleAudit.vue` reads `report.rules`, `report.pair.key` and `html.diff.firedRuleIds`. Those are normaliser rules, and they stay relative-only (point 7).
+   - For an absolute check, "fired" means: the check has at least one finding on the target. "In scope" means: the check is selected for the target in the catalog and no override disables it there.
+   - The viewer lists the fired absolute checks first, each with its `checkId`, title, `layer` and finding count. It collapses the other checks in scope, in the same way as for rules. An override that disables a check at the target is shown in the collapsed list with its reason and owner (point 3). A check whose artifact is not `complete` is shown as `missing`, `failed` or `incompatible`, not as "no finding" (R8.7).
+   - The viewer change: `RuleAudit.vue` gets a second list, "Checks", fed by `report.checks`, `report.findings` and the overrides. It must not read `pair.key`, so it works in a `subject` report. The labels follow section 8 ("violation", "allowlisted", "no finding").
 
 ### 8. Classification
 
@@ -205,13 +211,26 @@ The table lists every place in `src/` that builds a report finding. The search: 
 | `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-change'` | `lighthouse` | `lighthouse-change` | relative | package | none |
 | `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-budget'` | `lighthouse` | `lighthouse-budget` | absolute | project | `pair.bRunId` |
 
+Content findings with `evidence.state` `unknown` or `incomplete` do not enter the report. `src/content/compare.js` drops them (`result.findings = ... filter(item => !['unknown', 'incomplete'].includes(item.evidence?.state))`) and sets `incomplete`, which makes the artifact state `missing`. This matches the rule for a failed check below: no finding, and a non-complete state.
+
 Behavior. The step id is the contract name (`id: contract.name` in `src/behavior/index.js`). The finding is built from a compared step whose state is `changed` or `failed` (`compareBehavior` in `src/behavior/compare.js`). So it is about the difference of A and B and its basis is `relative`. Each executed contract enters the report catalog as `behavior.<contract name>`. The contract name is already a plain identifier (`/^[a-z0-9][a-z0-9-]{0,79}$/`, `src/behavior/contracts.js`). The prefix keeps it apart from a content check id. The producer fills `layer` from the origin of the contract: `package` for a shared contract, `project` for a contract under `contracts/project/` or `tests/behavior/project/` (spec section 13), and `component` for a contract that sits next to one component. The producer must know the origin. Today the registry does not record it. That is part of the producer change. In a `subject` report the same contract registers as an absolute entry. Its result state is judged on its own, and `runId` is `subject.runId`. A skipped contract is not a finding today and stays so. It also does not prove a pass (R7.7). This record does not change that.
 
 Out of scope on purpose:
 
 - `status`. It produces no report finding. The classifier excludes `status` findings (`src/report/classify.js`).
-- `src/cli/perf.js:85`. It builds run-level budget findings in `run.performance.findings`. They are not report findings, and no pair exists on that path. They are the one absolute, single-run finding that exists in code today (`evaluateBudgets` takes one artifact). They carry `cause: 'performance-budget'`, `metric`, `value`, `budget`, `targetId` and `viewportId`, and no `checkId`. They follow the `lighthouse-budget` entry when this path gains a report. Until then they may lack a `checkId`.
-- `src/workflow/feedback.js:23`. It copies findings into a bounded feedback summary. It already carries `checkId` and `contractId`. The summary will carry the new `checkId` and the `behavior.` prefix without a schema change. It is a reader, not a producer.
+- `src/cli/perf.js:85`. It builds run-level budget findings in `run.performance.findings`. They are not report findings, and no pair exists on that path. They are absolute, single-run findings (`evaluateBudgets` takes one artifact). `src/workflow/feedback.js` is the second single-run producer (next item). They carry `cause: 'performance-budget'`, `metric`, `value`, `budget`, `targetId` and `viewportId`, and no `checkId`. They follow the `lighthouse-budget` entry when this path gains a report. Until then they may lack a `checkId`.
+- `src/workflow/feedback.js` is a producer of single-run results, and it is not a report. Its own comment says "A single run has check feedback. It does not have an A/B verdict." It calls `runContentChecks(snapshot, run.settings.checks, ...)` on one run. So it already runs the content checks as absolute checks on one run, with `checkId`. It also reads behavior steps of one run and emits `{ artifact: 'behavior', contractId: step.id, state }`. It writes `feedback.json` with bounded findings (`maxFindings` up to 20). It is out of scope for the report schema because it is a bounded summary, not `report.json`. It is in scope for the meaning of states. The mapping of its states to the single-run model:
+
+  | feedback state | Meaning in the single-run model |
+  | --- | --- |
+  | content `missing` (no evidence, invalid evidence, or no checks selected) | artifact state `missing`. No finding. Never a pass |
+  | content finding with `evidence.state` `unknown` or `incomplete` | the check state is `incomplete`. The artifact state is `missing`. The finding is not a violation and not a pass |
+  | content finding with no such state | an absolute finding, `unexplained` until allowlisted |
+  | behavior step `failed` | absolute finding on `behavior.<contract>` (basis `absolute` in a `subject` report) |
+  | behavior step `skipped` or `incompatible` | artifact state not `complete`. Never a pass (R7.7, R8.7) |
+  | behavior `passed` | counted, not a finding |
+
+  The feedback summary keeps `contractId` for the contract. In a report, the contract is `checkId: behavior.<contract name>` (the table above). A later change aligns the two names. The producers' code is not changed here.
 - New producers (`lint`, `a11y`, hygiene, render integrity). They register their own entries when they are built.
 
 The count is 5 report-finding call sites in `src/compare/runs.js`, 7 rows above. A producer that the grep did not find would be a gap. The grep ran on the files in `src/` only. It did not run on `frontend/`, which holds readers.
@@ -236,7 +255,6 @@ Catalog used by the three examples:
 {
   "schemaVersion": 3,
   "checks": {
-    "html-diff": { "basis": "relative", "layer": "package", "title": "HTML difference" },
     "heading-outline": { "basis": "absolute", "layer": "package", "title": "Heading outline" },
     "eslint-no-console": { "basis": "absolute", "layer": "project", "title": "No console call" },
     "a11y-axe": { "basis": "absolute", "layer": "package", "title": "Accessibility (axe)" },
@@ -497,4 +515,4 @@ Not measured: the effort in hours, and the number of lines.
 - The numbers in the speed example are invented. The tool version in the lint example is a placeholder.
 - The review by Codex and by Claude (issue #99, acceptance) is part of the pull request workflow. It has not happened.
 - The `docs/specification.md` section 17 list was not re-read in full. Only lines cited here were read.
-- Prior use of `heading-outline` and the other content checks as absolute rules in a single-run context does not exist in code. The mapping is a design, not a measurement.
+- The content checks already run on one run in `src/workflow/feedback.js`, as absolute checks, but only into a feedback summary and never into a report. The mapping of those checks and of the Lighthouse budget onto `report.json` is a design. It is not a measurement.
