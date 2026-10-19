@@ -1,6 +1,6 @@
 Third-party code in the compiled viewer
 
-Vue 3.5.43
+Vue 3.5.44
 
 The MIT License (MIT)
 
