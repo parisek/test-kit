@@ -1,6 +1,7 @@
 import { builtinChecks } from '../checks/index.js';
 import { validateContractSelection } from '../behavior/contracts.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
+import { BUILTIN_PACK_IDS } from '../packs/ids.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 function fail(message) { throw new Error(`Invalid configuration: ${message}`); }
@@ -76,7 +77,7 @@ function freeze(value) {
 }
 
 export function normalizeConfig(input) {
-  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior']);
+  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior', 'packs']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');
   object(input.sides, 'sides');
   const sideEntries = Object.entries(input.sides);
@@ -138,6 +139,9 @@ export function normalizeConfig(input) {
   unique(checks, 'check');
   if (checks.some(check => !Object.hasOwn(builtinChecks, check))) fail('unknown content check');
   if (checks.length && !artifacts.includes('content')) fail('checks require the content artifact');
+  const packs = list(input.packs ?? [], 'packs', BUILTIN_PACK_IDS.length).map(value => id(value, 'pack ID'));
+  unique(packs, 'pack');
+  if (packs.some(pack => !BUILTIN_PACK_IDS.includes(pack))) fail(`unknown pack (known: ${BUILTIN_PACK_IDS.join(', ')})`);
   const contentInput = object(input.content ?? {}, 'content', ['expectedLanguage']);
   const content = {};
   if (contentInput.expectedLanguage !== undefined) content.expectedLanguage = text(contentInput.expectedLanguage, 'content.expectedLanguage', 100);
@@ -166,5 +170,5 @@ export function normalizeConfig(input) {
   if (!/^[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)*$/.test(runsRoot) || runsRoot.split('/').some(segment => segment === '.' || segment === '..')) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
-  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
+  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks, packs, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
 }
