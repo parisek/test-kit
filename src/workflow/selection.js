@@ -1,5 +1,6 @@
 import { validateContractSelection } from '../behavior/contracts.js';
 import { builtinChecks } from '../checks/index.js';
+import { DEFAULT_ARTIFACTS } from '../config/normalize.js';
 
 function ids(value, name) {
   const values = value.split(',');
@@ -9,7 +10,7 @@ function ids(value, name) {
 export function selectConfig(input, options = {}) {
   const config = structuredClone(input);
   const suite = options.suite ?? (options.selector ? 'visual' : 'all');
-  const suites = { all: input.artifacts, visual: ['screenshot', 'status'], content: ['content', 'status'], behavior: ['behavior', 'status'] };
+  const suites = { all: input.artifacts ?? DEFAULT_ARTIFACTS, visual: ['screenshot', 'status'], content: ['content', 'status'], behavior: ['behavior', 'status'] };
   if (!suites[suite]) throw new Error('Unknown suite. Use all, visual, content, or behavior.');
   if (options.target && options.path) throw new Error('Use target or path.');
   if (options.target) {

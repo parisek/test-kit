@@ -22,6 +22,10 @@ Versions follow semver. Each release uses an immutable git tag.
 - Align the specification with accepted ADR 0004 (R7.2, R7.3, R8.2 to R8.7, R8.10 to R8.13, R9.1, R9.7 to R9.11, R10.5, R11.6). Define the check basis, the `subject` report, the `checks` catalog and `schemaVersion` 3. The code still writes version 2. No code changes (R13.9).
 - State one merge rule in `AGENTS.md` and `docs/development-loop.md`.
 
+### Fixed
+
+- Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
+
 ### Migration
 
 - Breaking, planned (R13.9): the report schema goes to version 3, where `pair` is optional. Code that does this is not in this change. A reader of version 2 will fail at `schemaVersion`. No project change is needed today.
