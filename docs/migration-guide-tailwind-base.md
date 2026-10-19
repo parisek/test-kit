@@ -1,8 +1,8 @@
 # Migration guide: a project that pins an old version
 
-Status: draft. It serves issue #105 and vision open decision 9. The author had no access to a consuming project. Only this repository was read.
+Status: draft. It serves issue #105 and vision open decision 9. The author had no access to a consuming project. Only this repository was read. A pilot in one consumer project added the checks described below.
 
-The first consumer project ran part of this guide once, on 2026-10-19, against a local site, with `v1.0.0-rc.2`. Part 1 steps 1 to 6 and checklist items 1 to 8 and 10 ran. Where a step or an item says "Verified once", it means that run and no other. It is one project and one local site. It is not a general result. Everything else stays "Not verified". These parts did not run: checklist item 9 (the mapping of an old alias), `perf`, a remote side, the `packs` key with a pack ID, and the viewer in a browser.
+One consumer project ran part of this guide once, on 2026-10-19, against a local site, with `v1.0.0-rc.2`. Part 1 steps 1 to 6 and checklist items 1 to 8 and 10 ran. Where a step or an item says "Verified once", it means that run and no other. It is one project and one local site. It is not a general result. Everything else stays "Not verified". These parts did not run: checklist item 9 (the mapping of an old alias), `perf`, a remote side, the `packs` key with a pack ID, and the viewer in a browser.
 
 The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its pin is `v0.2.1` (`docs/vision.md`, End state). The text uses `v0.2.1` as the worked example.
 
@@ -37,7 +37,7 @@ Steps:
 1. Read [seam.md](seam.md). Check that the project uses only frozen or experimental items. Mark any use of an item that is "not frozen". Verified once.
 2. Install the exact tag (R13.27): `npm install -D github:parisek/test-kit#<tag>`. Replace `<tag>` with the release candidate tag. The lockfile records the commit. Verified once.
 
-   Note: npm 11.19 and 11.20 can write a `git+ssh://git@github.com/...` URL into `package-lock.json` for a `git+https` dependency spec, for a tag and for a commit. This is npm behaviour, not a choice of this package. `npm ci` still works, and a CI job without ssh keys still installs. Check the lockfile diff before you commit it.
+   Note: One consumer project saw this once, with npm 11.19 and 11.20: `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency, although the spec was `git+https`, for a tag and for a commit. We did not reproduce it, and it is npm behaviour, not a choice of this package. The pilot reported that `npm ci` still worked. A project whose rules require HTTPS can set the `resolved` scheme in the lockfile to `git+https://` by hand. The pilot reported that `npm ci` then works. This workaround is reported by the pilot. It is not yet verified. Check the lockfile diff before you commit it.
 3. Install the browser peer: `npm install -D @playwright/test` and `npx playwright install chromium`. Add `lighthouse` only if the project runs `perf`. Verified once for `@playwright/test`, with version 1.63.0. The peer range is `>=1.49`. The version that `docs/rc-trial.md` names is the one CI uses, not a requirement. Not verified: `lighthouse` and `perf`.
 4. Leave `test-kit.config.json` unchanged. If the project has none, copy `node_modules/@parisek/test-kit/templates/test-kit.config.json` by hand. `test-kit init` does not exist. Verified once: a configuration without the `packs` key loads. The load showed no rejected key and no peer warning.
 5. Keep the project aliases. Command names and required flags do not change in the frozen set. Verified once for the commands. Not verified: the mapping of an old alias (checklist item 9).
@@ -88,9 +88,9 @@ These need an owner decision or code that does not exist. The guide cannot give 
 
 ## Verification checklist
 
-Items 1 to 8 and 10 are "Verified once": the first consumer project ran them on 2026-10-19 against a local site, with `v1.0.0-rc.2`. Item 9 did not run. Run them in the project theme directory. Run Chromium capture on the host.
+Items 1 to 8 and 10 are "Verified once": one consumer project ran them on 2026-10-19 against a local site, with `v1.0.0-rc.2`. Item 9 did not run. Run them in the project theme directory. Run Chromium capture on the host.
 
-The report path `tests/visual/report` in items 6 to 8 is only an example. In the first consumer project it is the folder of the legacy visual suite. The report path is free: use any relative path.
+The report path `tests/visual/report` in items 6 to 8 is only an example. In one consumer project it is the folder of the legacy visual suite. The report path is free: use any relative path.
 
 | # | Command | Expected result | State |
 | --- | --- | --- | --- |

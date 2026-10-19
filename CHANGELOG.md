@@ -6,7 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
-- Record what the first consumer project verified once with `v1.0.0-rc.2` on a local site. Update `docs/migration-guide-tailwind-base.md`: the candidate tags exist, the verified steps, the report path is free, and the answer to the R8.9 question (a package version change does not make a run incompatible; a Playwright or Chromium version change does). Add the same answer to `docs/seam.md`. Add to `docs/rc-trial.md` how to tell a candidate from a stable 1.0.0 and that Playwright 1.64.1 is the tested version, not a requirement. Add a note on `git+ssh` URLs in lockfiles written by npm 11.19 and 11.20 to the install documents. State in `README.md` that `--ddev` accepts a side with an `https://*.ddev.site` origin. Documentation only. No code change.
+- Record what one consumer project verified once with `v1.0.0-rc.2` on a local site. Update `docs/migration-guide-tailwind-base.md`: the candidate tags exist, the verified steps, the report path is free, and the answer to the R8.9 question (a package version change does not make a run incompatible; a Playwright or Chromium version change does). Add the same answer to `docs/seam.md`. Add to `docs/rc-trial.md` how to tell a candidate from a stable 1.0.0 and that Playwright 1.64.1 is the tested version, not a requirement. Add a note on `git+ssh` URLs that one consumer project saw in a lockfile with npm 11.19 and 11.20 to the install documents. State in `README.md` that `--ddev` accepts a side with an `https://*.ddev.site` origin. Documentation only. No code change.
 
 ## [1.0.0-rc.2] - 2026-10-19
 

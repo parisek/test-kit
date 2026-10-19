@@ -22,7 +22,7 @@ npm install -D @playwright/test
 npx playwright install chromium
 ```
 
-The lockfile may contain a `git+ssh://git@github.com/...` URL for this dependency. npm 11.19 and 11.20 write it, also for a `git+https` spec, a tag or a commit. This is npm behaviour. `npm ci` still works, and CI without ssh keys still installs.
+One consumer project saw this once, with npm 11.19 and 11.20: `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency, although the spec was `git+https`, for a tag and for a commit. We did not reproduce it, and it is npm behaviour, not a choice of this package. The pilot reported that `npm ci` still worked. A project whose rules require HTTPS can set the `resolved` scheme in the lockfile to `git+https://` by hand. The pilot reported that `npm ci` then works. This workaround is reported by the pilot. It is not yet verified. Check the lockfile diff before you commit it.
 
 ## Configure
 
