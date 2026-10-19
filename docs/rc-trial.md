@@ -68,7 +68,7 @@ Create `test-kit.config.json` in the project directory. The loader reads JSON on
 }
 ```
 
-Keep `artifacts` in the file. Without it, `run`, `before` and `after` stop with "Unknown suite" (see "Known gaps"). `capture` works without it.
+The `artifacts` key is optional. Without it the default is `["screenshot"]` (R5.1). Add `html` and `status` to see the HTML diff and the HTTP status. The example above lists them.
 The shipped example is `node_modules/@parisek/test-kit/templates/test-kit.config.json`. The full key list is in [`docs/seam.md`](https://github.com/parisek/test-kit/blob/main/docs/seam.md), section 1. The `docs/` folder is in the repository, not in the installed package.
 
 ## 3. First run
@@ -153,7 +153,6 @@ From `docs/seam.md`, section 8, and the open issues, read with `gh` on 2026-10-1
 | Axe pack tidy: README wording, `-0` in a tampered artifact, a page stays claimed after a timeout. Frame injection, per-state runs and allowlists are not built. | [#120](https://github.com/parisek/test-kit/issues/120) | Use a new page for each `runAxe` run. |
 | Versioned contract sets: error wording, the Swiper walk stops at the first malformed instance. Loop mode, virtual slides and `swiper-element` are not covered. The Swiper 12 and 14 sets are identical. | [#121](https://github.com/parisek/test-kit/issues/121) | Swiper only. |
 | Process documents (#109) have wording nits and open questions marked unverified (bot `author_association`, event names, tree comparison). Owner actions are open: the `merge-halt` label now exists; the main-protection ruleset does NOT exist yet, because the owner has not allowed creating it; the tag ruleset for `v*` is not confirmed. | [#122](https://github.com/parisek/test-kit/issues/122) | None for the trial. It concerns the release process, not the product. Without the ruleset, nothing blocks a merge on failed checks. |
-| `run`, `before` and `after` stop with "Unknown suite" when the configuration has no `artifacts` key. `capture` and `diff` do not. Cause: in `src/workflow/selection.js` the suite `all` reads the raw `artifacts` list. A separate pull request fixes it. | This guide | Keep `artifacts` in the file. |
 | The report is `schemaVersion` 2. Version 3 (`pair` optional, single-run results) is planned. | `CHANGELOG.md`, `[1.0.0-rc.1]`, Migration | Pack findings do not reach the report. |
 | Open design questions: the default set of checks, retention of snapshots, the allowlist file, selection per target, the lint config seam, pack versioning, options for a pack (section 1). | `docs/seam.md` sections 1 and 7 | Tell us what you need. |
 

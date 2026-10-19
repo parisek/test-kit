@@ -34,6 +34,10 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Set `package.json` and `package-lock.json` to version `1.0.0` for the tag `v1.0.0-rc.1`.
 - Note: the code still writes `schemaVersion` 2 and the built-in checks still export no `basis`. Both wait for `schemaVersion` 3.
 
+### Fixed
+
+- Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
+
 ### Migration
 
 - Breaking, planned (R13.9): the report schema goes to version 3, where `pair` is optional. Code that does this is not in this change. A reader of version 2 will fail at `schemaVersion`. No project change is needed today.

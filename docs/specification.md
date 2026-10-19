@@ -92,14 +92,14 @@ One project file declares everything. A run copies the settings it used into its
 sides:     { local: {...}, production: {...}, styleguide: {...} }
 targets:   { source: manifest | styleguide | list, ... }
 viewports: from the viewport manifest
-artifacts: [screenshot, html, status]          # default set; others on request
-checks:    [heading-outline, lang, empty-alt]  # default set; others on request
+artifacts: [screenshot]                        # default set (code); others on request
+checks:    [heading-outline, lang, empty-alt]  # example only; the default set is open (section 17)
 packs:     [a11y]                              # opt-in packs; none by default (R13.44)
 budgets:   { /: { lcp_ms: 2500 } }             # speed limits per target
 known_diffs: { <pair>: [ { target, cause, evidence } ] }   # belongs to a pair, not a side
 ```
 
-- R5.1 The default set of artifacts and checks must be small. Everything else must need `--artifacts` or `--checks`.
+- R5.1 The default set of artifacts and checks must be small. Everything else must need `--artifacts` or `--checks`. An absent `artifacts` key means the normalized default (`screenshot`) for every command alike: `run`, `before`, `after`, `capture` and `diff`.
 - R5.2 `known_diffs` must belong to a pair. Turnstile and AVIF against WebP hold for `production` against `local` only.
 - R5.3 Writing a `known_diffs` entry must be a command that records evidence. It must not be a viewer action.
 - R5.4 Each side has a settle recipe (motion, masks, wait). The report must show the recipe, not hide it.
