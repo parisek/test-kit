@@ -93,7 +93,7 @@ npx test-kit summary tests/visual/report/report.json --filter all
 npx test-kit serve tests/visual/report/report.json
 ```
 
-An HTTP error on an asset (for example a 404 image) makes `before` return state `partial` with `baselineUpdated: false`. Fix the asset, or no baseline is stored.
+Measured on one local page, not a rule: an image with `loading="lazy"` that fails with an HTTP error (404) made `before` return state `partial` with `baselineUpdated: false`. The same image without `loading="lazy"` did not: the state was `complete`. If `before` returns `partial`, check the broken assets on the page.
 
 Every command prints one line of JSON with IDs and paths. `diff` needs the two run IDs from the `capture` output. `summary`, `serve` and `query` need the report path that `diff` prints (`reportPath`).
 Two different origins also work: put two sides in the file, capture each, then `diff` the two runs.

@@ -1,7 +1,7 @@
 # Upgrade from v0.5.0 to `main`
 
 Status: measured on 2026-10-19. It serves issue #105 and R13.9.
-`main` is commit 245611d. Its `package.json` still says version `0.5.0`. No tag newer than `v0.5.0` exists (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). So "current main" is not an installable release yet. A project that wants it today pins a commit. A project that wants a tag waits for the next tag.
+`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). No tag newer than `v0.5.0` exists (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). So "current main" is not an installable release yet. A project that wants it today pins a commit. A project that wants a tag waits for the next tag.
 
 ## Result
 
