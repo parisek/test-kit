@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    # Stable tags and release candidate tags only (R13.44). A dev tag
+    # Stable tags and release candidate tags only (R13.45). A dev tag
     # (vX.Y.Z-dev.N) starts no run (R13.26).
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'

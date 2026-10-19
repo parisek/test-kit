@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// Reads the real workflow file, so the test cannot drift from it (R13.26, R13.44).
+// Reads the real workflow file, so the test cannot drift from it (R13.26, R13.45).
 const workflow = readFileSync(new URL('../../.github/workflows/release.yml', import.meta.url), 'utf8');
 
 const validator = () => {

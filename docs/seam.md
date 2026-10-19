@@ -7,11 +7,11 @@ The seam is everything a project touches: its configuration file, the commands i
 
 ## The freeze rule
 
-- Before the first release candidate tag (`vX.Y.Z-rc.1`, R13.44), a break of any item costs nothing. The package is alpha (vision, Maturity; R13.9). A break needs a changelog entry and a migration note.
+- Before the first release candidate tag (`vX.Y.Z-rc.1`, R13.45), a break of any item costs nothing. The package is alpha (vision, Maturity; R13.9). A break needs a changelog entry and a migration note.
 - From the first release candidate tag, the freeze starts. A change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
-- The major-version consequence is a proposal. Vision open decision 9 says only "freeze". R13.44 defines the release candidate tag `vMAJOR.MINOR.PATCH-rc.N` (owner decision, 2026-10-19). Only the owner tags it.
+- The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The form of the release candidate tag is decided: `vMAJOR.MINOR.PATCH-rc.N` (R13.45, owner decision, 2026-10-19). Only the owner tags it.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
-- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.44). No release candidate tag exists today.
+- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). No release candidate tag exists today.
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
 
 ## Markings
@@ -230,6 +230,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 1. Decided by the owner, 2026-10-19: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
 2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
 3. The six built-in checks export no `basis`, although R7.2 requires it. Decided by the owner, 2026-10-19: deferred to `schemaVersion` 3. It is not an open question.
+4. Decided by the owner, 2026-10-19: the release candidate tag is `vMAJOR.MINOR.PATCH-rc.N` (R13.45). The freeze starts at `-rc.1`. Only the owner tags it.
 
 ## 9. What this document did not check
 
