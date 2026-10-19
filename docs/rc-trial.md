@@ -32,7 +32,7 @@ The package is not on an npm registry (specification section 13.2). A project in
 
 ```sh
 npm install -D github:parisek/test-kit#v1.0.0-rc.1
-npm install -D @playwright/test@1.64.0
+npm install -D @playwright/test@1.64.1
 npx playwright install chromium
 ```
 
