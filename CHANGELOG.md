@@ -27,6 +27,34 @@ Versions follow semver. Each release uses an immutable git tag.
 - Breaking, planned (R13.9): the report schema goes to version 3, where `pair` is optional. Code that does this is not in this change. A reader of version 2 will fail at `schemaVersion`. No project change is needed today.
 - No project change is needed. A project that pins a tag sees no change. `release.yml` runs on stable tags only. A dev tag starts no run and creates no GitHub Release.
 
+## [1.0.0-rc.1] - 2026-10-19
+
+First release candidate for 1.0.0. The owner tags it. It is not a stable release. The seam freeze in `docs/seam.md` starts at this tag. The candidate holds the changes merged since 0.5.0. Try it with `docs/rc-trial.md`.
+
+### Added
+
+- Add the optional `packs` key to the project configuration (R13.44, #125). It takes a list of built-in pack IDs: `a11y`, `lint`, `swiper`. An absent key selects nothing (R5.1). An unknown ID, a duplicate or a value that is not an ID fails validation. The key takes no options. No command runs the selected packs yet.
+- Add the pack entry point `@parisek/test-kit/packs` (R13.42, R13.43, #114). It defines packs, layers custom checks (package, project, component, page) and runs them with fail-closed states (R8.7).
+- Add the opt-in accessibility pack `@parisek/test-kit/packs/a11y` and its runner `@parisek/test-kit/packs/a11y/runner` (R7.2, R8.7, #117). `axe-core` is an optional peer dependency.
+- Add versioned component contracts with Swiper 12 and Swiper 14 sets, in `@parisek/test-kit/packs/swiper` (R13.42, #119). An unknown or unsupported version gives `missing`, never a pass.
+- Add the opt-in `lint` pack and its runner, `@parisek/test-kit/packs/lint` and `@parisek/test-kit/packs/lint/runner` (R7.2, R8.10, R9.9, R9.11, #118). The runner starts the project's own ESLint and Stylelint.
+- Add the seam document `docs/seam.md`, the upgrade note `docs/upgrade-from-0.5.md` and the migration guide `docs/migration-guide-tailwind-base.md` (R13.9, #123).
+- Add the vision (`docs/vision.md`), ADR 0004 for the result model (`docs/adr/0004-result-model.md`) and the process skills proposal (`docs/process-skills.md`).
+- Add the trial guide `docs/rc-trial.md`.
+
+### Changed
+
+- Accept ADR 0004 (one result model) and align the specification with it (R7.2, R7.3, R8.2 to R8.7, R8.10 to R8.13, R9.1, R9.7 to R9.11, R10.5, R11.6). This is a specification change. The code still writes `schemaVersion` 2 and still has no `basis` on the built-in checks. Both wait for `schemaVersion` 3 (owner decision, 2026-10-19).
+- Align the specification with the vision (R13.9, R13.25, R13.26, R13.42). Define the dev prerelease tag `vMAJOR.MINOR.PATCH-dev.N`. State one merge rule in `AGENTS.md` and `docs/development-loop.md`.
+- Run `release.yml` on stable tags only (#110). A dev tag starts no run.
+- Record the owner decisions of 2026-10-19: the package has no `init` command, the axe `incomplete` rule, `basis` waits for `schemaVersion` 3, and the freeze scope of the packs (#124).
+- Set `package.json` and `package-lock.json` to version `1.0.0` for the tag `v1.0.0-rc.1`.
+
+### Migration
+
+- No project change is needed. A project that does not add `packs` and does not import a pack sees no change. The CLI help text, the configuration keys (except the new optional `packs`) and the report (`schemaVersion` 2) are the same as in 0.5.0. See `docs/upgrade-from-0.5.md`.
+- Planned, not in this candidate: `schemaVersion` 3. `pair` becomes optional. A reader that supports only version 2 rejects a version 3 file.
+
 ## [0.5.0] - 2026-10-13
 
 ### Added
