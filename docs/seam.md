@@ -1,7 +1,7 @@
 # The project seam
 
 Status: draft for the owner. It serves vision open decision 9 and issue #105. It cites R13.9, R13.25 to R13.27, R13.40, R13.41 and R13.43.
-The owner confirms the list when the owner approves the 1.0 release candidate. Until then the list is a proposal. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0, `main` at 245611d).
+The owner confirms the list when the owner approves the 1.0 release candidate. Until then the list is a proposal. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0, `main` at 245611d). The owner decided four points since then: `init` does not exist, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs. They are marked "decided" below.
 
 The seam is everything a project touches: its configuration file, the commands it calls, the contract and pack API it imports, the data it stores, and the files it copies.
 
@@ -83,13 +83,13 @@ Items inside the configuration that stay open:
 
 ## 2. Template files
 
-Source of truth: `templates/` and the `files` list in `package.json` (it ships `templates`).
+Source of truth: `templates/` and the `files` list in `package.json` (it ships `templates`). A project copies these files by hand.
 
 | File | Marking | Reason |
 | --- | --- | --- |
 | `templates/test-kit.config.json` | Frozen as a valid minimal example | It passes `normalizeConfig` (measured on v0.5.0 and on `main`, 2026-10-19). A project copies it by hand. |
 | `templates/test-kit.config.yaml` | Not frozen, planning sketch | Its own header says "Planned configuration sketch". The loader reads JSON only. It uses `budgets` and `targets.source`, which the code rejects. |
-| `test-kit init` | Does not exist | `src/cli/run.js` has no `init`. `tests/integration/check-consumer-install.mjs` asserts `Unknown command: init`. `AGENTS.md` (Layout table) says `init` copies `templates/`. `CHANGELOG.md` 0.2.0 says the package does not implement `init`. The `AGENTS.md` line is out of step with the code. |
+| `test-kit init` | Does not exist. Decided: the package does not build it | `src/cli/run.js` has no `init`. `tests/integration/check-consumer-install.mjs` asserts `Unknown command: init`. `CHANGELOG.md` 0.2.0 says the package does not implement `init`. The `AGENTS.md` Layout table now says a project copies `templates/` by hand. |
 
 ## 3. Commands and flags
 
@@ -126,7 +126,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. The basis arrives with `schemaVersion` 3. |
+| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Decided: `basis` on the six is deferred to `schemaVersion` 3. |
 | The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` joins the required set at `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 
@@ -173,10 +173,10 @@ Entry points in `package.json` `exports`. The list on `main` has nine entries. v
 | `./compat/selection`, `./compat/harvest` | Experimental | Planners for R4.3. `docs/migration-audit.md` and `CHANGELOG.md` 0.2.0 say legacy command replacement is open. |
 | `./packs` | Frozen for `definePack`, `validateCheck`, `resolveChecks`, `runChecks`, `LAYERS`, `BASES` | See the table above. |
 | `./packs` (`detectMajor`, `bundleBannerVersion`, `lockfileVersion`, `VERSION_SOURCES`, `defineContractSet`, `selectContractSet`, `defineVersionedPack`) | Experimental | Added in the same release cycle as the first pack. Only one library (Swiper) uses them. Vision open decision 10 (pack versioning) is open. |
-| `./packs/a11y` | Experimental | The pack ID `a11y` and check ID `a11y-axe` wait for the artifact kind `a11y`, which the config rejects today. The browser step per component state, frame injection and the report fields are not built (`src/packs/a11y/README.md`). |
-| `./packs/a11y/runner` | Experimental | Needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
+| `./packs/a11y` | Frozen (decided: frozen at 1.0) | The pack ID `a11y`, the check ID `a11y-axe`, the artifact shape and the finding mapping (`src/packs/a11y/README.md`, R8.14). The artifact kind `a11y` in the config, the browser step per component state, frame injection and the report fields are not built. They arrive as additions. |
+| `./packs/a11y/runner` | Frozen (decided: frozen at 1.0) | `runAxe(page, options)` and its options. It needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
 | `./packs/swiper` | Experimental | The browser step that collects DOM facts and the version is not built (`src/packs/versioned/README.md`). |
-| `./packs/lint`, `./packs/lint/runner` | Not frozen, owner decision open | Specification section 17, item 7 and vision open decision 6 leave the ESLint and Stylelint seam open. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
+| `./packs/lint`, `./packs/lint/runner` | Not frozen (decided: may change in minor releases) | Specification section 17, item 7 and vision open decision 6 leave the ESLint and Stylelint seam open. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
 
 A new pack that a project selects, a new contract set for a new library major, and a new entry point are additions (vision layers rules 6 to 9). Pack identity lives in stable contract IDs.
 
@@ -222,9 +222,9 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 ## 8. Gaps found while writing this
 
-1. There is no `init` command. `AGENTS.md` says `init` copies `templates/`. Decision needed: build `init`, or fix `AGENTS.md`.
+1. Decided: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
 2. No config key and no flag selects a pack. Packs work in code only, through `resolveChecks`. Decision needed: the shape of pack selection (section 1, table of open items).
-3. The six built-in checks export no `basis`, although R7.2 requires it. Decision needed: add `basis` before the release candidate, or wait for `schemaVersion` 3.
+3. The six built-in checks export no `basis`, although R7.2 requires it. Decided: deferred to `schemaVersion` 3. It is not an open question.
 
 ## 9. What this document did not check
 

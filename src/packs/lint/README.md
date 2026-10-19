@@ -2,6 +2,7 @@
 
 The lint pack runs ESLint and Stylelint as checks of an opt-in pack. Option C of ADR 0004 sets the model: basis `absolute`, subject `lint` (R7.2, R8.10 to R8.13, R9.7 to R9.11).
 The pack runs only when the project selects `lint` in `resolveChecks` (G3, R5.1). Test-kit does not bundle ESLint or Stylelint.
+This pack is not frozen at 1.0. It may change in a minor release (`docs/seam.md`, section 5).
 
 ## Parts
 
