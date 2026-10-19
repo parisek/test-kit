@@ -30,14 +30,14 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Align the specification with accepted ADR 0004 (R7.2, R7.3, R8.2 to R8.7, R8.10 to R8.13, R9.1, R9.7 to R9.11, R10.5, R11.6). Define the check basis, the `subject` report, the `checks` catalog and `schemaVersion` 3. The code still writes version 2. No code changes (R13.9).
 - State one merge rule in `AGENTS.md` and `docs/development-loop.md`.
 
-- Run `release.yml` on stable tags only (#110). A dev tag starts no run.
+- Run `release.yml` on stable tags (#110) and on rc tags (R13.45). A dev tag starts no run.
 - Record the owner decisions of 2026-10-19: the package has no `init` command, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs (#124).
 - Set `package.json` and `package-lock.json` to version `1.0.0` for the tag `v1.0.0-rc.1`.
 - Note: the code still writes `schemaVersion` 2 and the built-in checks still export no `basis`. Both wait for `schemaVersion` 3.
 
 ### Fixed
 
-- Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
+- Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1, #128). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
 
 ### Migration
 
