@@ -8,7 +8,7 @@
 
 - Tier (1, 2 or 3):
 - Principle (number from `docs/vision.md`):
-- Requirement (R-number, or "none"):
+- Requirement (R-number; if none applies, write "none" and one reason):
 
 ## Checklist
 
