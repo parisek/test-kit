@@ -4,9 +4,19 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-10-19
+
+Second release candidate for 1.0.0. The owner tags it. It is not a stable release. It holds the changes merged since `1.0.0-rc.1`. They are repository setup and dependency updates. No change to the package runtime, the project configuration or the report format. Try it with `docs/rc-trial.md`.
+
 ### Added
 
-- Add Dependabot for the root package, `frontend/` and GitHub Actions, a code owners file, a pull request template and issue templates. No change to the package runtime, the project configuration or the report format. Dependabot version updates start once this is on `main`.
+- Add Dependabot for the root package, `frontend/` and GitHub Actions, a code owners file, a pull request template and issue templates. These files are not part of the package. Dependabot version updates start once this is on `main`.
+
+### Changed
+
+- Rebuild the viewer (`viewer/app.js`) with Vue 3.5.44. `THIRD_PARTY_NOTICES.txt` names Vue 3.5.44. The other `frontend/` dev dependencies move to `@vitejs/plugin-vue` 6.0.10, `vitest` 5.0.5 and `jsdom` 30.1.3.
+- Pin the dev dependency `@playwright/test` to 1.64.1. `docs/rc-trial.md` installs the same version and uses the tag `v1.0.0-rc.2`.
+- Update the CI actions to `actions/checkout` 7, `actions/setup-node` 7 and `amannn/action-semantic-pull-request` 6.1.1. `release.yml` uses checkout 7 and setup-node 7. The tag rules and the checks in `release.yml` do not change.
 
 ## [1.0.0-rc.1] - 2026-10-19
 
