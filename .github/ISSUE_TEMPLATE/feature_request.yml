@@ -1,0 +1,16 @@
+name: Feature request
+description: Ask for a new check, a new artifact or a change.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What do you want to catch or change, and why? Name the requirement number (R6.7) if you know it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Show an example input that the check must flag, and one that it must not. Use `example-site`, not client data.

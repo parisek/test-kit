@@ -1,0 +1,73 @@
+# Dependabot reports outdated dependencies and opens one pull request for each update.
+# Titles start with `chore(deps)` so that the `pr-title` check passes.
+#
+# Assignee: every entry assigns `parisek`, as AGENTS.md requires.
+# Exception to the draft rule: Dependabot cannot open draft pull requests. Its pull requests open ready.
+# Do not merge one on green CI alone. Review it first.
+#
+# Versioning: package.json pins exact versions. Dependabot keeps the pins and rewrites them
+# to the new exact version. `versioning-strategy` stays at its default for that reason.
+#
+# Peer ranges: Dependabot may or may not change peerDependencies. Check the diff of every
+# Dependabot pull request for peer ranges. Keep the @playwright/test, axe-core and lighthouse
+# ranges in step with the exact dev pins.
+version: 2
+updates:
+  # Root package: the engine. `dependencies` (pixelmatch, pngjs) ship to users.
+  #
+  # Playwright bump checklist. `@playwright/test` has its own pull request (excluded from the group):
+  #   1. docs/rc-trial.md: the install line `npm install -D @playwright/test@<version>`.
+  #   2. .github/workflows/ci.yml: check that the install step `npx playwright install --with-deps chromium` still works.
+  #   3. package.json `peerDependencies`: the range `>=1.49` stays unless the new version needs a higher floor.
+  #   4. Run `npm test` and the integration tests that capture a page.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    assignees:
+      - parisek
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+        exclude-patterns:
+          - "@playwright/test"
+
+  # Viewer source: Vue, Vite, Tailwind, Vitest. It has its own lockfile.
+  # DO NOT auto-merge a pull request for this folder. `viewer/` holds the compiled output.
+  # A bump changes nothing shipped until someone runs `npm run build:viewer` and commits `viewer/`.
+  # Review the pull request, rebuild the viewer on its branch and let `npm run check:viewer` pass.
+  # Vue and Tailwind are bundled into `viewer/`. Check THIRD_PARTY_NOTICES.txt after a bump of a bundled package.
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    assignees:
+      - parisek
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      frontend-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    assignees:
+      - parisek
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - minor
+          - patch
