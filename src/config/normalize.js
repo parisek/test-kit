@@ -80,6 +80,7 @@ function freeze(value) {
   return value;
 }
 
+export const DEFAULT_ARTIFACTS = Object.freeze(['screenshot']);
 export function normalizeConfig(input) {
   object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior', 'packs']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');
@@ -136,7 +137,7 @@ export function normalizeConfig(input) {
     return result;
   });
   unique(viewports.map(viewport => viewport.id), 'viewport');
-  const artifacts = list(input.artifacts ?? ['screenshot'], 'artifacts', 5, 1);
+  const artifacts = list(input.artifacts ?? DEFAULT_ARTIFACTS, 'artifacts', 5, 1);
   if (artifacts.some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) fail('unsupported artifact');
   unique(artifacts, 'artifact');
   const checks = list(input.checks ?? [], 'checks', 6).map(value => id(value, 'check ID'));
