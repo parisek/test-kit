@@ -6,7 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
-- Add Dependabot for the root package, `frontend/` and GitHub Actions, a code owners file, a pull request template and issue templates. No code, configuration or report change.
+- Add Dependabot for the root package, `frontend/` and GitHub Actions, a code owners file, a pull request template and issue templates. No change to the package runtime, the project configuration or the report format. Dependabot version updates start once this is on `main`.
 
 ## [1.0.0-rc.1] - 2026-10-19
 

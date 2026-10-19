@@ -16,8 +16,8 @@
 
 ## Review and risk
 
-- [ ] The change touches a release, security or workflow path, or it is a Tier 3 item (`docs/vision.md`). The owner decides. Do not merge it without the owner.
-- [ ] A review record for the head SHA is in a comment, when the process in `docs/process-skills.md` applies.
+- [ ] Release or workflow change (owner merges).
+- [ ] Security path or security finding (owner decides).
 
 ## Left alone
 
