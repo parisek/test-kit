@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- Add Dependabot for the root package, `frontend/` and GitHub Actions, a code owners file, a pull request template and issue templates. No code, configuration or report change.
+
 ## [1.0.0-rc.1] - 2026-10-19
 
 First release candidate for 1.0.0. The owner tags it. It is not a stable release. The seam freeze in `docs/seam.md` starts at this tag. The candidate holds the changes merged since 0.5.0. Try it with `docs/rc-trial.md`.

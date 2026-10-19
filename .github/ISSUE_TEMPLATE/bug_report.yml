@@ -1,0 +1,24 @@
+name: Bug report
+description: A capture, a comparison, a check or the viewer gives a wrong result.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version or tag of @parisek/test-kit, your Node version and your Playwright version.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Show the command, the configuration and the target. Use `example-site`. Do not paste client names, client URLs, screenshots or real reports.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true
