@@ -1,6 +1,6 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: written on 2026-10-19 for `v1.0.0-rc.1`. The owner tags the candidate. The tag form `-rc.N` is defined by R13.45, which lands with #126 (not merged when this guide was written). Tagging needs #126 merged first. Until the tag exists, use the commit form in step 1.
+Status: written on 2026-10-19 for `v1.0.0-rc.1`. The owner tags the candidate. The tag form `-rc.N` is defined by R13.45, which lands with #126 (not merged when this guide was written). Tagging needs #126 merged first: the release workflow on `main` handles stable tags only, so until #126 lands no rc tag can be released. Until the tag exists, use the commit form in step 1.
 The goal: you try the candidate on one real project, then you tell us if it meets your expectations. The checklist is at the end.
 Use `example-site` in anything you paste into an issue (R12.4). This repository is public.
 
@@ -69,7 +69,7 @@ Create `test-kit.config.json` in the project directory. The loader reads JSON on
 ```
 
 Keep `artifacts` in the file. Without it, `run`, `before` and `after` stop with "Unknown suite" (see "Known gaps"). `capture` works without it.
-The shipped example is `node_modules/@parisek/test-kit/templates/test-kit.config.json`. The full key list is in `docs/seam.md`, section 1.
+The shipped example is `node_modules/@parisek/test-kit/templates/test-kit.config.json`. The full key list is in [`docs/seam.md`](https://github.com/parisek/test-kit/blob/main/docs/seam.md), section 1. The `docs/` folder is in the repository, not in the installed package.
 
 ## 3. First run
 
@@ -92,6 +92,8 @@ npx test-kit diff <run-a> <run-b> --output tests/visual/report
 npx test-kit summary tests/visual/report/report.json --filter all
 npx test-kit serve tests/visual/report/report.json
 ```
+
+An HTTP error on an asset (for example a 404 image) makes `before` return state `partial` with `baselineUpdated: false`. Fix the asset, or no baseline is stored.
 
 Every command prints one line of JSON with IDs and paths. `diff` needs the two run IDs from the `capture` output. `summary`, `serve` and `query` need the report path that `diff` prints (`reportPath`).
 Two different origins also work: put two sides in the file, capture each, then `diff` the two runs.
@@ -152,8 +154,8 @@ From `docs/seam.md`, section 8, and the open issues, read with `gh` on 2026-10-1
 | Versioned contract sets: error wording, the Swiper walk stops at the first malformed instance. Loop mode, virtual slides and `swiper-element` are not covered. The Swiper 12 and 14 sets are identical. | [#121](https://github.com/parisek/test-kit/issues/121) | Swiper only. |
 | Process documents (#109) have wording nits and open questions marked unverified (bot `author_association`, event names, tree comparison). Owner actions are open: the `merge-halt` label now exists; the main-protection ruleset does NOT exist yet, because the owner has not allowed creating it; the tag ruleset for `v*` is not confirmed. | [#122](https://github.com/parisek/test-kit/issues/122) | None for the trial. It concerns the release process, not the product. Without the ruleset, nothing blocks a merge on failed checks. |
 | `run`, `before` and `after` stop with "Unknown suite" when the configuration has no `artifacts` key. `capture` and `diff` do not. Cause: in `src/workflow/selection.js` the suite `all` reads the raw `artifacts` list. A separate pull request fixes it. | This guide | Keep `artifacts` in the file. |
-| The report is `schemaVersion` 2. Version 3 (`pair` optional, single-run results) is planned. | `CHANGELOG.md`, Unreleased, Migration | Pack findings do not reach the report. |
-| Open design questions: the default set of checks, retention of snapshots, the allowlist file, selection per target, the lint config seam, pack versioning, options for a pack. | `docs/seam.md` section 7 | Tell us what you need. |
+| The report is `schemaVersion` 2. Version 3 (`pair` optional, single-run results) is planned. | `CHANGELOG.md`, `[1.0.0-rc.1]`, Migration | Pack findings do not reach the report. |
+| Open design questions: the default set of checks, retention of snapshots, the allowlist file, selection per target, the lint config seam, pack versioning, options for a pack (section 1). | `docs/seam.md` sections 1 and 7 | Tell us what you need. |
 
 ## 7. Decisions already closed
 
@@ -166,6 +168,9 @@ You do not need to answer these. They are decided.
 - The package adds no guard for sites you do not own (decision 11).
 - Accessibility and component packs live in the package as opt-in entry points (specification section 17, item 6; R13.42).
 - Packs are selected by the `packs` key, IDs only (R13.44).
+- The rc tag form is `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.0.0-rc.1` (R13.45, lands with #126; only the owner tags it).
+- Freeze scope: the pack API and the a11y pack are frozen. The lint pack is not (`docs/seam.md`, section 5).
+- Process safeguards (#122): decided. The label `merge-halt` exists. The main-protection ruleset is NOT created yet.
 - 2026-10-19: no `init`; an undecidable axe result stays `complete` with a `warning` (R8.14); `basis` waits for `schemaVersion` 3; the pack API and the a11y pack are frozen, the lint pack is not (`docs/seam.md`, sections 5 and 8).
 
 Still open: options for a pack, running packs from the command line, and the browser step for DOM facts and library version (#104).
