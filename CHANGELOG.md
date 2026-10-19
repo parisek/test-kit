@@ -6,7 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [1.0.0-rc.2] - 2026-10-19
 
-Second release candidate for 1.0.0. The owner tags it. It is not a stable release. It holds the changes merged since `1.0.0-rc.1`. They are repository setup and dependency updates. No change to the package runtime, the project configuration or the report format. Try it with `docs/rc-trial.md`.
+Second release candidate for 1.0.0. The owner tags it. It is not a stable release. It holds the changes merged since `1.0.0-rc.1`. They are repository setup and dependency updates. No change to the package code, the project configuration or the report format. The compiled viewer is rebuilt with a newer Vue. Try it with `docs/rc-trial.md`.
 
 ### Added
 

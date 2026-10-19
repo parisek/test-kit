@@ -1,6 +1,11 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: updated on 2026-10-19 for `v1.0.0-rc.2`. The tag `v1.0.0-rc.1` is the first candidate. The owner tags the candidate. The tag form `-rc.N` is defined by R13.45, which is on `main`, and `release.yml` accepts rc tags. The workflow checks that the tag equals `v` plus `package.json` version plus `-rc.N` and that the commit is on `main`. So the owner tags after this pull request is merged. Until the tag exists, use the commit form in step 1.
+Status: updated on 2026-10-19 for `v1.0.0-rc.2`, the current candidate.
+The tag `v1.0.0-rc.1` is the first candidate. It stays as history.
+The owner tags the candidate on the squash commit of the merged pull request on `main`.
+The tag form `-rc.N` is defined by R13.45, and `release.yml` accepts rc tags.
+The workflow checks that the tag equals `v` plus `package.json` version plus `-rc.N`, and that the commit is on `main`.
+Until the `v1.0.0-rc.2` tag exists, use the commit form in step 1.
 The goal: you try the candidate on one real project, then you tell us if it meets your expectations. The checklist is at the end.
 Use `example-site` in anything you paste into an issue (R12.4). This repository is public.
 
