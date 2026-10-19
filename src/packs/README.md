@@ -6,6 +6,7 @@ All files are pure. They have no DOM and no file system access (R4.4).
 
 - `definePack({ id, title, owner, checks })` validates a pack. Each check exports `id`, `title`, `basis`, `applies` and `check` (R7.2, R8.10).
 - `resolveChecks({ available, packs, custom, overrides })` builds a plan. It rejects unknown packs, duplicate ids and bad overrides. It runs nothing.
+- `packs` in the project configuration lists the built-in pack IDs to use (R13.44). `builtinPacks` and `BUILTIN_PACK_IDS` in `builtin.js` map the IDs to pack objects. Pass `config.packs` as `packs` and `builtinPacks` as `available` to `resolveChecks`. The key takes IDs only. It does not change the pack API.
 - `runChecks(plan, { artifact, value }, context)` runs the plan over one stored artifact.
 
 Layers are `package`, `project`, `component` and `page`.
