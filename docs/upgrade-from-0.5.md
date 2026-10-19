@@ -21,7 +21,7 @@ Measured with `git diff v0.5.0 origin/main` (12 commits, `git log --oneline v0.5
 | `package.json` `exports` | Six entries added | `./packs`, `./packs/a11y`, `./packs/a11y/runner`, `./packs/swiper`, `./packs/lint`, `./packs/lint/runner`. The three v0.5.0 entries stay. |
 | `package.json` peer dependencies | `axe-core` added as optional | `^4.10.0`, `peerDependenciesMeta.optional: true`. A project that does not use the axe runner needs nothing. |
 | `package.json` `files` | None | |
-| Release workflow | Narrower | `.github/workflows/release.yml` now runs on stable tags `vX.Y.Z` only. A dev tag `vX.Y.Z-dev.N` starts no run (R13.26). |
+| Release workflow | Narrower | `.github/workflows/release.yml` now runs on stable tags `vX.Y.Z` and on rc tags `vX.Y.Z-rc.N` (R13.44) only. A dev tag `vX.Y.Z-dev.N` starts no run (R13.26). |
 | CI | One step added | `node tests/integration/check-a11y-runner.mjs`. |
 | Documentation | Added | `docs/vision.md`, `docs/adr/0004-result-model.md`, `docs/process-skills.md`, pack READMEs. The specification changed (R13.9, R13.25, R13.26, R13.42). |
 

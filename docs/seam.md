@@ -7,11 +7,11 @@ The seam is everything a project touches: its configuration file, the commands i
 
 ## The freeze rule
 
-- Before the release candidate tag, a break of any item costs nothing. The package is alpha (vision, Maturity; R13.9). A break needs a changelog entry and a migration note.
-- From the release candidate tag, a change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
-- The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The specification defines stable tags and `-dev.N` tags, and no form for a release candidate tag. `release.yml` runs on stable tags only. The form of the release candidate tag is undefined: owner decision.
+- Before the first release candidate tag (`vX.Y.Z-rc.1`, R13.44), a break of any item costs nothing. The package is alpha (vision, Maturity; R13.9). A break needs a changelog entry and a migration note.
+- From the first release candidate tag, the freeze starts. A change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
+- The major-version consequence is a proposal. Vision open decision 9 says only "freeze". R13.44 defines the release candidate tag `vMAJOR.MINOR.PATCH-rc.N` (owner decision, 2026-10-19). Only the owner tags it.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
-- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. No release candidate tag exists today.
+- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.44). No release candidate tag exists today.
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
 
 ## Markings
