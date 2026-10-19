@@ -1,7 +1,7 @@
 # The project seam
 
-Status: draft for the owner. It serves vision open decision 9 and issue #105. It cites R13.9, R13.25 to R13.27, R13.40, R13.41 and R13.43.
-The owner confirms the list when the owner approves the 1.0 release candidate. Until then the list is a proposal. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0, `main` at 245611d).
+Status: proposal for the owner, with four decisions recorded (marked "decided"). It serves vision open decision 9 and issue #105. It cites R13.9, R13.25 to R13.27, R13.40, R13.41 and R13.43.
+The owner confirms the list when the owner approves the 1.0 release candidate. Until then the list is a proposal, except the decided points. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0, `main` at 245611d). Rows that describe the `packs` key (R13.44) read `main` at dcea71a. The owner decided four points on 2026-10-19: `init` does not exist, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs. They are marked "decided" below.
 
 The seam is everything a project touches: its configuration file, the commands it calls, the contract and pack API it imports, the data it stores, and the files it copies.
 
@@ -22,12 +22,16 @@ The seam is everything a project touches: its configuration file, the commands i
 | Experimental | It ships and works. The name or shape may change in a minor version. |
 | Not frozen, owner decision open | The specification or the vision calls it open. The agent does not decide it. |
 | Not frozen, change planned | A planned change (`schemaVersion` 3) replaces it. |
+| Frozen (decided) | The owner decided the freeze. Same effect as Frozen. |
+| Not frozen (decided) | The owner decided it stays unfrozen and may change in a minor version. |
+| Does not exist (decided) | The owner decided the package does not build it. |
+| Deferred (decided) | The owner decided to wait for a named later version. |
 
 ## 1. Configuration file
 
 Source of truth: `src/config/normalize.js` (`normalizeConfig`), read by `src/config/index.js` (`loadConfig`). The file is JSON only (`JSON.parse`). The default path is `test-kit.config.json` in the working directory. Runtime paths resolve from the directory of the file. The prose is in `src/config/README.md` and `docs/contracts.md`.
 
-The sketch in specification section 5 (`targets: { source: ... }`, `budgets`) is not the shipped shape. The code rejects `budgets`, `packs`, `allowlist`, `lint` and `a11y` as unsupported keys (measured on v0.5.0 and on `main`, 2026-10-19). Any other unknown key at any level also fails.
+The sketch in specification section 5 (`targets: { source: ... }`, `budgets`) is not the shipped shape. The code rejects `budgets`, `allowlist`, `lint` and `a11y` as unsupported keys (measured on v0.5.0 and on `main` at 245611d, 2026-10-19). The `packs` key was rejected then. `main` at dcea71a accepts it (R13.44). Any other unknown key at any level also fails.
 
 Marking of the file as a whole: frozen for the keys in the table, with `schemaVersion: 1`. A new optional key is an addition. A new required key or a removed key is a break. The defaults and the values of the check IDs are not frozen (see the rows below).
 
@@ -52,6 +56,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `viewports[].deviceScaleFactor` | number | `1` | no | 0.5 to 3. |
 | `artifacts` | list | `["screenshot"]` | no | 1 to 5 of `screenshot`, `html`, `status`, `content`, `behavior`. Additive only. |
 | `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
+| `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
 | `runsRoot` | string | `tests/visual/runs` | no | Plain relative path. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
 | `screenshot.fullPage` | boolean | `true` | no | |
@@ -73,7 +78,7 @@ Items inside the configuration that stay open:
 | Item | Marking | Reason |
 | --- | --- | --- |
 | The default set of `artifacts` and `checks` | Not frozen, owner decision open | Specification section 17, item 2. Vision open decision 4. The shipped defaults are `["screenshot"]` and `[]`. R5.1 says the default set must be small. |
-| A key that selects packs | Not frozen, owner decision open | No key exists. A project selects a pack in code with `resolveChecks` (`src/packs/README.md`). Vision layers rule 2 needs a selection, and the shape is not decided. |
+| Options for a selected pack | Not frozen, owner decision open | The `packs` key takes IDs only (R13.44). The pack API has no options. A pack that needs options needs a new decision. |
 | A key for the ESLint and Stylelint seam | Not frozen, owner decision open | Specification section 17, item 7. Vision open decision 6. |
 | The allowlist (`reason`, `owner`) | Not frozen, owner decision open | ADR 0004, open question 4. No config key exists. |
 | Selection of checks or contracts per target | Not frozen, owner decision open | ADR 0004, open question 2. |
@@ -83,13 +88,13 @@ Items inside the configuration that stay open:
 
 ## 2. Template files
 
-Source of truth: `templates/` and the `files` list in `package.json` (it ships `templates`).
+Source of truth: `templates/` and the `files` list in `package.json` (it ships `templates`). A project copies these files by hand.
 
 | File | Marking | Reason |
 | --- | --- | --- |
 | `templates/test-kit.config.json` | Frozen as a valid minimal example | It passes `normalizeConfig` (measured on v0.5.0 and on `main`, 2026-10-19). A project copies it by hand. |
 | `templates/test-kit.config.yaml` | Not frozen, planning sketch | Its own header says "Planned configuration sketch". The loader reads JSON only. It uses `budgets` and `targets.source`, which the code rejects. |
-| `test-kit init` | Does not exist | `src/cli/run.js` has no `init`. `tests/integration/check-consumer-install.mjs` asserts `Unknown command: init`. `AGENTS.md` (Layout table) says `init` copies `templates/`. `CHANGELOG.md` 0.2.0 says the package does not implement `init`. The `AGENTS.md` line is out of step with the code. |
+| `test-kit init` | Does not exist (decided) | `src/cli/run.js` has no `init`. `tests/integration/check-consumer-install.mjs` asserts `Unknown command: init`. `CHANGELOG.md` 0.2.0 says the package does not implement `init`. The `AGENTS.md` Layout table now says a project copies `templates/` by hand. |
 
 ## 3. Commands and flags
 
@@ -126,7 +131,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. The basis arrives with `schemaVersion` 3. |
+| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
 | The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` joins the required set at `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 
@@ -173,10 +178,10 @@ Entry points in `package.json` `exports`. The list on `main` has nine entries. v
 | `./compat/selection`, `./compat/harvest` | Experimental | Planners for R4.3. `docs/migration-audit.md` and `CHANGELOG.md` 0.2.0 say legacy command replacement is open. |
 | `./packs` | Frozen for `definePack`, `validateCheck`, `resolveChecks`, `runChecks`, `LAYERS`, `BASES` | See the table above. |
 | `./packs` (`detectMajor`, `bundleBannerVersion`, `lockfileVersion`, `VERSION_SOURCES`, `defineContractSet`, `selectContractSet`, `defineVersionedPack`) | Experimental | Added in the same release cycle as the first pack. Only one library (Swiper) uses them. Vision open decision 10 (pack versioning) is open. |
-| `./packs/a11y` | Experimental | The pack ID `a11y` and check ID `a11y-axe` wait for the artifact kind `a11y`, which the config rejects today. The browser step per component state, frame injection and the report fields are not built (`src/packs/a11y/README.md`). |
-| `./packs/a11y/runner` | Experimental | Needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
+| `./packs/a11y` | Frozen (decided) | Decided by the owner, 2026-10-19. The pack ID `a11y`, the check ID `a11y-axe`, the artifact shape and the axe result to pack finding mapping (`src/packs/a11y/README.md`, R8.14). The artifact kind `a11y` in the config, the browser step per component state, frame injection and the report fields are not built. They arrive as additions. |
+| `./packs/a11y/runner` | Frozen (decided) | Decided by the owner, 2026-10-19. `runAxe(page, options)` and its options. It needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
 | `./packs/swiper` | Experimental | The browser step that collects DOM facts and the version is not built (`src/packs/versioned/README.md`). |
-| `./packs/lint`, `./packs/lint/runner` | Not frozen, owner decision open | Specification section 17, item 7 and vision open decision 6 leave the ESLint and Stylelint seam open. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
+| `./packs/lint`, `./packs/lint/runner` | Not frozen (decided) | Decided by the owner, 2026-10-19. The pack may change in minor releases. The config-key seam for ESLint and Stylelint stays open (specification section 17, item 7; vision open decision 6). R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
 
 A new pack that a project selects, a new contract set for a new library major, and a new entry point are additions (vision layers rules 6 to 9). Pack identity lives in stable contract IDs.
 
@@ -222,9 +227,9 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 ## 8. Gaps found while writing this
 
-1. There is no `init` command. `AGENTS.md` says `init` copies `templates/`. Decision needed: build `init`, or fix `AGENTS.md`.
-2. No config key and no flag selects a pack. Packs work in code only, through `resolveChecks`. Decision needed: the shape of pack selection (section 1, table of open items).
-3. The six built-in checks export no `basis`, although R7.2 requires it. Decision needed: add `basis` before the release candidate, or wait for `schemaVersion` 3.
+1. Decided by the owner, 2026-10-19: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
+2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
+3. The six built-in checks export no `basis`, although R7.2 requires it. Decided by the owner, 2026-10-19: deferred to `schemaVersion` 3. It is not an open question.
 
 ## 9. What this document did not check
 

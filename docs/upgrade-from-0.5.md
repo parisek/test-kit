@@ -5,7 +5,7 @@ Status: measured on 2026-10-19. It serves issue #105 and R13.9.
 
 ## Result
 
-Nothing in the project-facing interface breaks. Outside `src/packs/`, `src`, `bin`, `templates` and `viewer` do not change. The project-facing changes are additive and non-breaking. Other files changed too: `package.json` (exports, optional `axe-core` peer, `axe-core` devDependency), `package-lock.json`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `AGENTS.md`, `RELEASING.md`, `CHANGELOG.md` and the documents under `docs/`, plus tests and fixtures.
+Nothing in the project-facing interface breaks. Outside `src/packs/` and the new `packs` key in `src/config/`, `src`, `bin`, `templates` and `viewer` do not change. The project-facing changes are additive and non-breaking. Other files changed too: `package.json` (exports, optional `axe-core` peer, `axe-core` devDependency), `package-lock.json`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `AGENTS.md`, `RELEASING.md`, `CHANGELOG.md` and the documents under `docs/`, plus tests and fixtures.
 
 ## What changed
 
@@ -13,10 +13,10 @@ Measured with `git diff v0.5.0 origin/main` (12 commits, `git log --oneline v0.5
 
 | Area | Change | Evidence |
 | --- | --- | --- |
-| `src/` outside `src/packs/` | None | `git diff --name-only v0.5.0 origin/main -- src bin templates frontend viewer scripts` lists only `src/packs/` files. |
+| `src/` outside `src/packs/` | `src/config/` accepts the optional `packs` key (R13.44). Otherwise none | `git diff --name-only v0.5.0 origin/main -- src bin templates frontend viewer scripts` lists only `src/packs/` files (measured at 245611d, before the `packs` key). |
 | `bin/`, `templates/`, `viewer/` | None | Same command. |
 | CLI | None | `node bin/cli.js --help` prints the same bytes on both revisions. Both print `0.5.0` for `--version`. |
-| Configuration | None | `normalizeConfig` accepts the same keys. The shipped template gives the same result on both. `src/config/` is unchanged. |
+| Configuration | None | `normalizeConfig` accepts the same keys, plus the new optional `packs` key (R13.44). The shipped template gives the same result on both. A config without `packs` behaves as before. |
 | Root export (`.`) | None | The list of exported names is the same on both. |
 | `package.json` `exports` | Six entries added | `./packs`, `./packs/a11y`, `./packs/a11y/runner`, `./packs/swiper`, `./packs/lint`, `./packs/lint/runner`. The three v0.5.0 entries stay. |
 | `package.json` peer dependencies | `axe-core` added as optional | `^4.10.0`, `peerDependenciesMeta.optional: true`. A project that does not use the axe runner needs nothing. |
@@ -25,7 +25,7 @@ Measured with `git diff v0.5.0 origin/main` (12 commits, `git log --oneline v0.5
 | CI | One step added | `node tests/integration/check-a11y-runner.mjs`. |
 | Documentation | Added | `docs/vision.md`, `docs/adr/0004-result-model.md`, `docs/process-skills.md`, pack READMEs. The specification changed (R13.9, R13.25, R13.26, R13.42). |
 
-The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). No command and no configuration key selects them. A project that does not import them sees no change.
+The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). The optional `packs` configuration key selects them (R13.44). No command runs them yet. A project that does not import them sees no change.
 
 ## Steps
 

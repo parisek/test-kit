@@ -94,6 +94,7 @@ targets:   { source: manifest | styleguide | list, ... }
 viewports: from the viewport manifest
 artifacts: [screenshot, html, status]          # default set; others on request
 checks:    [heading-outline, lang, empty-alt]  # default set; others on request
+packs:     [a11y]                              # opt-in packs; none by default (R13.44)
 budgets:   { /: { lcp_ms: 2500 } }             # speed limits per target
 known_diffs: { <pair>: [ { target, cause, evidence } ] }   # belongs to a pair, not a side
 ```
@@ -147,7 +148,7 @@ export const applies = { artifacts: ['html'] };
 export function check(doc, ctx) { return [ /* { target, severity, message, evidence } */ ]; }
 ```
 
-- A check without `basis` is relative. The absolute parts of R7.2, R7.3, R8.2 to R8.13 and R9.7 to R9.11 take effect with `schemaVersion` 3 (R13.9). Until then the shipped behaviour stands.
+- A check without `basis` is relative. The absolute parts of R7.2, R7.3, R8.2 to R8.13 (R8.14 applies now) and R9.7 to R9.11 take effect with `schemaVersion` 3 (R13.9). Until then the shipped behaviour stands.
 - R7.1 A check must be a pure function of the stored artifact. A new check must run over an existing run without a new capture.
 - R7.2 A check must export `id`, `title`, `basis`, `applies` and `check`. A CLI entry, if any, must sit behind an `import.meta.url` guard.
 - R7.3 Findings of a check go into the same `findings` list as findings of any artifact. A class applies by the basis of the check (section 8). Normaliser rules and known differences apply to relative checks only.
@@ -163,7 +164,7 @@ export function check(doc, ctx) { return [ /* { target, severity, message, evide
 
 Derived from findings, the basis of each check and `matchBelow`. Never stored.
 
-- A check without `basis` is relative. The absolute parts of R7.2, R7.3, R8.2 to R8.13 and R9.7 to R9.11 take effect with `schemaVersion` 3 (R13.9). Until then the shipped behaviour stands.
+- A check without `basis` is relative. The absolute parts of R7.2, R7.3, R8.2 to R8.13 (R8.14 applies now) and R9.7 to R9.11 take effect with `schemaVersion` 3 (R13.9). Until then the shipped behaviour stands.
 - R8.10 Every check has a basis, `absolute` or `relative`. A `relative` check reports a difference between A and B and needs a pair. An `absolute` check reports on one run and needs no pair. The basis belongs to the check, not to the finding.
 - R8.11 A finding names its check with `checkId`. A finding with no `checkId` is `relative`. A finding of an absolute check always has a `checkId`, whatever its artifact, and the catalog of the report lists it (section 9). A finding of the `screenshot` or `html` comparison has no `checkId`. A finding of any other artifact must have one.
 
@@ -193,6 +194,7 @@ rules: { id: "text" | { text, evidence, applies: { pairs?, artifacts?, kinds?, t
 - R8.5 A list in `applies` limits that axis. A missing list means no limit on that axis. The same holds for the scope of an override or an allowlist entry on the axes `artifacts`, `targets` and `kinds`. The `kinds` axis takes the value `single-run`. The `pairs` axis does not apply to a `subject` report. The allowlist is not specified yet (ADR 0004 open question 4).
 - R8.6 The viewer shows the rules that fired on the target. The other rules in scope are collapsed. For an absolute check, a check fired when it has at least one finding on the target. The viewer lists the fired checks first, each with its `checkId`, title, `layer` and finding count, and collapses the other checks of the catalog. A check whose artifact is not `complete` shows as `missing`, `failed` or `incompatible`, never as a check with no finding.
 - R8.13 A narrower layer may switch an absolute check off. This writes an override record in the report (section 9), and the check has state `missing` with a diagnostic. A disabled check proves nothing (R7.7). An override must never hide a failed or missing run, a rule without evidence (R8.4) or an unexplained non-zero difference. A query counts overrides.
+- R8.14 An absolute check that finds a result it cannot decide stays `complete`. It reports each undecided item as a `warning` finding with `evidence.needsReview: true`. A cut list of findings (the `truncated` warning of the accessibility pack, `evidence.truncated: true`) follows the same rule. It does not report `missing` for it, because `missing` drops every finding of the check from class aggregation (R8.12) and would hide the real violations next to it. The accessibility pack applies this to axe `incomplete` results. A consumer that gates on these items tests `evidence.needsReview` or `evidence.truncated`. A gate on severity `error` alone does not see them. R8.14 applies now. The accessibility pack ships it, and it does not wait for `schemaVersion` 3.
 
 ---
 
@@ -334,6 +336,7 @@ skeleton manifest: 237 files under `static/tests/`.
 - R13.41 The package must own the engine of the behaviour suite: the registry, the discovery, the reporter, the Playwright config and the format of the allowlists. A contract written by one project stays in that project.
 - R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. Accessibility (`axe`) and the component packs must live in the package as opt-in named entry points. A pack must run only when the project selects it (R5.1). Project-owned contracts must stay in the project. A component-specific pack must be versioned per library major version. The runner must detect the version. An unsupported or undetectable version must be a non-pass state (R8.7). A pack moves only in its own pull request. The owner accepted this on 2026-10-18. It supersedes the acceptance of 2026-10-09.
 - R13.43 A move must keep the project-facing seam. While the package is alpha, R13.9 applies. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the owner declares beta, the same project files must keep working with a thin import from the package.
+- R13.44 A project must select packs with the `packs` key of its configuration: a list of built-in pack IDs (`a11y`, `lint`, `swiper`). An absent key selects no pack (G3, R5.1). An unknown ID, a duplicate ID or an entry that is not an ID must fail validation. The key takes no options, because the pack API has none. Config validation must stay pure: it reads a static list of IDs and imports no pack. Code maps the IDs to pack objects and passes them to `resolveChecks`. The selection must not enter the capture settings hash. This does not change the pack API (R13.42). Decided by the owner on 2026-10-19.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
 

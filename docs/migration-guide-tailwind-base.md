@@ -69,7 +69,7 @@ These need an owner decision or code that does not exist. The guide cannot give 
 | Replace the old visual scripts (`test:visual`, `visual:harvest`, `visual:compare`, `visual:report`, `visual:changed`) | `CHANGELOG.md` 0.2.0 says legacy command replacement is open. The alias mapping is not written. |
 | Replace the shared behavior contracts (`picture`, `gsap`, `lightgallery`, `header-*`, `cookieconsent`, `hygiene`, `render-integrity`) | R13.42 plans packs. Only `swiper` and the axe pack exist. The browser step for `swiper` is not built. |
 | Replace `lint:js` and `lint:css` | The lint pack reads the output of the project's own linters. The rules stay in the project. Specification section 17, item 7 is open. |
-| Select a pack by configuration | No configuration key exists. A project selects a pack in code. |
+| Select a pack by configuration | The `packs` configuration key lists built-in pack IDs (R13.44). No command runs the selected packs yet. A project can also select a pack in code with `resolveChecks`. |
 | Keep an allowlist of accepted findings | The allowlist is not specified (ADR 0004, open question 4). |
 | Set a default check set | Open (specification section 17, item 2). |
 

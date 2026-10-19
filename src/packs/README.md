@@ -6,6 +6,7 @@ All files are pure. They have no DOM and no file system access (R4.4).
 
 - `definePack({ id, title, owner, checks })` validates a pack. Each check exports `id`, `title`, `basis`, `applies` and `check` (R7.2, R8.10).
 - `resolveChecks({ available, packs, custom, overrides })` builds a plan. It rejects unknown packs, duplicate ids and bad overrides. It runs nothing.
+- `packs` in the project configuration lists the built-in pack IDs to use (R13.44). `builtinPacks` and `BUILTIN_PACK_IDS` in `builtin.js` map the IDs to pack objects. Pass `config.packs` as `packs` and `builtinPacks` as `available` to `resolveChecks`. The key takes IDs only. It does not change the pack API.
 - `runChecks(plan, { artifact, value }, context)` runs the plan over one stored artifact.
 
 Layers are `package`, `project`, `component` and `page`.
@@ -46,7 +47,9 @@ An empty plan gives run state `missing`. The run state is `complete` only when e
 
 Versioned contract sets and library version detection live in `versioned/README.md` (R13.42).
 Not built yet: threshold overrides, allowlists (ADR 0004, open question 4), and the `schemaVersion` 3 report fields (R13.9).
-The six built-in content checks in `src/checks` stay as they are. They have no `basis`.
+The six built-in content checks in `src/checks` stay as they are. They have no `basis`. The owner decided on 2026-10-19 that `basis` for them waits for `schemaVersion` 3.
+
+Freeze scope at 1.0, decided by the owner on 2026-10-19 (`docs/seam.md`, section 5): the pack API in this folder (`definePack`, `validateCheck`, `resolveChecks`, `runChecks`, `LAYERS`, `BASES` and the input contract) and the accessibility pack are frozen. The lint pack is not frozen and may change in a minor release.
 
 Packs in the package: the accessibility pack (axe) is in `src/packs/a11y/` (`@parisek/test-kit/packs/a11y`).
 The lint pack (ESLint and Stylelint) is in `src/packs/lint/` (`@parisek/test-kit/packs/lint`): [lint/README.md](lint/README.md).
