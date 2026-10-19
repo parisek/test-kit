@@ -1,6 +1,11 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: written on 2026-10-19 for `v1.0.0-rc.1`. The owner tags the candidate. The tag form `-rc.N` is defined by R13.45, which is on `main`, and `release.yml` accepts rc tags. The workflow checks that the tag equals `v` plus `package.json` version plus `-rc.N` and that the commit is on `main`. So the owner tags after this pull request is merged. Until the tag exists, use the commit form in step 1.
+Status: updated on 2026-10-19 for `v1.0.0-rc.2`, the current candidate.
+The tag `v1.0.0-rc.1` is the first candidate. It stays as history.
+The owner tags the candidate on the squash commit of the merged pull request on `main`.
+The tag form `-rc.N` is defined by R13.45, and `release.yml` accepts rc tags.
+The workflow checks that the tag equals `v` plus `package.json` version plus `-rc.N`, and that the commit is on `main`.
+Until the `v1.0.0-rc.2` tag exists, use the commit form in step 1.
 The goal: you try the candidate on one real project, then you tell us if it meets your expectations. The checklist is at the end.
 Use `example-site` in anything you paste into an issue (R12.4). This repository is public.
 
@@ -31,7 +36,7 @@ Measured on 2026-10-19 with a packed copy of this branch in a clean project. The
 The package is not on an npm registry (specification section 13.2). A project installs it from a git tag and pins it exactly (R13.27).
 
 ```sh
-npm install -D github:parisek/test-kit#v1.0.0-rc.1
+npm install -D github:parisek/test-kit#v1.0.0-rc.2
 npm install -D @playwright/test@1.64.1
 npx playwright install chromium
 ```
@@ -50,7 +55,7 @@ Notes:
 - Node 20 or newer (`engines`).
 - `@playwright/test` is a peer dependency (`>=1.49`). `capture` and `run` need it and a browser. See [Playwright browsers](https://playwright.dev/docs/browsers).
 - `axe-core` (`^4.10.0`) is an optional peer. Install it only for the a11y runner. `lighthouse` is an optional peer for `perf`.
-- Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Not verified: the form with the tag `#v1.0.0-rc.1`, because the tag does not exist yet. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
+- Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Not verified: the form with the tag `#v1.0.0-rc.2`, because the tag does not exist yet. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
 
 ## 2. Minimal configuration for a first run
 
