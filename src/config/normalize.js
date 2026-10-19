@@ -81,6 +81,7 @@ function freeze(value) {
 }
 
 export const DEFAULT_ARTIFACTS = Object.freeze(['screenshot']);
+
 export function normalizeConfig(input) {
   object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior', 'packs']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');

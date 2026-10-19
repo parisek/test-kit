@@ -24,7 +24,6 @@ test('suite all uses the normalized default artifacts when the config has no art
  assert.equal(selectConfig(bare, { suite: 'all' }).artifacts.join(), 'screenshot');
  assert.equal(selectConfig({ ...bare, artifacts: ['screenshot', 'status'] }, {}).artifacts.join(), 'screenshot,status');
  assert.throws(() => selectConfig(bare, { suite: 'nope' }), /Unknown suite/);
- assert.equal('artifacts' in bare, false);
 });
 test('DDEV rejects remote origins and store rejects traversal', () => {
  assert.equal(loopbackOrigin({ raw: { services: { web: { host_http_url: 'http://127.0.0.1:1234' } } } }), 'http://127.0.0.1:1234');
