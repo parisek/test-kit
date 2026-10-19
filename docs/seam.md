@@ -1,7 +1,7 @@
 # The project seam
 
 Status: proposal for the owner, with four decisions recorded (marked "decided"). It serves vision open decision 9 and issue #105. It cites R13.9, R13.25 to R13.27, R13.40, R13.41 and R13.43.
-The owner confirms the list when the owner approves the 1.0 release candidate. Until then the list is a proposal, except the decided points. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0, `main` at 245611d). Rows that describe the `packs` key (R13.44) read `main` at dcea71a. The owner decided four points on 2026-10-19: `init` does not exist, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs. They are marked "decided" below.
+The owner confirms the list when the owner approves the 1.0 release candidate. Until then the list is a proposal, except the decided points. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0 at that time; the candidate sets 1.0.0; `main` at 245611d). Rows that describe the `packs` key (R13.44) read `main` at dcea71a. The owner decided four points on 2026-10-19: `init` does not exist, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs. They are marked "decided" below.
 
 The seam is everything a project touches: its configuration file, the commands it calls, the contract and pack API it imports, the data it stores, and the files it copies.
 

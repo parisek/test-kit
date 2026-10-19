@@ -1,7 +1,7 @@
 # Upgrade from v0.5.0 to `main`
 
 Status: measured on 2026-10-19. It serves issue #105 and R13.9.
-`main` is commit 245611d. Its `package.json` still says version `0.5.0`. No tag newer than `v0.5.0` exists (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). So "current main" is not an installable release yet. A project that wants it today pins a commit. A project that wants a tag waits for the next tag.
+`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). No tag newer than `v0.5.0` exists (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). So "current main" is not an installable release yet. A project that wants it today pins a commit. A project that wants a tag waits for the next tag.
 
 ## Result
 
@@ -15,7 +15,7 @@ Measured with `git diff v0.5.0 origin/main` (12 commits, `git log --oneline v0.5
 | --- | --- | --- |
 | `src/` outside `src/packs/` | `src/config/` accepts the optional `packs` key (R13.44). Otherwise none | `git diff --name-only v0.5.0 origin/main -- src bin templates frontend viewer scripts` lists only `src/packs/` files (measured at 245611d, before the `packs` key). |
 | `bin/`, `templates/`, `viewer/` | None | Same command. |
-| CLI | None | `node bin/cli.js --help` prints the same bytes on both revisions. Both print `0.5.0` for `--version`. |
+| CLI | None | `node bin/cli.js --help` prints the same bytes on both revisions. Both printed `0.5.0` for `--version` when measured. The candidate sets `1.0.0`, so a build of it prints `1.0.0`. |
 | Configuration | None | `normalizeConfig` accepts the same keys, plus the new optional `packs` key (R13.44). The shipped template gives the same result on both. A config without `packs` behaves as before. |
 | Root export (`.`) | None | The list of exported names is the same on both. |
 | `package.json` `exports` | Six entries added | `./packs`, `./packs/a11y`, `./packs/a11y/runner`, `./packs/swiper`, `./packs/lint`, `./packs/lint/runner`. The three v0.5.0 entries stay. |
@@ -54,7 +54,7 @@ Not run, because no project checkout is in scope:
 
 | Command | Expected result | State |
 | --- | --- | --- |
-| `npx test-kit --version` | Prints the installed version, for example `0.5.0` for a commit of `main`. Exit 0. | Not run in a project |
+| `npx test-kit --version` | Prints the installed version, `0.5.0` for `main` at 245611d (measured). `1.0.0` for the release candidate. Exit 0. | Not run in a project |
 | `npx test-kit capture --side local --label before` | One JSON line with `id`, `state`, `manifestPath`. Exit 0 when `state` is `complete`. | Not run in a project |
 | `npx test-kit diff <run-a> <run-b> --output tests/visual/report` | One JSON line with `reportPath`. Exit 0. | Not run in a project |
 | `npx test-kit summary tests/visual/report/report.json --filter unexplained` | One JSON line. | Not run in a project |

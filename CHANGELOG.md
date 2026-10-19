@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-10-19
+
+First release candidate for 1.0.0. The owner tags it. It is not a stable release. The seam freeze in `docs/seam.md` starts at this tag. The candidate holds the changes merged since 0.5.0. Try it with `docs/rc-trial.md`.
+
 ### Added
 
 - Add the opt-in accessibility pack `@parisek/test-kit/packs/a11y` (R7.2, R13.42, R8.7, issue 102). It maps axe-core results to findings with layer `package`, the axe rule id, severity from impact, and evidence (selector, capped HTML, help URL). A thin runner `@parisek/test-kit/packs/a11y/runner` injects axe-core into a Playwright page. `axe-core` is an optional peer dependency. A missing run gives `missing`. A broken run, bad options or a run in which no rule ran gives `failed`. None gives `complete`. An axe `incomplete` rule and cut evidence each give a `warning` finding and do not open the check. Every violation rule gives a finding, and rule counts are reconciled. Nothing runs by default (R5.1). No report change.
@@ -13,6 +17,9 @@ Versions follow semver. Each release uses an immutable git tag.
 - Add the opt-in `lint` pack (`@parisek/test-kit/packs/lint`, R7.2, R8.10, R9.9, R9.11, #103). It reads ESLint and Stylelint JSON as two absolute checks, `eslint-rules` and `stylelint-rules`. A finding may carry a top-level `location` (R9.11). The runner `@parisek/test-kit/packs/lint/runner` starts the project's own linters in a process group with a timeout and a reduced environment. A missing tool gives `missing`, a crash or bad output gives `failed`, and exit code 1 with findings is a normal run (R8.7). Nothing runs by default (R5.1). No report change: `schemaVersion` stays 2.
 
 - Document the project seam, the upgrade from v0.5.0 and a migration guide for a project that pins an old version (issue 105, vision open decision 9). Documentation only. No code, configuration or report change: `docs/seam.md`, `docs/upgrade-from-0.5.md`, `docs/migration-guide-tailwind-base.md`.
+- Add the optional `packs` key to the project configuration (R13.44, #125). It takes a list of built-in pack IDs: `a11y`, `lint`, `swiper`. An absent key selects nothing (R5.1). An unknown ID, a duplicate or a value that is not an ID fails validation. The key takes no options. No command runs the selected packs yet.
+- Add the vision (`docs/vision.md`), ADR 0004 for the result model (`docs/adr/0004-result-model.md`) and the process skills proposal (`docs/process-skills.md`).
+- Add the trial guide `docs/rc-trial.md`.
 
 ### Changed
 
@@ -23,14 +30,19 @@ Versions follow semver. Each release uses an immutable git tag.
 - Align the specification with accepted ADR 0004 (R7.2, R7.3, R8.2 to R8.7, R8.10 to R8.13, R9.1, R9.7 to R9.11, R10.5, R11.6). Define the check basis, the `subject` report, the `checks` catalog and `schemaVersion` 3. The code still writes version 2. No code changes (R13.9).
 - State one merge rule in `AGENTS.md` and `docs/development-loop.md`.
 
+- Run `release.yml` on stable tags (#110) and on rc tags (R13.45). A dev tag starts no run.
+- Record the owner decisions of 2026-10-19: the package has no `init` command, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs (#124).
+- Set `package.json` and `package-lock.json` to version `1.0.0` for the tag `v1.0.0-rc.1`.
+- Note: the code still writes `schemaVersion` 2 and the built-in checks still export no `basis`. Both wait for `schemaVersion` 3.
+
 ### Fixed
 
-- Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
+- Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1, #128). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
 
 ### Migration
 
 - Breaking, planned (R13.9): the report schema goes to version 3, where `pair` is optional. Code that does this is not in this change. A reader of version 2 will fail at `schemaVersion`. No project change is needed today.
-- No project change is needed. A project that pins a tag sees no change. `release.yml` runs on stable tags only. A dev tag starts no run and creates no GitHub Release.
+- No project change is needed. A project that pins a tag sees no change. `release.yml` runs on stable tags and rc tags (R13.45). A dev tag starts no run and creates no GitHub Release.
 
 ## [0.5.0] - 2026-10-13
 
