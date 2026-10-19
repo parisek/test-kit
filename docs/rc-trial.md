@@ -1,6 +1,6 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: written on 2026-10-19 for `v1.0.0-rc.1`. The owner tags the candidate. Until the tag exists, use the commit form in step 1.
+Status: written on 2026-10-19 for `v1.0.0-rc.1`. The owner tags the candidate. The tag form `-rc.N` is defined by R13.45, which lands with #126 (not merged when this guide was written). Tagging needs #126 merged first. Until the tag exists, use the commit form in step 1.
 The goal: you try the candidate on one real project, then you tell us if it meets your expectations. The checklist is at the end.
 Use `example-site` in anything you paste into an issue (R12.4). This repository is public.
 
@@ -93,7 +93,7 @@ npx test-kit summary tests/visual/report/report.json --filter all
 npx test-kit serve tests/visual/report/report.json
 ```
 
-Every command prints one line of JSON with the run IDs and paths. Use those in the next command. `diff` and `summary` need run IDs from the `capture` output.
+Every command prints one line of JSON with IDs and paths. `diff` needs the two run IDs from the `capture` output. `summary`, `serve` and `query` need the report path that `diff` prints (`reportPath`).
 Two different origins also work: put two sides in the file, capture each, then `diff` the two runs.
 
 ## 4. Enable a pack with the `packs` key
@@ -130,7 +130,7 @@ The `lint` pack runner starts your own ESLint and Stylelint (`src/packs/lint/REA
 
 ## 5. What to look at in the report
 
-- `summary`: `verdict` and `counts`. One changed page gives `unexplained`. An unchanged page gives `match`.
+- `summary`: `verdict` and `counts`. On the two local pages I measured, a page with changed text gave `unexplained`, and two runs of an unchanged page gave `match`. This is not general: a known-difference rule can explain a change, and missing, failed, incompatible or unavailable evidence prevents `match` (R8.7).
 - `states`: `complete`, `missing`, `failed`, `incompatible`. Fix `failed` and `missing` first. A matching picture with an HTTP error is still reported.
 - The viewer: the screenshot pair, the HTML diff, the status. Check that the text is readable and that a changed target is easy to find.
 - `query ... --artifact status` or `html`: a bounded window of evidence for an agent.
@@ -150,8 +150,8 @@ From `docs/seam.md`, section 8, and the open issues, read with `gh` on 2026-10-1
 | Pack hardening: the snapshot walk stack is not bounded; the depth wording differs. Stored artifacts are JSON, so this is hardening only. | [#115](https://github.com/parisek/test-kit/issues/115) | None expected. |
 | Axe pack tidy: README wording, `-0` in a tampered artifact, a page stays claimed after a timeout. Frame injection, per-state runs and allowlists are not built. | [#120](https://github.com/parisek/test-kit/issues/120) | Use a new page for each `runAxe` run. |
 | Versioned contract sets: error wording, the Swiper walk stops at the first malformed instance. Loop mode, virtual slides and `swiper-element` are not covered. The Swiper 12 and 14 sets are identical. | [#121](https://github.com/parisek/test-kit/issues/121) | Swiper only. |
-| Process documents have wording nits and open questions marked unverified. | [#122](https://github.com/parisek/test-kit/issues/122) | None. It concerns the release process, not the product. |
-| `run`, `before` and `after` stop with "Unknown suite" when the configuration has no `artifacts` key. `capture` and `diff` do not. Found while writing this guide, in `src/workflow/selection.js`: the suite `all` reads the raw `artifacts` list. No issue exists yet. | This guide | Keep `artifacts` in the file. |
+| Process documents (#109) have wording nits and open questions marked unverified (bot `author_association`, event names, tree comparison). Owner actions are open: the `merge-halt` label now exists; the main-protection ruleset does NOT exist yet, because the owner has not allowed creating it; the tag ruleset for `v*` is not confirmed. | [#122](https://github.com/parisek/test-kit/issues/122) | None for the trial. It concerns the release process, not the product. Without the ruleset, nothing blocks a merge on failed checks. |
+| `run`, `before` and `after` stop with "Unknown suite" when the configuration has no `artifacts` key. `capture` and `diff` do not. Cause: in `src/workflow/selection.js` the suite `all` reads the raw `artifacts` list. A separate pull request fixes it. | This guide | Keep `artifacts` in the file. |
 | The report is `schemaVersion` 2. Version 3 (`pair` optional, single-run results) is planned. | `CHANGELOG.md`, Unreleased, Migration | Pack findings do not reach the report. |
 | Open design questions: the default set of checks, retention of snapshots, the allowlist file, selection per target, the lint config seam, pack versioning, options for a pack. | `docs/seam.md` section 7 | Tell us what you need. |
 
