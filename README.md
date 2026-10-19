@@ -22,6 +22,8 @@ npm install -D @playwright/test
 npx playwright install chromium
 ```
 
+One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
+
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
@@ -111,7 +113,10 @@ test-kit history
 test-kit perf --side local --ddev --path /example --runs 3
 ```
 
-Use `--ddev` to discover the current DDEV loopback HTTP origin. Run the browser
+Use `--ddev` to discover the current DDEV loopback HTTP origin. With `--ddev` the
+origin in the configuration is not used. The loopback origin from `ddev describe`
+replaces it. So the side may name an `https://*.ddev.site` origin in the
+configuration. Run the browser
 on the host. Install dependencies and build inside DDEV. Flush Mutagen before
 capture when the project uses it. `--side` defaults to `local`.
 

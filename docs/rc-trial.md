@@ -5,7 +5,7 @@ The tag `v1.0.0-rc.1` is the first candidate. It stays as history.
 The owner tags the candidate on the squash commit of the merged pull request on `main`.
 The tag form `-rc.N` is defined by R13.45, and `release.yml` accepts rc tags.
 The workflow checks that the tag equals `v` plus `package.json` version plus `-rc.N`, and that the commit is on `main`.
-Until the `v1.0.0-rc.2` tag exists, use the commit form in step 1.
+Use the tag form in step 1. The commit form still works.
 The goal: you try the candidate on one real project, then you tell us if it meets your expectations. The checklist is at the end.
 Use `example-site` in anything you paste into an issue (R12.4). This repository is public.
 
@@ -41,7 +41,11 @@ npm install -D @playwright/test@1.64.1
 npx playwright install chromium
 ```
 
-Before the tag exists, pin the commit of the pull request merge instead: `npm install -D github:parisek/test-kit#<commit>`.
+You can pin a commit instead of the tag: `npm install -D github:parisek/test-kit#<commit>`.
+
+One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
+
+`@playwright/test@1.64.1` is the version that CI uses and the tested one. It is not a requirement. The peer range is `>=1.49`. One consumer project ran `1.63.0` without a problem.
 
 Check it:
 
@@ -50,12 +54,14 @@ npx test-kit --version   # 1.0.0
 npx test-kit --help
 ```
 
+`--version` prints `1.0.0` for a candidate too. It reads `package.json`, and the candidate keeps the version `1.0.0`. So the output does not tell a candidate from a stable 1.0.0. To tell them apart, run `npm ls @parisek/test-kit`, which shows the git commit, and read the commit in `package-lock.json`. Compare it with the commit of the tag `v1.0.0-rc.2` (`git rev-parse v1.0.0-rc.2^{commit}` in a clone of this repository).
+
 Notes:
 
 - Node 20 or newer (`engines`).
 - `@playwright/test` is a peer dependency (`>=1.49`). `capture` and `run` need it and a browser. See [Playwright browsers](https://playwright.dev/docs/browsers).
 - `axe-core` (`^4.10.0`) is an optional peer. Install it only for the a11y runner. `lighthouse` is an optional peer for `perf`.
-- Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Not verified: the form with the tag `#v1.0.0-rc.2`, because the tag does not exist yet. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
+- Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Verified once on one consumer project on 2026-10-19 against a local site: the form with the tag `#v1.0.0-rc.2`, then the steps in section 3 and the exports. Not run there: a remote side, `perf`, the `packs` key with a pack ID and the viewer in a browser. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
 
 ## 2. Minimal configuration for a first run
 
@@ -97,6 +103,8 @@ npx test-kit diff <run-a> <run-b> --output tests/visual/report
 npx test-kit summary tests/visual/report/report.json --filter all
 npx test-kit serve tests/visual/report/report.json
 ```
+
+The report path is free: use any relative path. `tests/visual/report` is only an example. A project may already use that folder for another tool.
 
 Measured on one local page, not a rule: an image with `loading="lazy"` that fails with an HTTP error (404) made `before` return state `partial` with `baselineUpdated: false`. The same image without `loading="lazy"` did not: the state was `complete`. If `before` returns `partial`, check the broken assets on the page.
 
