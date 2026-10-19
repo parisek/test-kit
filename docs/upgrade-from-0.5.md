@@ -31,6 +31,8 @@ The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). The optional `pa
 
 1. Pin the new version. Today this means a commit, because no newer tag exists:
    `npm install -D github:parisek/test-kit#<commit>`. Not verified: this exact install from a commit in a project. R13.27 asks for an exact tag. Wait for the tag if you can.
+
+   The lockfile may contain a `git+ssh://git@github.com/...` URL for this dependency. npm 11.19 and 11.20 write it, also for a `git+https` spec, a tag or a commit. This is npm behaviour. `npm ci` still works, and CI without ssh keys still installs.
 2. Keep `test-kit.config.json` as it is. No key changes. Not verified in a project.
 3. Keep your project aliases as they are. No command or flag changes. Not verified in a project.
 4. Optional, only when you use `@parisek/test-kit/packs/a11y/runner`: `npm install -D axe-core@^4.10.0`. Not verified in a project.

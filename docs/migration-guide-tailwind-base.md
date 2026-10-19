@@ -1,16 +1,18 @@
 # Migration guide: a project that pins an old version
 
-Status: draft. It serves issue #105 and vision open decision 9. Every consumer step below is not verified. The author had no access to a consuming project. Only this repository was read.
+Status: draft. It serves issue #105 and vision open decision 9. The author had no access to a consuming project. Only this repository was read.
+
+The first consumer project ran part of this guide once, on 2026-10-19, against a local site, with `v1.0.0-rc.2`. Part 1 steps 1 to 6 and checklist items 1 to 8 and 10 ran. Where a step or an item says "Verified once", it means that run and no other. It is one project and one local site. It is not a general result. Everything else stays "Not verified". These parts did not run: checklist item 9 (the mapping of an old alias), `perf`, a remote side, the `packs` key with a pack ID, and the viewer in a browser.
 
 The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its pin is `v0.2.1` (`docs/vision.md`, End state). The text uses `v0.2.1` as the worked example.
 
-Move once, after the owner tags the 1.0 release candidate. Before that tag a break costs nothing, so a move earlier may need a second move. No release candidate tag exists yet.
+Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` and `v1.0.0-rc.2` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
 
 ## What the move covers
 
 Two different moves share the word "migration". Keep them apart.
 
-1. The package pin moves from an old tag to the release candidate. This guide covers it in full. Not verified.
+1. The package pin moves from an old tag to the release candidate. This guide covers it in full. Part 1 is verified once (see the status above).
 2. The project's own testing files move into the package (R13.9 to R13.11, R13.43). This is a plan. Much of it is not possible yet. See "What stays blocked". Not verified.
 
 ## Part 1: move the pin
@@ -32,12 +34,23 @@ Measured with `git diff v0.2.1 origin/main` on 2026-10-19. The changes that reac
 
 Steps:
 
-1. Read [seam.md](seam.md). Check that the project uses only frozen or experimental items. Mark any use of an item that is "not frozen". Not verified.
-2. Install the exact tag (R13.27): `npm install -D github:parisek/test-kit#<tag>`. Replace `<tag>` with the release candidate tag. The lockfile records the commit. Not verified.
-3. Install the browser peer: `npm install -D @playwright/test` and `npx playwright install chromium`. Add `lighthouse` only if the project runs `perf`. Not verified.
-4. Leave `test-kit.config.json` unchanged. If the project has none, copy `node_modules/@parisek/test-kit/templates/test-kit.config.json` by hand. `test-kit init` does not exist. Not verified.
-5. Keep the project aliases. Command names and required flags do not change in the frozen set. Not verified.
-6. Capture new runs after the move. Compare runs from one package version with each other. R8.9 rejects a comparison across incompatible tool versions. Not verified: whether a change of the package version makes an old run incompatible.
+1. Read [seam.md](seam.md). Check that the project uses only frozen or experimental items. Mark any use of an item that is "not frozen". Verified once.
+2. Install the exact tag (R13.27): `npm install -D github:parisek/test-kit#<tag>`. Replace `<tag>` with the release candidate tag. The lockfile records the commit. Verified once.
+
+   Note: npm 11.19 and 11.20 can write a `git+ssh://git@github.com/...` URL into `package-lock.json` for a `git+https` dependency spec, for a tag and for a commit. This is npm behaviour, not a choice of this package. `npm ci` still works, and a CI job without ssh keys still installs. Check the lockfile diff before you commit it.
+3. Install the browser peer: `npm install -D @playwright/test` and `npx playwright install chromium`. Add `lighthouse` only if the project runs `perf`. Verified once for `@playwright/test`, with version 1.63.0. The peer range is `>=1.49`. The version that `docs/rc-trial.md` names is the one CI uses, not a requirement. Not verified: `lighthouse` and `perf`.
+4. Leave `test-kit.config.json` unchanged. If the project has none, copy `node_modules/@parisek/test-kit/templates/test-kit.config.json` by hand. `test-kit init` does not exist. Verified once: a configuration without the `packs` key loads. The load showed no rejected key and no peer warning.
+5. Keep the project aliases. Command names and required flags do not change in the frozen set. Verified once for the commands. Not verified: the mapping of an old alias (checklist item 9).
+6. Capture new runs after the move. This is cautious advice, not a rule. Old runs still compare with new runs when the settings and the tool versions match.
+
+   What the code does (read in `src/capture/index.js`, `src/compare/runs.js` and `src/config/settings.js`). The hash code and the browser settings are the same in `v0.2.1` and in `v1.0.0-rc.2`:
+
+   - A run does not record the package version. `run.json` `tools` lists `playwright` and `chromium`, each with a version. It adds one entry for each artifact other than the screenshot (`html`, `status` and others). The behavior artifact records the constant `BEHAVIOR_VERSION`, not the package version.
+   - A comparison tests two things (R8.9). The two `settingsHash` values must be equal. The `tools` entries without an artifact, or for the screenshot (Playwright and Chromium), must be equal in name, version and hash. A mismatch gives `incompatible`.
+   - The hash covers the viewports, the `settle` recipe of the side, the screenshot settings, the browser settings and, for the behavior artifact, the contract fingerprint. It does not cover the `packs` key or the origin.
+   - So a change of the package version does not make an old run incompatible. A change of the Playwright or Chromium version does. A change of the capture settings does.
+   - Verified once: runs from `v0.2.1` and from `v1.0.0-rc.2` had the same `settingsHash` and compared with `incompatible: 0`. The only stored difference was an added `"packs": []`, which the hash ignores.
+   - If the move also moves Playwright or its Chromium, expect `incompatible` for old runs. Capture new ones.
 
 ## Part 2: files that move into the package
 
@@ -75,19 +88,21 @@ These need an owner decision or code that does not exist. The guide cannot give 
 
 ## Verification checklist
 
-All items are not run. The author cannot run them in the consuming project. Run them in the project theme directory. Run Chromium capture on the host.
+Items 1 to 8 and 10 are "Verified once": the first consumer project ran them on 2026-10-19 against a local site, with `v1.0.0-rc.2`. Item 9 did not run. Run them in the project theme directory. Run Chromium capture on the host.
+
+The report path `tests/visual/report` in items 6 to 8 is only an example. In the first consumer project it is the folder of the legacy visual suite. The report path is free: use any relative path.
 
 | # | Command | Expected result | State |
 | --- | --- | --- | --- |
-| 1 | `npx test-kit --version` | The installed version. Exit 0. | Not run |
-| 2 | `npx test-kit --help` | The usage text, with the twelve commands of [seam.md](seam.md) section 3. Exit 0. | Not run |
-| 3 | `node -e "import('@parisek/test-kit').then(m => console.log(Object.keys(m).join(' ')))"` | The names of the root export. | Not run |
-| 4 | `npx test-kit capture --config test-kit.config.json --side local --label before` | One JSON line with `id`, `state`, `manifestPath`. Exit 0 when `state` is `complete`. Exit 1 otherwise. | Not run |
-| 5 | `npx test-kit capture --config test-kit.config.json --side local --label after` | Same as 4. | Not run |
-| 6 | `npx test-kit diff <run-a> <run-b> --output tests/visual/report` | One JSON line with `reportPath`. Exit 0. | Not run |
-| 7 | `npx test-kit summary tests/visual/report/report.json --filter unexplained --max-targets 20` | One JSON line. Read the unexplained targets. | Not run |
-| 8 | `npx test-kit serve tests/visual/report/report.json` | One JSON line with a loopback `url`. Stop the server after review. | Not run |
+| 1 | `npx test-kit --version` | The installed version. Exit 0. | Verified once |
+| 2 | `npx test-kit --help` | The usage text, with the twelve commands of [seam.md](seam.md) section 3. Exit 0. | Verified once |
+| 3 | `node -e "import('@parisek/test-kit').then(m => console.log(Object.keys(m).join(' ')))"` | The names of the root export. | Verified once |
+| 4 | `npx test-kit capture --config test-kit.config.json --side local --label before` | One JSON line with `id`, `state`, `manifestPath`. Exit 0 when `state` is `complete`. Exit 1 otherwise. | Verified once |
+| 5 | `npx test-kit capture --config test-kit.config.json --side local --label after` | Same as 4. | Verified once |
+| 6 | `npx test-kit diff <run-a> <run-b> --output tests/visual/report` | One JSON line with `reportPath`. Exit 0. | Verified once |
+| 7 | `npx test-kit summary tests/visual/report/report.json --filter unexplained --max-targets 20` | One JSON line. Read the unexplained targets. | Verified once |
+| 8 | `npx test-kit serve tests/visual/report/report.json` | One JSON line with a loopback `url`. Stop the server after review. | Verified once |
 | 9 | The project's existing alias for the old command, after it calls `test-kit` | The same exit code and the same selection of targets as before. | Not run, and no mapping exists |
-| 10 | `npm ls @parisek/test-kit` | Shows the exact tag or commit. | Not run |
+| 10 | `npm ls @parisek/test-kit` | Shows the exact tag or commit. | Verified once |
 
 A pass of items 1 to 8 shows that the pin, the CLI and the configuration work. It does not show that the project's behavior or lint coverage is complete. A matching screenshot can have an HTTP error. Read the availability field (R6.1).

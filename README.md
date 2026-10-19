@@ -22,6 +22,8 @@ npm install -D @playwright/test
 npx playwright install chromium
 ```
 
+The lockfile may contain a `git+ssh://git@github.com/...` URL for this dependency. npm 11.19 and 11.20 write it, also for a `git+https` spec, a tag or a commit. This is npm behaviour. `npm ci` still works, and CI without ssh keys still installs.
+
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
@@ -111,7 +113,9 @@ test-kit history
 test-kit perf --side local --ddev --path /example --runs 3
 ```
 
-Use `--ddev` to discover the current DDEV loopback HTTP origin. Run the browser
+Use `--ddev` to discover the current DDEV loopback HTTP origin. It replaces the
+origin of the chosen side with that origin. So the side may name an
+`https://*.ddev.site` origin in the configuration. Run the browser
 on the host. Install dependencies and build inside DDEV. Flush Mutagen before
 capture when the project uses it. `--side` defaults to `local`.
 

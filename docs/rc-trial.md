@@ -43,6 +43,10 @@ npx playwright install chromium
 
 Before the tag exists, pin the commit of the pull request merge instead: `npm install -D github:parisek/test-kit#<commit>`.
 
+The lockfile may contain a `git+ssh://git@github.com/...` URL for this dependency. npm 11.19 and 11.20 write it, also for a `git+https` spec, a tag or a commit. This is npm behaviour. `npm ci` still works, and CI without ssh keys still installs.
+
+`@playwright/test@1.64.1` is the version that CI uses and the tested one. It is not a requirement. The peer range is `>=1.49`. The first consumer project ran `1.63.0` without a problem.
+
 Check it:
 
 ```sh
@@ -50,12 +54,14 @@ npx test-kit --version   # 1.0.0
 npx test-kit --help
 ```
 
+`--version` prints `1.0.0` for a candidate too. It reads `package.json`, and the candidate keeps the version `1.0.0`. So the output does not tell a candidate from a stable 1.0.0. To tell them apart, run `npm ls @parisek/test-kit`, which shows the git commit, and read the commit in `package-lock.json`. Compare it with the commit of the tag `v1.0.0-rc.2` (`git rev-parse v1.0.0-rc.2^{commit}` in a clone of this repository).
+
 Notes:
 
 - Node 20 or newer (`engines`).
 - `@playwright/test` is a peer dependency (`>=1.49`). `capture` and `run` need it and a browser. See [Playwright browsers](https://playwright.dev/docs/browsers).
 - `axe-core` (`^4.10.0`) is an optional peer. Install it only for the a11y runner. `lighthouse` is an optional peer for `perf`.
-- Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Not verified: the form with the tag `#v1.0.0-rc.2`, because the tag does not exist yet. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
+- Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Verified once on one consumer project on 2026-10-19 against a local site: the form with the tag `#v1.0.0-rc.2`, then the steps in section 3 and the exports. Not run there: a remote side, `perf`, the `packs` key with a pack ID and the viewer in a browser. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
 
 ## 2. Minimal configuration for a first run
 
@@ -97,6 +103,8 @@ npx test-kit diff <run-a> <run-b> --output tests/visual/report
 npx test-kit summary tests/visual/report/report.json --filter all
 npx test-kit serve tests/visual/report/report.json
 ```
+
+The report path is free: use any relative path. `tests/visual/report` is only an example. A project may already use that folder for another tool.
 
 Measured on one local page, not a rule: an image with `loading="lazy"` that fails with an HTTP error (404) made `before` return state `partial` with `baselineUpdated: false`. The same image without `loading="lazy"` did not: the state was `complete`. If `before` returns `partial`, check the broken assets on the page.
 

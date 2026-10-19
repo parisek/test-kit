@@ -231,10 +231,11 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
 3. The six built-in checks export no `basis`, although R7.2 requires it. Decided by the owner, 2026-10-19: deferred to `schemaVersion` 3. It is not an open question.
 4. Decided by the owner, 2026-10-19: the release candidate tag is `vMAJOR.MINOR.PATCH-rc.N` (R13.45). The freeze starts at `-rc.1`. Only the owner tags it.
+5. (closed) Question: does a change of the package version make an old run incompatible (R8.9)? Answer, read in the code on 2026-10-19: no. A run does not record the package version. `run.json` `tools` holds the Playwright and Chromium versions and one entry for each other artifact. A comparison needs equal `settingsHash` values and equal Playwright and Chromium entries (`src/compare/runs.js`). The hash covers the viewports, the `settle` recipe, the screenshot settings, the browser settings and the behavior contract fingerprint. It does not cover the `packs` key. A change of the Playwright or Chromium version, or of a capture setting, does make a run incompatible. The first consumer project compared runs from `v0.2.1` and `v1.0.0-rc.2` with `incompatible: 0` (verified once, local site). See [migration-guide-tailwind-base.md](migration-guide-tailwind-base.md), Part 1, step 6.
 
 ## 9. What this document did not check
 
-- No release candidate tag exists. The freeze has no effect until the owner tags one.
-- No real project ran against `main`. Every statement about a project is derived from this repository.
+- The tags `v1.0.0-rc.1` and `v1.0.0-rc.2` exist now. This document was written before them.
+- One consumer project ran `v1.0.0-rc.2` once, on 2026-10-19, against a local site (see the migration guide). No other project ran against the package. Every other statement about a project is derived from this repository.
 - The viewer was not opened. The seam covers files, commands and the JSON that the code reads and writes.
 - The cap values in the pack API are chosen bounds, not measurements.
