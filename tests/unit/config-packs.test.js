@@ -37,6 +37,9 @@ test('packs: unknown, duplicate and malformed entries fail (R13.44)', () => {
   fails([null], /pack ID must be a safe ID/);
   fails(['../a11y'], /pack ID must be a safe ID/);
   fails(['A11Y'], /unknown pack/);
+  fails(null, /packs must have/);
+  fails(['a11y', , 'lint'], /packs has a hole at index 1/);
+  fails(new Array(2), /packs has a hole/);
   fails(['a11y', 'lint', 'swiper', 'a11y'], /packs must have/);
 });
 

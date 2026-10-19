@@ -27,7 +27,7 @@ The seam is everything a project touches: its configuration file, the commands i
 
 Source of truth: `src/config/normalize.js` (`normalizeConfig`), read by `src/config/index.js` (`loadConfig`). The file is JSON only (`JSON.parse`). The default path is `test-kit.config.json` in the working directory. Runtime paths resolve from the directory of the file. The prose is in `src/config/README.md` and `docs/contracts.md`.
 
-The sketch in specification section 5 (`targets: { source: ... }`, `budgets`) is not the shipped shape. The code rejects `budgets`, `allowlist`, `lint` and `a11y` as unsupported keys (measured on v0.5.0 and on `main`, 2026-10-19). The `packs` key was rejected then. It is accepted since R13.44. Any other unknown key at any level also fails.
+The sketch in specification section 5 (`targets: { source: ... }`, `budgets`) is not the shipped shape. The code rejects `budgets`, `allowlist`, `lint` and `a11y` as unsupported keys (measured on v0.5.0 and on `main`, 2026-10-19). The `packs` key was rejected then. It is accepted after 0.5.0 (R13.44). Any other unknown key at any level also fails.
 
 Marking of the file as a whole: frozen for the keys in the table, with `schemaVersion: 1`. A new optional key is an addition. A new required key or a removed key is a break. The defaults and the values of the check IDs are not frozen (see the rows below).
 

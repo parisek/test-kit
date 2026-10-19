@@ -30,6 +30,10 @@ function list(value, name, max, min = 0) {
   if (!Array.isArray(value) || value.length < min || value.length > max) fail(`${name} must have ${min}..${max} items`);
   return value;
 }
+function dense(values, name) {
+  for (let index = 0; index < values.length; index += 1) if (!Object.hasOwn(values, index)) fail(`${name} has a hole at index ${index}`);
+  return values;
+}
 function unique(values, name) {
   if (new Set(values).size !== values.length) fail(`${name} IDs must be unique`);
 }
@@ -139,7 +143,7 @@ export function normalizeConfig(input) {
   unique(checks, 'check');
   if (checks.some(check => !Object.hasOwn(builtinChecks, check))) fail('unknown content check');
   if (checks.length && !artifacts.includes('content')) fail('checks require the content artifact');
-  const packs = list(input.packs ?? [], 'packs', BUILTIN_PACK_IDS.length).map(value => id(value, 'pack ID'));
+  const packs = (input.packs === undefined ? [] : dense(list(input.packs, 'packs', BUILTIN_PACK_IDS.length), 'packs')).map(value => id(value, 'pack ID'));
   unique(packs, 'pack');
   if (packs.some(pack => !BUILTIN_PACK_IDS.includes(pack))) fail(`unknown pack (known: ${BUILTIN_PACK_IDS.join(', ')})`);
   const contentInput = object(input.content ?? {}, 'content', ['expectedLanguage']);
