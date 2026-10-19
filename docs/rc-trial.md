@@ -1,6 +1,6 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: written on 2026-10-19 for `v1.0.0-rc.1`. The owner tags the candidate. The tag form `-rc.N` is defined by R13.45, which lands with #126 (not merged when this guide was written). Tagging needs #126 merged first: the release workflow on `main` handles stable tags only, so until #126 lands no rc tag can be released. Until the tag exists, use the commit form in step 1.
+Status: written on 2026-10-19 for `v1.0.0-rc.1`. The owner tags the candidate. The tag form `-rc.N` is defined by R13.45, which is on `main`, and `release.yml` accepts rc tags. The workflow checks that the tag equals `v` plus `package.json` version plus `-rc.N` and that the commit is on `main`. So the owner tags after this pull request is merged. Until the tag exists, use the commit form in step 1.
 The goal: you try the candidate on one real project, then you tell us if it meets your expectations. The checklist is at the end.
 Use `example-site` in anything you paste into an issue (R12.4). This repository is public.
 
@@ -167,7 +167,7 @@ You do not need to answer these. They are decided.
 - The package adds no guard for sites you do not own (decision 11).
 - Accessibility and component packs live in the package as opt-in entry points (specification section 17, item 6; R13.42).
 - Packs are selected by the `packs` key, IDs only (R13.44).
-- The rc tag form is `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.0.0-rc.1` (R13.45, lands with #126; only the owner tags it).
+- The rc tag form is `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.0.0-rc.1` (R13.45, on `main`; only the owner tags it).
 - Freeze scope: the pack API and the a11y pack are frozen. The lint pack is not (`docs/seam.md`, section 5).
 - Process safeguards (#122): decided. The label `merge-halt` exists. The main-protection ruleset is NOT created yet.
 - 2026-10-19: no `init`; an undecidable axe result stays `complete` with a `warning` (R8.14); `basis` waits for `schemaVersion` 3; the pack API and the a11y pack are frozen, the lint pack is not (`docs/seam.md`, sections 5 and 8).
