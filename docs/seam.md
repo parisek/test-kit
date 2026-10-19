@@ -31,7 +31,7 @@ The seam is everything a project touches: its configuration file, the commands i
 
 Source of truth: `src/config/normalize.js` (`normalizeConfig`), read by `src/config/index.js` (`loadConfig`). The file is JSON only (`JSON.parse`). The default path is `test-kit.config.json` in the working directory. Runtime paths resolve from the directory of the file. The prose is in `src/config/README.md` and `docs/contracts.md`.
 
-The sketch in specification section 5 (`targets: { source: ... }`, `budgets`) is not the shipped shape. The code rejects `budgets`, `packs`, `allowlist`, `lint` and `a11y` as unsupported keys (measured on v0.5.0 and on `main`, 2026-10-19). Any other unknown key at any level also fails.
+The sketch in specification section 5 (`targets: { source: ... }`, `budgets`) is not the shipped shape. The code rejects `budgets`, `allowlist`, `lint` and `a11y` as unsupported keys (measured on v0.5.0 and on `main`, 2026-10-19). The `packs` key was rejected then. It is accepted after 0.5.0 (R13.44). Any other unknown key at any level also fails.
 
 Marking of the file as a whole: frozen for the keys in the table, with `schemaVersion: 1`. A new optional key is an addition. A new required key or a removed key is a break. The defaults and the values of the check IDs are not frozen (see the rows below).
 
@@ -56,6 +56,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `viewports[].deviceScaleFactor` | number | `1` | no | 0.5 to 3. |
 | `artifacts` | list | `["screenshot"]` | no | 1 to 5 of `screenshot`, `html`, `status`, `content`, `behavior`. Additive only. |
 | `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
+| `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
 | `runsRoot` | string | `tests/visual/runs` | no | Plain relative path. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
 | `screenshot.fullPage` | boolean | `true` | no | |
@@ -77,7 +78,7 @@ Items inside the configuration that stay open:
 | Item | Marking | Reason |
 | --- | --- | --- |
 | The default set of `artifacts` and `checks` | Not frozen, owner decision open | Specification section 17, item 2. Vision open decision 4. The shipped defaults are `["screenshot"]` and `[]`. R5.1 says the default set must be small. |
-| A key that selects packs | Not frozen, owner decision open | No key exists. A project selects a pack in code with `resolveChecks` (`src/packs/README.md`). Vision layers rule 2 needs a selection, and the shape is not decided. |
+| Options for a selected pack | Not frozen, owner decision open | The `packs` key takes IDs only (R13.44). The pack API has no options. A pack that needs options needs a new decision. |
 | A key for the ESLint and Stylelint seam | Not frozen, owner decision open | Specification section 17, item 7. Vision open decision 6. |
 | The allowlist (`reason`, `owner`) | Not frozen, owner decision open | ADR 0004, open question 4. No config key exists. |
 | Selection of checks or contracts per target | Not frozen, owner decision open | ADR 0004, open question 2. |
@@ -93,7 +94,7 @@ Source of truth: `templates/` and the `files` list in `package.json` (it ships `
 | --- | --- | --- |
 | `templates/test-kit.config.json` | Frozen as a valid minimal example | It passes `normalizeConfig` (measured on v0.5.0 and on `main`, 2026-10-19). A project copies it by hand. |
 | `templates/test-kit.config.yaml` | Not frozen, planning sketch | Its own header says "Planned configuration sketch". The loader reads JSON only. It uses `budgets` and `targets.source`, which the code rejects. |
-| `test-kit init` | Does not exist (decided). (Decided by the owner, 2026-10-19) | `src/cli/run.js` has no `init`. `tests/integration/check-consumer-install.mjs` asserts `Unknown command: init`. `CHANGELOG.md` 0.2.0 says the package does not implement `init`. The `AGENTS.md` Layout table now says a project copies `templates/` by hand. |
+| `test-kit init` | Does not exist (decided) | `src/cli/run.js` has no `init`. `tests/integration/check-consumer-install.mjs` asserts `Unknown command: init`. `CHANGELOG.md` 0.2.0 says the package does not implement `init`. The `AGENTS.md` Layout table now says a project copies `templates/` by hand. |
 
 ## 3. Commands and flags
 
@@ -130,7 +131,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. (Decided by the owner, 2026-10-19) |
+| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
 | The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` joins the required set at `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 
@@ -227,7 +228,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 ## 8. Gaps found while writing this
 
 1. Decided by the owner, 2026-10-19: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
-2. No config key and no flag selects a pack. Packs work in code only, through `resolveChecks`. Decision needed: the shape of pack selection (section 1, table of open items).
+2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
 3. The six built-in checks export no `basis`, although R7.2 requires it. Decided by the owner, 2026-10-19: deferred to `schemaVersion` 3. It is not an open question.
 
 ## 9. What this document did not check

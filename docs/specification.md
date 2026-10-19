@@ -94,6 +94,7 @@ targets:   { source: manifest | styleguide | list, ... }
 viewports: from the viewport manifest
 artifacts: [screenshot, html, status]          # default set; others on request
 checks:    [heading-outline, lang, empty-alt]  # default set; others on request
+packs:     [a11y]                              # opt-in packs; none by default (R13.44)
 budgets:   { /: { lcp_ms: 2500 } }             # speed limits per target
 known_diffs: { <pair>: [ { target, cause, evidence } ] }   # belongs to a pair, not a side
 ```
@@ -335,6 +336,7 @@ skeleton manifest: 237 files under `static/tests/`.
 - R13.41 The package must own the engine of the behaviour suite: the registry, the discovery, the reporter, the Playwright config and the format of the allowlists. A contract written by one project stays in that project.
 - R13.42 The shared contracts (`picture`, `gsap`, `swiper`, `lightgallery`, `header-*`, `cookieconsent`, `axe`, `hygiene`, `render-integrity`) assert the behaviour of components that the skeleton ships. Accessibility (`axe`) and the component packs must live in the package as opt-in named entry points. A pack must run only when the project selects it (R5.1). Project-owned contracts must stay in the project. A component-specific pack must be versioned per library major version. The runner must detect the version. An unsupported or undetectable version must be a non-pass state (R8.7). A pack moves only in its own pull request. The owner accepted this on 2026-10-18. It supersedes the acceptance of 2026-10-09.
 - R13.43 A move must keep the project-facing seam. While the package is alpha, R13.9 applies. Today a project overrides the canonical lint config in its own `eslint.config.js` and `.stylelintrc.cjs`, and adds contracts in `contracts/project/`. After the owner declares beta, the same project files must keep working with a thin import from the package.
+- R13.44 A project must select packs with the `packs` key of its configuration: a list of built-in pack IDs (`a11y`, `lint`, `swiper`). An absent key selects no pack (G3, R5.1). An unknown ID, a duplicate ID or an entry that is not an ID must fail validation. The key takes no options, because the pack API has none. Config validation must stay pure: it reads a static list of IDs and imports no pack. Code maps the IDs to pack objects and passes them to `resolveChecks`. The selection must not enter the capture settings hash. This does not change the pack API (R13.42). Decided by the owner on 2026-10-19.
 
 Decided by the owner (2026-10-07): the package is `parisek/test-kit`, public from the first commit. R12.4 applies to the whole history.
 

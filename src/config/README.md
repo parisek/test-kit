@@ -18,3 +18,10 @@ Viewport dimensions range from 1 to 4096. Device scale factors range from 0.5
 to 3. A viewport cannot exceed 32 million physical pixels. Capture must also
 bound the final full-page image. The extra settle wait is at most 10 seconds.
 The screenshot timeout is at most 120 seconds.
+
+`packs` is an optional list of built-in pack IDs (`a11y`, `lint`, `swiper`; R13.44).
+An absent key means no packs (G3, R5.1). The list takes IDs only, no options.
+An unknown ID, a duplicate or a non-ID entry fails validation.
+The check reads the static list in `src/packs/ids.js` and imports no pack.
+The selection does not enter the capture settings hash.
+`src/packs/builtin.js` maps the IDs to pack objects for `resolveChecks`.
