@@ -87,7 +87,7 @@ An axe `incomplete` rule (axe could not decide) gives one finding for each rule,
 
 Decision, ratified by the owner on 2026-10-19 as R8.14: an axe `incomplete` result does not open the check. Real pages nearly always have incomplete rules. A `missing` check drops all its findings from class aggregation (R8.12), so a real violation next to one undecidable rule would be lost. The review warning keeps the doubt visible and keeps the violations.
 The same reasoning applies to cut evidence: the check stays `complete`, the kept violations stay, and one `warning` says the list is cut. A cut list is never a clean page, because the cap leaves at least 500 kept violation nodes.
-Consequence, as R8.14 states: these warnings have no `evidence.state`. A consumer that gates only on severity `error` reads review items and a cut list as a pass. That is by design. A consumer that wants to gate on them must test `evidence.needsReview` and `evidence.truncated`.
+Consequence, as R8.14 states: these warnings have no `evidence.state`. A consumer that gates only on severity `error` reads review items and a cut list as a pass. That is by design. A consumer that wants to gate on them must test `evidence.needsReview` or `evidence.truncated`.
 
 `runAxe` never throws for a bad run. It returns an artifact with `missing` or `failed`.
 
