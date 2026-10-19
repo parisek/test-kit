@@ -5,7 +5,7 @@ The tag `v1.0.0-rc.1` is the first candidate. It stays as history.
 The owner tags the candidate on the squash commit of the merged pull request on `main`.
 The tag form `-rc.N` is defined by R13.45, and `release.yml` accepts rc tags.
 The workflow checks that the tag equals `v` plus `package.json` version plus `-rc.N`, and that the commit is on `main`.
-Until the `v1.0.0-rc.2` tag exists, use the commit form in step 1.
+Use the tag form in step 1. The commit form still works.
 The goal: you try the candidate on one real project, then you tell us if it meets your expectations. The checklist is at the end.
 Use `example-site` in anything you paste into an issue (R12.4). This repository is public.
 
@@ -41,9 +41,9 @@ npm install -D @playwright/test@1.64.1
 npx playwright install chromium
 ```
 
-Before the tag exists, pin the commit of the pull request merge instead: `npm install -D github:parisek/test-kit#<commit>`.
+You can pin a commit instead of the tag: `npm install -D github:parisek/test-kit#<commit>`.
 
-One consumer project saw this once, with npm 11.19 and 11.20: `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency, although the spec was `git+https`, for a tag and for a commit. We did not reproduce it, and it is npm behaviour, not a choice of this package. The pilot reported that `npm ci` still worked. A project whose rules require HTTPS can set the `resolved` scheme in the lockfile to `git+https://` by hand. The pilot reported that `npm ci` then works. This workaround is reported by the pilot. It is not yet verified. Check the lockfile diff before you commit it.
+One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
 
 `@playwright/test@1.64.1` is the version that CI uses and the tested one. It is not a requirement. The peer range is `>=1.49`. One consumer project ran `1.63.0` without a problem.
 
