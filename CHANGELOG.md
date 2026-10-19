@@ -16,6 +16,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- Define the release candidate tag `vMAJOR.MINOR.PATCH-rc.N` (R13.45, R13.26). Only the owner tags it. `release.yml` now also runs on an rc tag, applies the same checks and creates a GitHub Release marked as a prerelease from the changelog section `[X.Y.Z-rc.N]`. A stable tag behaves as before. A dev tag still starts no run. A new unit test reads the workflow file.
 - Align the specification with `docs/vision.md` (R13.9, R13.25, R13.26, R13.42). While the package is alpha, a step may break a project. Dev prerelease tags `vMAJOR.MINOR.PATCH-dev.N` are not releases. Accessibility and component packs move into the package as opt-in entry points.
 - Relabel the content, behavior and Lighthouse sections of `docs/contracts.md` from "(unreleased)" to "(v0.2.0)". They shipped in v0.2.0. This is separate from the merge rule and R13.x.
 - Accept ADR 0004 (one result model, option C) and change R7.3: a class applies by the basis of the check, and normaliser rules and known differences apply to relative checks only (R7.3, R11.6). No code changes. The schema, validator, classifier and viewer work follows in later pull requests (R13.9).
