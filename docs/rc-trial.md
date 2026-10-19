@@ -50,7 +50,7 @@ Notes:
 - Node 20 or newer (`engines`).
 - `@playwright/test` is a peer dependency (`>=1.49`). `capture` and `run` need it and a browser. See [Playwright browsers](https://playwright.dev/docs/browsers).
 - `axe-core` (`^4.10.0`) is an optional peer. Install it only for the a11y runner. `lighthouse` is an optional peer for `perf`.
-- Not verified: the install from the real `github:` URL. The tag does not exist yet. I verified the same install from a local `npm pack` tarball and from a `git+file://` URL of the branch (see the pull request). The install command above is the one in `docs/upgrade-from-0.5.md` and R13.27.
+- Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Not verified: the form with the tag `#v1.0.0-rc.1`, because the tag does not exist yet. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
 
 ## 2. Minimal configuration for a first run
 
