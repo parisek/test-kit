@@ -2,6 +2,14 @@
 
 <!-- What changes and why. Cite the requirement number (R6.7) when the change meets or changes one. -->
 
+## Tier, principle and requirement
+
+<!-- `docs/vision.md`, "How the agent decides". Fill in each line. -->
+
+- Tier (1, 2 or 3):
+- Principle (number from `docs/vision.md`):
+- Requirement (R-number, or "none"):
+
 ## Checklist
 
 - [ ] The title is a Conventional Commit (`feat(capture): ...`). The squash commit uses it.
