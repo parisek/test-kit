@@ -34,7 +34,7 @@ node bin/cli.js --help     # the command line
 | `src/<area>/` | One area for each part of the architecture. Each folder has a README with its contract and its spec sections. |
 | `frontend/` | Vue source, Tailwind tokens, and the isolated Vite build. |
 | `viewer/` | The compiled viewer. Do not edit it by hand. |
-| `templates/` | Sample files that a project copies by hand. There is no `init` command. |
+| `templates/` | A sample config (`test-kit.config.json`) and a planning sketch. A project copies the JSON file by hand. There is no `init` command. |
 | `tests/unit/` | Pure logic. No browser, no network. |
 | `tests/fixtures/` | Sample data only. |
 | `docs/adr/` | Decision records. |

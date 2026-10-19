@@ -46,9 +46,9 @@ An empty plan gives run state `missing`. The run state is `complete` only when e
 
 Versioned contract sets and library version detection live in `versioned/README.md` (R13.42).
 Not built yet: threshold overrides, allowlists (ADR 0004, open question 4), and the `schemaVersion` 3 report fields (R13.9).
-The six built-in content checks in `src/checks` stay as they are. They have no `basis`. The owner decided that `basis` for them waits for `schemaVersion` 3.
+The six built-in content checks in `src/checks` stay as they are. They have no `basis`. The owner decided on 2026-10-19 that `basis` for them waits for `schemaVersion` 3.
 
-Freeze scope at 1.0 (`docs/seam.md`, section 5): the pack API in this folder (`definePack`, `validateCheck`, `resolveChecks`, `runChecks`, `LAYERS`, `BASES` and the input contract) and the accessibility pack are frozen. The lint pack is not frozen and may change in a minor release.
+Freeze scope at 1.0, decided by the owner on 2026-10-19 (`docs/seam.md`, section 5): the pack API in this folder (`definePack`, `validateCheck`, `resolveChecks`, `runChecks`, `LAYERS`, `BASES` and the input contract) and the accessibility pack are frozen. The lint pack is not frozen and may change in a minor release.
 
 Packs in the package: the accessibility pack (axe) is in `src/packs/a11y/` (`@parisek/test-kit/packs/a11y`).
 The lint pack (ESLint and Stylelint) is in `src/packs/lint/` (`@parisek/test-kit/packs/lint`): [lint/README.md](lint/README.md).

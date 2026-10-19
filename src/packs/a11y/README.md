@@ -2,7 +2,7 @@
 
 An opt-in pack for the pack API (`src/packs`). It checks one stored `a11y` artifact with the axe-core rules (R7.2, R13.42).
 Nothing here runs by default. A project must select the pack (G3, R5.1).
-The pack API of this pack is frozen at 1.0 (`docs/seam.md`, section 5).
+The pack API of this pack is frozen at 1.0 (decided by the owner, 2026-10-19; `docs/seam.md`, section 5).
 Automated rules find only part of the accessibility problems. This pack does not replace manual testing.
 
 ## Parts
@@ -85,7 +85,7 @@ An axe `incomplete` rule (axe could not decide) gives one finding for each rule,
 | A malformed or tampered artifact, or counts that do not match | `failed` |
 | Run complete, with violations or review warnings | `complete`. The findings carry the result. |
 
-Decision, ratified by the owner as R8.14: an axe `incomplete` result does not open the check. Real pages nearly always have incomplete rules. A `missing` check drops all its findings from class aggregation (R8.12), so a real violation next to one undecidable rule would be lost. The review warning keeps the doubt visible and keeps the violations.
+Decision, ratified by the owner on 2026-10-19 as R8.14: an axe `incomplete` result does not open the check. Real pages nearly always have incomplete rules. A `missing` check drops all its findings from class aggregation (R8.12), so a real violation next to one undecidable rule would be lost. The review warning keeps the doubt visible and keeps the violations.
 The same reasoning applies to cut evidence: the check stays `complete`, the kept violations stay, and one `warning` says the list is cut. A cut list is never a clean page, because the cap leaves at least 500 kept violation nodes.
 Consequence, as R8.14 states: these warnings have no `evidence.state`. A consumer that gates only on severity `error` reads review items and a cut list as a pass. That is by design. A consumer that wants to gate on them must test `evidence.needsReview` and `evidence.truncated`.
 
