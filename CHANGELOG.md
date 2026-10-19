@@ -10,7 +10,7 @@ Second release candidate for 1.0.0. The owner tags it. It is not a stable releas
 
 ### Added
 
-- Add Dependabot for the root package, `frontend/` and GitHub Actions, a code owners file, a pull request template and issue templates. These files are not part of the package. Dependabot version updates start once this is on `main`.
+- Add Dependabot for the root package, `frontend/` and GitHub Actions, a code owners file, a pull request template and issue templates. These files are not part of the package. Dependabot opened its first update pull requests (#130 to #134) after the setup landed on `main`.
 
 ### Changed
 
