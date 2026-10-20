@@ -62,7 +62,8 @@ export function recoveryAction({ lock, stage, backup, dir }, paths) {
   if (!lock && !stage && !backup) return null;
   const rest = (...items) => items.filter(Boolean).join(' and ');
   if (backup && !dir) {
-    return `rename ${paths.backup} to ${paths.dir}, then remove ${rest(stage && paths.stage, lock && paths.lock) || 'nothing else'}. The old content is only in the backup.`;
+    const then = stage ? `, then remove ${rest(paths.stage, lock && paths.lock)}` : lock ? `, then remove only the lock ${paths.lock}` : '';
+    return `rename ${paths.backup} to ${paths.dir}${then}. The old content is only in the backup.`;
   }
   if (backup && !stage) {
     return lock
@@ -82,7 +83,9 @@ function recoveryMessage(state, paths) {
   const lines = [`test-kit: a refresh left files beside ${paths.dir}. The command stops and deletes nothing.`];
   for (const key of ['lock', 'stage', 'backup']) if (state[key]) lines.push(`  ${key}: ${paths[key]}`);
   lines.push(`Action: ${recoveryAction(state, paths)}`);
-  lines.push('Check first for a crashed refresh. Make sure no refresh runs before you remove the lock.');
+  lines.push(state.lock
+    ? 'Check first for a crashed refresh. Make sure no refresh runs before you remove the lock.'
+    : 'Check first for a crashed refresh.');
   return lines.join('\n');
 }
 
@@ -213,7 +216,7 @@ export async function publishHistory({ local, dir, now = new Date(), cwd = proce
     if (state.stage || state.backup) throw new Error(recoveryMessage(state, paths));
     await checkContent(fs, paths.dir);
   } catch (error) {
-    await release();
+    if (await release()) error.message += `\nThe command could not remove the lock ${paths.lock}. The next run refuses until you remove it.`;
     throw error;
   }
 

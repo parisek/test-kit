@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { exportReport } from '../../src/export/report.js';
 import { MARKER, MARKER_VALUE, publishHistory, recoveryAction } from '../../src/export/publish.js';
 import { parseCommand, run } from '../../src/cli/run.js';
 import { validId } from '../../src/history/valid-id.js';
@@ -361,8 +362,8 @@ test('the recovery table gives the specified action in all 16 states', () => {
   const state = key => ({ backup: key[0] === '1', stage: key[1] === '1', dir: key[2] === '1', lock: key[3] === '1' });
   const action = key => recoveryAction(state(key), p);
   // Row 1 (B present, D absent), S any, L present or absent.
-  assert.equal(action('1001'), `rename ${p.backup} to ${p.dir}, then remove ${p.lock}. The old content is only in the backup.`);
-  assert.equal(action('1000'), `rename ${p.backup} to ${p.dir}, then remove nothing else. The old content is only in the backup.`);
+  assert.equal(action('1001'), `rename ${p.backup} to ${p.dir}, then remove only the lock ${p.lock}. The old content is only in the backup.`);
+  assert.equal(action('1000'), `rename ${p.backup} to ${p.dir}. The old content is only in the backup.`);
   assert.equal(action('1101'), `rename ${p.backup} to ${p.dir}, then remove ${p.stage} and ${p.lock}. The old content is only in the backup.`);
   assert.equal(action('1100'), `rename ${p.backup} to ${p.dir}, then remove ${p.stage}. The old content is only in the backup.`);
   // Row 2 (B present, S absent, D present).
@@ -414,7 +415,7 @@ test('stray siblings refuse the start, print their paths and the action, and del
       for (const key of ['lock', 'stage', 'backup']) assert.equal(error.message.includes(names[key]), state[key], `${key} ${JSON.stringify(state)}`);
       assert.match(error.message, /Action: /);
       assert.match(error.message, /crashed refresh/);
-      assert.match(error.message, /no refresh runs before you remove the lock/);
+      assert.equal(/no refresh runs before you remove the lock/.test(error.message), state.lock);
       return true;
     });
     assert.deepEqual(await siblings(f.dir), before);
@@ -645,4 +646,57 @@ test('no stage, backup or lock is left after success', async t => {
   await publishHistory(f.base);
   assert.deepEqual(await siblings(f.dir), none);
   assert.deepEqual((await readdir(f.proj)).sort(), ['.test-kit', 'site']);
+});
+
+test('S1 re-check failure that cannot release the lock names the retained lock', async t => {
+  const f = await fixture(t);
+  const lock = f.dir + '.test-kit-lock';
+  const fs = {
+    mkdir: async (path, ...rest) => { const result = await mkdir(path, ...rest); if (path === lock) await mkdir(f.dir + '.test-kit-new'); return result; },
+    rm: async (path, ...rest) => { if (path === lock) throw new Error('busy'); return rm(path, ...rest); },
+  };
+  await assert.rejects(publishHistory({ ...f.base, fs }), error => /test-kit-new/.test(error.message) && error.message.includes(`could not remove the lock ${lock}`));
+  assert.ok(await exists(lock));
+});
+
+test('a mount point is refused (fake device number through the fs seam)', async t => {
+  const f = await fixture(t);
+  await mkdir(f.dir);
+  const fs = { lstat: async path => { const info = await lstat(path); return path === f.dir ? Object.create(info, { dev: { value: info.dev + 1 } }) : info; } };
+  await assert.rejects(publishHistory({ ...f.base, fs }), /mount point/);
+  assert.deepEqual(await siblings(f.dir), none);
+});
+
+test('entries named like Object.prototype members are foreign, not owned', async t => {
+  const f = await fixture(t);
+  await publishHistory(f.base);
+  for (const name of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    await mkdir(join(f.dir, name));
+    await assert.rejects(publishHistory(f.base), error => error.message.includes(join(f.dir, name)), name);
+    await rm(join(f.dir, name), { recursive: true });
+  }
+});
+
+test('S1 EEXIST: the lock appears after the item 7 check; it stays and the command refuses with the recovery message', async t => {
+  const f = await fixture(t);
+  const lock = f.dir + '.test-kit-lock';
+  let hidden = true;
+  const fs = {
+    lstat: async path => { if (path === lock && hidden) { const error = new Error('gone'); error.code = 'ENOENT'; throw error; } return lstat(path); },
+    mkdir: async (path, ...rest) => { if (path === lock) { await mkdir(lock); hidden = false; } return mkdir(path, ...rest); },
+  };
+  await assert.rejects(publishHistory({ ...f.base, fs }), error => /Action: remove .*test-kit-lock/.test(error.message) && error.message.includes(lock));
+  assert.ok(await exists(lock));
+});
+
+test('report export with a missing report creates no directory', async t => {
+  const f = await fixture(t);
+  const outputDir = join(f.root, 'new-parent', 'export');
+  await assert.rejects(exportReport({ reportPath: join(f.root, 'no-report.json'), outputDir }));
+  assert.ok(!await exists(join(f.root, 'new-parent')));
+  assert.deepEqual((await readdir(f.root)).sort(), ['proj']);
+  // Invalid report data fails before any directory too.
+  await writeFile(join(f.root, 'bad.json'), '{"schemaVersion":9}');
+  await assert.rejects(exportReport({ reportPath: join(f.root, 'bad.json'), outputDir }));
+  assert.ok(!await exists(join(f.root, 'new-parent')));
 });
