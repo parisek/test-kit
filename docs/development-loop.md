@@ -59,6 +59,11 @@ An issue is eligible for standalone work when its decisions are resolved and
 dependencies are merged. A draft PR does not satisfy a dependency. Dependent
 layers may develop together in a native stack under the rules below.
 
+Record each unresolved viewer design conflict as a design-decision item. Name the
+owner question and the dependent issues. Mark the dependent issues
+`awaiting-owner`. Do not open their pull requests. Select another independent
+issue (`docs/vision.md`, "Design authority").
+
 Suggested states: proposed, ready, active, review, awaiting-owner, blocked, done.
 Use these as an agreed convention before adding labels or editing issues.
 Use the parallel waves in `issue-backlog.md`. Run up to three workers and one
@@ -178,7 +183,7 @@ source of this rule. `AGENTS.md` and this section mirror it. A change merges whe
 
 Reviewer rules:
 
-1. A reviewer gets the diff, the specification and the vision. It does not get the
+1. A reviewer gets the diff, the specification and the vision. For a viewer change it also gets `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md`. It does not get the
    description of the change or the author's reasoning.
 2. A reviewer starts in a fresh context. It is never a fork of the author.
 3. An empty, partial or failed review counts as a fail, not as an abstention.
