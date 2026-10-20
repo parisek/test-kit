@@ -6,7 +6,7 @@ One consumer project ran part of this guide once, on 2026-10-19, against a local
 
 The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its pin is `v0.2.1` (`docs/vision.md`, End state). The text uses `v0.2.1` as the worked example.
 
-Move once, onto a release candidate tag. The tags `v1.0.0-rc.1`, `v1.0.0-rc.2` and `v1.0.0-rc.3` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
+Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` and `v1.0.0-rc.2` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
 
 ## What the move covers
 
