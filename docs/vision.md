@@ -51,6 +51,21 @@ Sharing rules (principle 4 holds: no account, no upload, no hosted service):
 - Captured pages can hold personal or client data. A refresh prints the absolute directory and says it contains captured pages. This is a message, not a gate (principle 3).
 - Retention and deletion stay open for a project that shares (spec section 17, item 4).
 
+## Design authority
+
+Three files govern the viewer (`frontend/` and `viewer/`):
+
+- `PRODUCT.md`: who uses the viewer and for what job.
+- `DESIGN.md`: the visual system. It builds on the styleguide token contract in `frontend/ui-contract`.
+- `docs/viewer-workflow.md`: the screens, the paths between them and the deep link.
+
+Rules:
+
+1. Viewer work conforms to these files. A reviewer cites the lines it checked, as for a requirement. The specification and this document win over them when they disagree.
+2. A token, a component, a screen or a path that the files do not name is not added. A deviation without approval is a defect, not a choice.
+3. When the work needs a change to one of these files, the work stops. The change goes in its own pull request with the reason. It is a change of the vision as a whole: Tier 3, and the owner approves it.
+4. These files do not change the query interface (`summary`, `query`, `report.json`). The agent interface follows the specification only (principle 2).
+
 ## Principles
 
 The order is the order of priority. When two principles conflict, the earlier one wins.
@@ -147,7 +162,7 @@ Tier 2, decide and report. A choice between designs that both keep every princip
 
 Tier 3, ask first. Any of these:
 
-- any change to this document,
+- any change to this document, to `PRODUCT.md`, to `DESIGN.md` or to `docs/viewer-workflow.md`,
 - a change to a principle, goal or non-goal (a numbered requirement changes only through a spec edit that the owner has directed; record the reason in the spec),
 - a new runtime dependency,
 - a change to a default, to retention, or to the default check set,
@@ -204,6 +219,7 @@ This document adds three questions.
 1. Which principle does it serve, and which requirement does it meet or change?
 2. What does a reader, a project or the codebase gain that someone can observe or measure? Direct value is a result in the viewer or the query. Indirect value is security hardening, a refactor, documentation, test infrastructure or a dependency update. An indirect issue states the risk it removes and how to check that.
 3. Does it add a default behavior? If yes, it is Tier 3.
+4. For viewer work: which lines of `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md` does it follow? If it needs those files to change, it is Tier 3.
 
 When an issue fails, do not create it. Write the reason in the roadmap.
 
@@ -226,6 +242,7 @@ The agent then selects another independent issue if one exists.
 - The acceptance example runs and the record says so.
 - `npm test` passes. Browser or viewer checks run where the change touches them, and the record says which ran.
 - The viewer and the query interface agree.
+- A viewer change cites the lines of `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md` that it follows.
 - The specification and the linked issue are in step.
 - The record separates what the agent changed from what it verified.
 
