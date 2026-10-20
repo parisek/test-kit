@@ -91,9 +91,9 @@ components:
 
 # Design System: test kit viewer
 
-Tier 3 by the owner's rule of 2026-10-20 (see #151): the owner approves a change to this file.
+A change to a rule, a token set or a path in this file is Tier 3. A record of an approved decision is Tier 1 (`docs/vision.md`, Design authority, rule 6). The owner approves the Tier 3 changes (see #151).
 
-Decisions D1 to D15 of #153 are recorded below. The owner accepted all recommended options on 2026-10-20 (artifact choice sheet, pasted in chat).
+Decisions D1 to D15 of #153 are recorded below. The owner accepted the recommended option of each on 2026-10-20, as the choice sheet showed it (the option text and its preview are the decision).
 
 Status: target design for the viewer redesign (issue #148). It is not the current state of `frontend/`. It supersedes R10.3 (collapsible left column), R10.4 (the list of views) and R10.5 (the first view by pair kind) only after the owner approves a specification change. Until then the specification wins. The current badge colors in `frontend/src/style.css` differ from the verdict colors below.
 
@@ -123,7 +123,7 @@ Neutrals come from the contract, so the viewer matches the other tools. The four
 - **Verdict incomplete (amber):** `#b45309`. In dark, `#fbbf24`. Incomplete is a measurement state (R8.12), shown beside the class, never as a class.
 - **Oracle and unclassified (neutral):** the muted text color with the word. An oracle target (R8.12) is not a pass or a fail. An unclassified target has no class because evidence is missing. Neither gets a verdict color.
 
-Counts: a count above zero uses its verdict color. A count of zero uses the muted text color. The classes show first (match, explained, unexplained, and oracle only when above zero). A rule separates the measurement state. Incomplete is a separate count beside it, labelled as a state, never as a class.
+Counts: a count above zero uses its verdict color (an oracle count uses the muted text color). A count of zero uses the muted text color. The classes show first (match, explained, unexplained, and oracle only when above zero). A rule separates the measurement state. Incomplete is a separate count beside it, labelled as a state, never as a class.
 
 Rule: a verdict color appears on a dot, a count or a word. It never fills a whole row or a selected state. A selected row uses the neutral active surface.
 
@@ -162,7 +162,7 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 - **Verdict count:** a number, a word and a color. Counts stay visible under every filter.
 - **Verdict wording:** a run has a sentence derived from the classes ("Nothing changed", "1 page differs"). A row, a cell and a finding use the class word (match, unexplained).
 - **Comparison row:** a verdict dot, a local time, a verdict word, a short detail, the change against the previous row, and a short identifier in mono, after the word "update" when the kind is shown. A whole row is a link. On hover it takes the toolbar tint in light. In dark it lightens its border to the control border color. It does not underline and changes no opacity.
-- **Latest comparison card:** the first element of the Home. It shows the verdict sentence, the time, the four counts and an "Open comparison" button.
+- **Latest comparison card:** the first element of the Home. It shows the verdict sentence, the time, the verdict counts and an "Open comparison" button.
 - **Verdict history strip:** one dot for each comparison, oldest on the left, each with a time and a class word under it.
 - **Small heading:** the label style (0.8125rem, 500, muted). It carries a caption such as "Latest comparison". Identifiers inside it use the record style.
 - **Page counter:** "n of N" in the record style, between the older and newer links.
@@ -172,7 +172,7 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 - **Theme toggle:** a text button at the right of the header: "Dark theme" or "Light theme".
 - **Breadcrumb:** the way back is always the first element in the content column.
 - **Tabs:** real buttons with `role="tab"`. The selected tab has a 3px bottom border in the active surface color and bold text. The tab never changes by itself. If the app opens a tab for the person, it says why.
-- **Disclosure:** for measurement context, capture details and help. Closed by default. The A and B run cards and the decision block stay open.
+- **Disclosure:** for measurement context, capture details and help. Closed by default. The A and B run cards stay open.
 
 ## Do's and Don'ts
 
