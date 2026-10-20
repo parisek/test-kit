@@ -16,6 +16,8 @@ colors:
   verdict-explained: "#1d4ed8"
   verdict-incomplete: "#b45309"
   dark-surface: "#18181b"
+  dark-active-surface: "#f4f4f5"
+  dark-active-text: "#18181b"
   dark-text: "#f4f4f5"
   dark-muted: "#d4d4d8"
   dark-border: "#27272a"
@@ -76,13 +78,15 @@ components:
 
 # Design System: test kit viewer
 
+Status: target design for the viewer redesign (issue #148). It is not the current state of `frontend/`. It supersedes R10.3 (collapsible left column), R10.4 (the list of views) and R10.5 (the first view by pair kind) only after the owner approves a specification change. Until then the specification wins. The current badge colors in `frontend/src/style.css` differ from the verdict colors below.
+
 ## Overview
 
 **Creative North Star: "The Laboratory Notebook"**
 
 The viewer is a careful record of measurements. Each entry has a time and a short identifier. The page states what was measured, what was not, and what the person may decide. It adds no decoration. It does not hide a gap behind a color.
 
-The system keeps the shared UI token contract of the styleguide (`frontend/ui-contract`, version 0.1.0): zinc neutrals, the system font, a red focus ring and a `dark` class. The viewer adds one thing the contract does not have: verdict colors.
+The system keeps the shared UI token contract of the styleguide (`frontend/ui-contract`, version 0.1.0): zinc neutrals, the system font, a red focus ring and a `dark` class. The viewer adds to the contract: verdict colors, a touch size of 2.75rem and a type scale. In dark, the active surface is `#f4f4f5` and the active text `#18181b`, as the contract defines.
 
 **Key characteristics:**
 - Medium density. A row holds one finding or one comparison.
