@@ -1,7 +1,7 @@
 # ADR 0005: Static data first, viewer without a server
 
 Status: accepted by the owner in chat on 2026-10-20 ("Přijímám. Pojď to celé postavit"). This was the Tier 3 approval for the vision and R10.11 edit. Work packages 2 to 5 follow in separate pull requests.
-Requirements: R10.1, R10.10, R10.11, R5.1, R8.9. Principles: 2, 4, 5, 6. Tracked in a new issue (see the pull request).
+Requirements: R10.1, R10.10, R10.11, R10.12, R10.13, R5.1, R8.9. Principles: 1, 2, 3, 4, 5, 6. Tracked in a new issue (see the pull request).
 
 ## Context
 
@@ -24,8 +24,8 @@ The gap: there is no stable place to read from. A new export needs a new directo
 1. **The package writes data. The viewer reads data.** The contract between them is a directory: report JSON, evidence files and an index.
 2. **The viewer is a static application.** It needs no process. It loads under any URL prefix (R10.11).
 3. **The server is a convenience.** `report` and `history` without `--export` stay. Workflow documents name the static path first.
-4. **A stable publish directory.** A project sets one directory (for example `site`, outside the store; the store default is `.test-kit`). A new command mode, `history --publish DIR`, refreshes it in place. The refresh stages the new content, renames the old directory to a backup, renames the stage to the directory and removes the backup. This is a recoverable two-rename swap, not an atomic one. The directory can be briefly missing. A failed refresh restores the old content or leaves it under the backup name (R10.12).
-5. **An index file.** The directory holds `index.json`. It lists runs and reports with an id, a kind, a time, the `settingsHash` and a relative path. The viewer reads it. Order and content are generated, never hand-edited.
+4. **A stable publish directory.** A project sets one directory (for example `site`, outside the store; the store default is `.test-kit`). A new command mode, `history --publish DIR`, refreshes it in place. A lock directory (exclusive `mkdir`) refuses a concurrent refresh. The refresh builds a stage, renames the old directory to a backup, renames the stage to the directory and removes the backup. This is a recoverable two-rename swap, not an atomic one. The directory can be briefly missing. The old content is always in the directory or in the backup (R10.12).
+5. **An index file.** The directory holds `index.json`. It lists runs and reports with an id, a kind, a time, the `settingsHash`, the number of targets and a relative path. The viewer reads it. Order and content are generated, never hand-edited.
 6. **One viewer copy for each directory.** Reports in the directory share it. A report directory holds data and evidence only.
 7. **Several projects.** Each project writes its own directory. The viewer is the same code in each. The package adds no registry of projects.
 
@@ -45,7 +45,7 @@ Principle 4 stays: no account, no upload, no hosted service. The package never p
 - **Keep the server as the main path.** A process per project, one port each, no link from a styleguide. Fails the stated need.
 - **A hosted viewer.** Breaks principle 4.
 - **Query strings for state.** Hosting may drop them (R10.10).
-- **Overwrite by default.** `--export` keeps its refusal. The in-place refresh is a separate, named mode, so a typing error cannot delete an export.
+- **Overwrite by default.** `--export` keeps its refusal. The in-place refresh is a separate, named mode, so a typing error is unlikely to replace an export. A marker file limits the refresh to directories that declare themselves as publish directories. It does not stop a deliberate forgery (R10.12).
 
 ## Not verified
 
