@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- Add `buildPublishIndex` in `src/export/index-file.js`, the pure writer for the publish `index.json` (R10.13). No command uses it yet.
+
 ### Changed
 
 - Specify static-first output (ADR 0005). R10.1 and R10.11 change. R10.12 (in-place refresh of a publish directory) and R10.13 (`index.json`) are new. The vision gains a "Static first" section. This changes documents only. The code does not follow yet.
