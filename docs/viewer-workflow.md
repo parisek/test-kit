@@ -1,6 +1,6 @@
 # Viewer workflow and navigation map
 
-Status: proposal for issue #148. Tier 3 by the owner's rule of 2026-10-20 (see #151): the owner approves this file. It is a target, not the current state. It differs from R10.3 (collapsible left column), R10.4 (views: target detail, matrix, findings, timeline, speed, content) and R10.5 (first view by pair kind). The proposed Overview, Evidence, Findings and Run info replace them only after the owner approves a specification change. It serves principles 1, 2 and 3 of `docs/vision.md` (V1 to V4 in `PRODUCT.md`) and R10.1, R10.11, R10.13. It is not a requirement until the specification adopts it. Sample data comes from `example-site`.
+Status: proposal for issue #148. A change to a rule or a path in this file is Tier 3. A record of an approved decision is Tier 1 (`docs/vision.md`, Design authority, rule 6). It is a target, not the current state. It differs from R10.3 (collapsible left column), R10.4 (views: target detail, matrix, findings, timeline, speed, content) and R10.5 (first view by pair kind). The proposed Overview, Evidence, Findings and Run info replace them only after the owner approves a specification change. It serves principles 1, 2 and 3 of `docs/vision.md` (V1 to V4 in `PRODUCT.md`) and R10.1, R10.11, R10.13. It is not a requirement until the specification adopts it. Sample data comes from `example-site`.
 
 ## Who uses the viewer
 
@@ -52,14 +52,16 @@ flowchart TD
 
 ## Decision actions
 
+On a finding the page shows four labelled actions: Fix (copy the link), Known difference (copy the command), Noise or unstable (not defined yet) and Pass on (copy the link). Decided by the owner on 2026-10-20 (#153, D15).
+
 The viewer is a static application. It cannot run a command or write a file. A decision action therefore produces text for the person to use:
 
 | Decision | What the viewer offers | What exists today |
 | --- | --- | --- |
 | Fix | Copy the link. The task or the agent gets the same view. | The link holds only `#r-<id>`. |
-| Mark as a known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT` with the report, target, viewport and artifact filled in. The person adds the cause and the reason and runs it. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. | The command exists. The viewer does not build it. |
-| Mark as noise or unstable | Not defined. A noise floor is measured per pair (R8.3). What a mark stores is an owner decision. | None. |
-| Pass it on | Copy the link. Later: an evidence bundle (issue #149). | None. |
+| Known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT` with the report, target, viewport and artifact filled in. The person adds the cause and the reason and runs it. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. | The command exists. The viewer does not build it. |
+| Noise or unstable | Not defined. A noise floor is measured per pair (R8.3). What a mark stores is an owner decision. | None. |
+| Pass on | Copy the link. Later: an evidence bundle (issue #149). | None. |
 
 ## Deep link grammar (proposal)
 
