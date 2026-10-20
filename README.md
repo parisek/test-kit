@@ -141,6 +141,8 @@ extraction remains unsupported.
 
 Static export requires v0.4.0 or newer.
 
+The package writes data to disk. A static viewer reads it. The Node server (`report`, `history` without a flag) is a convenience, not a requirement (ADR 0005).
+
 Export a comparison or the stored history without starting a Node server:
 
 ```sh
@@ -176,6 +178,8 @@ The command refuses these `DIR` values before it writes anything: a missing or n
 Beside `DIR` the command makes three siblings: `DIR.test-kit-lock`, `DIR.test-kit-new` and `DIR.test-kit-old`. Add all three to `.gitignore`. After a crash, the next run refuses to start. It prints the paths and the one-line action from the recovery table in R10.12 and deletes nothing. The refresh is not atomic: a reader can see a missing `DIR` for a short time between two renames. Put server rules such as `.htaccess` outside `DIR`.
 
 On success the command writes `test-kit: published to <absolute dir>; the directory contains captured pages.` to stderr. `run.json` holds the run `settings`, so the directory publishes them. The package never uploads or exposes `DIR`. The project decides what its web server does and who can read it.
+
+The viewer in `DIR` reads `index.json` with `fetch`. A browser blocks that on a `file://` URL. Open `DIR` through any static web host, for example `python3 -m http.server --bind 127.0.0.1` in `DIR`. The directory contains captured pages, so keep it local unless the project decides to share it.
 
 See [static export requirements](https://github.com/parisek/test-kit/issues/86).
 
