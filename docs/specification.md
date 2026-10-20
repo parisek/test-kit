@@ -319,7 +319,7 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
   - `targets` is the number of `entries` in the raw `report.json`, or `null` when `entries` is not an array.
   - `path` is `null` for an unreadable entry. Otherwise it points to a file that is in `DIR`, and never to a missing file. It is relative to the directory: `reports/<id>/report.json` or `runs/<id>/run.json`. No path is absolute or holds `..`.
   - Unknown or unreadable is `null`, never `0` or an empty string (principle 1). An unreadable entry stays in the list with `null` fields.
-  - Both lists sort newest first by `createdAt`, `null` last, ties by `id`, descending, in code-unit order. This matches `scanHistory`, which sorts ids descending (`src/history/index.js`).
+  - Both lists sort newest first by `createdAt`, `null` last, ties by `id`, descending, by plain string comparison (`a > b`), not locale comparison. Valid ids use only `[A-Za-z0-9_-]`, so the order is by code unit. `scanHistory` uses `localeCompare`, which can differ for ids that differ in case. The index writer does not reuse that order.
   - The viewer treats the content as untrusted text (R10.6). A reader ignores an unknown field. An unknown `schemaVersion` is an error.
 
 ---
