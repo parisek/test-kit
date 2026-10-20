@@ -119,6 +119,13 @@ async function checkContent(fs, dir) {
   }
 }
 
+// Preflight item 6: `target` is missing or a real directory. A link or a file is refused.
+async function checkLeaf(fs, target) {
+  const info = await lstatOrNull(fs, target);
+  if (info && !info.isDirectory()) throw new Error(`Refused: ${target} is a ${info.isSymbolicLink() ? 'symbolic link' : 'file, not a directory'}.`);
+  return info;
+}
+
 async function preflight({ fs, local, dir, cwd, home }) {
   // Item 2: pure string check, before any lstat.
   const leaf = basename(dir);
@@ -145,7 +152,7 @@ async function preflight({ fs, local, dir, cwd, home }) {
     if (info.dev !== around.dev) throw new Error(`Refused: ${target} is a mount point.`);
   }
   // Item 6.
-  if (info && !info.isDirectory()) throw new Error(`Refused: ${target} is a ${info.isSymbolicLink() ? 'symbolic link' : 'file, not a directory'}.`);
+  await checkLeaf(fs, target);
   // Item 7.
   const state = await readState(fs, paths);
   if (state.lock || state.stage || state.backup) throw new Error(recoveryMessage(state, paths));
@@ -179,11 +186,16 @@ async function buildStage({ fs, local, paths, now, warnings }) {
       await writeReportEvidence({ reportPath: await historyEvidencePath(local, 'reports', id, 'report.json'), targetDir });
       reportCount += 1;
     } catch (error) {
-      // A missing or oversized evidence file is an expected state (R10.12 rule 1). Any other error fails the refresh.
-      if (error.code !== 'ENOENT' && error.code !== 'EFBIG') throw error;
+      // Missing or oversized evidence, or a report that fails validation, is an expected state (R10.12 rule 1).
+      // Any other error fails the refresh and names the report.
+      if (error.code !== 'ENOENT' && error.code !== 'EFBIG' && error.code !== 'EINVALIDREPORT') {
+        error.message = `report ${id}: ${error.message}`;
+        throw error;
+      }
       await fs.rm(targetDir, { recursive: true, force: true });
       unavailable.push(id);
-      warnings.push(`test-kit: warning: report ${id} has missing or oversized evidence (${error.code}). It is listed without a path and nothing is copied.`);
+      const why = error.code === 'EINVALIDREPORT' ? `fails validation (${error.message})` : `has missing or oversized evidence (${error.code})`;
+      warnings.push(`test-kit: warning: report ${id} ${why}. It is listed without a path and nothing is copied.`);
     }
   }
   const index = buildPublishIndex(history, { now, unavailableReportIds: unavailable });
@@ -214,6 +226,7 @@ export async function publishHistory({ local, dir, now = new Date(), cwd = proce
   try {
     const state = await readState(fs, paths, { assumeLockAbsent: true });
     if (state.stage || state.backup) throw new Error(recoveryMessage(state, paths));
+    await checkLeaf(fs, paths.dir);
     await checkContent(fs, paths.dir);
   } catch (error) {
     if (await release()) error.message += `\nThe command could not remove the lock ${paths.lock}. The next run refuses until you remove it.`;

@@ -700,3 +700,63 @@ test('report export with a missing report creates no directory', async t => {
   await assert.rejects(exportReport({ reportPath: join(f.root, 'bad.json'), outputDir }));
   assert.ok(!await exists(join(f.root, 'new-parent')));
 });
+
+test('S1 re-check: DIR swapped for a symbolic link after the lock is refused; nothing is followed', async t => {
+  const f = await fixture(t);
+  await publishHistory(f.base);
+  await rename(f.dir, join(f.root, 'elsewhere'));
+  await mkdir(f.dir);
+  const before = await tree(join(f.root, 'elsewhere'));
+  const lock = f.dir + '.test-kit-lock';
+  const fs = { mkdir: async (path, ...rest) => {
+    const result = await mkdir(path, ...rest);
+    if (path === lock) { await rm(f.dir, { recursive: true }); await symlink(join(f.root, 'elsewhere'), f.dir); }
+    return result;
+  } };
+  await assert.rejects(publishHistory({ ...f.base, fs }), /symbolic link/);
+  assert.deepEqual(await siblings(f.dir), none);
+  assert.ok((await lstat(f.dir)).isSymbolicLink());
+  assert.deepEqual(await tree(join(f.root, 'elsewhere')), before);
+});
+
+test('a readable but invalid report is skipped like missing evidence', async t => {
+  const f = await fixture(t);
+  await mkdir(join(f.local, 'reports/rep-bad'), { recursive: true });
+  await writeFile(join(f.local, 'reports/rep-bad/report.json'), JSON.stringify({ schemaVersion: 9, meta: { generated: '2026-01-03T00:00:00.000Z' }, entries: [{}, {}] }));
+  const result = await publishHistory(f.base);
+  assert.deepEqual(result.unavailable, ['rep-bad']);
+  assert.match(result.warnings[0], /report rep-bad fails validation/);
+  assert.ok(!(await tree(f.dir)).some(name => name.startsWith('reports/rep-bad')));
+  const index = await readJson(join(f.dir, 'index.json'));
+  assert.deepEqual(index.reports, [{ id: 'rep-bad', kind: null, createdAt: '2026-01-03T00:00:00.000Z', settingsHash: null, path: null, targets: 2 }]);
+});
+
+test('an S2 error from a report names the report id', async t => {
+  const f = await fixture(t);
+  await f.addReport('rep-esc', { shot: 'escape' });
+  await assert.rejects(publishHistory(f.base), /report rep-esc: .*escapes report root/);
+});
+
+test('a skipped report with partial evidence leaves no reports/<id> in the stage', async t => {
+  const f = await fixture(t);
+  await f.addReport('rep-two');
+  const reportPath = join(f.local, 'reports/rep-two/report.json');
+  const data = await readJson(reportPath);
+  data.entries[0].viewports[0].artifacts = { screenshot: { a: { src: 'shots/a.png' }, b: { src: 'shots/b.png' } } };
+  await writeFile(reportPath, JSON.stringify(data));
+  const result = await publishHistory(f.base);
+  assert.deepEqual(result.unavailable, ['rep-two']);
+  assert.ok(!(await tree(f.dir)).some(name => name.startsWith('reports/rep-two')));
+  assert.deepEqual(await siblings(f.dir), none);
+});
+
+test('a failure that cannot release the lock names the lock', async t => {
+  const f = await fixture(t);
+  const lock = f.dir + '.test-kit-lock';
+  const fs = {
+    writeFile: async (path, ...rest) => { if (path.endsWith('index.json')) throw new Error('disk full'); return writeFile(path, ...rest); },
+    rm: async (path, ...rest) => { if (path === lock) throw new Error('busy'); return rm(path, ...rest); },
+  };
+  await assert.rejects(publishHistory({ ...f.base, fs }), error => /disk full/.test(error.message) && error.message.includes(lock) && !error.message.includes(f.dir + '.test-kit-new'));
+  assert.deepEqual(await siblings(f.dir), { lock: true, stage: false, backup: false });
+});

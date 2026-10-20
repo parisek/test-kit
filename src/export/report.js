@@ -19,7 +19,9 @@ export async function prepareReportEvidence(reportPath) {
 	const source = await realpath(reportPath);
 	const root = dirname(source);
 	const original = JSON.parse(await boundedRead(source));
-	const files = await reportFiles(adaptReport(original), root);
+	let adapted;
+	try { adapted = adaptReport(original); } catch (error) { error.code = 'EINVALIDREPORT'; throw error; }
+	const files = await reportFiles(adapted, root);
 	const paths = new Map([...files].map(([src, descriptor]) => {
 		const extension = descriptor.type === 'image/png' ? '.png' : descriptor.type === 'application/zip' ? '.zip' : descriptor.type === 'application/json' ? '.json' : descriptor.attachment ? '.html.txt' : '.txt';
 		return [src, 'evidence/' + createHash('sha256').update(src).digest('hex') + extension];
