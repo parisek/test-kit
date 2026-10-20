@@ -14,6 +14,17 @@ const index = parseIndex({
 	runs: [{ id: 'example-run', createdAt: null, settingsHash: null, path: null }],
 });
 
+describe('IndexView focus', () => {
+	it('makes the heading focusable by script only and focuses it on request', () => {
+		const view = mount(IndexView, { props: { index }, attachTo: document.body });
+		const heading = view.find('h1');
+		expect(heading.attributes('tabindex')).toBe('-1');
+		view.vm.focus();
+		expect(document.activeElement).toBe(heading.element);
+		view.unmount();
+	});
+});
+
 describe('IndexView', () => {
 	it('renders hostile strings as text and lists nothing with an invalid id', () => {
 		const view = mount(IndexView, { props: { index } });

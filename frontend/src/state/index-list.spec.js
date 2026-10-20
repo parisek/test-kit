@@ -46,7 +46,14 @@ describe('publish directory index', () => {
 	it('turns unknown or wrongly typed fields into null', () => {
 		const result = parseIndex(index({ reports: [row('a', { kind: 7, createdAt: 'yesterday', settingsHash: 'md5:1', targets: -1 })], extra: 1 }));
 		expect(result.reports[0]).toMatchObject({ kind: null, createdAt: null, settingsHash: null, targets: null });
-		expect(parseIndex(index({ reports: 'x', runs: {} }))).toMatchObject({ ok: true, reports: [], runs: [] });
+		expect(parseIndex(index({ reports: [], runs: [] }))).toMatchObject({ ok: true, reports: [], runs: [] });
+	});
+	it('treats a missing or non-array reports or runs as an error, not an empty list', () => {
+		for (const bad of [{ reports: 'x' }, { reports: {} }, { reports: null }, { runs: {} }, { runs: undefined }, { reports: undefined }]) {
+			const result = parseIndex({ schemaVersion: 1, reports: [], runs: [], ...bad });
+			expect(result.ok).toBe(false);
+			expect(result.error).toMatch(/malformed/);
+		}
 	});
 	it('lists runs as unavailable unless the run path is exact', () => {
 		const result = parseIndex(index({ runs: [

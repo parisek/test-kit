@@ -258,7 +258,8 @@ export function useViewer(options = {}) {
 			dispatch('index-loaded', index);
 			return { ok: true };
 		} catch (error) {
-			if (id === requestId) dispatch('error', `Cannot load index: ${error.message}`);
+			if (id !== requestId) return { ok: false, stale: true };
+			dispatch('error', `Cannot load index: ${error.message}`);
 			return { ok: false, status: error.status };
 		}
 	}
@@ -270,17 +271,21 @@ export function useViewer(options = {}) {
 		if (result.ok) setAnchor(anchorFor(row.id));
 		return result;
 	}
-	// R10.10: a report.json next to the viewer wins. The index view shows only
-	// when that file answers HTTP 404 and index.json loads.
+	// R10.13 (viewer): a report.json next to the viewer wins. The index view
+	// shows only when that file answers HTTP 404 and index.json loads.
 	async function start(source = 'report.json') {
 		const result = await load(source);
-		if (result.ok || result.status !== 404) return result;
+		if (result.ok || result.stale || result.status !== 404) return result;
 		const failure = state.notice;
 		const listed = await loadIndex();
+		if (listed.stale) return listed;
 		if (listed.status === 404) dispatch('error', failure);
 		if (!listed.ok) return listed;
 		const wanted = idFromAnchor(browser?.location?.hash);
-		if (wanted) await openReport(wanted);
+		if (wanted) {
+			if (state.index.reports.find((row) => row.id === wanted)?.available) await openReport(wanted);
+			else dispatch('error', `Report ${wanted} is not available in the index.`);
+		}
 		return listed;
 	}
 
@@ -305,7 +310,8 @@ export function useViewer(options = {}) {
 			dispatch('loaded', { report, source: url });
 			return { ok: true };
 		} catch (error) {
-			if (id === requestId) dispatch('error', `Cannot load report: ${error.message}`);
+			if (id !== requestId) return { ok: false, stale: true };
+			dispatch('error', `Cannot load report: ${error.message}`);
 			return { ok: false, status: error.status };
 		}
 	}

@@ -37,8 +37,11 @@ export function parseIndex(data) {
 		const seen = typeof data.schemaVersion === 'number' ? String(data.schemaVersion) : 'missing or invalid';
 		return { ok: false, error: `Unsupported index schemaVersion (${seen}). This viewer reads schemaVersion ${INDEX_SCHEMA_VERSION}.` };
 	}
+	if (!Array.isArray(data.reports) || !Array.isArray(data.runs)) {
+		return { ok: false, error: 'The index is malformed: reports and runs must be arrays.' };
+	}
 	let skipped = 0;
-	const list = (rows, build) => (Array.isArray(rows) ? rows : []).flatMap((row) => {
+	const list = (rows, build) => rows.flatMap((row) => {
 		const entry = build(row);
 		if (!entry) skipped++;
 		return entry ? [entry] : [];

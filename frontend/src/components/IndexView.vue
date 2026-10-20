@@ -1,12 +1,15 @@
 <script setup>
+import { ref } from 'vue';
 import { anchorFor } from '../state/index-list.js';
 defineProps({ index: Object });
 const emit = defineEmits(['open']);
+const heading = ref(null);
+defineExpose({ focus: () => heading.value?.focus() });
 const text = (value) => value ?? 'unknown';
 </script>
 <template>
     <section class="index-view" aria-label="Reports in this directory">
-        <h1>Reports</h1>
+        <h1 ref="heading" tabindex="-1">Reports</h1>
         <p v-if="index.skipped" class="summary-warning" role="status">Not listed because of an invalid id: {{ index.skipped }}.</p>
         <p v-if="!index.reports.length" class="empty-report">The index lists no reports.</p>
         <ul v-else class="index-list">

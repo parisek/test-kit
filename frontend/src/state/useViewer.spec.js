@@ -312,6 +312,77 @@ describe('planned artifact isolation', () => {
 			expect(ignored.state.report).toBeNull();
 			expect(fetch).toHaveBeenCalledTimes(2);
 		});
+		it('requests index.json with redirect error', async () => {
+			const fetch = server({ '/site/index.json': response(index()) });
+			await useViewer({ browser: host(), fetch, width: () => 1280 }).start();
+			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/index.json', { redirect: 'error' });
+		});
+		it('does not fall back when report.json is 200 with invalid JSON', async () => {
+			const fetch = server({ '/site/report.json': { ok: true, json: async () => { throw new SyntaxError('Unexpected token'); } }, '/site/index.json': response(index()) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			expect(fetch).toHaveBeenCalledTimes(1);
+			expect(instance.state.index).toBeNull();
+			expect(instance.state.notice).toMatch(/^Cannot load report:/);
+		});
+		it('shows its own error when index.json is 500, invalid JSON or HTML with HTTP 200', async () => {
+			const bad = {
+				500: { ok: false, status: 500 },
+				json: { ok: true, json: async () => { throw new SyntaxError('Unexpected token <'); } },
+				html: { ok: true, json: async () => { throw new SyntaxError('Unexpected token <'); } },
+			};
+			for (const answer of Object.values(bad)) {
+				const instance = useViewer({ browser: host(), fetch: server({ '/site/index.json': answer }), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.index).toBeNull();
+				expect(instance.state.notice).toMatch(/^Cannot load index:/);
+				expect(instance.state.loading).toBe(false);
+			}
+		});
+		it('treats a missing reports array as a malformed index', async () => {
+			const fetch = server({ '/site/index.json': response({ schemaVersion: 1, runs: [] }) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			expect(instance.state.index).toBeNull();
+			expect(instance.state.notice).toMatch(/malformed/);
+		});
+		it('ignores close-report without an index', () => {
+			const instance = useViewer({ browser: host(), fetch: server({}), width: () => 1280 });
+			instance.dispatch('loaded', { report: report(), source: 'http://localhost:4178/site/report.json' });
+			instance.dispatch('close-report');
+			expect(instance.state.report.entries[0].id).toBe('example');
+		});
+		it('drops a stale index response when the source form loads a report meanwhile', async () => {
+			let release;
+			const pending = new Promise((done) => { release = done; });
+			const fetch = vi.fn(async (url) => {
+				const path = new URL(url).pathname;
+				if (path === '/site/index.json') return pending;
+				if (path === '/site/other.json') return response(report('update'));
+				return missing;
+			});
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			const starting = instance.start();
+			await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+			await instance.load('other.json');
+			release(response(index()));
+			const result = await starting;
+			expect(result).toMatchObject({ ok: false, stale: true });
+			expect(instance.state.index).toBeNull();
+			expect(instance.state.report.entries[0].id).toBe('example');
+			expect(instance.state.view).toBe('findings');
+		});
+		it('shows a notice for an anchor that names an unlisted or unavailable report', async () => {
+			for (const hash of ['#r-unlisted', '#r-example-gone']) {
+				const fetch = server({ '/site/index.json': response(index({ reports: [{ id: 'example-gone', path: null }] })) });
+				const instance = useViewer({ browser: host(hash), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.index.reports).toHaveLength(1);
+				expect(instance.state.report).toBeNull();
+				expect(instance.state.notice).toBe(`Report ${hash.slice(3)} is not available in the index.`);
+				expect(fetch).toHaveBeenCalledTimes(2);
+			}
+		});
 		it('refuses an unavailable entry, an unlisted id and an id outside the charset', async () => {
 			const fetch = server({ '/site/index.json': response(index({ reports: [{ id: 'example-gone', path: null }] })) });
 			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
