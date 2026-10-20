@@ -59,8 +59,8 @@ The viewer is a static application. It cannot run a command or write a file. A d
 | Decision | What the viewer offers | What exists today |
 | --- | --- | --- |
 | Fix | Copy the link. The task or the agent gets the same view. | The link holds only `#r-<id>`. |
-| Mark as a known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT` with the report, target, viewport and artifact filled in. The person adds the cause and the reason and runs it. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. | The command exists. The viewer does not build it. |
-| Mark as noise or unstable | Not defined. A noise floor is measured per pair (R8.3). What a mark stores is an owner decision. | None. |
+| Known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT` with the report, target, viewport and artifact filled in. The person adds the cause and the reason and runs it. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. | The command exists. The viewer does not build it. |
+| Noise or unstable | Not defined. A noise floor is measured per pair (R8.3). What a mark stores is an owner decision. | None. |
 | Pass on | Copy the link. Later: an evidence bundle (issue #149). | None. |
 
 ## Deep link grammar (proposal)

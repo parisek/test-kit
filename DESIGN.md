@@ -22,6 +22,7 @@ colors:
   dark-text: "#f4f4f5"
   dark-muted: "#d4d4d8"
   dark-border: "#27272a"
+  dark-control-border: "#3f3f46"
   dark-verdict-match: "#4ade80"
   dark-verdict-unexplained: "#f87171"
   dark-verdict-explained: "#60a5fa"
@@ -161,7 +162,7 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 - **View state and filters:** viewport, evidence type and mode are view state. Show them in a group labelled "View". A filter narrows the list (All, Unexplained, Match, and "More filters"). Show it in a group labelled "Filter". A view has one filter set. The control for the artifact is labelled "Evidence type". The deep link keeps the part name `artifact`. Modes are Side by side, Overlay and Difference.
 - **Verdict count:** a number, a word and a color. Counts stay visible under every filter.
 - **Verdict wording:** a run has a sentence derived from the classes ("Nothing changed", "1 page differs"). A row, a cell and a finding use the class word (match, unexplained).
-- **Comparison row:** a verdict dot, a local time, a verdict word, a short detail, the change against the previous row, and a short identifier in mono, after the word "update" when the kind is shown. A whole row is a link. On hover it takes the toolbar tint in light. In dark it lightens its border to the control border color. It does not underline and changes no opacity.
+- **Comparison row:** a verdict dot, a local time, a verdict word, a short detail, the change against the previous row, and a short identifier in mono, after the word "update" when the kind is shown. A whole row is a link. On hover it takes the toolbar tint in light. In dark it lightens its border from `#27272a` to the dark control border `#3f3f46` (the contract value). It does not underline and changes no opacity.
 - **Latest comparison card:** the first element of the Home. It shows the verdict sentence, the time, the verdict counts and an "Open comparison" button.
 - **Verdict history strip:** one dot for each comparison, oldest on the left, each with a time and a class word under it.
 - **Small heading:** the label style (0.8125rem, 500, muted). It carries a caption such as "Latest comparison". Identifiers inside it use the record style.
