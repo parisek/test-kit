@@ -104,6 +104,15 @@ npx test-kit summary tests/visual/report/report.json --filter all
 npx test-kit serve tests/visual/report/report.json
 ```
 
+To browse without the package server, publish a stable directory and open it from any static host (R10.12, R10.13):
+
+```sh
+npx test-kit history --publish test-kit-local/site
+cd test-kit-local/site && python3 -m http.server --bind 127.0.0.1
+```
+
+The viewer lists the reports and runs from `index.json`. A `file://` URL does not work. Add `test-kit-local/` and the three `.test-kit-lock`, `.test-kit-new` and `.test-kit-old` siblings to `.gitignore`. The directory contains captured pages. Measured once on one consumer project on 2026-10-20 with a build of `main` before the `rc.3` tag: the list and one report opened in Chromium. Not verified: a remote side, a project web server rule, and the `#r-<id>` anchor on first load.
+
 The report path is free: use any relative path. `tests/visual/report` is only an example. A project may already use that folder for another tool.
 
 Measured on one local page, not a rule: an image with `loading="lazy"` that fails with an HTTP error (404) made `before` return state `partial` with `baselineUpdated: false`. The same image without `loading="lazy"` did not: the state was `complete`. If `before` returns `partial`, check the broken assets on the page.

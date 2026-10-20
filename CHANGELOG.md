@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Changed
+
+- Document the static path first: README and `docs/rc-trial.md` say that `history --publish` output needs a static web host, not `file://`. Name `v1.0.0-rc.3` in `docs/seam.md`, the migration guide and the upgrade guide.
+
 ## [1.0.0-rc.3] - 2026-10-20
 
 Third release candidate for 1.0.0. It is not a stable release. It adds static-first output (ADR 0005): `history --publish DIR` writes a stable directory that the viewer reads without a server, and the viewer lists reports from its `index.json`. Try it with `docs/rc-trial.md`.
