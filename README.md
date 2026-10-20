@@ -161,7 +161,21 @@ execute as HTML under normal static MIME handling. Open a downloaded Lighthouse
 report locally if you need its interactive native interface. Exported evidence
 links point to the safe text copies. The source evidence stays unchanged.
 
-A planned mode, `history --publish DIR`, refreshes one stable directory in place and writes an `index.json`. It is specified in R10.12 and R10.13 and is not implemented yet (ADR 0005).
+### Publish a stable directory
+
+`history --publish DIR` refreshes one stable directory in place (R10.12, R10.13, ADR 0005). It is opt-in. `DIR` has no default and no config key. It comes from the flag and is relative to the config directory.
+
+```sh
+test-kit history --publish site
+```
+
+`DIR` holds a marker `.test-kit-publish`, an `index.json`, one shared viewer copy, `runs/<id>/run.json` and `reports/<id>/` with `report.json` and allowed evidence. The command copies no run artifact. A store entry that is unreadable, or a report whose evidence is missing or too large or that fails validation, appears in `index.json` with `path` `null`. The command prints a warning and exits 0 for the report case. Any other report error (for example a corrupt sidecar, or a sidecar that escapes the report root) stops the refresh and names the report. Fix or remove that report, then run the command again. The history store must exist; a missing `--store` path is refused before any write.
+
+The command refuses these `DIR` values before it writes anything: a missing or non-directory history store, a path in, equal to or above the history store, the root, the home directory, the working directory or a parent of it, a mount point, a symbolic link, a file, a non-empty directory without the marker, and a marked directory with a foreign entry. It cannot combine with `--export` or `--port`.
+
+Beside `DIR` the command makes three siblings: `DIR.test-kit-lock`, `DIR.test-kit-new` and `DIR.test-kit-old`. Add all three to `.gitignore`. After a crash, the next run refuses to start. It prints the paths and the one-line action from the recovery table in R10.12 and deletes nothing. The refresh is not atomic: a reader can see a missing `DIR` for a short time between two renames. Put server rules such as `.htaccess` outside `DIR`.
+
+On success the command writes `test-kit: published to <absolute dir>; the directory contains captured pages.` to stderr. `run.json` holds the run `settings`, so the directory publishes them. The package never uploads or exposes `DIR`. The project decides what its web server does and who can read it.
 
 See [static export requirements](https://github.com/parisek/test-kit/issues/86).
 

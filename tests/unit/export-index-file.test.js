@@ -20,6 +20,7 @@ test('top level has fixed keys and generatedAt from the clock', () => {
   assert.deepEqual(build({ runs: [], reports: [] }, { now: NOW.getTime() }), index);
   assert.throws(() => buildPublishIndex({}, { now: 'nope' }), /clock/);
   assert.throws(() => buildPublishIndex({}), /clock/);
+  assert.throws(() => buildPublishIndex({}, { now: null }), /clock/);
 });
 
 test('a readable run and report get all fields and relative paths', () => {
@@ -132,6 +133,16 @@ test('sort is newest first, null last, ties by id descending with plain comparis
   });
   // Code-unit order puts 'b' > 'a' > 'B'. localeCompare would order 'B' and 'b' differently.
   assert.deepEqual(index.runs.map(r => r.id), ['c', 'b', 'a', 'B', 'z-bad', 'y-bad', 'nodate']);
+});
+
+test('reports sort the same way as runs', () => {
+  const t1 = '2026-01-01T00:00:00.000Z';
+  const t2 = '2026-01-02T00:00:00.000Z';
+  const index = build({
+    runs: [run('r', t1)],
+    reports: [report('b', t1, 'r', 'r'), report('B', t1, 'r', 'r'), report('a', t1, 'r', 'r'), report('c', t2, 'r', 'r'), { id: 'z-bad', error: 'x' }, report('nodate', 'junk', 'r', 'r')],
+  });
+  assert.deepEqual(index.reports.map(r => r.id), ['c', 'b', 'a', 'B', 'z-bad', 'nodate']);
 });
 
 test('ids that scanHistory would not return are dropped, so no path holds ..', () => {

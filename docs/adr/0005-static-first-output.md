@@ -49,7 +49,7 @@ Principle 4 stays: no account, no upload, no hosted service. The package never p
 
 ## Not verified
 
-- Whether the viewer can load an index and many reports from one copy without code changes. The data-source switch exists (R10.10). Nothing reads it for a list yet.
+- Whether the viewer can load an index and many reports from one copy without code changes. The data-source switch exists (R10.10). The viewer now reads an `index.json` for a list (R10.13).
 - Whether browsers load `report.json` from `file://`. Assume they do not. The static host is a web server, not the file system.
 - Size of the publish directory after many runs. Not measured.
 
