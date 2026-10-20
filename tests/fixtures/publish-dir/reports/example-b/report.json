@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 2,
+  "meta": {
+    "title": "Example report B",
+    "project": "example-site",
+    "generated": "2026-10-02T09:00:00.000Z",
+    "viewports": [
+      {
+        "id": "wide",
+        "width": 1280
+      }
+    ],
+    "matchBelow": 3,
+    "noiseFloor": null
+  },
+  "pair": {
+    "kind": "convergence",
+    "aRunId": "example-run-a",
+    "bRunId": "example-run-b"
+  },
+  "runs": [
+    {
+      "id": "example-run-a",
+      "side": "reference",
+      "label": "Reference"
+    },
+    {
+      "id": "example-run-b",
+      "side": "styleguide",
+      "label": "Render"
+    }
+  ],
+  "entries": [
+    {
+      "id": "home",
+      "title": "Home page",
+      "kind": "page",
+      "path": "/",
+      "viewports": [
+        {
+          "id": "wide",
+          "state": "complete",
+          "ratio": 0
+        }
+      ]
+    }
+  ],
+  "findings": [],
+  "causes": [],
+  "rules": {}
+}

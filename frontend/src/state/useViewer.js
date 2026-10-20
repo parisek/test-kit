@@ -4,6 +4,7 @@ import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
 import { summarize, targetClass, cellState } from '../../../src/report/classify.js';
 import { sameOriginUrl } from '../../../src/report/safe.js';
+import { anchorFor, idFromAnchor, parseIndex, reportPath } from './index-list.js';
 
 export const FIRST_VIEW = Object.freeze({
 	convergence: 'detail',
@@ -44,6 +45,7 @@ export function useViewer(options = {}) {
 		evidenceView: 'normalized',
 		filters: { classification: 'all', measurement: 'all', cause: 'all' },
 		source: null,
+		index: null,
 		targetId: null,
 		viewportId: null,
 		view: 'detail',
@@ -174,6 +176,21 @@ export function useViewer(options = {}) {
 			loadSelectedEvidence();
 			state.loading = false;
 			state.notice = `Loaded ${value.report.entries.length} targets.`;
+		} else if (action === 'index-loaded') {
+			state.index = markRaw(value);
+			state.loading = false;
+			state.notice = '';
+		} else if (action === 'close-report') {
+			if (!state.index) return;
+			requestId++;
+			state.loading = false;
+			invalidateEvidence();
+			state.report = null;
+			state.source = null;
+			state.targetId = null;
+			state.viewportId = null;
+			state.notice = '';
+			setAnchor('');
 		} else if (action === 'loading') {
 			state.loading = true;
 			state.notice = 'Loading report…';
@@ -215,23 +232,90 @@ export function useViewer(options = {}) {
 		}
 	}
 
+	function setAnchor(hash) {
+		try {
+			browser?.history?.replaceState?.(null, '', (browser.location.pathname ?? '') + (browser.location.search ?? '') + hash);
+		} catch {
+			/* A deep link is optional. */
+		}
+	}
+	async function loadIndex() {
+		const url = sameOriginUrl('index.json', base);
+		if (!url) return { ok: false };
+		const id = ++requestId;
+		dispatch('loading');
+		try {
+			const response = await fetchReport(url, { redirect: 'error' });
+			if (!response.ok) {
+				const error = new Error(`HTTP ${response.status}`);
+				error.status = response.status;
+				throw error;
+			}
+			const index = parseIndex(await response.json());
+			if (id !== requestId) return { ok: false, stale: true };
+			if (!index.ok) {
+				dispatch('error', index.error);
+				return { ok: false };
+			}
+			dispatch('index-loaded', index);
+			return { ok: true };
+		} catch (error) {
+			if (id !== requestId) return { ok: false, stale: true };
+			dispatch('error', `Cannot load index: ${error.message}`);
+			return { ok: false, status: error.status };
+		}
+	}
+	// Open a report that the index lists. The id must pass the id charset (R10.13).
+	async function openReport(id) {
+		const row = state.index?.reports.find((report) => report.id === id);
+		if (!row?.available) return { ok: false };
+		const result = await load(reportPath(row.id));
+		if (result.ok) setAnchor(anchorFor(row.id));
+		return result;
+	}
+	// R10.13 (viewer): a report.json next to the viewer wins. The index view
+	// shows only when that file answers HTTP 404 and index.json loads.
+	async function start(source = 'report.json') {
+		const result = await load(source);
+		if (result.ok || result.stale || result.status !== 404) return result;
+		const failure = state.notice;
+		const listed = await loadIndex();
+		if (listed.stale) return listed;
+		if (listed.status === 404) dispatch('error', failure);
+		if (!listed.ok) return listed;
+		const wanted = idFromAnchor(browser?.location?.hash);
+		if (wanted) {
+			if (state.index.reports.find((row) => row.id === wanted)?.available) await openReport(wanted);
+			else dispatch('error', `Report ${wanted} is not available in the index.`);
+		}
+		return listed;
+	}
+
 	async function load(source) {
 		const id = ++requestId;
 		invalidateEvidence();
 		const url = sameOriginUrl(source, base);
 		if (!url) {
 			dispatch('error', 'Use a report URL on this origin.');
-			return;
+			return { ok: false };
 		}
 		dispatch('loading');
 		try {
 			const response = await fetchReport(url, { redirect: 'error' });
-			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			if (!response.ok) {
+				const error = new Error(`HTTP ${response.status}`);
+				error.status = response.status;
+				throw error;
+			}
 			const report = adaptReport(await response.json());
-			if (id === requestId) dispatch('loaded', { report, source: url });
+			if (id !== requestId) return { ok: false, stale: true };
+			dispatch('loaded', { report, source: url });
+			return { ok: true };
 		} catch (error) {
-			if (id === requestId) dispatch('error', `Cannot load report: ${error.message}`);
+			if (id !== requestId) return { ok: false, stale: true };
+			dispatch('error', `Cannot load report: ${error.message}`);
+			return { ok: false, status: error.status };
 		}
 	}
-	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load };
+	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load, start, openReport };
 }

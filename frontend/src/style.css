@@ -189,3 +189,14 @@
 .has-prototypes .theme-label { display:none; }
 .has-prototypes .view-navigation button { padding-left:10px; padding-right:10px; }
 @media(max-width:1099px) { .has-prototypes .view-navigation { flex-wrap:wrap; } }
+
+.index-view { padding: 24px 28px; }
+.index-view h1 { font-size: 22px; margin-bottom: 12px; }
+.index-view h2 { font-size: 15px; margin: 24px 0 8px; }
+.index-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ui-border); }
+.index-row { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--ui-border); }
+.index-open { font-weight: 600; font-size: 13px; color: var(--ui-text); overflow-wrap: anywhere; }
+a.index-open { text-decoration: underline; }
+.index-meta { font-size: 11px; color: var(--ui-muted); overflow-wrap: anywhere; }
+.index-unavailable { font-size: 11px; color: var(--ui-muted); border: 1px solid var(--ui-border); border-radius: 999px; padding: 0 8px; }
+@media (max-width: 550px) { .index-view { padding: 16px; } }

@@ -307,7 +307,7 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
      - S4 failed and the rename back failed: B present, S present, D absent or present. The table names the action for each.
   8. Message. On success the command writes this line to stderr: `test-kit: published to <absolute dir>; the directory contains captured pages.` The line is a message, not a gate. `run.json` holds `settings`, so the run settings are published too. The docs tell the project this. The package never uploads or exposes `DIR`. The project decides what its web server does. Retention stays open (section 17, item 4).
   9. Limit. A file that a person adds by hand below `runs/` or `reports/` is deleted with the backup. A marker is the project's own declaration, not proof that the package made the directory. A forged marker with owned names passes. The command does not scan foreign files below `runs/` or `reports/`. The rule guards against a typing error that names an unrelated directory. It does not guard against forgery.
-- R10.13 Status: planned, not implemented. The publish directory holds `index.json` at its root. R10.11 export differs: it copies the viewer into each report. The publish directory shares one viewer copy among its reports. The writer generates `index.json`. Nobody edits it by hand. Schema:
+- R10.13 Status: the writer is planned, not implemented. The viewer part (last bullet) is implemented. The publish directory holds `index.json` at its root. R10.11 export differs: it copies the viewer into each report. The publish directory shares one viewer copy among its reports. The writer generates `index.json`. Nobody edits it by hand. Schema:
 
 ```
 { "schemaVersion": 1,
@@ -323,7 +323,8 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
   - An unreadable entry has `null` in every field except `id`, and `path` `null`. A readable report with missing or oversized evidence has only `path` `null`. Its other fields come from `report.json`. Otherwise it points to a file that is in `DIR`, and never to a missing file. It is relative to the directory: `reports/<id>/report.json` or `runs/<id>/run.json`. No path is absolute or holds `..`.
   - Unknown or unreadable is `null`, never `0` or an empty string (principle 1). An unreadable entry stays in the list with `null` fields.
   - Both lists sort newest first by `createdAt`, `null` last, ties by `id`, descending, by plain string comparison (`a > b`), not locale comparison. Valid ids use only `[A-Za-z0-9_-]`, so the order is by code unit. `scanHistory` uses `localeCompare`, which can differ for ids that differ in case. The index writer does not reuse that order.
-  - The viewer treats the content as untrusted text (R10.6). A reader ignores an unknown field. An unknown `schemaVersion` is an error.
+  - The viewer treats the content as untrusted text (R10.6). A reader ignores an unknown field. An unknown `schemaVersion` is an error. A `reports` or `runs` value that is missing or not an array is an error ("malformed"), never an empty list. An entry with an invalid `id` is skipped and counted.
+  - Viewer (implemented). A `report.json` next to `index.html` wins and `index.json` is not read. Only HTTP 404 of that file falls back to `index.json`. Any other failure keeps its own message. The list shows the entries in the order of the file. An entry opens `reports/<id>/report.json`, built from the validated `id` and never from `path`. An entry with a `null` or other `path` shows as unavailable and is not a link. The deep link is the plain anchor `#r-<id>`. An anchor that names no available entry shows a notice.
 
 ---
 
