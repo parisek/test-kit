@@ -263,9 +263,9 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
      - `DIR` and the siblings are not the store, not inside it and not a parent of it.
      - `DIR` is not the file system root, the home directory, the working directory, a parent of the working directory or a mount point. Mount point detection compares `st_dev` and is best effort.
      - `lstat` shows that `DIR` is missing or is a directory. A symlink or a regular file at `DIR` is refused.
-     - A non-empty existing `DIR` has the marker as a regular file with the content `{ "tool": "test-kit", "kind": "publish", "schemaVersion": 1 }`. A non-empty `DIR` with no valid marker is refused. A missing or empty `DIR` is allowed.
+     - A non-empty existing `DIR` has the marker as a regular file. Its content, parsed as JSON, equals exactly `{ "tool": "test-kit", "kind": "publish", "schemaVersion": 1 }`. An extra field fails the check. A non-empty `DIR` with no valid marker is refused. A missing or empty `DIR` is allowed.
      - In a marked `DIR`, each top-level entry is one the writer owns: the marker, `index.json`, `index.html`, `app.js`, `style.css` (regular files), `runs`, `reports` (real directories). Another entry, or a wrong type, is refused.
-     - The lock, the stage and the backup do not exist (`lstat`). The refusal message follows rule 5.
+     - The lock, the stage and the backup do not exist (`lstat`). The refusal follows rule 5.
   4. Lock. The command creates a missing parent of `DIR`. This is the only write before the lock. Steps S1 to S6 follow. A concurrent refresh is refused by the lock. Every delete in this rule (S5, stage cleanup) removes a symlink as a link and never follows it.
 
      - S1 Take the lock with an exclusive `mkdir` of `<DIR>.test-kit-lock`. Then repeat the checks of rule 3 on the stage, the backup, the marker and the owned entries. When one fails now, release the lock and refuse.
@@ -274,11 +274,20 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
      - S4 Rename the stage to `DIR`.
      - S5 Remove the backup, if the command made it.
      - S6 Remove the lock.
-  5. Lock refusal. When any sibling exists, the command refuses. It prints the absolute path of the lock and of each existing stage and backup. It says that a person must check for a crashed refresh. It names the crash row of rule 7 that applies. It derives the row with `lstat`: `DIR` missing and backup present is row d; backup and `DIR` present and stage absent is row e; lock and `DIR` only is row f; lock and a stage with `DIR` present and no backup is rows a to c.
-  6. Failures. The old content is always in `DIR` or in the backup. A reader can see a missing `DIR` between S3 and S4. The command does not claim atomicity.
+  5. Recovery table. The command reads the state with `lstat`: lock L, stage S, backup B (present or absent), and `DIR` D (present or absent). When L, S or B exists, the command refuses to start. It prints the absolute path of each of L, S and B that exists, and the one-line action of this table. It says that a person must check for a crashed refresh. The command never deletes in this case. All 16 states are listed. None is impossible: a person can remove any sibling by hand.
+
+     | B | S | D | L present | L absent |
+     | --- | --- | --- | --- | --- |
+     | present | any | absent | Rename B to `DIR`, then remove S (if present) and L. The old content is only in B. | Refuse. Same action as the left column, but L is not there to remove. |
+     | present | any | present | The new content is live and S5 did not finish. Remove B, S (if present) and L. | Refuse. Remove B and S (if present). |
+     | absent | present | any | The refresh stopped before the swap. `DIR`, if present, is the old content. Remove S and L. When D is absent, this is a first publish: the action is the same. | Refuse. Remove S. |
+     | absent | absent | any | Remove L. D present is complete (old or new). D absent means nothing was published yet. | Normal state. The refresh starts. |
+
+  6. Failures. The old content is always in `DIR` or in the backup. A reader can see a missing `DIR` between S3 and S4. The command does not claim atomicity. When a cleanup after a failure cannot remove the stage, the command exits 1 and prints the paths. The next run handles the state with the table (L absent, S present).
 
      | Step fails | Result |
      | --- | --- |
+     | S1 re-check | Release the lock, remove nothing else, exit 1. |
      | S2 | Remove the stage, release the lock, exit 1. `DIR` is unchanged. |
      | S3 | Remove the stage, release the lock, exit 1. |
      | S4, with a backup | Rename the backup back to `DIR`, remove the stage, release the lock, exit 1. If the rename back fails: keep the lock and the backup, print both paths, exit 1. |
@@ -286,19 +295,13 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
      | S5 | The new content is live. Release the lock, print a warning that names the backup, exit 0. The next run refuses until a person removes the backup. |
      | S6 | The new content is live. Print a warning that names the lock path, exit 0. The next run refuses until a person removes the lock. |
 
-  7. Crash states. One row for each point, in terms of what is on disk.
-
-     | Row | Crash point | On disk | Recovery |
-     | --- | --- | --- | --- |
-     | a | after S1 only | lock | Remove the lock. |
-     | b | during S2 | lock, partial stage | Remove the stage and the lock. `DIR` is untouched. |
-     | c | after S2 | lock, complete stage | Remove the stage and the lock. `DIR` is untouched. |
-     | d | after S3, before S4 | lock, backup, stage; `DIR` is missing; the backup holds the only old content | Rename the backup to `DIR`. Remove the stage and the lock. |
-     | e | after S4 | lock, backup, live `DIR` (new) | Remove the backup and the lock. |
-     | f | after S5 | lock, live `DIR` | Remove the lock. |
-
+  7. Crash points. Each point leads to one entry of the recovery table. Several points lead to the same entry by design.
+     - After S1, and after S5: B absent, S absent, L present.
+     - During S2, and after S2: B absent, S present.
+     - After S3, before S4: B present, D absent.
+     - After S4: B present, D present.
   8. Message. On success the command writes this line to stderr: `test-kit: published to <absolute dir>; the directory contains captured pages.` The line is a message, not a gate. The package never uploads or exposes `DIR`. The project decides what its web server does. Retention stays open (section 17, item 4).
-  9. Limit. A marker is the project's own declaration, not proof that the package made the directory. A forged marker with owned names passes. The command does not scan foreign files below `runs/` or `reports/`. The rule guards against a typing error that names an unrelated directory. It does not guard against forgery.
+  9. Limit. A file that a person adds by hand below `runs/` or `reports/` is deleted with the backup. A marker is the project's own declaration, not proof that the package made the directory. A forged marker with owned names passes. The command does not scan foreign files below `runs/` or `reports/`. The rule guards against a typing error that names an unrelated directory. It does not guard against forgery.
 - R10.13 Status: planned, not implemented. The publish directory holds `index.json` at its root. R10.11 export differs: it copies the viewer into each report. The publish directory shares one viewer copy among its reports. The writer generates `index.json`. Nobody edits it by hand. Schema:
 
 ```
@@ -310,7 +313,7 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
 
   - `id` is the store id. `kind` is `pair.kind` of `report.json`, or `subject.kind` for a subject report. It is `null` unless it is a string. Code writes no subject report yet (schemaVersion 3 design, section 9), so that branch is for later.
   - `createdAt` is `null` unless it has the exact form of `Date.prototype.toISOString` (`YYYY-MM-DDTHH:mm:ss.sssZ`), so a string sort is correct. For a report it is `meta.generated`, the time of the comparison and not of the capture. For a run it is `at`. Sorting compares the strings.
-  - `settingsHash` is the `sha256:` value of a run. For a run it is the `settingsHash` of its `run.json`. For a report it is the value of the run named by `pair.aRunId`, or by `subject.runId` for a subject report. Any `settingsHash` is `null` unless it is a string that starts with `sha256:`. A report value is `null` when that run is absent, unreadable or has no valid hash. The writer reads the raw `report.json` that `scanHistory` reads, not the adapted report (`adaptV1` of `src/report/model.js` is not applied). A legacy v1 file has no `pair` or `subject`, so `kind` and the report `settingsHash` are `null`. When the A and B hashes differ, the comparison is `incompatible` (R8.9) and the report value is `null`.
+  - `settingsHash` is the `sha256:` value of a run. For a run it is the `settingsHash` of its `run.json`. For a report it is the value of the run named by `pair.aRunId`, or by `subject.runId` for a subject report. Any `settingsHash` is `null` unless it is a string that starts with `sha256:`. A report value is `null` when run A or run B (`pair.bRunId`) is absent, unreadable or has no valid hash. The lookup uses only run ids that `scanHistory` found and `validId` accepts. It never uses an id read from report data directly. The writer reads the raw `report.json` that `scanHistory` reads, not the adapted report (`adaptV1` of `src/report/model.js` is not applied). A legacy v1 file has no `pair` or `subject`, so `kind` and the report `settingsHash` are `null`. When the A and B hashes differ, the comparison is `incompatible` (R8.9) and the report value is `null`.
   - `targets` is the number of `entries` in the raw `report.json`, or `null` when `entries` is not an array.
   - `path` is relative to the directory: `reports/<id>/report.json` or `runs/<id>/run.json`. No path is absolute or holds `..`.
   - Unknown or unreadable is `null`, never `0` or an empty string (principle 1). An unreadable entry stays in the list with `null` fields.
