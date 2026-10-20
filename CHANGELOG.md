@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-10-20
+
+Third release candidate for 1.0.0. It is not a stable release. It adds static-first output (ADR 0005): `history --publish DIR` writes a stable directory that the viewer reads without a server, and the viewer lists reports from its `index.json`. Try it with `docs/rc-trial.md`.
+
 ### Added
 
 - Add `buildPublishIndex` in `src/export/index-file.js`, the pure writer for the publish `index.json` (R10.13).
