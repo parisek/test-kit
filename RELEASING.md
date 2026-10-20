@@ -31,8 +31,9 @@ A correction after tagging uses a new patch version.
 
 ## Workflow contract
 
-The tag workflow runs on stable tags only. A dev prerelease tag starts no run.
-It rejects a malformed stable tag. It checks the exact
+The tag workflow runs on stable tags and on release candidate tags (`vX.Y.Z-rc.N`, R13.45).
+A dev prerelease tag starts no run. A candidate creates a GitHub prerelease.
+It rejects a malformed tag. It checks the exact
 package version, `private: true`, the MIT licence, and main ancestry. It installs
 locked dependencies, runs tests, and extracts the matching changelog section.
 It creates the GitHub Release only after these checks pass.
