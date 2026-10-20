@@ -1,4 +1,4 @@
-import { validId } from '../history/index.js';
+import { validId } from '../history/valid-id.js';
 
 // Pure writer for the publish `index.json` (R10.13). No file system, no DOM (R4.4).
 // Input: the result of `scanHistory`, a clock value, and the report ids whose evidence is unavailable.
@@ -28,6 +28,7 @@ function compare(a, b) {
 }
 
 function clockIso(now) {
+  if (now == null) throw new Error('The clock value is required.');
   const date = now instanceof Date ? now : new Date(now);
   if (Number.isNaN(date.getTime())) throw new Error('The clock value is not a valid time.');
   return date.toISOString();

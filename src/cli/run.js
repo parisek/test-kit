@@ -4,7 +4,7 @@ const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
-  history [--config FILE] [--store PATH] [--port N|--export DIR]
+  history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
@@ -19,7 +19,7 @@ const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'la
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
-FLAGS.history = ['config', 'store', 'port', 'export'];
+FLAGS.history = ['config', 'store', 'port', 'export', 'publish'];
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -41,6 +41,7 @@ export function parseCommand(argv) {
     options[name] = value;
   }
   const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0 }[command];
+  if (options.publish !== undefined && (options.export !== undefined || options.port !== undefined)) throw new Error('Use --publish alone. Do not combine it with --export or --port.');
   if (options.export && options.port !== undefined) throw new Error('Use --export or --port.');
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
   if (command === 'perf' && options.targets && options.path) throw new Error('Use --targets or --path.');
@@ -68,6 +69,14 @@ async function dispatch({ command, positions, options }) {
   if (['run', 'before', 'after', 'report'].includes(command)) {
     const { runWorkflow } = await import('../workflow/index.js');
     return runWorkflow(command, options);
+  }
+  if (command === 'history' && options.publish !== undefined) {
+    // Publish reads the store and writes nothing before its preflight passes (R10.12), so it does not call ensureStore.
+    const { resolveStore } = await import('../workflow/index.js');
+    const { publishHistory } = await import('../export/publish.js');
+    const { resolve, dirname } = await import('node:path');
+    const result = await publishHistory({ local: resolveStore(options), dir: resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), options.publish) });
+    return { output: { published: result.dir, reportCount: result.reportCount, runCount: result.runCount, unavailableReports: result.unavailable }, exitCode: 0, stderr: result.messages };
   }
   if (command === 'history') {
     const { ensureStore } = await import('../workflow/index.js');
@@ -149,6 +158,7 @@ export async function run(argv, { out, err }, version = '0.0.0', execute = dispa
   try {
     const result = await execute(parseCommand(argv));
     out.write(`${JSON.stringify(result.output)}\n`);
+    for (const line of result.stderr ?? []) err.write(`${line}\n`);
     return result.exitCode;
   } catch (error) { err.write(`${error.message}\n`); return 1; }
 }

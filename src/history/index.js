@@ -2,8 +2,9 @@ import { createServer } from 'node:http';
 import { open, readdir, realpath } from 'node:fs/promises';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { serve } from '../server/serve.js';
+import { validId } from './valid-id.js';
 
-export function validId(value) { return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,159}$/.test(value); }
+export { validId };
 export function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 async function evidencePath(base, id, filename) {
   if (!validId(id)) throw new Error('Invalid evidence ID.');

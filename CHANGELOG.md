@@ -6,10 +6,13 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
-- Add `buildPublishIndex` in `src/export/index-file.js`, the pure writer for the publish `index.json` (R10.13). No command uses it yet.
+- Add `buildPublishIndex` in `src/export/index-file.js`, the pure writer for the publish `index.json` (R10.13).
+- Add `history --publish DIR` (R10.12, R10.13, ADR 0005). It refreshes one stable directory in place with a lock, a stage and a backup. It writes a marker, an `index.json`, one viewer copy, `run.json` files and report evidence. It refuses unsafe directories before any write and reports crash states with the recovery table. It is opt-in and cannot combine with `--export` or `--port`.
 
 ### Changed
 
+- Move `validId` to `src/history/valid-id.js`, so the pure index writer does not import the history I/O module. `src/history/index.js` still exports it. `buildPublishIndex` now throws when `now` is `null` or missing.
+- Split `writeReportEvidence` out of `exportReport` in `src/export/report.js`. Export output is unchanged.
 - Specify static-first output (ADR 0005). R10.1 and R10.11 change. R10.12 (in-place refresh of a publish directory) and R10.13 (`index.json`) are new. The vision gains a "Static first" section. This changes documents only. The code does not follow yet.
 - Record what one consumer project verified once with `v1.0.0-rc.2` on a local site. This changes documents only.
 - Update `docs/migration-guide-tailwind-base.md`. The candidate tags exist. The verified steps are marked. The report path is free.
