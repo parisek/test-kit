@@ -11,7 +11,7 @@ Use `example-site` in anything you paste into an issue (R12.4). This repository 
 
 ## What you can and cannot try
 
-Measured on 2026-10-19 with a packed copy of this branch in a clean project. The browser was Chromium from Playwright. The sites were two local static pages.
+Measured on 2026-10-19 with a packed copy of this branch in a clean project, before `history --publish` existed. This check does not cover `history --publish`. The browser was Chromium from Playwright. The sites were two local static pages.
 
 | You can try | State |
 | --- | --- |
