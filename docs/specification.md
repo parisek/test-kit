@@ -243,7 +243,7 @@ runs/<id>/behavior/<target>/        trace, video, step screenshots
 
 The viewer evolves upstream `report-viewer.html`. It stays one shell with several views.
 
-- R10.1 The viewer uses Vue 3 components, Vite, and Tailwind 4. The package commits the compiled viewer. A project needs no frontend build or frontend dependency. The local server serves the viewer. The owner accepts this stack on 2026-10-09.
+- R10.1 The viewer uses Vue 3 components, Vite, and Tailwind 4. The package commits the compiled viewer. A project needs no frontend build or frontend dependency. The viewer is a static application. It needs no process and loads under any URL prefix (R10.11). The local server is a convenience that serves the same files (ADR 0005). The owner accepts this stack on 2026-10-09.
 - R10.2 The toolbar must fit one row at 1100 px and wider. It hides parts in a fixed order below that.
 - R10.3 The left column must collapse with a button and with the `[` key. The choice must persist. On a phone it is a drawer.
 - R10.4 Views: target detail, matrix (target by viewport), findings grouped by cause, timeline of runs, speed (only when the run has the artifact), content (only when checks ran).
@@ -253,7 +253,18 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
 - R10.8 The viewer must work in light and dark theme and at phone width with no horizontal page scroll.
 - R10.9 When the browser blocks storage, the viewer must still render.
 - R10.10 A data-source switch must exist inside the page (query strings may not survive hosting).
-- R10.11 Report and history export write static directories and start no server. The viewer loads under any URL prefix. Report data and artifact references stay in that report directory. Server and export share one allowed-file index. Export gives untrusted evidence safe generated names and non-executable types. Only trusted viewer and history shells use HTML. Existing output directories are not overwritten.
+- R10.11 Report and history export write static directories and start no server. The viewer loads under any URL prefix. Report data and artifact references stay in that report directory. Server and export share one allowed-file index. Export gives untrusted evidence safe generated names and non-executable types. Only trusted viewer and history shells use HTML. `--export` refuses an existing output directory. Only the named refresh of R10.12 replaces content in place.
+- R10.12 `history --publish DIR` must refresh a publish directory in place (ADR 0005). It stages the new content in a temporary directory beside `DIR`. It replaces the old content by renames, with no half-written state. The old content stays when any step fails, and the command exits non-zero. The command writes the marker file `.test-kit-publish` into `DIR`. It replaces only a directory that holds this marker. It refuses an existing directory that is non-empty and has no marker, and it deletes nothing there. It accepts a missing or an empty directory. It refuses `--export` in the same call. The package sets no default directory and adds no config key: `DIR` comes from the flag, and a project alias passes it (R13.7). One line goes to stderr on each refresh: the absolute directory and "contains captured pages". The line is a message, not a gate. The package never uploads or exposes the directory. The project decides what its web server does. Retention stays open (section 17, item 4).
+- R10.13 The publish directory must hold `index.json` at its root, and one viewer copy that every report in the directory shares. The writer generates the file. Nobody edits it by hand. Its schema:
+
+```
+{ "schemaVersion": 1,
+  "generatedAt": "<ISO 8601 UTC string>",
+  "reports": [ { "id", "kind", "createdAt", "settingsHash", "path", "targets" } ],
+  "runs":    [ { "id", "createdAt", "settingsHash", "path" } ] }
+```
+
+  `reports[].id` and `runs[].id` are store ids. `kind` is `pair.kind` or `subject.kind` of `report.json`. `createdAt` is `meta.generated` for a report and `at` for a run. `settingsHash` is the `sha256:` value of `run.json`. For a report it is the value of its A run, which equals the B run in a compatible pair (R8.9). `targets` is the number of `entries` in `report.json`. `path` is `reports/<id>/report.json` or `runs/<id>/run.json`, relative to the directory. A value that the writer cannot read or does not know is `null`, never `0` or an empty string (principle 1). An unreadable entry stays in the list with `null` fields. Both lists sort newest first by `createdAt`, entries with `null` last, ties by `id` in code-unit order. No path is absolute or holds `..`. The viewer treats the content as untrusted text (R10.6). A reader ignores an unknown field. An unknown `schemaVersion` is an error.
 
 ---
 

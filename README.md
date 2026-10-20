@@ -161,6 +161,8 @@ execute as HTML under normal static MIME handling. Open a downloaded Lighthouse
 report locally if you need its interactive native interface. Exported evidence
 links point to the safe text copies. The source evidence stays unchanged.
 
+A planned mode, `history --publish DIR`, refreshes one stable directory in place and writes an `index.json`. It is specified in R10.12 and R10.13 and is not implemented yet (ADR 0005).
+
 See [static export requirements](https://github.com/parisek/test-kit/issues/86).
 
 ## Development

@@ -40,6 +40,17 @@ Every result serves two readers with the same facts.
 
 A feature that changes what only one reader sees is not finished (R11.6).
 
+## Static first
+
+The package writes data. The viewer reads data. The contract between them is a directory: report JSON, evidence files and `index.json` (R10.12, R10.13). The viewer is a static application that loads under any URL prefix (R10.1, R10.11). The server is a convenience, not the way to read a report. This follows [ADR 0005](adr/0005-static-first-output.md), accepted by the owner on 2026-10-20.
+
+Sharing rules (principle 4 holds: no account, no upload, no hosted service):
+
+- The default is local. A project keeps the publish directory under the project and in `.gitignore`.
+- Sharing is an explicit project act. The project exposes the directory through its own web server. The package never publishes.
+- Captured pages can hold personal or client data. A refresh prints the absolute directory and says it contains captured pages. This is a message, not a gate (principle 3).
+- Retention and deletion stay open for a project that shares (spec section 17, item 4).
+
 ## Principles
 
 The order is the order of priority. When two principles conflict, the earlier one wins.
