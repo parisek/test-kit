@@ -11,6 +11,6 @@ The root package ships the committed `viewer/` build. A git installation needs n
 
 One action dispatcher owns viewer state. Components emit actions. A copied UI contract pins the styleguide source commit, version, licence, and file hashes. The packages do not import each other. Test-kit owns evidence and classification styles.
 
-The initial view follows the prototype pair mapping in R10.5. The viewer cannot record a known difference (R5.3).
+The initial view followed the prototype pair mapping in R10.5. The specification now opens every report on Overview (R10.5, owner design round of 2026-10-20). The viewer cannot record a known difference (R5.3).
 
 Pinia, Vue Router, remote token imports, and a consumer build are left out. The current views need none of them. Source maps are left out of the distributed viewer.
