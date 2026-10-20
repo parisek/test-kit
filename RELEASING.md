@@ -2,6 +2,7 @@
 
 Requirements: R13.24–R13.31.
 The package ships through immutable `vMAJOR.MINOR.PATCH` tags on `main`.
+Before a stable release it also ships release candidate tags `vX.Y.Z-rc.N` (R13.45).
 It stays `private: true`. Do not publish it to the npm registry.
 Before 1.0, projects pin an exact tag. The lockfile records its commit.
 
@@ -27,12 +28,14 @@ Before 1.0, projects pin an exact tag. The lockfile records its commit.
 The owner authorizes autonomous merge and release through v0.1.0 on 2026-10-09.
 Later releases require owner approval. CI and independent review remain required.
 A failed release check requires repair; it does not authorize moving the tag.
-A correction after tagging uses a new patch version.
+A correction after a stable tag uses a new patch version.
+A correction after a candidate tag uses the next candidate of the same base version, for example `v1.0.0-rc.4`.
 
 ## Workflow contract
 
-The tag workflow runs on stable tags only. A dev prerelease tag starts no run.
-It rejects a malformed stable tag. It checks the exact
+The tag workflow runs on stable tags and on release candidate tags (`vX.Y.Z-rc.N`, R13.45).
+A dev prerelease tag starts no run. A candidate creates a GitHub prerelease.
+It rejects a malformed tag. It checks the exact
 package version, `private: true`, the MIT licence, and main ancestry. It installs
 locked dependencies, runs tests, and extracts the matching changelog section.
 It creates the GitHub Release only after these checks pass.

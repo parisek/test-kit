@@ -4,8 +4,13 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-10-20
+
+Third release candidate for 1.0.0. It is not a stable release. It adds static-first output (ADR 0005): `history --publish DIR` writes a stable directory that the viewer reads without a server, and the viewer lists reports from its `index.json`. Try it with `docs/rc-trial.md`.
+
 ### Added
 
+- Add to the viewer a list of reports and runs. It reads `index.json` of a publish directory when `report.json` is absent (R10.13).
 - Add `buildPublishIndex` in `src/export/index-file.js`, the pure writer for the publish `index.json` (R10.13).
 - Add `history --publish DIR` (R10.12, R10.13, ADR 0005). It refreshes one stable directory in place with a lock, a stage and a backup. It writes a marker, an `index.json`, one viewer copy, `run.json` files and report evidence. A report with missing or too large evidence, or one that fails validation, is listed with `path` `null`. It checks `DIR` again immediately before the swap and refuses a missing history store. It refuses unsafe directories before any write and reports crash states with the recovery table. It is opt-in and cannot combine with `--export` or `--port`.
 
