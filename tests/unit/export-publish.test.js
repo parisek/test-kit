@@ -146,10 +146,6 @@ test('an empty store publishes an empty list; an empty existing directory is all
   const index = await readJson(join(f.dir, 'index.json'));
   assert.deepEqual([index.reports, index.runs], [[], []]);
   assertIndexSchema(index, await listing(f.dir));
-  const missing = await fixture(t);
-  await rm(missing.local, { recursive: true });
-  await publishHistory(missing.base);
-  assert.ok((await tree(missing.dir)).includes('index.json'));
 });
 
 test('a missing parent is created; nothing else is written before the lock', async t => {
@@ -302,6 +298,7 @@ test('the root, the home directory, the working directory and its parents are re
   const work = join(f.root, 'work', 'app');
   await mkdir(home); await mkdir(work, { recursive: true });
   const store = join(f.root, 'elsewhere', '.test-kit');
+  await mkdir(store, { recursive: true });
   await assert.rejects(publishHistory({ ...f.base, local: store, dir: '/' }), /Refused/);
   await assert.rejects(publishHistory({ ...f.base, local: store, dir: home, home }), /home directory/);
   await assert.rejects(publishHistory({ ...f.base, local: store, dir: work, cwd: work }), /working directory/);
@@ -759,4 +756,103 @@ test('a failure that cannot release the lock names the lock', async t => {
   };
   await assert.rejects(publishHistory({ ...f.base, fs }), error => /disk full/.test(error.message) && error.message.includes(lock) && !error.message.includes(f.dir + '.test-kit-new'));
   assert.deepEqual(await siblings(f.dir), { lock: true, stage: false, backup: false });
+});
+
+test('a missing or non-directory store is refused before any write; a published site survives', async t => {
+  const f = await fixture(t);
+  await f.addRun('run-a');
+  await publishHistory(f.base);
+  const before = await tree(f.dir);
+  const missing = join(f.proj, 'typo-store');
+  await assert.rejects(publishHistory({ ...f.base, local: missing }), /history store .* does not exist/);
+  await writeFile(join(f.proj, 'file-store'), 'x');
+  await assert.rejects(publishHistory({ ...f.base, local: join(f.proj, 'file-store') }), /not a directory/);
+  assert.deepEqual(await tree(f.dir), before);
+  assert.deepEqual(await siblings(f.dir), none);
+  assert.ok(!await exists(join(f.root, 'new-parent')));
+  await assert.rejects(publishHistory({ ...f.base, local: missing, dir: join(f.root, 'new-parent', 'site') }), /does not exist/);
+  assert.ok(!await exists(join(f.root, 'new-parent')));
+});
+
+// Race tests for the window between S1 and S3 (R10.12 rule 4).
+async function marked(f) { await f.addRun('run-a'); await publishHistory(f.base); }
+const duringBuild = (f, action) => ({ writeFile: async (path, ...rest) => { if (path.endsWith('index.json')) await action(); return writeFile(path, ...rest); } });
+
+test('S3 re-check: a foreign entry added during the build refuses; DIR untouched, stage and lock removed', async t => {
+  const f = await fixture(t);
+  await marked(f);
+  const fs = duringBuild(f, () => writeFile(join(f.dir, 'late.txt'), 'x'));
+  await assert.rejects(publishHistory({ ...f.base, fs }), /late\.txt/);
+  assert.deepEqual(await siblings(f.dir), none);
+  assert.equal(await readFile(join(f.dir, 'late.txt'), 'utf8'), 'x');
+});
+
+test('S3 re-check: DIR replaced by another directory during the build refuses', async t => {
+  const f = await fixture(t);
+  await marked(f);
+  const fs = duringBuild(f, async () => {
+    await rename(f.dir, join(f.root, 'moved'));
+    await mkdir(f.dir);
+  });
+  await assert.rejects(publishHistory({ ...f.base, fs }), /changed while the command built the stage/);
+  assert.deepEqual(await siblings(f.dir), none);
+  assert.deepEqual(await readdir(f.dir), []);
+  assert.ok((await tree(join(f.root, 'moved'))).includes(MARKER));
+});
+
+test('S3 re-check: DIR replaced by a symbolic link during the build refuses', async t => {
+  const f = await fixture(t);
+  await marked(f);
+  const fs = duringBuild(f, async () => {
+    await rename(f.dir, join(f.root, 'moved'));
+    await symlink(join(f.root, 'moved'), f.dir);
+  });
+  await assert.rejects(publishHistory({ ...f.base, fs }), /symbolic link/);
+  assert.deepEqual(await siblings(f.dir), none);
+  assert.ok((await lstat(f.dir)).isSymbolicLink());
+  assert.ok((await tree(join(f.root, 'moved'))).includes(MARKER));
+});
+
+test('S3 re-check: a non-empty DIR created during the build of a first publish refuses', async t => {
+  const f = await fixture(t);
+  const fs = duringBuild(f, async () => { await mkdir(f.dir); await writeFile(join(f.dir, 'mine'), 'x'); });
+  await assert.rejects(publishHistory({ ...f.base, fs }), /no valid \.test-kit-publish marker/);
+  assert.equal(await readFile(join(f.dir, 'mine'), 'utf8'), 'x');
+  assert.deepEqual(await siblings(f.dir), none);
+});
+
+test('a lock replaced during the build is never deleted; the command reports it', async t => {
+  const f = await fixture(t);
+  const lock = f.dir + '.test-kit-lock';
+  const fs = duringBuild(f, async () => {
+    await rename(lock, join(f.root, 'old-lock'));
+    await mkdir(lock);
+    await writeFile(join(lock, 'theirs'), 'keep');
+  });
+  const result = await publishHistory({ ...f.base, fs });
+  assert.equal(result.warnings.length, 1);
+  assert.match(result.warnings[0], /the lock was replaced; left in place/);
+  assert.equal(await readFile(join(lock, 'theirs'), 'utf8'), 'keep');
+  assert.ok((await tree(f.dir)).includes(MARKER));
+});
+
+test('a replaced lock on a failure path stays and is named in the error', async t => {
+  const f = await fixture(t);
+  const lock = f.dir + '.test-kit-lock';
+  const fs = duringBuild(f, async () => {
+    await rename(lock, join(f.root, 'old-lock'));
+    await mkdir(lock);
+    await writeFile(join(lock, 'theirs'), 'keep');
+    throw new Error('disk full');
+  });
+  await assert.rejects(publishHistory({ ...f.base, fs }), error => /disk full/.test(error.message) && error.message.includes('the lock was replaced; left in place'));
+  assert.equal(await readFile(join(lock, 'theirs'), 'utf8'), 'keep');
+});
+
+test('S3 re-check: an empty DIR created during the build of a first publish refuses by identity', async t => {
+  const f = await fixture(t);
+  const fs = duringBuild(f, () => mkdir(f.dir));
+  await assert.rejects(publishHistory({ ...f.base, fs }), /changed while the command built the stage/);
+  assert.deepEqual(await readdir(f.dir), []);
+  assert.deepEqual(await siblings(f.dir), none);
 });

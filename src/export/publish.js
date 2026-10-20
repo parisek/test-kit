@@ -137,7 +137,9 @@ async function preflight({ fs, local, dir, cwd, home }) {
   const paths = { dir: target, lock: target + SUFFIX.lock, stage: target + SUFFIX.stage, backup: target + SUFFIX.backup };
   const store = await resolveFull(fs, local);
   const parent = dirname(target);
-  // Item 4.
+  // Item 4. The store must exist, so a mistyped `--store` cannot replace a site with an empty one.
+  const storeInfo = await lstatOrNull(fs, store);
+  if (!storeInfo || !(await fs.stat(store)).isDirectory()) throw new Error(`Refused: the history store ${store} does not exist or is not a directory. Nothing was written.`);
   for (const path of Object.values(paths)) {
     if (inside(store, path) || inside(path, store)) throw new Error(`Refused: ${path} is the history store, is inside it, or contains it. Choose a directory outside ${store}.`);
   }
@@ -220,16 +222,36 @@ export async function publishHistory({ local, dir, now = new Date(), cwd = proce
     if (error.code === 'EEXIST') throw new Error(recoveryMessage(await readState(fs, paths), paths));
     throw error;
   }
+  // The lock is ours only while it is the directory we created (device and inode).
+  const same = (info, other) => info && other && info.dev === other.dev && info.ino === other.ino;
+  const lockInfo = await fs.lstat(paths.lock);
+  // Returns null, or { replaced } when the lock stays. A replaced lock is never deleted.
   const release = async () => {
-    try { await fs.rm(paths.lock, { recursive: true, force: true }); return null; } catch (error) { return error; }
+    try {
+      const now = await lstatOrNull(fs, paths.lock);
+      if (!now) return null;
+      if (!same(now, lockInfo)) return { replaced: true };
+      await fs.rm(paths.lock, { recursive: true, force: true });
+      return null;
+    } catch { return { replaced: false }; }
+  };
+  const kept = left => (left.replaced ? ' (the lock was replaced; left in place)' : '');
+  // Items 6, 8 and 9 on DIR, and DIR is still the directory the S1 check saw.
+  let identity = null;
+  const verifyDir = async ({ record = false } = {}) => {
+    const info = await checkLeaf(fs, paths.dir);
+    await checkContent(fs, paths.dir);
+    if (record) identity = info;
+    else if (Boolean(info) !== Boolean(identity) || (info && !same(info, identity))) throw new Error(`Refused: ${paths.dir} changed while the command built the stage. Nothing was replaced.`);
+    return info;
   };
   try {
     const state = await readState(fs, paths, { assumeLockAbsent: true });
     if (state.stage || state.backup) throw new Error(recoveryMessage(state, paths));
-    await checkLeaf(fs, paths.dir);
-    await checkContent(fs, paths.dir);
+    await verifyDir({ record: true });
   } catch (error) {
-    if (await release()) error.message += `\nThe command could not remove the lock ${paths.lock}. The next run refuses until you remove it.`;
+    const left = await release();
+    if (left) error.message += `\nThe command could not remove the lock ${paths.lock}${kept(left)}. The next run refuses until you remove it.`;
     throw error;
   }
 
@@ -238,7 +260,8 @@ export async function publishHistory({ local, dir, now = new Date(), cwd = proce
   const fail = async error => {
     const left = [];
     try { await fs.rm(paths.stage, { recursive: true, force: true }); } catch { left.push(paths.stage); }
-    if (await release()) left.push(paths.lock);
+    const lock = await release();
+    if (lock) left.push(paths.lock + kept(lock));
     if (left.length) error.message += `\nThe command could not remove: ${left.join(', ')}. The next run handles this state with the recovery table.`;
     throw error;
   };
@@ -247,10 +270,11 @@ export async function publishHistory({ local, dir, now = new Date(), cwd = proce
   let built;
   try { built = await buildStage({ fs, local: resolve(local), paths, now, warnings }); } catch (error) { await fail(error); }
 
-  // S3: move the old content to the backup.
+  // S3: check DIR again immediately before the rename, then move the old content to the backup.
+  // A change between this check and the rename stays possible. The command does not claim atomicity.
   let hasBackup = false;
   try {
-    if (await lstatOrNull(fs, paths.dir)) { await fs.rename(paths.dir, paths.backup); hasBackup = true; }
+    if (await verifyDir()) { await fs.rename(paths.dir, paths.backup); hasBackup = true; }
   } catch (error) { await fail(error); }
 
   // S4: move the stage to the directory.
@@ -269,7 +293,8 @@ export async function publishHistory({ local, dir, now = new Date(), cwd = proce
       warnings.push(`test-kit: warning: the new content is live, but the backup ${paths.backup} remains (${error.message}). The next run refuses until you remove it.`);
     }
   }
-  if (await release()) warnings.push(`test-kit: warning: the new content is live, but the lock ${paths.lock} remains. The next run refuses until you remove it.`);
+  const lockLeft = await release();
+  if (lockLeft) warnings.push(`test-kit: warning: the new content is live, but the lock ${paths.lock} remains${kept(lockLeft)}. The next run refuses until you remove it.`);
 
   return {
     dir: paths.dir,
