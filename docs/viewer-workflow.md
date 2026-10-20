@@ -6,7 +6,7 @@ Status: proposal for issue #148. Tier 3 by the owner's rule of 2026-10-20 (see #
 
 | Reader | Situation | Job | What goes wrong today |
 | --- | --- | --- | --- |
-| Developer (primary) | Gets a link from an agent, a task or a colleague. Opens it in a desktop browser. | See the exact finding. Decide: fix, mark as a known difference, mark as noise, pass it on. | The link opens a report, not the finding. The page does not say which run it is. |
+| Developer (primary) | Gets a link from an agent, a task or a colleague. Opens it in a desktop browser. | See the exact finding. Decide: fix, mark as a known difference, mark as noise, pass it on. | The link opens a report, not the finding. The report title is always "before → after". The capture date sits inside a closed "Capture details". |
 | Project lead (secondary) | Opens the home to check the state of the latest run. | Answer "is the latest run clean, and what changed since the last one?" | The list has no verdicts. The answer needs two reports opened. |
 | Agent | Reads bounded JSON (`summary`, `query`, `report.json`). | Find a difference, verify it, fix it, measure again. | Not a viewer user. The viewer must not change this interface. |
 

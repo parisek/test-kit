@@ -15,6 +15,7 @@ colors:
   verdict-unexplained: "#b91c1c"
   verdict-explained: "#1d4ed8"
   verdict-incomplete: "#b45309"
+  verdict-oracle: "#52525b"
   dark-surface: "#18181b"
   dark-active-surface: "#f4f4f5"
   dark-active-text: "#18181b"
@@ -25,6 +26,7 @@ colors:
   dark-verdict-unexplained: "#f87171"
   dark-verdict-explained: "#60a5fa"
   dark-verdict-incomplete: "#fbbf24"
+  dark-verdict-oracle: "#d4d4d8"
 typography:
   title:
     fontFamily: "ui-sans-serif, system-ui, sans-serif"
@@ -105,7 +107,8 @@ Neutrals come from the contract, so the viewer matches the other tools. The four
 - **Verdict match (green):** `#15803d`. Light surface. In dark, `#4ade80`.
 - **Verdict unexplained (red):** `#b91c1c`. In dark, `#f87171`. This is the only red that signals a problem.
 - **Verdict explained (blue):** `#1d4ed8`. In dark, `#60a5fa`.
-- **Verdict incomplete (amber):** `#b45309`. In dark, `#fbbf24`.
+- **Verdict incomplete (amber):** `#b45309`. In dark, `#fbbf24`. Incomplete is a measurement state (R8.12), shown beside the class, never as a class.
+- **Oracle and unclassified (neutral):** the muted text color with the word. An oracle target (R8.12) is not a pass or a fail. An unclassified target has no class because evidence is missing. Neither gets a verdict color.
 
 Rule: a verdict color appears on a dot, a count or a word. It never fills a whole row or a selected state. A selected row uses the neutral active surface.
 
