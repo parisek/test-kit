@@ -138,8 +138,9 @@ async function preflight({ fs, local, dir, cwd, home }) {
   const store = await resolveFull(fs, local);
   const parent = dirname(target);
   // Item 4. The store must exist, so a mistyped `--store` cannot replace a site with an empty one.
-  const storeInfo = await lstatOrNull(fs, store);
-  if (!storeInfo || !(await fs.stat(store)).isDirectory()) throw new Error(`Refused: the history store ${store} does not exist or is not a directory. Nothing was written.`);
+  let storeIsDirectory = false;
+  try { storeIsDirectory = (await fs.stat(store)).isDirectory(); } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; }
+  if (!storeIsDirectory) throw new Error(`Refused: the history store ${store} does not exist or is not a directory. Nothing was written.`);
   for (const path of Object.values(paths)) {
     if (inside(store, path) || inside(path, store)) throw new Error(`Refused: ${path} is the history store, is inside it, or contains it. Choose a directory outside ${store}.`);
   }
@@ -219,10 +220,17 @@ export async function publishHistory({ local, dir, now = new Date(), cwd = proce
 
   // S1: take the lock, then repeat the checks.
   try { await fs.mkdir(paths.lock); } catch (error) {
-    if (error.code === 'EEXIST') throw new Error(recoveryMessage(await readState(fs, paths), paths));
+    if (error.code === 'EEXIST') {
+      const state = await readState(fs, paths);
+      // The other run can finish between the failed mkdir and this read. Then nothing is left to recover.
+      if (!state.lock && !state.stage && !state.backup) throw new Error('A refresh was running and has finished. Run the command again.');
+      throw new Error(recoveryMessage(state, paths));
+    }
     throw error;
   }
   // The lock is ours only while it is the directory we created (device and inode).
+  // Limit: the lock guards against concurrent runs of this command and against mistakes. A local process that can
+  // write to the parent of DIR can swap the lock between mkdir and lstat, or reuse an inode. The command does not defend against it.
   const same = (info, other) => info && other && info.dev === other.dev && info.ino === other.ino;
   const lockInfo = await fs.lstat(paths.lock);
   // Returns null, or { replaced } when the lock stays. A replaced lock is never deleted.

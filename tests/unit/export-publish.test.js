@@ -764,13 +764,18 @@ test('a missing or non-directory store is refused before any write; a published 
   await publishHistory(f.base);
   const before = await tree(f.dir);
   const missing = join(f.proj, 'typo-store');
-  await assert.rejects(publishHistory({ ...f.base, local: missing }), /history store .* does not exist/);
+  await assert.rejects(publishHistory({ ...f.base, local: missing }), /history store .* does not exist or is not a directory/);
   await writeFile(join(f.proj, 'file-store'), 'x');
-  await assert.rejects(publishHistory({ ...f.base, local: join(f.proj, 'file-store') }), /not a directory/);
+  await assert.rejects(publishHistory({ ...f.base, local: join(f.proj, 'file-store') }), /history store .* does not exist or is not a directory/);
   assert.deepEqual(await tree(f.dir), before);
   assert.deepEqual(await siblings(f.dir), none);
   assert.ok(!await exists(join(f.root, 'new-parent')));
-  await assert.rejects(publishHistory({ ...f.base, local: missing, dir: join(f.root, 'new-parent', 'site') }), /does not exist/);
+  await assert.rejects(publishHistory({ ...f.base, local: missing, dir: join(f.root, 'new-parent', 'site') }), /does not exist or is not a directory/);
+  await assert.rejects(publishHistory({ ...f.base, local: join(f.proj, 'file-store'), dir: join(f.root, 'new-parent', 'site') }), /does not exist or is not a directory/);
+  assert.ok(!await exists(join(f.root, 'new-parent')));
+  assert.ok(!await exists(join(f.root, 'new-parent', 'site.test-kit-lock')));
+  await symlink(join(f.root, 'nowhere'), join(f.proj, 'dangling'));
+  await assert.rejects(publishHistory({ ...f.base, local: join(f.proj, 'dangling') }), /Refused: the history store .* does not exist or is not a directory/);
   assert.ok(!await exists(join(f.root, 'new-parent')));
 });
 
@@ -854,5 +859,13 @@ test('S3 re-check: an empty DIR created during the build of a first publish refu
   const fs = duringBuild(f, () => mkdir(f.dir));
   await assert.rejects(publishHistory({ ...f.base, fs }), /changed while the command built the stage/);
   assert.deepEqual(await readdir(f.dir), []);
+  assert.deepEqual(await siblings(f.dir), none);
+});
+
+test('S1 EEXIST when the other run has already finished says so and does not print a null action', async t => {
+  const f = await fixture(t);
+  const lock = f.dir + '.test-kit-lock';
+  const fs = { mkdir: async (path, ...rest) => { if (path === lock) { const error = new Error('exists'); error.code = 'EEXIST'; throw error; } return mkdir(path, ...rest); } };
+  await assert.rejects(publishHistory({ ...f.base, fs }), error => error.message === 'A refresh was running and has finished. Run the command again.');
   assert.deepEqual(await siblings(f.dir), none);
 });
