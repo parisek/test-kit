@@ -2,6 +2,8 @@
 
 <!-- impeccable:product-schema 1 -->
 
+Tier 3 by the owner's rule of 2026-10-20 (see #151): the owner approves a change to this file.
+
 ## Platform
 
 web

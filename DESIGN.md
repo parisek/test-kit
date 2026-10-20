@@ -78,6 +78,8 @@ components:
 
 # Design System: test kit viewer
 
+Tier 3 by the owner's rule of 2026-10-20 (see #151): the owner approves a change to this file.
+
 Status: target design for the viewer redesign (issue #148). It is not the current state of `frontend/`. It supersedes R10.3 (collapsible left column), R10.4 (the list of views) and R10.5 (the first view by pair kind) only after the owner approves a specification change. Until then the specification wins. The current badge colors in `frontend/src/style.css` differ from the verdict colors below.
 
 ## Overview

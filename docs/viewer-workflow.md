@@ -1,6 +1,6 @@
 # Viewer workflow and navigation map
 
-Status: proposal for issue #148. It is a target, not the current state. It differs from R10.3 (collapsible left column), R10.4 (views: target detail, matrix, findings, timeline, speed, content) and R10.5 (first view by pair kind). The proposed Overview, Evidence, Findings and Run info replace them only after the owner approves a specification change. It serves principles 1, 2 and 3 of `docs/vision.md` (V1 to V4 in `PRODUCT.md`) and R10.1, R10.11, R10.13. It is not a requirement until the specification adopts it. Sample data comes from `example-site`.
+Status: proposal for issue #148. Tier 3 by the owner's rule of 2026-10-20 (see #151): the owner approves this file. It is a target, not the current state. It differs from R10.3 (collapsible left column), R10.4 (views: target detail, matrix, findings, timeline, speed, content) and R10.5 (first view by pair kind). The proposed Overview, Evidence, Findings and Run info replace them only after the owner approves a specification change. It serves principles 1, 2 and 3 of `docs/vision.md` (V1 to V4 in `PRODUCT.md`) and R10.1, R10.11, R10.13. It is not a requirement until the specification adopts it. Sample data comes from `example-site`.
 
 ## Who uses the viewer
 
@@ -15,7 +15,7 @@ Status: proposal for issue #148. It is a target, not the current state. It diffe
 1. **Finding link.** The developer opens a link to one finding. The page shows that finding with the same view state as the sender. This is the main entry.
 2. **Report link.** A link to one comparison opens its Overview.
 3. **Directory root.** The publish directory opens the Home (history of comparisons).
-4. **Single file.** A `report.json` with no `index.json` opens an empty state, "Open a report file". This is the only place that asks for a file or a URL.
+4. **Viewer with no data.** The viewer loads the adjacent `report.json` first. Only on a 404 does it read `index.json` (R10.13). When both are missing, it shows an empty state, "Open a report", with the source form of R10.10. This is the only place that asks for a file or a URL. A viewer copy with an adjacent `report.json` (a `report --export` directory) opens that report directly and has no Home.
 
 ## Map
 
@@ -24,7 +24,7 @@ flowchart TD
   F[Finding link] --> EV
   R[Report link] --> OV
   D[Directory root] --> HOME
-  S[Single report.json] --> OPEN[Open a report file]
+  S[Viewer with no data] --> OPEN[Open a report]
   OPEN --> OV
 
   HOME[Home: history of comparisons] -->|open a row| OV
