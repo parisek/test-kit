@@ -243,7 +243,7 @@ runs/<id>/behavior/<target>/        trace, video, step screenshots
 
 The viewer evolves upstream `report-viewer.html`. It stays one shell with several views.
 
-- R10.1 The viewer uses Vue 3 components, Vite, and Tailwind 4. The package commits the compiled viewer. A project needs no frontend build or frontend dependency. The local server serves the viewer. The owner accepts this stack on 2026-10-09.
+- R10.1 The viewer uses Vue 3 components, Vite, and Tailwind 4. The package commits the compiled viewer. A project needs no frontend build or frontend dependency. The viewer is a static application. It needs no process and loads under any URL prefix (R10.11). The local server is a convenience that serves the same files (ADR 0005). The owner accepts this stack on 2026-10-09.
 - R10.2 The toolbar must fit one row at 1100 px and wider. It hides parts in a fixed order below that.
 - R10.3 The left column must collapse with a button and with the `[` key. The choice must persist. On a phone it is a drawer.
 - R10.4 Views: target detail, matrix (target by viewport), findings grouped by cause, timeline of runs, speed (only when the run has the artifact), content (only when checks ran).
@@ -253,7 +253,77 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
 - R10.8 The viewer must work in light and dark theme and at phone width with no horizontal page scroll.
 - R10.9 When the browser blocks storage, the viewer must still render.
 - R10.10 A data-source switch must exist inside the page (query strings may not survive hosting).
-- R10.11 Report and history export write static directories and start no server. The viewer loads under any URL prefix. Report data and artifact references stay in that report directory. Server and export share one allowed-file index. Export gives untrusted evidence safe generated names and non-executable types. Only trusted viewer and history shells use HTML. Existing output directories are not overwritten.
+- R10.11 Report and history export write static directories and start no server. The viewer loads under any URL prefix. Report data and artifact references stay in that report directory. Server and export share one allowed-file index. Export gives untrusted evidence safe generated names and non-executable types. Only trusted viewer and history shells use HTML. `--export` refuses an existing output directory. Only the named refresh of R10.12 replaces content in place.
+- R10.12 Status: planned, not implemented. `history --publish DIR` must refresh a publish directory in place (ADR 0005). The package holds no default directory and no config key: `DIR` comes from the flag, and a project alias passes it (R13.7). `DIR` is outside the history store, which defaults to `.test-kit`. Example: `site`.
+  1. Content. `DIR` holds the marker `.test-kit-publish`, `index.json`, one viewer copy (`index.html`, `app.js`, `style.css`), and what `scanHistory` finds. For each report: `report.json` and allowed evidence. For each run: `run.json` only, copied as is (it holds `settings`). No run artifact is copied. A store entry that `scanHistory` marks unreadable is listed in `index.json` with `null` fields and `path` `null`. No file is copied for it. A report whose evidence file is missing or oversized is treated the same way: it is listed with `path` `null` only, and every other field comes from its readable `report.json` as usual. Nothing is copied for it, a warning line names the report, and the refresh continues with exit 0. This differs from `report --export`, which fails on such a file. Publish covers a whole store, and retention is open (section 17, item 4), so missing evidence is an expected state (principle 1). Evidence uses the safe generated names and non-executable types of R10.11. The stage holds the marker too.
+  2. Generated names. Beside `DIR` the command makes three siblings: the lock `<DIR>.test-kit-lock`, the stage `<DIR>.test-kit-new` and the backup `<DIR>.test-kit-old`. The command does not shorten names. Preflight item 2 refuses a `DIR` whose base name makes a sibling longer than 255 bytes (`NAME_MAX`), with a message. A project lists all three in `.gitignore`. Server rules such as `.htaccess` live outside `DIR`.
+  3. Preflight. These checks run first, in this order. All run before any write, including the parent. The first failing check reports and exits 1. Later checks do not run.
+     1. `--publish` is not used with `--export` or `--port`.
+     2. The base name of `DIR` is short enough that each sibling stays within 255 bytes (`NAME_MAX`). This is a pure string check. It runs before any `lstat`.
+     3. Resolve only the parent of `DIR` with `realpath` (read only): the deepest existing ancestor, plus the missing segments. The three siblings sit beside the leaf inside the resolved parent.
+     4. `DIR` and the siblings are not the store, not inside it and not a parent of it.
+     5. `DIR` is not the file system root, the home directory, the working directory, a parent of the working directory or a mount point. Mount point detection compares `st_dev` and is best effort.
+     6. `lstat` of the unresolved leaf shows that `DIR` is missing or is a directory. A symlink or a regular file at `DIR` is refused.
+     7. Check the lock, the stage and the backup by `lstat`. When any exists, print the recovery action of rule 5 and stop. This comes after items 1 to 6, so the command issues no recovery guidance for an unsafe `DIR`. The action names only paths that passed items 4 to 6.
+     8. A non-empty existing `DIR` has the marker as a regular file. Its content, parsed as JSON, equals exactly `{ "tool": "test-kit", "kind": "publish", "schemaVersion": 1 }`. An extra field fails the check. A non-empty `DIR` with no valid marker is refused. A missing or empty `DIR` is allowed.
+     9. In a marked `DIR`, each top-level entry is one the writer owns: the marker, `index.json`, `index.html`, `app.js`, `style.css` (regular files), `runs`, `reports` (real directories). Another entry, or a wrong type, is refused. The refusal names the foreign entry.
+     Items 8 and 9 run only when the lock, the stage and the backup are absent, and again inside the lock (S1). So the table works also when `DIR` has no marker.
+
+  4. Lock. The command creates a missing parent of `DIR`. This is the only write before the lock. Steps S1 to S6 follow. A concurrent refresh is refused by the lock. Every delete in this rule (S5, stage cleanup) removes a symlink as a link and never follows it.
+
+     - S1 Take the lock with an exclusive `mkdir` of `<DIR>.test-kit-lock`. Then repeat the checks of rule 3 on the stage, the backup, the marker and the owned entries. When one fails now, release the lock and refuse.
+     - S2 Build the stage, with the marker.
+     - S3 When `DIR` exists, rename `DIR` to the backup. Otherwise skip.
+     - S4 Rename the stage to `DIR`.
+     - S5 Remove the backup, if the command made it.
+     - S6 Remove the lock.
+  5. Recovery table. The command reads the state with `lstat`: lock L, stage S, backup B (present or absent), and `DIR` D (present or absent). When L, S or B exists, the command refuses to start. It prints the absolute path of each of L, S and B that exists, and the one-line action of this table. A stray sibling beside an unsafe `DIR` never becomes a destructive instruction, because the table applies only after preflight items 1 to 6. It says that a person must check for a crashed refresh, and that no refresh may be running before the person removes the lock. The command never deletes in this case. All 16 states are listed. None is impossible: a person can remove any sibling by hand.
+
+     | B | S | D | L present | L absent |
+     | --- | --- | --- | --- | --- |
+     | present | any | absent | Rename B to `DIR`, then remove S (if present) and L. The old content is only in B. | Refuse. Same action as the left column, but L is not there to remove. |
+     | present | absent | present | The swap finished and the new content is live. A cleanup of S5 stopped. Remove B and L. | Refuse. Remove B. |
+     | present | present | present | The swap did not finish. Never remove B. Print: "compare <DIR> and <backup> by hand; remove <stage> and <lock> afterwards; keep the one you want as <DIR>". | Refuse. Print the same text, without the lock. |
+     | absent | present | any | The refresh stopped before the swap. `DIR`, if present, is the old content. Remove S and L. When D is absent, this is a first publish: the action is the same. | Refuse. Remove S. |
+     | absent | absent | any | Remove L. D present is complete (old or new). D absent means nothing was published yet. | Normal state. The refresh starts. |
+
+  6. Failures. Until S4 succeeds, the old content is in `DIR` or in the backup. After S4 the new content is live, and the backup may be partly or fully removed. A reader can see a missing `DIR` between S3 and S4. The command does not claim atomicity. When a cleanup after a failure cannot remove the stage, the command exits 1 and prints the paths. The next run handles the state with the table (L absent, S present).
+
+     | Step fails | Result |
+     | --- | --- |
+     | S1 re-check | Release the lock, remove nothing else, exit 1. |
+     | S2 | Remove the stage, release the lock, exit 1. `DIR` is unchanged. |
+     | S3 | Remove the stage, release the lock, exit 1. |
+     | S4, with a backup | Rename the backup back to `DIR`, remove the stage, release the lock, exit 1. If the rename back fails: keep the lock, the backup and the stage, print the three paths, exit 1. The kept stage marks the unfinished case in the recovery table. |
+     | S4, no backup (first publish) | Remove the stage, release the lock, exit 1. `DIR` does not exist. |
+     | S5 | The new content is live. Release the lock, print a warning that names the backup, exit 0. The next run refuses until a person removes the backup. |
+     | S6 | The new content is live. Print a warning that names the lock path, exit 0. The next run refuses until a person removes the lock. |
+
+  7. Crash points. Each point leads to one entry of the recovery table. Several points lead to the same entry by design.
+     - After S1, and after S5: B absent, S absent, L present.
+     - During S2, and after S2: B absent, S present.
+     - After S3, before S4: B present, D absent.
+     - After S4: B present, S absent, D present. For a first publish, B is absent too: B absent, S absent, L present.
+     - S4 failed and the rename back failed: B present, S present, D absent or present. The table names the action for each.
+  8. Message. On success the command writes this line to stderr: `test-kit: published to <absolute dir>; the directory contains captured pages.` The line is a message, not a gate. `run.json` holds `settings`, so the run settings are published too. The docs tell the project this. The package never uploads or exposes `DIR`. The project decides what its web server does. Retention stays open (section 17, item 4).
+  9. Limit. A file that a person adds by hand below `runs/` or `reports/` is deleted with the backup. A marker is the project's own declaration, not proof that the package made the directory. A forged marker with owned names passes. The command does not scan foreign files below `runs/` or `reports/`. The rule guards against a typing error that names an unrelated directory. It does not guard against forgery.
+- R10.13 Status: planned, not implemented. The publish directory holds `index.json` at its root. R10.11 export differs: it copies the viewer into each report. The publish directory shares one viewer copy among its reports. The writer generates `index.json`. Nobody edits it by hand. Schema:
+
+```
+{ "schemaVersion": 1,
+  "generatedAt": "<ISO 8601 UTC string>",
+  "reports": [ { "id", "kind", "createdAt", "settingsHash", "path", "targets" } ],
+  "runs":    [ { "id", "createdAt", "settingsHash", "path" } ] }
+```
+
+  - `id` is the store id. `kind` is `pair.kind` of `report.json`, or `subject.kind` for a subject report. It is `null` unless it is a string. Code writes no subject report yet (schemaVersion 3 design, section 9), so that branch is for later.
+  - `createdAt` is `null` unless it has the exact form of `Date.prototype.toISOString` (`YYYY-MM-DDTHH:mm:ss.sssZ`), so a string sort is correct. For a report it is `meta.generated`, the time of the comparison and not of the capture. For a run it is `at`. Sorting compares the strings.
+  - `settingsHash` is the `sha256:` value of a run. For a run it is the `settingsHash` of its `run.json`. For a report it is the value of the run named by `pair.aRunId`, or by `subject.runId` for a subject report. Any `settingsHash` is `null` unless it is a string that starts with `sha256:`. A report value is `null` when run A or run B (`pair.bRunId`) is absent, unreadable or has no valid hash. The lookup uses only run ids that `scanHistory` found and `validId` accepts. It never uses an id read from report data directly. The writer reads the raw `report.json` that `scanHistory` reads, not the adapted report (`adaptV1` of `src/report/model.js` is not applied). A legacy v1 file has no `pair` or `subject`, so `kind` and the report `settingsHash` are `null`. When the A and B hashes differ, the comparison is `incompatible` (R8.9) and the report value is `null`.
+  - `targets` is the number of `entries` in the raw `report.json`, or `null` when `entries` is not an array.
+  - An unreadable entry has `null` in every field except `id`, and `path` `null`. A readable report with missing or oversized evidence has only `path` `null`. Its other fields come from `report.json`. Otherwise it points to a file that is in `DIR`, and never to a missing file. It is relative to the directory: `reports/<id>/report.json` or `runs/<id>/run.json`. No path is absolute or holds `..`.
+  - Unknown or unreadable is `null`, never `0` or an empty string (principle 1). An unreadable entry stays in the list with `null` fields.
+  - Both lists sort newest first by `createdAt`, `null` last, ties by `id`, descending, by plain string comparison (`a > b`), not locale comparison. Valid ids use only `[A-Za-z0-9_-]`, so the order is by code unit. `scanHistory` uses `localeCompare`, which can differ for ids that differ in case. The index writer does not reuse that order.
+  - The viewer treats the content as untrusted text (R10.6). A reader ignores an unknown field. An unknown `schemaVersion` is an error.
 
 ---
 

@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- Specify static-first output (ADR 0005). R10.1 and R10.11 change. R10.12 (in-place refresh of a publish directory) and R10.13 (`index.json`) are new. The vision gains a "Static first" section. This changes documents only. The code does not follow yet.
 - Record what one consumer project verified once with `v1.0.0-rc.2` on a local site. This changes documents only.
 - Update `docs/migration-guide-tailwind-base.md`. The candidate tags exist. The verified steps are marked. The report path is free.
 - Answer the R8.9 question in the guide and in `docs/seam.md`. A package version change does not make a run incompatible. A Playwright or Chromium version change does.
