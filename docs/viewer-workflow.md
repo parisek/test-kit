@@ -70,7 +70,7 @@ The viewer is a static application. It cannot run a command or write a file. A d
 Each part is percent-encoded. In an export with an adjacent `report.json` the `r-<report id>` part is dropped.
 
 - `view`: `overview`, `evidence`, `findings`, `info`.
-- A missing part falls back to the first valid value. An unknown value shows a message and the Overview. The viewer validates every part as an identifier before it reads a path (report data is untrusted).
+- A missing or empty part takes the first valid value for its position. The report id must pass `validId`. The viewer matches target, viewport and finding ids against the open report, so the reserved target id `@project` is valid. A present but unknown part shows a message and opens the Overview of that report. A finding id selects the first finding with that id in report order (report data is untrusted).
 - The hash stays under the page origin. It never carries a URL.
 
 ## Open points for the owner
