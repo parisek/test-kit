@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-03T08:00:00.000Z",
+  "reports": [
+    {
+      "id": "example-b",
+      "kind": "convergence",
+      "createdAt": "2026-10-02T09:00:00.000Z",
+      "settingsHash": "sha256:ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56abcd",
+      "path": "reports/example-b/report.json",
+      "targets": 1
+    },
+    {
+      "id": "example-a",
+      "kind": "self-baseline",
+      "createdAt": "2026-10-01T09:00:00.000Z",
+      "settingsHash": null,
+      "path": "reports/example-a/report.json",
+      "targets": 1
+    },
+    {
+      "id": "example-gone",
+      "kind": null,
+      "createdAt": null,
+      "settingsHash": null,
+      "path": null,
+      "targets": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "example-run-b",
+      "createdAt": "2026-10-02T08:00:00.000Z",
+      "settingsHash": "sha256:ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56abcd",
+      "path": null
+    },
+    {
+      "id": "example-run-a",
+      "createdAt": "2026-10-01T08:00:00.000Z",
+      "settingsHash": "sha256:ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56abcd",
+      "path": null
+    }
+  ]
+}

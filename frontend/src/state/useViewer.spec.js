@@ -239,4 +239,85 @@ describe('planned artifact isolation', () => {
         expect(instance.state.artifact).toBe('screenshot');
         expect(instance.state.view).toBe('detail');
     });
+
+	describe('publish directory index (R10.13)', () => {
+		const hash = 'sha256:' + 'ab'.repeat(32);
+		const index = (extra = {}) => ({ schemaVersion: 1, reports: [{ id: 'example-a', kind: 'convergence', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: hash, path: 'reports/example-a/report.json', targets: 1 }], runs: [], ...extra });
+		const missing = { ok: false, status: 404, json: async () => ({}) };
+		const server = (files) => vi.fn(async (url) => files[new URL(url).pathname] ?? missing);
+		const host = (hash = '') => ({ document: { baseURI: 'http://localhost:4178/site/index.html' }, location: { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash }, history: { replaceState: vi.fn() } });
+
+		it('shows the list when report.json answers 404 and index.json loads', async () => {
+			const fetch = server({ '/site/index.json': response(index()) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			expect(fetch.mock.calls.map(([url]) => url)).toEqual(['http://localhost:4178/site/report.json', 'http://localhost:4178/site/index.json']);
+			expect(instance.state.report).toBeNull();
+			expect(instance.state.index.reports.map((row) => row.id)).toEqual(['example-a']);
+			expect(instance.state.notice).toBe('');
+		});
+		it('keeps the single-report behavior when report.json exists, and never reads the index', async () => {
+			const fetch = server({ '/site/report.json': response(report()), '/site/index.json': response(index()) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			expect(fetch).toHaveBeenCalledTimes(1);
+			expect(instance.state.report.entries[0].id).toBe('example');
+			expect(instance.state.index).toBeNull();
+		});
+		it('does not hide a broken report.json behind the index', async () => {
+			const fetch = server({ '/site/report.json': { ok: false, status: 500 }, '/site/index.json': response(index()) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			expect(fetch).toHaveBeenCalledTimes(1);
+			expect(instance.state.index).toBeNull();
+			expect(instance.state.notice).toBe('Cannot load report: HTTP 500');
+		});
+		it('keeps the original error when neither file exists', async () => {
+			const instance = useViewer({ browser: host(), fetch: server({}), width: () => 1280 });
+			await instance.start();
+			expect(instance.state.index).toBeNull();
+			expect(instance.state.notice).toBe('Cannot load report: HTTP 404');
+		});
+		it('shows an honest error for an unknown schemaVersion', async () => {
+			const fetch = server({ '/site/index.json': response(index({ schemaVersion: 2 })) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			expect(instance.state.index).toBeNull();
+			expect(instance.state.notice).toMatch(/^Unsupported index schemaVersion \(2\)/);
+			expect(instance.state.loading).toBe(false);
+		});
+		it('opens reports/<id>/report.json from the same copy, sets a plain anchor and returns to the list', async () => {
+			const browser = host();
+			const fetch = server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(report('update')) });
+			const instance = useViewer({ browser, fetch, width: () => 1280 });
+			await instance.start();
+			await instance.openReport('example-a');
+			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/reports/example-a/report.json', { redirect: 'error' });
+			expect(instance.state.report.entries[0].id).toBe('example');
+			expect(instance.state.source).toBe('http://localhost:4178/site/reports/example-a/report.json');
+			expect(browser.history.replaceState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a');
+			instance.dispatch('close-report');
+			expect(instance.state.report).toBeNull();
+			expect(instance.state.index.reports).toHaveLength(1);
+			expect(browser.history.replaceState).toHaveBeenLastCalledWith(null, '', '/site/index.html');
+		});
+		it('opens the report named by the anchor, and ignores an invalid anchor', async () => {
+			const files = { '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(report()) };
+			const opened = useViewer({ browser: host('#r-example-a'), fetch: server(files), width: () => 1280 });
+			await opened.start();
+			expect(opened.state.report.entries[0].id).toBe('example');
+			const fetch = server(files);
+			const ignored = useViewer({ browser: host('#r-../../etc'), fetch, width: () => 1280 });
+			await ignored.start();
+			expect(ignored.state.report).toBeNull();
+			expect(fetch).toHaveBeenCalledTimes(2);
+		});
+		it('refuses an unavailable entry, an unlisted id and an id outside the charset', async () => {
+			const fetch = server({ '/site/index.json': response(index({ reports: [{ id: 'example-gone', path: null }] })) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			for (const id of ['example-gone', 'unlisted', '../report', '']) expect(await instance.openReport(id)).toEqual({ ok: false });
+			expect(fetch).toHaveBeenCalledTimes(2);
+		});
+	});
 });
