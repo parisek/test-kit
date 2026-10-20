@@ -19,17 +19,17 @@ What the code does today (read on 2026-10-20):
 
 The gap: there is no stable place to read from. A new export needs a new directory name. Nothing lists the runs of one project in a form that the viewer reads.
 
-## Decision (proposed)
+## Decision
 
 1. **The package writes data. The viewer reads data.** The contract between them is a directory: report JSON, evidence files and an index.
 2. **The viewer is a static application.** It needs no process. It loads under any URL prefix (R10.11).
 3. **The server is a convenience.** `report` and `history` without `--export` stay. Workflow documents name the static path first.
-4. **A stable publish directory.** A project sets one directory (for example `.test-kit/site`). A new command mode refreshes it in place. The refresh stages the new content and replaces the old one in one rename. A failed refresh leaves the old content.
+4. **A stable publish directory.** A project sets one directory (for example `site`, outside the store; the store default is `.test-kit`). A new command mode, `history --publish DIR`, refreshes it in place. The refresh stages the new content, renames the old directory to a backup, renames the stage to the directory and removes the backup. This is a recoverable two-rename swap, not an atomic one. The directory can be briefly missing. A failed refresh restores the old content or leaves it under the backup name (R10.12).
 5. **An index file.** The directory holds `index.json`. It lists runs and reports with an id, a kind, a time, the `settingsHash` and a relative path. The viewer reads it. Order and content are generated, never hand-edited.
 6. **One viewer copy for each directory.** Reports in the directory share it. A report directory holds data and evidence only.
 7. **Several projects.** Each project writes its own directory. The viewer is the same code in each. The package adds no registry of projects.
 
-## Sharing rules (proposed)
+## Sharing rules
 
 Principle 4 stays: no account, no upload, no hosted service. The package never publishes. The project decides what its web server does.
 
@@ -59,7 +59,7 @@ Each package is one pull request. Each ends in tests that run in `node --test` o
 
 1. **Spec and vision.** Edit R10.1, R10.11. Add one requirement for the in-place refresh and one for `index.json`. Add the sentence from "Decision" to the vision. Tier 3.
 2. **Index writer.** Pure function from the scanned history to `index.json`. Unit tests with fixtures. Tier 2.
-3. **In-place refresh.** CLI mode, staged write, one rename, old content kept on failure. Tier 2.
+3. **In-place refresh.** CLI mode, staged write, two-rename swap, old content kept or recoverable on failure. Tier 2.
 4. **Viewer reads the index.** One viewer copy for the directory, the list and the report load from it. Frontend tests and `check:viewer`. Tier 2.
 5. **Documents.** README, `docs/rc-trial.md`, migration guide. Tier 1.
 6. **Pilot in `tailwind-base`** (authorized by the owner): doctrine text, a styleguide link, the web server rule for the directory. Ends in an audit by the owner.
