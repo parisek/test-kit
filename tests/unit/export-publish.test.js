@@ -869,3 +869,12 @@ test('S1 EEXIST when the other run has already finished says so and does not pri
   await assert.rejects(publishHistory({ ...f.base, fs }), error => error.message === 'A refresh was running and has finished. Run the command again.');
   assert.deepEqual(await siblings(f.dir), none);
 });
+
+test('a store path below a regular file gives the Refused text and creates nothing', async t => {
+  const f = await fixture(t);
+  await writeFile(join(f.proj, 'a-file'), 'x');
+  const dir = join(f.root, 'new-parent', 'site');
+  await assert.rejects(publishHistory({ ...f.base, local: join(f.proj, 'a-file', 'child'), dir }), error => error.message === `Refused: the history store ${join(f.proj, 'a-file', 'child')} does not exist or is not a directory. Nothing was written.`);
+  assert.ok(!await exists(join(f.root, 'new-parent')));
+  assert.deepEqual((await readdir(f.root)).sort(), ['proj']);
+});

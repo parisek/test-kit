@@ -135,12 +135,14 @@ async function preflight({ fs, local, dir, cwd, home }) {
   // Item 3.
   const target = await resolvePath(fs, dir);
   const paths = { dir: target, lock: target + SUFFIX.lock, stage: target + SUFFIX.stage, backup: target + SUFFIX.backup };
-  const store = await resolveFull(fs, local);
   const parent = dirname(target);
   // Item 4. The store must exist, so a mistyped `--store` cannot replace a site with an empty one.
+  const refuseStore = at => new Error(`Refused: the history store ${at} does not exist or is not a directory. Nothing was written.`);
+  let store;
+  try { store = await resolveFull(fs, local); } catch (error) { if (error.code === 'ENOENT' || error.code === 'ENOTDIR') throw refuseStore(local); throw error; }
   let storeIsDirectory = false;
-  try { storeIsDirectory = (await fs.stat(store)).isDirectory(); } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; }
-  if (!storeIsDirectory) throw new Error(`Refused: the history store ${store} does not exist or is not a directory. Nothing was written.`);
+  try { storeIsDirectory = (await fs.stat(store)).isDirectory(); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (!storeIsDirectory) throw refuseStore(store);
   for (const path of Object.values(paths)) {
     if (inside(store, path) || inside(path, store)) throw new Error(`Refused: ${path} is the history store, is inside it, or contains it. Choose a directory outside ${store}.`);
   }
