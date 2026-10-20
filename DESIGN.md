@@ -43,6 +43,11 @@ typography:
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.5
+  count:
+    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.875rem"
+    fontWeight: 600
+    lineHeight: 1.1
   label:
     fontFamily: "ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
@@ -71,6 +76,12 @@ components:
     rounded: "{rounded.panel}"
     height: "{spacing.control}"
     padding: "0 16px"
+  button-secondary:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.panel}"
+    height: "{spacing.control}"
+    padding: "0 16px"
   panel:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text}"
@@ -81,6 +92,8 @@ components:
 # Design System: test kit viewer
 
 Tier 3 by the owner's rule of 2026-10-20 (see #151): the owner approves a change to this file.
+
+Decisions D1 to D15 of #153 are recorded below. The owner accepted all recommended options on 2026-10-20 (artifact choice sheet, pasted in chat).
 
 Status: target design for the viewer redesign (issue #148). It is not the current state of `frontend/`. It supersedes R10.3 (collapsible left column), R10.4 (the list of views) and R10.5 (the first view by pair kind) only after the owner approves a specification change. Until then the specification wins. The current badge colors in `frontend/src/style.css` differ from the verdict colors below.
 
@@ -110,6 +123,8 @@ Neutrals come from the contract, so the viewer matches the other tools. The four
 - **Verdict incomplete (amber):** `#b45309`. In dark, `#fbbf24`. Incomplete is a measurement state (R8.12), shown beside the class, never as a class.
 - **Oracle and unclassified (neutral):** the muted text color with the word. An oracle target (R8.12) is not a pass or a fail. An unclassified target has no class because evidence is missing. Neither gets a verdict color.
 
+Counts: a count above zero uses its verdict color. A count of zero uses the muted text color. The classes show first (match, explained, unexplained, and oracle only when above zero). A rule separates the measurement state. Incomplete is a separate count beside it, labelled as a state, never as a class.
+
 Rule: a verdict color appears on a dot, a count or a word. It never fills a whole row or a selected state. A selected row uses the neutral active surface.
 
 ## Typography
@@ -117,6 +132,7 @@ Rule: a verdict color appears on a dot, a count or a word. It never fills a whol
 One system sans for text. One system mono for records: identifiers, times, paths and hashes.
 
 - **Title** 1.875rem, 600. One per page.
+- **Count** 1.875rem, 600, line height 1.1. The number of a verdict count. A page shows several.
 - **Heading** 1.125rem, 600.
 - **Body** 0.9375rem, 400. Line length stays under 75 characters.
 - **Label** 0.8125rem, 500. Table headers and small captions.
@@ -126,7 +142,7 @@ One system sans for text. One system mono for records: identifiers, times, paths
 
 A single content column, 1040px maximum, centered. The home and the report use the same header and the same column. There is no permanent side panel on the home. On a report, the page offers four views as tabs. The target list is a panel inside the Evidence view only.
 
-A row wraps below 640px. Every flex or grid child that holds text has `min-width: 0`. The page never scrolls sideways. Wide tables scroll inside their own box.
+Items in a row wrap by the width of their content. There is no breakpoint rule. Every flex or grid child that holds text has `min-width: 0`. The page never scrolls sideways. Wide tables scroll inside their own box.
 
 ## Elevation & Depth
 
@@ -139,13 +155,24 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 ## Components
 
 - **Button primary:** active surface fill, active text, height 2rem, radius panel. On a coarse pointer the hit area is 2.75rem (44px). The visible size stays.
-- **Link:** the text color with an underline on hover. In running text it is always underlined.
-- **Segmented control:** one filter set per view. The selected segment uses the active surface.
+- **Button secondary:** surface fill, a 1px control border, text color, the same height and radius as primary. Use it for an action next to a primary one.
+- **Link:** the text color with an underline on hover. In running text it is always underlined. A text action (such as "More filters") is an underlined link.
+- **Segmented control:** the selected segment uses the active surface.
+- **View state and filters:** viewport, evidence type and mode are view state. Show them in a group labelled "View". A filter narrows the list (All, Unexplained, Match, and "More filters"). Show it in a group labelled "Filter". A view has one filter set. The control for the artifact is labelled "Evidence type". The deep link keeps the part name `artifact`. Modes are Side by side, Overlay and Difference.
 - **Verdict count:** a number, a word and a color. Counts stay visible under every filter.
-- **Comparison row:** a verdict dot, a local time, a verdict word, a short detail, the change against the previous row, and a short identifier in mono.
+- **Verdict wording:** a run has a sentence derived from the classes ("Nothing changed", "1 page differs"). A row, a cell and a finding use the class word (match, unexplained).
+- **Comparison row:** a verdict dot, a local time, a verdict word, a short detail, the change against the previous row, and a short identifier in mono, after the word "update" when the kind is shown. A whole row is a link. On hover it takes the toolbar tint in light. In dark it lightens its border to the control border color. It does not underline and changes no opacity.
+- **Latest comparison card:** the first element of the Home. It shows the verdict sentence, the time, the four counts and an "Open comparison" button.
+- **Verdict history strip:** one dot for each comparison, oldest on the left, each with a time and a class word under it.
+- **Small heading:** the label style (0.8125rem, 500, muted). It carries a caption such as "Latest comparison". Identifiers inside it use the record style.
+- **Page counter:** "n of N" in the record style, between the older and newer links.
+- **Settings hash line:** shown on a row only when the hash differs from the previous row.
+- **Placeholder frame:** a dashed 1px border for an image that is not loaded.
+- **Page background:** the toolbar color.
+- **Theme toggle:** a text button at the right of the header: "Dark theme" or "Light theme".
 - **Breadcrumb:** the way back is always the first element in the content column.
-- **Tabs:** real buttons with `role="tab"`. The tab never changes by itself. If the app opens a tab for the person, it says why.
-- **Disclosure:** for measurement context, capture details and help. Closed by default.
+- **Tabs:** real buttons with `role="tab"`. The selected tab has a 3px bottom border in the active surface color and bold text. The tab never changes by itself. If the app opens a tab for the person, it says why.
+- **Disclosure:** for measurement context, capture details and help. Closed by default. The A and B run cards and the decision block stay open.
 
 ## Do's and Don'ts
 

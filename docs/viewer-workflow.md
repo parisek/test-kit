@@ -52,6 +52,8 @@ flowchart TD
 
 ## Decision actions
 
+On a finding the page shows four labelled actions: Fix (copy the link), Known difference (copy the command), Noise (not defined yet) and Pass on (copy the link). Decided by the owner on 2026-10-20 (#153, D15).
+
 The viewer is a static application. It cannot run a command or write a file. A decision action therefore produces text for the person to use:
 
 | Decision | What the viewer offers | What exists today |
