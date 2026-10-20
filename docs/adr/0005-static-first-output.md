@@ -1,6 +1,6 @@
 # ADR 0005: Static data first, viewer without a server
 
-Status: proposed. The owner asked for this direction in chat on 2026-10-20. The owner has not yet accepted this text. Acceptance is a Tier 3 decision (it edits the vision and a numbered requirement).
+Status: accepted by the owner in chat on 2026-10-20 ("Přijímám. Pojď to celé postavit"). This was the Tier 3 approval for the vision and R10.11 edit. Work packages 2 to 5 follow in separate pull requests.
 Requirements: R10.1, R10.10, R10.11, R5.1, R8.9. Principles: 2, 4, 5, 6. Tracked in a new issue (see the pull request).
 
 ## Context
