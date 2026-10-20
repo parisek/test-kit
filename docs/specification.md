@@ -259,10 +259,10 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
   2. Generated names. Beside `DIR` the command makes three siblings: the lock `<DIR>.test-kit-lock`, the stage `<DIR>.test-kit-new` and the backup `<DIR>.test-kit-old`. The command does not shorten names. Preflight refuses a `DIR` whose base name makes a sibling longer than 255 bytes (`NAME_MAX`), with a message. A project lists all three in `.gitignore`. Server rules such as `.htaccess` live outside `DIR`.
   3. Preflight. These checks run first. All run before any write, including the parent. The first failure gives a refusal and an exit code 1:
      - `--publish` is used with `--export` or `--port`.
-     - `DIR` is resolved with `realpath`. For a missing `DIR` the command resolves the deepest existing ancestor, appends the rest, and uses that resolved parent for the three siblings.
+     - Order of path checks. First the command resolves only the parent of `DIR` with `realpath`: the deepest existing ancestor, plus the missing segments. Then it runs `lstat` on the unresolved leaf name inside that resolved parent. A symlink leaf is refused. The three siblings sit beside the leaf inside the resolved parent.
      - `DIR` and the siblings are not the store, not inside it and not a parent of it.
      - `DIR` is not the file system root, the home directory, the working directory, a parent of the working directory or a mount point. Mount point detection compares `st_dev` and is best effort.
-     - `lstat` shows that `DIR` is missing or is a directory. A symlink or a regular file at `DIR` is refused.
+     - `lstat` of the leaf shows that `DIR` is missing or is a directory. A symlink or a regular file at `DIR` is refused.
      - A non-empty existing `DIR` has the marker as a regular file. Its content, parsed as JSON, equals exactly `{ "tool": "test-kit", "kind": "publish", "schemaVersion": 1 }`. An extra field fails the check. A non-empty `DIR` with no valid marker is refused. A missing or empty `DIR` is allowed.
      - In a marked `DIR`, each top-level entry is one the writer owns: the marker, `index.json`, `index.html`, `app.js`, `style.css` (regular files), `runs`, `reports` (real directories). Another entry, or a wrong type, is refused.
      - The lock, the stage and the backup do not exist (`lstat`). The refusal follows rule 5.
@@ -279,18 +279,19 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
      | B | S | D | L present | L absent |
      | --- | --- | --- | --- | --- |
      | present | any | absent | Rename B to `DIR`, then remove S (if present) and L. The old content is only in B. | Refuse. Same action as the left column, but L is not there to remove. |
-     | present | any | present | The new content is live and S5 did not finish. Remove B, S (if present) and L. | Refuse. Remove B and S (if present). |
+     | present | absent | present | The swap finished and the new content is live. A cleanup of S5 stopped. Remove B and L. | Refuse. Remove B. |
+     | present | present | present | The swap did not finish. Never remove B. Print: "compare <DIR> and <backup> by hand; remove <stage> and <lock> afterwards; keep the one you want as <DIR>". | Refuse. Print the same text, without the lock. |
      | absent | present | any | The refresh stopped before the swap. `DIR`, if present, is the old content. Remove S and L. When D is absent, this is a first publish: the action is the same. | Refuse. Remove S. |
      | absent | absent | any | Remove L. D present is complete (old or new). D absent means nothing was published yet. | Normal state. The refresh starts. |
 
-  6. Failures. The old content is always in `DIR` or in the backup. A reader can see a missing `DIR` between S3 and S4. The command does not claim atomicity. When a cleanup after a failure cannot remove the stage, the command exits 1 and prints the paths. The next run handles the state with the table (L absent, S present).
+  6. Failures. Until S4 succeeds, the old content is in `DIR` or in the backup. After S4 the new content is live, and the backup may be partly or fully removed. A reader can see a missing `DIR` between S3 and S4. The command does not claim atomicity. When a cleanup after a failure cannot remove the stage, the command exits 1 and prints the paths. The next run handles the state with the table (L absent, S present).
 
      | Step fails | Result |
      | --- | --- |
      | S1 re-check | Release the lock, remove nothing else, exit 1. |
      | S2 | Remove the stage, release the lock, exit 1. `DIR` is unchanged. |
      | S3 | Remove the stage, release the lock, exit 1. |
-     | S4, with a backup | Rename the backup back to `DIR`, remove the stage, release the lock, exit 1. If the rename back fails: keep the lock and the backup, print both paths, exit 1. |
+     | S4, with a backup | Rename the backup back to `DIR`, remove the stage, release the lock, exit 1. If the rename back fails: keep the lock, the backup and the stage, print the three paths, exit 1. The kept stage marks the unfinished case in the recovery table. |
      | S4, no backup (first publish) | Remove the stage, release the lock, exit 1. `DIR` does not exist. |
      | S5 | The new content is live. Release the lock, print a warning that names the backup, exit 0. The next run refuses until a person removes the backup. |
      | S6 | The new content is live. Print a warning that names the lock path, exit 0. The next run refuses until a person removes the lock. |
@@ -299,8 +300,9 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
      - After S1, and after S5: B absent, S absent, L present.
      - During S2, and after S2: B absent, S present.
      - After S3, before S4: B present, D absent.
-     - After S4: B present, D present.
-  8. Message. On success the command writes this line to stderr: `test-kit: published to <absolute dir>; the directory contains captured pages.` The line is a message, not a gate. The package never uploads or exposes `DIR`. The project decides what its web server does. Retention stays open (section 17, item 4).
+     - After S4: B present, S absent, D present. For a first publish, B is absent too: B absent, S absent, L present.
+     - S4 failed and the rename back failed: B present, S present, D absent or present. The table names the action for each.
+  8. Message. On success the command writes this line to stderr: `test-kit: published to <absolute dir>; the directory contains captured pages.` The line is a message, not a gate. `run.json` holds `settings`, so the run settings are published too. The docs tell the project this. The package never uploads or exposes `DIR`. The project decides what its web server does. Retention stays open (section 17, item 4).
   9. Limit. A file that a person adds by hand below `runs/` or `reports/` is deleted with the backup. A marker is the project's own declaration, not proof that the package made the directory. A forged marker with owned names passes. The command does not scan foreign files below `runs/` or `reports/`. The rule guards against a typing error that names an unrelated directory. It does not guard against forgery.
 - R10.13 Status: planned, not implemented. The publish directory holds `index.json` at its root. R10.11 export differs: it copies the viewer into each report. The publish directory shares one viewer copy among its reports. The writer generates `index.json`. Nobody edits it by hand. Schema:
 
