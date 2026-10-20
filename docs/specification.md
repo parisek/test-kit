@@ -256,28 +256,47 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
 - R10.11 Report and history export write static directories and start no server. The viewer loads under any URL prefix. Report data and artifact references stay in that report directory. Server and export share one allowed-file index. Export gives untrusted evidence safe generated names and non-executable types. Only trusted viewer and history shells use HTML. `--export` refuses an existing output directory. Only the named refresh of R10.12 replaces content in place.
 - R10.12 Status: planned, not implemented. `history --publish DIR` must refresh a publish directory in place (ADR 0005). The package holds no default directory and no config key: `DIR` comes from the flag, and a project alias passes it (R13.7). `DIR` is outside the history store, which defaults to `.test-kit`. Example: `site`.
   1. Content. `DIR` holds the marker `.test-kit-publish`, `index.json`, one viewer copy (`index.html`, `app.js`, `style.css`), and what `scanHistory` finds. For each report: `report.json` and allowed evidence. For each run: `run.json` only, copied as is (it holds `settings`). No run artifact is copied. Evidence uses the safe generated names and non-executable types of R10.11. The stage holds the marker too.
-  2. Generated names. Beside `DIR` the command makes three siblings: the lock `<DIR>.test-kit-lock`, the stage `<DIR>.test-kit-new` and the backup `<DIR>.test-kit-old`. The command caps the base name so that each sibling stays below `NAME_MAX`. A project lists all three in `.gitignore`. Server rules such as `.htaccess` live outside `DIR`.
+  2. Generated names. Beside `DIR` the command makes three siblings: the lock `<DIR>.test-kit-lock`, the stage `<DIR>.test-kit-new` and the backup `<DIR>.test-kit-old`. The command does not shorten names. Preflight refuses a `DIR` whose base name makes a sibling longer than 255 bytes (`NAME_MAX`), with a message. A project lists all three in `.gitignore`. Server rules such as `.htaccess` live outside `DIR`.
   3. Preflight. These checks run first. All run before any write, including the parent. The first failure gives a refusal and an exit code 1:
      - `--publish` is used with `--export` or `--port`.
      - `DIR` is resolved with `realpath`. For a missing `DIR` the command resolves the deepest existing ancestor, appends the rest, and uses that resolved parent for the three siblings.
      - `DIR` and the siblings are not the store, not inside it and not a parent of it.
      - `DIR` is not the file system root, the home directory, the working directory, a parent of the working directory or a mount point. Mount point detection compares `st_dev` and is best effort.
-     - `lstat` shows that `DIR` is no symlink.
+     - `lstat` shows that `DIR` is missing or is a directory. A symlink or a regular file at `DIR` is refused.
      - A non-empty existing `DIR` has the marker as a regular file with the content `{ "tool": "test-kit", "kind": "publish", "schemaVersion": 1 }`. A non-empty `DIR` with no valid marker is refused. A missing or empty `DIR` is allowed.
      - In a marked `DIR`, each top-level entry is one the writer owns: the marker, `index.json`, `index.html`, `app.js`, `style.css` (regular files), `runs`, `reports` (real directories). Another entry, or a wrong type, is refused.
-     - The lock, the stage and the backup do not exist (`lstat`). The message names each one that exists. A person decides.
-  4. Lock. The command creates a missing parent of `DIR`. This is the only write before the lock. Then it takes the lock with an exclusive `mkdir` of `<DIR>.test-kit-lock`. If the lock exists, the command refuses and prints its absolute path. The message says a person must check for a crashed refresh and remove the lock. A concurrent refresh is refused this way. The lock stays until the end of the refresh.
-  5. Steps. Under the lock: (5) build the stage, with the marker; (6) when `DIR` exists, rename `DIR` to the backup; (7) rename the stage to `DIR`; (8) remove the backup if the command made it; (9) remove the lock.
-  6. Failures. The old content is always in `DIR` or in the backup. A reader can see a missing `DIR` between steps 6 and 7. The command does not claim atomicity.
+     - The lock, the stage and the backup do not exist (`lstat`). The refusal message follows rule 5.
+  4. Lock. The command creates a missing parent of `DIR`. This is the only write before the lock. Steps S1 to S6 follow. A concurrent refresh is refused by the lock. Every delete in this rule (S5, stage cleanup) removes a symlink as a link and never follows it.
+
+     - S1 Take the lock with an exclusive `mkdir` of `<DIR>.test-kit-lock`. Then repeat the checks of rule 3 on the stage, the backup, the marker and the owned entries. When one fails now, release the lock and refuse.
+     - S2 Build the stage, with the marker.
+     - S3 When `DIR` exists, rename `DIR` to the backup. Otherwise skip.
+     - S4 Rename the stage to `DIR`.
+     - S5 Remove the backup, if the command made it.
+     - S6 Remove the lock.
+  5. Lock refusal. When any sibling exists, the command refuses. It prints the absolute path of the lock and of each existing stage and backup. It says that a person must check for a crashed refresh. It names the crash row of rule 7 that applies. It derives the row with `lstat`: `DIR` missing and backup present is row d; backup and `DIR` present and stage absent is row e; lock and `DIR` only is row f; lock and a stage with `DIR` present and no backup is rows a to c.
+  6. Failures. The old content is always in `DIR` or in the backup. A reader can see a missing `DIR` between S3 and S4. The command does not claim atomicity.
 
      | Step fails | Result |
      | --- | --- |
-     | 5 | Remove the stage, release the lock, exit 1. `DIR` is unchanged. |
-     | 6 | Remove the stage, release the lock, exit 1. |
-     | 7 | Rename the backup back to `DIR`, remove the stage, release the lock, exit 1. If the rename back fails: keep the lock and the backup, print both paths, exit 1. |
-     | 8 | The new content is live. Release the lock, print a warning that names the backup, exit 0. The next run refuses until a person removes the backup. |
+     | S2 | Remove the stage, release the lock, exit 1. `DIR` is unchanged. |
+     | S3 | Remove the stage, release the lock, exit 1. |
+     | S4, with a backup | Rename the backup back to `DIR`, remove the stage, release the lock, exit 1. If the rename back fails: keep the lock and the backup, print both paths, exit 1. |
+     | S4, no backup (first publish) | Remove the stage, release the lock, exit 1. `DIR` does not exist. |
+     | S5 | The new content is live. Release the lock, print a warning that names the backup, exit 0. The next run refuses until a person removes the backup. |
+     | S6 | The new content is live. Print a warning that names the lock path, exit 0. The next run refuses until a person removes the lock. |
 
-  7. Crash states. After steps 3 to 5: the lock and a partial stage. After step 6: the lock, the backup and the stage, and `DIR` is missing. After step 7: the lock and the backup. Recovery: a person reads the lock message and restores or removes the siblings.
+  7. Crash states. One row for each point, in terms of what is on disk.
+
+     | Row | Crash point | On disk | Recovery |
+     | --- | --- | --- | --- |
+     | a | after S1 only | lock | Remove the lock. |
+     | b | during S2 | lock, partial stage | Remove the stage and the lock. `DIR` is untouched. |
+     | c | after S2 | lock, complete stage | Remove the stage and the lock. `DIR` is untouched. |
+     | d | after S3, before S4 | lock, backup, stage; `DIR` is missing; the backup holds the only old content | Rename the backup to `DIR`. Remove the stage and the lock. |
+     | e | after S4 | lock, backup, live `DIR` (new) | Remove the backup and the lock. |
+     | f | after S5 | lock, live `DIR` | Remove the lock. |
+
   8. Message. On success the command writes this line to stderr: `test-kit: published to <absolute dir>; the directory contains captured pages.` The line is a message, not a gate. The package never uploads or exposes `DIR`. The project decides what its web server does. Retention stays open (section 17, item 4).
   9. Limit. A marker is the project's own declaration, not proof that the package made the directory. A forged marker with owned names passes. The command does not scan foreign files below `runs/` or `reports/`. The rule guards against a typing error that names an unrelated directory. It does not guard against forgery.
 - R10.13 Status: planned, not implemented. The publish directory holds `index.json` at its root. R10.11 export differs: it copies the viewer into each report. The publish directory shares one viewer copy among its reports. The writer generates `index.json`. Nobody edits it by hand. Schema:
@@ -289,10 +308,10 @@ The viewer evolves upstream `report-viewer.html`. It stays one shell with severa
   "runs":    [ { "id", "createdAt", "settingsHash", "path" } ] }
 ```
 
-  - `id` is the store id. `kind` is `pair.kind` of `report.json`, or `subject.kind` for a subject report. It is `null` unless it is a string. Code writes no subject report yet (schemaVersion 3 design, section 9), so that branch is for later. 
+  - `id` is the store id. `kind` is `pair.kind` of `report.json`, or `subject.kind` for a subject report. It is `null` unless it is a string. Code writes no subject report yet (schemaVersion 3 design, section 9), so that branch is for later.
   - `createdAt` is `null` unless it has the exact form of `Date.prototype.toISOString` (`YYYY-MM-DDTHH:mm:ss.sssZ`), so a string sort is correct. For a report it is `meta.generated`, the time of the comparison and not of the capture. For a run it is `at`. Sorting compares the strings.
-  - `settingsHash` is the `sha256:` value of a run. For a run it is the `settingsHash` of its `run.json`. For a report it is the value of the run named by `pair.aRunId`, or by `subject.runId` for a subject report. Any `settingsHash` is `null` unless it is a string that starts with `sha256:`. A report value is `null` when that run is absent, unreadable or has no valid hash. A legacy report whose `aRunId` is `reference` gives `null`. When the A and B hashes differ, the comparison is `incompatible` (R8.9) and the report value is `null`.
-  - `targets` is the number of `entries` in `report.json`, or `null`.
+  - `settingsHash` is the `sha256:` value of a run. For a run it is the `settingsHash` of its `run.json`. For a report it is the value of the run named by `pair.aRunId`, or by `subject.runId` for a subject report. Any `settingsHash` is `null` unless it is a string that starts with `sha256:`. A report value is `null` when that run is absent, unreadable or has no valid hash. The writer reads the raw `report.json` that `scanHistory` reads, not the adapted report (`adaptV1` of `src/report/model.js` is not applied). A legacy v1 file has no `pair` or `subject`, so `kind` and the report `settingsHash` are `null`. When the A and B hashes differ, the comparison is `incompatible` (R8.9) and the report value is `null`.
+  - `targets` is the number of `entries` in the raw `report.json`, or `null` when `entries` is not an array.
   - `path` is relative to the directory: `reports/<id>/report.json` or `runs/<id>/run.json`. No path is absolute or holds `..`.
   - Unknown or unreadable is `null`, never `0` or an empty string (principle 1). An unreadable entry stays in the list with `null` fields.
   - Both lists sort newest first by `createdAt`, `null` last, ties by `id` in code-unit order.
