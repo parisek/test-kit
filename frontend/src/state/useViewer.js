@@ -182,6 +182,8 @@ export function useViewer(options = {}) {
 			state.notice = '';
 		} else if (action === 'close-report') {
 			if (!state.index) return;
+			requestId++;
+			state.loading = false;
 			invalidateEvidence();
 			state.report = null;
 			state.source = null;

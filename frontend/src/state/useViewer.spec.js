@@ -372,6 +372,29 @@ describe('planned artifact isolation', () => {
 			expect(instance.state.report.entries[0].id).toBe('example');
 			expect(instance.state.view).toBe('findings');
 		});
+		it('drops a delayed report response after close-report', async () => {
+			let release;
+			const pending = new Promise((done) => { release = done; });
+			const fetch = vi.fn(async (url) => {
+				const path = new URL(url).pathname;
+				if (path === '/site/index.json') return response(index());
+				if (path === '/site/reports/example-a/report.json') return response(report());
+				if (path === '/site/slow.json') return pending;
+				return missing;
+			});
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			await instance.openReport('example-a');
+			const slow = instance.load('slow.json');
+			instance.dispatch('close-report');
+			expect(instance.state.report).toBeNull();
+			release(response(report('update')));
+			expect(await slow).toMatchObject({ ok: false, stale: true });
+			expect(instance.state.report).toBeNull();
+			expect(instance.state.index.reports).toHaveLength(1);
+			expect(instance.state.loading).toBe(false);
+			expect(instance.state.notice).toBe('');
+		});
 		it('shows a notice for an anchor that names an unlisted or unavailable report', async () => {
 			for (const hash of ['#r-unlisted', '#r-example-gone']) {
 				const fetch = server({ '/site/index.json': response(index({ reports: [{ id: 'example-gone', path: null }] })) });
