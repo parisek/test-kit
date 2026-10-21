@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- The review skill `vision-check` (`docs/skills/vision-check.md`, `.claude/skills/vision-check/SKILL.md`) and the review record checker `scripts/milestone/check-record.js` (`docs/process-skills.md`, Skill 1). The skill covers the design-file conformance check for viewer changes.
+
 ### Fixed
 
 - The viewer falls back to `index.json` when `report.json` answers HTTP 200 with an HTML page (issue #147). A front controller serves such a page for an unknown path. Malformed JSON still shows its own message.
