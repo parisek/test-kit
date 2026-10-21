@@ -1,4 +1,6 @@
 import { validId } from '../history/valid-id.js';
+import { validateReport } from '../report/model.js';
+import { summarize } from '../report/classify.js';
 
 // Pure writer for the publish `index.json` (R10.13). No file system, no DOM (R4.4).
 // Input: the result of `scanHistory`, a clock value, and the report ids whose evidence is unavailable.
@@ -14,6 +16,14 @@ function isoOrNull(value) {
 
 function hashOrNull(value) {
   return typeof value === 'string' && value.startsWith('sha256:') ? value : null;
+}
+
+// Counts of the target classes (R10.13). Null for a legacy v1 report or one that fails validation.
+function summaryOrNull(value) {
+  if (value.schemaVersion !== 2 || validateReport(value).length) return null;
+  const { counts } = summarize(value);
+  const { unexplained, explained, match, oracle, unclassified, incomplete } = counts;
+  return { unexplained, explained, match, oracle, unclassified, incomplete };
 }
 
 // Newest first, `null` last, ties by id descending. Plain `>` comparison, not `localeCompare`.
@@ -56,7 +66,7 @@ export function buildPublishIndex(history, { now, unavailableReportIds = [] } = 
   const runHash = runId => (validId(runId) ? runHashes.get(runId) ?? null : null);
 
   const reports = scanned(history?.reports).map(({ id, value }) => {
-    if (!isObject(value)) return { id, kind: null, createdAt: null, settingsHash: null, path: null, targets: null };
+    if (!isObject(value)) return { id, kind: null, createdAt: null, settingsHash: null, path: null, targets: null, viewports: null, summary: null };
     let kind = null;
     let settingsHash = null;
     if (isObject(value.pair)) {
@@ -75,6 +85,8 @@ export function buildPublishIndex(history, { now, unavailableReportIds = [] } = 
       settingsHash,
       path: unavailable.has(id) ? null : `reports/${id}/report.json`,
       targets: Array.isArray(value.entries) ? value.entries.length : null,
+      viewports: Array.isArray(value.meta?.viewports) ? value.meta.viewports.length : null,
+      summary: summaryOrNull(value),
     };
   });
 

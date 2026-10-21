@@ -81,11 +81,12 @@ function assertIndexSchema(index, publishDir) {
     const order = [...list].sort((a, b) => (a.createdAt === b.createdAt ? (a.id === b.id ? 0 : a.id > b.id ? -1 : 1) : a.createdAt === null ? 1 : b.createdAt === null ? -1 : a.createdAt > b.createdAt ? -1 : 1));
     assert.deepEqual(list.map(entry => entry.id), order.map(entry => entry.id));
   };
-  check(index.reports, ['id', 'kind', 'createdAt', 'settingsHash', 'path', 'targets'], 'reports', 'report.json');
+  check(index.reports, ['id', 'kind', 'createdAt', 'settingsHash', 'path', 'targets', 'viewports', 'summary'], 'reports', 'report.json');
   check(index.runs, ['id', 'createdAt', 'settingsHash', 'path'], 'runs', 'run.json');
   for (const report of index.reports) {
     assert.ok(report.kind === null || typeof report.kind === 'string');
     assert.ok(report.targets === null || Number.isInteger(report.targets));
+    assert.ok(report.viewports === null || Number.isInteger(report.viewports));
   }
 }
 
@@ -112,7 +113,7 @@ test('first publish creates the directory with marker, viewer, index, runs and r
   const index = await readJson(join(f.dir, 'index.json'));
   assertIndexSchema(index, await listing(f.dir));
   assert.equal(index.generatedAt, '2026-10-20T12:00:00.000Z');
-  assert.deepEqual(index.reports, [{ id: 'rep-1', kind: 'update', createdAt: '2026-01-03T00:00:00.000Z', settingsHash: H1, path: 'reports/rep-1/report.json', targets: 1 }]);
+  assert.deepEqual(index.reports, [{ id: 'rep-1', kind: 'update', createdAt: '2026-01-03T00:00:00.000Z', settingsHash: H1, path: 'reports/rep-1/report.json', targets: 1, viewports: 1, summary: { unexplained: 0, explained: 0, match: 1, oracle: 0, unclassified: 0, incomplete: 0 } }]);
 });
 
 test('index.json differs from the viewer copy of report export: one shared viewer, no viewer in a report', async t => {
@@ -163,7 +164,7 @@ test('an unreadable store entry is listed with null fields and no file', async t
   await publishHistory(f.base);
   const index = await readJson(join(f.dir, 'index.json'));
   assert.deepEqual(index.runs, [{ id: 'run-bad', createdAt: null, settingsHash: null, path: null }]);
-  assert.deepEqual(index.reports, [{ id: 'rep-bad', kind: null, createdAt: null, settingsHash: null, path: null, targets: null }]);
+  assert.deepEqual(index.reports, [{ id: 'rep-bad', kind: null, createdAt: null, settingsHash: null, path: null, targets: null, viewports: null, summary: null }]);
   const names = await tree(f.dir);
   assert.ok(!names.some(name => name.startsWith('runs/run-bad') || name.startsWith('reports/rep-bad')));
   assertIndexSchema(index, await listing(f.dir));
@@ -725,7 +726,7 @@ test('a readable but invalid report is skipped like missing evidence', async t =
   assert.match(result.warnings[0], /report rep-bad fails validation/);
   assert.ok(!(await tree(f.dir)).some(name => name.startsWith('reports/rep-bad')));
   const index = await readJson(join(f.dir, 'index.json'));
-  assert.deepEqual(index.reports, [{ id: 'rep-bad', kind: null, createdAt: '2026-01-03T00:00:00.000Z', settingsHash: null, path: null, targets: 2 }]);
+  assert.deepEqual(index.reports, [{ id: 'rep-bad', kind: null, createdAt: '2026-01-03T00:00:00.000Z', settingsHash: null, path: null, targets: 2, viewports: null, summary: null }]);
 });
 
 test('an S2 error from a report names the report id', async t => {
