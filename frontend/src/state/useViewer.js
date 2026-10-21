@@ -232,6 +232,17 @@ export function useViewer(options = {}) {
 		}
 	}
 
+	// R10.10: a body that opens with "<" is an HTML page, never a report or an
+	// index. A front controller serves one for an unknown path, with HTTP 200.
+	async function readJson(response) {
+		const text = await response.text();
+		if (/^[\s\uFEFF]*</.test(text)) {
+			const error = new Error('the server returned a web page, not JSON');
+			error.html = true;
+			throw error;
+		}
+		return JSON.parse(text);
+	}
 	function setAnchor(hash) {
 		try {
 			browser?.history?.replaceState?.(null, '', (browser.location.pathname ?? '') + (browser.location.search ?? '') + hash);
@@ -251,7 +262,7 @@ export function useViewer(options = {}) {
 				error.status = response.status;
 				throw error;
 			}
-			const index = parseIndex(await response.json());
+			const index = parseIndex(await readJson(response));
 			if (id !== requestId) return { ok: false, stale: true };
 			if (!index.ok) {
 				dispatch('error', index.error);
@@ -262,7 +273,7 @@ export function useViewer(options = {}) {
 		} catch (error) {
 			if (id !== requestId) return { ok: false, stale: true };
 			dispatch('error', `Cannot load index: ${error.message}`);
-			return { ok: false, status: error.status };
+			return { ok: false, status: error.status, missing: error.status === 404 || error.html === true };
 		}
 	}
 	// Open a report that the index lists. The id must pass the id charset (R10.13).
@@ -274,14 +285,15 @@ export function useViewer(options = {}) {
 		return result;
 	}
 	// R10.13 (viewer): a report.json next to the viewer wins. The index view
-	// shows only when that file answers HTTP 404 and index.json loads.
+	// shows only when that file is missing (HTTP 404 or an HTML body, R10.10)
+	// and index.json loads.
 	async function start(source = 'report.json') {
 		const result = await load(source);
-		if (result.ok || result.stale || result.status !== 404) return result;
+		if (result.ok || result.stale || !result.missing) return result;
 		const failure = state.notice;
 		const listed = await loadIndex();
 		if (listed.stale) return listed;
-		if (listed.status === 404) dispatch('error', failure);
+		if (listed.missing) dispatch('error', failure);
 		if (!listed.ok) return listed;
 		const wanted = idFromAnchor(browser?.location?.hash);
 		if (wanted) {
@@ -307,14 +319,14 @@ export function useViewer(options = {}) {
 				error.status = response.status;
 				throw error;
 			}
-			const report = adaptReport(await response.json());
+			const report = adaptReport(await readJson(response));
 			if (id !== requestId) return { ok: false, stale: true };
 			dispatch('loaded', { report, source: url });
 			return { ok: true };
 		} catch (error) {
 			if (id !== requestId) return { ok: false, stale: true };
 			dispatch('error', `Cannot load report: ${error.message}`);
-			return { ok: false, status: error.status };
+			return { ok: false, status: error.status, missing: error.status === 404 || error.html === true };
 		}
 	}
 	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load, start, openReport };
