@@ -1,6 +1,6 @@
 # Process skills: design
 
-Status: decided by the owner on 2026-10-18. Nothing in this document is built yet. Each skill and each check ships in its own pull request.
+Status: decided by the owner on 2026-10-18. Skill 1 (`vision-check`) is built: `.claude/skills/vision-check/SKILL.md`, `docs/skills/vision-check.md`, and the record parser `scripts/milestone/records.js` with `check-record.js`. Nothing else in this document is built yet. Each skill and each check ships in its own pull request.
 
 Decisions of 2026-10-18:
 
@@ -350,4 +350,4 @@ The text keeps three existing facts: draft pull requests, assignment to `parisek
 
 The decisions of 2026-10-18 close the earlier open questions. One point stays for the follow-up pull request. It does not change a decision.
 
-- The exact path from which Codex loads a skill file.
+- Whether Codex follows the link in `AGENTS.md` to `docs/skills/vision-check.md` on its own. The link is in place. The first Codex review that uses it settles this.
