@@ -8,6 +8,8 @@ Versions follow semver. Each release uses an immutable git tag.
 
 - The review skill `vision-check` (`docs/skills/vision-check.md`, `.claude/skills/vision-check/SKILL.md`) and the review record checker `scripts/milestone/check-record.js` (`docs/process-skills.md`, Skill 1). The skill covers the design-file conformance check for viewer changes.
 
+- `history --publish` writes `viewports` and `summary` for each report in `index.json` (R10.13, issue #148). `summary` counts targets by class and agrees with the counts of the `summary` command. It is `null` for a legacy or invalid report. The viewer does not read the fields yet. An index without them stays valid (schemaVersion 1).
+
 ### Fixed
 
 - The viewer falls back to `index.json` when `report.json` answers HTTP 200 with an HTML page (issue #147). A front controller serves such a page for an unknown path. Malformed JSON still shows its own message.

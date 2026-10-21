@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPublishIndex } from '../../src/export/index-file.js';
+import { summarizeReport } from '../../src/query/summary.js';
 
 const NOW = new Date('2026-10-20T12:00:00.000Z');
 const H1 = 'sha256:' + 'a'.repeat(64);
@@ -29,8 +30,8 @@ test('a readable run and report get all fields and relative paths', () => {
     reports: [report('rep-1', '2026-01-03T00:00:00.000Z', 'run-a', 'run-b')],
   });
   assert.deepEqual(index.runs[1], { id: 'run-a', createdAt: '2026-01-01T00:00:00.000Z', settingsHash: H1, path: 'runs/run-a/run.json' });
-  assert.deepEqual(index.reports, [{ id: 'rep-1', kind: 'ab', createdAt: '2026-01-03T00:00:00.000Z', settingsHash: H1, path: 'reports/rep-1/report.json', targets: 2 }]);
-  assert.deepEqual(Object.keys(index.reports[0]), ['id', 'kind', 'createdAt', 'settingsHash', 'path', 'targets']);
+  assert.deepEqual(index.reports, [{ id: 'rep-1', kind: 'ab', createdAt: '2026-01-03T00:00:00.000Z', settingsHash: H1, path: 'reports/rep-1/report.json', targets: 2, viewports: null, summary: null }]);
+  assert.deepEqual(Object.keys(index.reports[0]), ['id', 'kind', 'createdAt', 'settingsHash', 'path', 'targets', 'viewports', 'summary']);
   assert.deepEqual(Object.keys(index.runs[0]), ['id', 'createdAt', 'settingsHash', 'path']);
 });
 
@@ -74,7 +75,7 @@ test('a subject report takes the hash of subject.runId and its kind', () => {
     runs: [run('a', '2026-01-01T00:00:00.000Z', H2)],
     reports: [{ id: 's1', value: { meta: {}, subject: { kind: 'single', runId: 'a' }, entries: [] } }],
   });
-  assert.deepEqual(index.reports[0], { id: 's1', kind: 'single', createdAt: null, settingsHash: H2, path: 'reports/s1/report.json', targets: 0 });
+  assert.deepEqual(index.reports[0], { id: 's1', kind: 'single', createdAt: null, settingsHash: H2, path: 'reports/s1/report.json', targets: 0, viewports: null, summary: null });
 });
 
 test('a legacy v1 report has null kind and hash but keeps its other fields', () => {
@@ -82,7 +83,7 @@ test('a legacy v1 report has null kind and hash but keeps its other fields', () 
     runs: [run('a', '2026-01-01T00:00:00.000Z')],
     reports: [{ id: 'v1', value: { meta: { generated: '2026-01-05T00:00:00.000Z' }, entries: [1, 2, 3] } }],
   });
-  assert.deepEqual(index.reports[0], { id: 'v1', kind: null, createdAt: '2026-01-05T00:00:00.000Z', settingsHash: null, path: 'reports/v1/report.json', targets: 3 });
+  assert.deepEqual(index.reports[0], { id: 'v1', kind: null, createdAt: '2026-01-05T00:00:00.000Z', settingsHash: null, path: 'reports/v1/report.json', targets: 3, viewports: null, summary: null });
 });
 
 test('kind is null unless it is a string; targets is null unless entries is an array', () => {
@@ -108,7 +109,7 @@ test('an unreadable entry has null fields and a null path', () => {
     reports: [{ id: 'p-bad', error: 'Unreadable metadata' }, { id: 'p-array', value: [] }],
   });
   assert.deepEqual(index.runs, [{ id: 'r-bad', createdAt: null, settingsHash: null, path: null }]);
-  assert.deepEqual(index.reports.find(r => r.id === 'p-bad'), { id: 'p-bad', kind: null, createdAt: null, settingsHash: null, path: null, targets: null });
+  assert.deepEqual(index.reports.find(r => r.id === 'p-bad'), { id: 'p-bad', kind: null, createdAt: null, settingsHash: null, path: null, targets: null, viewports: null, summary: null });
   assert.equal(index.reports.find(r => r.id === 'p-array').path, null);
 });
 
@@ -167,4 +168,57 @@ test('output is deterministic and input is not changed', () => {
 test('missing lists give empty lists', () => {
   assert.deepEqual(build({}).reports, []);
   assert.deepEqual(build(undefined).runs, []);
+});
+
+// A valid schema 2 report: one unexplained target, one match, one target with a missing measurement.
+const v2 = (extra = {}) => ({
+  schemaVersion: 2,
+  meta: { generated: '2026-01-03T00:00:00.000Z', matchBelow: 3, viewports: [{ id: 'mobile' }, { id: 'desktop' }] },
+  runs: [{ id: 'a' }, { id: 'b' }],
+  pair: { kind: 'update', aRunId: 'a', bRunId: 'b' },
+  entries: [
+    { id: 'diff', viewports: [{ id: 'mobile', ratio: 2, state: 'complete', artifacts: { screenshot: { diff: { ratio: 2 } } } }] },
+    { id: 'same', viewports: [{ id: 'mobile', ratio: 0, state: 'complete', artifacts: {} }] },
+    { id: 'gap', viewports: [{ id: 'mobile', state: 'missing', artifacts: {} }] },
+  ],
+  causes: [],
+  findings: [{ id: 'f1', targetId: 'diff', viewportId: 'mobile', artifact: 'screenshot' }],
+  rules: {},
+  ...extra,
+});
+
+test('viewports counts meta.viewports and summary counts the target classes (R10.13)', () => {
+  const value = v2();
+  const entry = build({ runs: [], reports: [{ id: 'r1', value }] }).reports[0];
+  assert.equal(entry.viewports, 2);
+  assert.deepEqual(entry.summary, { unexplained: 1, explained: 0, match: 1, oracle: 0, unclassified: 1, incomplete: 1 });
+  assert.equal(entry.summary.unexplained + entry.summary.explained + entry.summary.match + entry.summary.oracle + entry.summary.unclassified, entry.targets);
+});
+
+test('summary agrees with the counts of the summary command (R11.6)', () => {
+  const value = v2();
+  const { counts } = summarizeReport(value);
+  const { summary } = build({ runs: [], reports: [{ id: 'r1', value }] }).reports[0];
+  const { total, ...expected } = counts;
+  assert.deepEqual(summary, expected);
+});
+
+test('summary is null for a report that fails validation or is legacy v1, and viewports is null without an array', () => {
+  const bad = v2({ findings: [{ id: 'f', targetId: 'nowhere' }] });
+  const legacy = { meta: { generated: '2026-01-05T00:00:00.000Z', viewports: [{ id: 'm' }] }, entries: [{ id: 't', viewports: [] }] };
+  const noViewports = v2({ meta: { generated: '2026-01-03T00:00:00.000Z', viewports: 'x' } });
+  const index = build({ runs: [], reports: [{ id: 'bad', value: bad }, { id: 'old', value: legacy }, { id: 'nov', value: noViewports }] });
+  const by = id => index.reports.find(r => r.id === id);
+  assert.equal(by('bad').summary, null);
+  assert.equal(by('bad').viewports, 2);
+  assert.equal(by('old').summary, null);
+  assert.equal(by('old').viewports, 1);
+  assert.equal(by('nov').summary, null);
+  assert.equal(by('nov').viewports, null);
+});
+
+test('a readable report with unavailable evidence keeps its summary', () => {
+  const index = build({ runs: [], reports: [{ id: 'r1', value: v2() }] }, { unavailableReportIds: ['r1'] });
+  assert.equal(index.reports[0].path, null);
+  assert.equal(index.reports[0].summary.unexplained, 1);
 });
