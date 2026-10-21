@@ -106,7 +106,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | --- | --- | --- | --- |
 | `capture` | `--side` (`--config`, `--label`, `--artifacts`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. |
 | `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. |
-| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 adds `subject` and `pair` fields with `schemaVersion` 3. |
+| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
 | `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. |
