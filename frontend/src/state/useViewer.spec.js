@@ -14,7 +14,8 @@ function report(kind = 'convergence') {
 		rules: {},
 	};
 }
-const response = (value) => ({ ok: true, json: async () => value });
+const response = (value) => ({ ok: true, text: async () => JSON.stringify(value) });
+const page = { ok: true, text: async () => '<!doctype html><html><body>Not found</body></html>' };
 const viewer = (options) =>
 	useViewer({ base: 'http://localhost:4178/', width: () => 1280, ...options });
 
@@ -243,7 +244,7 @@ describe('planned artifact isolation', () => {
 	describe('publish directory index (R10.13)', () => {
 		const hash = 'sha256:' + 'ab'.repeat(32);
 		const index = (extra = {}) => ({ schemaVersion: 1, reports: [{ id: 'example-a', kind: 'convergence', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: hash, path: 'reports/example-a/report.json', targets: 1 }], runs: [], ...extra });
-		const missing = { ok: false, status: 404, json: async () => ({}) };
+		const missing = { ok: false, status: 404, text: async () => '' };
 		const server = (files) => vi.fn(async (url) => files[new URL(url).pathname] ?? missing);
 		const host = (hash = '') => ({ document: { baseURI: 'http://localhost:4178/site/index.html' }, location: { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash }, history: { replaceState: vi.fn() } });
 
@@ -318,19 +319,15 @@ describe('planned artifact isolation', () => {
 			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/index.json', { redirect: 'error' });
 		});
 		it('does not fall back when report.json is 200 with invalid JSON', async () => {
-			const fetch = server({ '/site/report.json': { ok: true, json: async () => { throw new SyntaxError('Unexpected token'); } }, '/site/index.json': response(index()) });
+			const fetch = server({ '/site/report.json': { ok: true, text: async () => '{ "entries": ' }, '/site/index.json': response(index()) });
 			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
 			await instance.start();
 			expect(fetch).toHaveBeenCalledTimes(1);
 			expect(instance.state.index).toBeNull();
 			expect(instance.state.notice).toMatch(/^Cannot load report:/);
 		});
-		it('shows its own error when index.json is 500, invalid JSON or HTML with HTTP 200', async () => {
-			const bad = {
-				500: { ok: false, status: 500 },
-				json: { ok: true, json: async () => { throw new SyntaxError('Unexpected token <'); } },
-				html: { ok: true, json: async () => { throw new SyntaxError('Unexpected token <'); } },
-			};
+		it('shows its own error when index.json is 500 or invalid JSON', async () => {
+			const bad = { 500: { ok: false, status: 500 }, json: { ok: true, text: async () => '{ "schemaVersion": ' } };
 			for (const answer of Object.values(bad)) {
 				const instance = useViewer({ browser: host(), fetch: server({ '/site/index.json': answer }), width: () => 1280 });
 				await instance.start();
@@ -338,6 +335,38 @@ describe('planned artifact isolation', () => {
 				expect(instance.state.notice).toMatch(/^Cannot load index:/);
 				expect(instance.state.loading).toBe(false);
 			}
+		});
+		it('falls back to index.json when report.json answers 200 with an HTML page (issue #147)', async () => {
+			const fetch = server({ '/site/report.json': page, '/site/index.json': response(index()) });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			expect(instance.state.report).toBeNull();
+			expect(instance.state.index.reports.map((row) => row.id)).toEqual(['example-a']);
+			expect(instance.state.notice).toBe('');
+		});
+		it('treats an HTML page with a byte order mark or leading blanks as missing', async () => {
+			for (const text of ['\uFEFF<html></html>', '\n  \t<!doctype html>']) {
+				const fetch = server({ '/site/report.json': { ok: true, text: async () => text }, '/site/index.json': response(index()) });
+				const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.index.reports).toHaveLength(1);
+			}
+		});
+		it('keeps the report error when both sources answer an HTML page, and shows no index', async () => {
+			const instance = useViewer({ browser: host(), fetch: server({ '/site/report.json': page, '/site/index.json': page }), width: () => 1280 });
+			await instance.start();
+			expect(instance.state.index).toBeNull();
+			expect(instance.state.notice).toBe('Cannot load report: the server returned a web page, not JSON');
+			expect(instance.state.loading).toBe(false);
+		});
+		it('does not read a listed report that answers an HTML page as a report', async () => {
+			const fetch = server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': page });
+			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+			await instance.start();
+			const result = await instance.openReport('example-a');
+			expect(result.ok).toBe(false);
+			expect(instance.state.report).toBeNull();
+			expect(instance.state.notice).toBe('Cannot load report: the server returned a web page, not JSON');
 		});
 		it('treats a missing reports array as a malformed index', async () => {
 			const fetch = server({ '/site/index.json': response({ schemaVersion: 1, runs: [] }) });
