@@ -8,6 +8,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 - The review skill `vision-check` (`docs/skills/vision-check.md`, `.claude/skills/vision-check/SKILL.md`) and the review record checker `scripts/milestone/check-record.js` (`docs/process-skills.md`, Skill 1). The skill covers the design-file conformance check for viewer changes.
 
+### Fixed
+
+- The viewer falls back to `index.json` when `report.json` answers HTTP 200 with an HTML page (issue #147). A front controller serves such a page for an unknown path. Malformed JSON still shows its own message.
+
 ### Changed
 
 - Specify the viewer redesign (R10.2 to R10.5, R10.10, R10.13 to R10.15; issue #148). Home and report pages, four report views, one first view, a deep link grammar, `index.json` fields `viewports` and `summary`, and a data-source form only when no data loads. The design files `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md` are the design authority (R10.15). The viewer code does not follow yet.
