@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- Specify the viewer redesign (R10.2 to R10.5, R10.10, R10.13 to R10.15; issue #148). Home and report pages, four report views, one first view, a deep link grammar, `index.json` fields `viewports` and `summary`, and a data-source form only when no data loads. The design files `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md` are the design authority (R10.15). The viewer code does not follow yet.
 - Document the static path first: README and `docs/rc-trial.md` say that `history --publish` output needs a static web host, not `file://`. Name `v1.0.0-rc.3` in `docs/seam.md`, the migration guide and the upgrade guide.
 
 ## [1.0.0-rc.3] - 2026-10-20

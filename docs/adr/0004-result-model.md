@@ -193,7 +193,7 @@ A report may mix both bases. Target class is the worst class over all findings i
 
 ### 9. First view and summary
 
-R10.5 picks the first view from `pair.kind`. A report with a `subject` opens the findings view. `summarizeReport` returns `subject` where it returns `pair` today. It returns `null` for the other.
+R10.5 picked the first view from `pair.kind`. A report with a `subject` opened the findings view. The specification now opens every report on Overview (R10.5, 2026-10-20). The `summarizeReport` change below stands. Once subject reports exist, `summarizeReport` returns `subject` where it returns `pair` today. It returns `null` for the other.
 
 ### 10. Pure logic
 
