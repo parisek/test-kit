@@ -4,7 +4,8 @@ Judge whether an issue or a pull request fits `docs/vision.md`. Design: `docs/pr
 
 ## Input
 
-- A pull request number and the mode `pr`, or an issue number and the mode `issue`.
+- A pull request number and the mode `pr`, or an issue number and the mode `issue`. A caller may give a head SHA and a diff file instead of a number.
+- Make your own diff with `git diff origin/main...HEAD`. If a supplied diff differs from it, use yours and say so in `unverified`.
 - The mode `pr` is a merge review. The mode `issue` is triage. Its output never counts as a merge review.
 
 ## Rules
