@@ -33,7 +33,7 @@ The tool measures and reports. It does not gate and does not fix (N1, N4). A mis
 - Report data is untrusted. Text goes in as text. A URL attribute stays on the page origin.
 - Decisions a developer makes on a finding: fix it; mark it as a known difference with a cause and a reason (the `record-known` command exists; recording must stay a command, R5.3, R11.5); pass it on with a link or an evidence bundle (issue #149). The owner also named "mark as noise or unstable". The viewer has no such action today. A noise floor is measured per pair (R8.3). What the action stores is undecided.
 - A deep link to a finding with its view state is wanted: report, target, viewport, artifact and mode. It does not exist today. The URL holds only `#r-<id>`.
-- Terms in use. Classes (R8.12): match, explained, unexplained, oracle. A scope with an incomplete artifact has no class (`null`) and the summary counts it as unclassified or incomplete. Incomplete is a measurement state, not a class. Also: baseline (A) and compared run (B); noise floor; known difference.
+- Terms in use. Classes (R8.12): match, explained, unexplained, oracle. A scope with an incomplete artifact has no class (`null`) and the summary counts it as unclassified and as incomplete (the counts overlap). Incomplete is a measurement state, not a class. Also: baseline (A) and compared run (B); noise floor; known difference.
 
 ## Brand Commitments
 

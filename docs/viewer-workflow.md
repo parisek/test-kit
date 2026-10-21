@@ -44,9 +44,9 @@ flowchart TD
 
 ## Rules for every path
 
-- One way home: the breadcrumb, always first in the content column.
+- One way home: the breadcrumb, always first in the content column. A viewer copy with an adjacent `report.json` has no Home item.
 - One way sideways: older and newer comparison, in time order.
-- One way up: from Evidence, the breadcrumb returns to the Overview with the same filter.
+- One way up: from Evidence, the breadcrumb returns to the Overview.
 - Browser Back steps through views. A view change adds a history entry.
 - The app never changes the active view without saying why.
 
@@ -74,6 +74,8 @@ Each part is percent-encoded. In an export with an adjacent `report.json` the `r
 - The hash stays under the page origin. It never carries a URL.
 
 ## Open points for the owner
+
+The actions below are binding only after the owner decides them. Issue #148 does not build "Noise or unstable" and builds "Known difference" as copy-text only until then.
 
 - What "mark as noise or unstable" stores, and where.
 - Whether the viewer builds the `record-known` command text, or only links to the documentation. R5.3 allows text but forbids a viewer action that records.
