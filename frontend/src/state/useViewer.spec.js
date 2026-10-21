@@ -359,6 +359,24 @@ describe('planned artifact isolation', () => {
 			expect(instance.state.notice).toBe('Cannot load report: the server returned a web page, not JSON');
 			expect(instance.state.loading).toBe(false);
 		});
+		it('does not treat an empty or blank body as an HTML page', async () => {
+			for (const text of ['', '  \n']) {
+				const fetch = server({ '/site/report.json': { ok: true, text: async () => text }, '/site/index.json': response(index()) });
+				const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
+				await instance.start();
+				expect(fetch).toHaveBeenCalledTimes(1);
+			expect(instance.state.index).toBeNull();
+				expect(instance.state.notice).toMatch(/^Cannot load report:/);
+			}
+		});
+		it('keeps the report error when one source is a page and the other is 404', async () => {
+			for (const files of [{ '/site/report.json': page }, { '/site/index.json': page }]) {
+				const instance = useViewer({ browser: host(), fetch: server(files), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.index).toBeNull();
+				expect(instance.state.notice).toMatch(/^Cannot load report: (HTTP 404|the server returned a web page, not JSON)$/);
+			}
+		});
 		it('does not read a listed report that answers an HTML page as a report', async () => {
 			const fetch = server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': page });
 			const instance = useViewer({ browser: host(), fetch, width: () => 1280 });
