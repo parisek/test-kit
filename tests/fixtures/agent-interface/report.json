@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "meta": {
+    "matchBelow": 3,
+    "viewports": [
+      {
+        "id": "desktop"
+      },
+      {
+        "id": "mobile"
+      }
+    ]
+  },
+  "runs": [
+    {
+      "id": "a"
+    },
+    {
+      "id": "b"
+    }
+  ],
+  "pair": {
+    "kind": "update",
+    "aRunId": "a",
+    "bRunId": "b"
+  },
+  "causes": [],
+  "findings": [
+    {
+      "id": "two",
+      "targetId": "two",
+      "viewportId": "desktop",
+      "artifact": "screenshot"
+    }
+  ],
+  "rules": {},
+  "entries": [
+    {
+      "id": "one",
+      "kind": "page",
+      "title": "one",
+      "viewports": [
+        {
+          "id": "desktop",
+          "state": "complete",
+          "ratio": 0,
+          "availability": {
+            "a": "ok",
+            "b": "ok"
+          }
+        }
+      ]
+    },
+    {
+      "id": "two",
+      "kind": "page",
+      "title": "two",
+      "viewports": [
+        {
+          "id": "desktop",
+          "state": "complete",
+          "ratio": 12.5,
+          "availability": {
+            "a": "ok",
+            "b": "ok"
+          }
+        }
+      ]
+    },
+    {
+      "id": "three",
+      "kind": "page",
+      "title": "three",
+      "viewports": [
+        {
+          "id": "desktop",
+          "state": "failed",
+          "ratio": null,
+          "availability": {
+            "a": "ok",
+            "b": "ok"
+          }
+        }
+      ]
+    },
+    {
+      "id": "four",
+      "kind": "page",
+      "title": "four",
+      "viewports": [
+        {
+          "id": "desktop",
+          "state": "complete",
+          "ratio": 0,
+          "availability": {
+            "a": "ok",
+            "b": "http-error"
+          }
+        }
+      ]
+    }
+  ]
+}

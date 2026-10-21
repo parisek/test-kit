@@ -1,0 +1,48 @@
+{
+  "pair": {
+    "kind": "update",
+    "aRunId": "a",
+    "bRunId": "b"
+  },
+  "verdict": "incomplete",
+  "counts": {
+    "match": 2,
+    "explained": 0,
+    "unexplained": 1,
+    "oracle": 0,
+    "unclassified": 1,
+    "incomplete": 1,
+    "total": 4
+  },
+  "states": {
+    "complete": 3,
+    "missing": 0,
+    "failed": 1,
+    "incompatible": 0
+  },
+  "availabilityCount": 1,
+  "targets": [
+    {
+      "id": "two",
+      "class": "unexplained",
+      "state": "complete",
+      "availability": [],
+      "availabilityOmitted": 0
+    }
+  ],
+  "omitted": 0,
+  "unexplainedTargets": [
+    "two"
+  ],
+  "unexplainedOmitted": 0,
+  "availabilityProblems": [
+    {
+      "id": "four"
+    }
+  ],
+  "availabilityOmitted": 0,
+  "next": [
+    "Open the report with test-kit serve.",
+    "Use summary --filter unexplained or --filter incomplete for scoped evidence."
+  ]
+}

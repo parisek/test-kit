@@ -1,0 +1,17 @@
+{
+  "target": "three",
+  "viewport": "desktop",
+  "artifact": "status",
+  "state": "failed",
+  "diagnostic": "navigation failed",
+  "pairKey": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "rules": [],
+  "rulesOmitted": 0,
+  "evidence": {
+    "a": "a/status.json",
+    "b": "b/status.json",
+    "normalizedA": null,
+    "normalizedB": null
+  },
+  "next": "Open the same target and viewport in the viewer."
+}
