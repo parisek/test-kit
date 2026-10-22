@@ -33,6 +33,9 @@ describe('row class and verdict sentence', () => {
 		expect(rowClass(summary({ match: 3, oracle: 1 }))).toBe('oracle');
 		expect(rowClass(summary({ match: 3 }))).toBe('match');
 		expect(rowClass(summary({ unclassified: 2, incomplete: 2 }))).toBe('unclassified');
+		// An unmeasured page is never hidden behind the match color.
+		expect(rowClass(summary({ match: 3, unclassified: 1, incomplete: 1 }))).toBe('unclassified');
+		expect(rowClass(summary({ explained: 1, unclassified: 1 }))).toBe('explained');
 		expect(rowClass(summary())).toBeNull();
 		expect(rowClass(null)).toBeNull();
 	});
@@ -43,6 +46,7 @@ describe('row class and verdict sentence', () => {
 		expect(verdictSentence(summary({ match: 2, explained: 1 }))).toBe('1 page has only known differences');
 		expect(verdictSentence(summary({ match: 2, unclassified: 1, incomplete: 1 }))).toBe('1 page is not measured');
 		expect(verdictSentence(summary({ oracle: 2 }))).toBe('2 pages need a check by a person');
+		expect(verdictSentence(summary({ match: 3, oracle: 1 }))).toBe('1 page needs a check by a person');
 		expect(verdictSentence(summary())).toBe('No pages');
 		expect(verdictSentence(null)).toBe('Not measured');
 	});
@@ -52,6 +56,8 @@ describe('change against the previous comparison', () => {
 	it('names each class that changed', () => {
 		expect(changeText(summary({ match: 2, unexplained: 1 }), summary({ match: 3 }))).toBe('+1 unexplained, −1 match');
 		expect(changeText(summary({ match: 3 }), summary({ match: 3 }))).toBe('Same as before');
+		expect(changeText(summary({ match: 3, oracle: 1 }), summary({ match: 3 }))).toBe('+1 oracle');
+		expect(changeText(summary({ match: 3, unclassified: 1, incomplete: 1 }), summary({ match: 3 }))).toBe('+1 unclassified, +1 incomplete');
 	});
 	it('says nothing when a summary is unknown', () => {
 		expect(changeText(null, summary())).toBeNull();

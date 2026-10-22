@@ -1,17 +1,17 @@
 // Pure model for the Home: the history of comparisons (R10.3, R10.13, DESIGN.md "Comparison row").
 // Input is the parsed index (index-list.js). Unknown stays unknown: null is never 0 (principle 1).
 
-// R8.12: worst class first.
-const CLASS_ORDER = ['unexplained', 'explained', 'oracle', 'match'];
+import { SUMMARY_KEYS } from './index-list.js';
+
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-// The class word of a row: the worst class over its targets (R8.12).
-// Returns null when the summary is unknown.
+// The word of a row: the worst class over its targets (R8.12). A target without a
+// class (unclassified) is never match (R8.12), so it ranks just above match: a row
+// with an unmeasured page never shows the match color. Null when the summary is unknown.
+const ROW_ORDER = ['unexplained', 'explained', 'oracle', 'unclassified', 'match'];
 export function rowClass(summary) {
 	if (!summary) return null;
-	const worst = CLASS_ORDER.find((name) => summary[name] > 0);
-	if (worst) return worst;
-	return summary.unclassified > 0 ? 'unclassified' : null;
+	return ROW_ORDER.find((name) => summary[name] > 0) ?? null;
 }
 
 // The verdict sentence of a comparison (DESIGN.md "Verdict wording").
@@ -19,9 +19,9 @@ export function verdictSentence(summary) {
 	if (!summary) return 'Not measured';
 	if (summary.unexplained > 0) return `${plural(summary.unexplained, 'page differs', 'pages differ')} without an explanation`;
 	if (summary.explained > 0) return `${plural(summary.explained, 'page has', 'pages have')} only known differences`;
+	if (summary.oracle > 0) return `${plural(summary.oracle, 'page needs', 'pages need')} a check by a person`;
 	if (summary.unclassified > 0) return `${plural(summary.unclassified, 'page is', 'pages are')} not measured`;
 	if (summary.match > 0) return 'Nothing changed';
-	if (summary.oracle > 0) return `${plural(summary.oracle, 'page needs', 'pages need')} a check by a person`;
 	return 'No pages';
 }
 
@@ -30,7 +30,7 @@ export function verdictSentence(summary) {
 export function changeText(summary, previous) {
 	if (!summary || !previous) return null;
 	const parts = [];
-	for (const name of ['unexplained', 'explained', 'match']) {
+	for (const name of SUMMARY_KEYS) {
 		const delta = summary[name] - previous[name];
 		if (delta) parts.push(`${delta > 0 ? '+' : '−'}${Math.abs(delta)} ${name}`);
 	}
