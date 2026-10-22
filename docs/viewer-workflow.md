@@ -60,7 +60,7 @@ The viewer is a static application. It cannot run a command or write a file. A d
 | --- | --- | --- |
 | Fix | Copy the link. The task or the agent gets the same view. | The link holds only `#r-<id>`. |
 | Known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT`. The viewer fills in the report, target, viewport and artifact. `--config`, `--cause` and `--reason` stay placeholders. The person adds them and runs the command. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
-| Noise or unstable | Copy the command `test-kit run --config FILE --target ID --viewport ID` with the target and viewport filled in. The person runs it and sees whether the difference stays. Nothing is stored. A stored noise mark is not part of 1.0. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
+| Noise or unstable | Copy the command `test-kit run --config FILE --target ID --viewport ID` with the target and viewport filled in. The person runs it and sees whether the difference stays. Copying the command stores nothing. The run stores its evidence as any run does. A stored noise mark is not part of 1.0. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
 | Pass on | Copy the link. Later: an evidence bundle (issue #149). | None. |
 
 ## Deep link grammar (R10.14)

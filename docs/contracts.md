@@ -268,7 +268,8 @@ findings even when another check has incomplete coverage.
 `diff --checks ID,ID` changes the comparison policy for both stored runs.
 It writes a new report. It does not navigate or change the original runs.
 The query returns bounded findings and omitted counts. The viewer uses the same
-validated sidecar. Content retention and the default check set remain open.
+validated sidecar. The default check set is empty, and nothing removes content
+snapshots automatically (specification section 17, decided 2026-10-22).
 
 The writer rejects a report above 16,000,000 bytes before it writes report.json.
 Split a large target or viewport selection. Detailed evidence stays local.
