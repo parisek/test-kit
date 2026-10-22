@@ -13,6 +13,8 @@ import RunSummary from './components/RunSummary.vue';
 import ReportFilters from './components/ReportFilters.vue';
 import IndexView from './components/IndexView.vue';
 import TimelineView from './components/TimelineView.vue';
+import { anchorFor } from './state/index-list.js';
+import { localDateTime, reportNeighbors } from './state/report-nav.js';
 
 const { state, summary, filteredTargets, dispatch, load, start, openReport } = useViewer();
 const source = ref('report.json');
@@ -24,6 +26,17 @@ const phone = ref(innerWidth <= 860);
 const mounted = ref(false);
 // The Home has no side panel and no report views (DESIGN.md "Layout").
 const home = computed(() => !state.report && Boolean(state.index));
+const neighbors = computed(() => (state.index && state.reportId ? reportNeighbors(state.index.reports, state.reportId) : null));
+const reportTime = computed(() => localDateTime(state.report?.meta.generated));
+// The page title carries the report date (#148).
+watch(
+	() => [state.report, reportTime.value, home.value],
+	() => {
+		if (state.report) document.title = `${state.report.meta.title ?? 'Comparison'}${reportTime.value ? ' · ' + reportTime.value : ''} · test kit`;
+		else document.title = home.value ? 'Comparisons · test kit' : 'test kit';
+	},
+	{ immediate: true },
+);
 const drawerOpen = computed(() => mounted.value && phone.value && !state.sidebarHidden && !home.value);
 let previousOverflow = null;
 let previousFocus = null;
@@ -223,7 +236,13 @@ onUnmounted(() => {
             <p id="notice" :class="state.report && !state.loading && state.notice.startsWith('Loaded') ? 'sr-only' : 'viewer-notice'" role="status" aria-live="polite">{{ state.notice }}</p>
             <main id="content" class="viewer-content" :aria-busy="state.loading">
                 <template v-if="state.report">
-                    <div class="comparison-heading"><div><p class="eyebrow">{{ state.report.pair.kind }} comparison</p><h1 ref="reportHeading" tabindex="-1">{{ state.report.meta.title ?? 'Comparison' }}</h1></div><button v-if="state.index" :class="[pill, idle]" @click="back">All reports</button><span class="local-label"><span class="status-dot" data-status="match"></span> Local report</span></div>
+                    <nav v-if="state.index" class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="#" @click.prevent="back">Comparisons</a></li><li aria-current="page">{{ state.report.meta.title ?? 'Comparison' }}</li></ol></nav>
+                    <div class="comparison-heading"><div><p class="eyebrow">{{ state.report.pair.kind }} comparison</p><h1 ref="reportHeading" tabindex="-1">{{ state.report.meta.title ?? 'Comparison' }}</h1><p class="report-time"><time v-if="reportTime" :datetime="state.report.meta.generated" :title="state.report.meta.generated">{{ reportTime }}</time><template v-else>Time unknown</template></p></div><span class="local-label"><span class="status-dot" data-status="match"></span> Local report</span></div>
+                    <nav v-if="neighbors" class="report-order" aria-label="Comparison order">
+                        <a v-if="neighbors.older" :href="anchorFor(neighbors.older.id)" @click.prevent="open(neighbors.older.id)">Older</a><span v-else class="report-order-end">Older</span>
+                        <span class="record">{{ neighbors.position }} of {{ neighbors.total }}</span>
+                        <a v-if="neighbors.newer" :href="anchorFor(neighbors.newer.id)" @click.prevent="open(neighbors.newer.id)">Newer</a><span v-else class="report-order-end">Newer</span>
+                    </nav>
                     <aside v-if="hasPrototypes(state.report)" role="status" class="prototype-banner">Planned artifacts · UI prototype. Tabs marked Prototype use simulated examples. They do not affect measured findings or counts. Other tabs show stored capture evidence.</aside>
                     <RunSummary :report="state.report" :summary="summary" />
                     <ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />

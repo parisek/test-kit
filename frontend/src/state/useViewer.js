@@ -46,6 +46,8 @@ export function useViewer(options = {}) {
 		filters: { classification: 'all', measurement: 'all', cause: 'all' },
 		source: null,
 		index: null,
+		// The id of the open report when it comes from the index (R10.3), else null.
+		reportId: null,
 		targetId: null,
 		viewportId: null,
 		view: 'detail',
@@ -171,6 +173,7 @@ export function useViewer(options = {}) {
 			dispatch('clear-filters');
 			invalidateEvidence();
 			state.report = markRaw(value.report);
+			state.reportId = null;
 			state.source = value.source;
 			state.targetId = value.report.entries[0]?.id ?? null;
 			state.viewportId = value.report.entries[0]?.viewports[0]?.id ?? null;
@@ -191,6 +194,7 @@ export function useViewer(options = {}) {
 			state.loading = false;
 			invalidateEvidence();
 			state.report = null;
+			state.reportId = null;
 			state.source = null;
 			state.targetId = null;
 			state.viewportId = null;
@@ -286,7 +290,10 @@ export function useViewer(options = {}) {
 		const row = state.index?.reports.find((report) => report.id === id);
 		if (!row?.available) return { ok: false };
 		const result = await load(reportPath(row.id));
-		if (result.ok) setAnchor(anchorFor(row.id));
+		if (result.ok) {
+			state.reportId = row.id;
+			setAnchor(anchorFor(row.id));
+		}
 		return result;
 	}
 	// R10.13 (viewer): a report.json next to the viewer wins. The index view
