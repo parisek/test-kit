@@ -124,7 +124,7 @@ known_diffs: { <pair>: [ { target, cause, evidence } ] }   # belongs to a pair, 
 
 ### Speed (`lighthouse`)
 
-- R6.5 Speed must run only on request. A command that would run more than a few targets must state its cost and wait for consent. On a production side, `perf` must state its cost and wait for `--consent` for any number of targets, one target included. There is no separate command for production speed. Decided by the owner on 2026-10-22 (issue #162).
+- R6.5 Speed must run only on request. A command that would run more than a few targets must state its cost and wait for consent. On a production side, `perf` must state its cost and wait for `--consent` for any number of targets, one target included. There is no separate command for production speed. Decided by the owner on 2026-10-22 (issue #162). How the code knows that a side is production is open (issue #162).
 - R6.6 Each target must run several times (3 to 5). The result is the median and the spread. One run proves nothing.
 - R6.7 One discarded request must come before the measured runs, so run 1 does not measure a cold cache.
 - R6.8 The runner must refuse to start under high machine load unless told otherwise. Such a run is marked suspect.
@@ -484,7 +484,7 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 1. (decided) The engine lives in the separate package `parisek/test-kit` (section 13), released as git tags (section 13.2).
 2. (decided 2026-10-22) The default set of checks is empty (R5.1).
 3. (decided 2026-10-22) No separate command. `perf` on a production side always waits for `--consent` (R6.5, issue #162).
-4. (decided 2026-10-22) Snapshots and captures stay until a person removes them. Nothing removes them automatically (G3). A `history --prune` command removes old runs on request and lists them first (issue #161). Its contract needs a spec change before code.
+4. (decided 2026-10-22) Snapshots and captures stay until a person removes them. Nothing removes them automatically (G3). A `history --prune` command removes old runs on request (issue #161). Its contract needs a spec change before code.
 5. (deferred 2026-10-22) Which language-detection library, after the section R7.6 check? Not before 1.0 (issue #163).
 6. (decided 2026-10-18) Accessibility and component packs live in the package as opt-in named entry points. Project-owned contracts stay in the project (R13.42). This supersedes the decision of 2026-10-09.
 7. (decided 2026-10-22) The ESLint and Stylelint seam is an entry point with a thin import (R13.40, R13.43).

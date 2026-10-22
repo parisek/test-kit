@@ -262,7 +262,7 @@ test-kit query report-title/report.json --target home --viewport desktop --artif
 ```
 
 The original run manifests and snapshots stay unchanged (R7.1, R9.6, R12.3).
-Snapshot retention remains a project decision.
+Nothing removes snapshots automatically (specification section 17, item 4).
 
 ### Project behavior contracts
 

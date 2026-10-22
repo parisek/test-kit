@@ -110,7 +110,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
 | `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. |
-| `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. Specification section 17, item 3 (speed against production) is open. |
+| `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. Specification section 17, item 3: on a production side `perf` waits for `--consent` (decided 2026-10-22, not built yet, #162). |
 | `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). |
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 | `history` | none (`--config`, `--store`, `--port` or `--export`) | Experimental | Same reason as `run`. |
