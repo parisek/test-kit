@@ -76,6 +76,10 @@ describe('deep link parse (R10.14)', () => {
 			'#r-example-a/findings/home/desktop//javascript%3Aalert(1)',
 			'#r-example-a/overview/https%3A%2F%2Fexample.invalid',
 			'#r-example-a/info/home//https:',
+			'#r-example-a?mode=https%3A%2F%2Fexample.invalid',
+			'#r-example-a/info?mode=javascript%3Aalert(1)',
+			'#r-example-a/evidence/home/desktop/html?mode=%2F%2Fexample.invalid',
+			'#r-example-a/evidence?next=https%3A%2F%2Fexample.invalid',
 		]) {
 			const result = parseDeepLink(hash);
 			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, findingId: null });

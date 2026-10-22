@@ -72,6 +72,9 @@ export function parseDeepLink(hash, options) {
 		reportId = id;
 	}
 	const bad = (notice) => ({ ...empty(reportId), notice });
+	// No URL anywhere in the query either, whatever the view or the key.
+	const queryUrl = query.split(/[&=]/).some((part) => URL_LIKE.test(decode(part) ?? part));
+	if (queryUrl) return bad('The link holds a URL. A link part must be an id.');
 	const view = decode(segments[0] ?? '');
 	if (view === undefined) return bad('A part of the link cannot be read.');
 	const result = empty(reportId);
