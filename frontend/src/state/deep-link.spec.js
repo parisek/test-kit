@@ -36,6 +36,10 @@ describe('deep link parse (R10.14)', () => {
 		expect(parseDeepLink('#r-example-a/info?mode=blink')).toEqual(link({ view: 'info' }));
 		expect(parseDeepLink('#r-example-a/evidence/home/desktop/html?mode=blink').notice).toBeNull();
 	});
+	it('keeps an id with a colon and an unlisted scheme as an id, to match against the report', () => {
+		expect(parseDeepLink('#r-example-a/evidence/ssh%3Ax').targetId).toBe('ssh:x');
+		expect(buildDeepLink({ reportId: 'example-a', view: 'evidence', targetId: 'web+x:y' })).toBe('#r-example-a/evidence/web%2Bx%3Ay');
+	});
 	it('keeps an id with a colon that is not a URL', () => {
 		expect(parseDeepLink('#r-example-a/findings/home/desktop/content/content-home-desktop-a11y%3Acontrast-0').findingId)
 			.toBe('content-home-desktop-a11y:contrast-0');
@@ -95,6 +99,9 @@ describe('deep link parse (R10.14)', () => {
 			'#r-example-a/evidence/%E2%80%8Bjavascript%3A1',
 			'#r-example-a/info/about%3Ablank',
 			'#r-example-a?view-source%3Ax=1',
+			'#r-example-a/info/%E0javascript%3A1',
+			'#r-example-a/overview/%E0javascript%3Ax',
+			'#r-example-a/evidence/home?x=%E0javascript%3A1',
 		]) {
 			const result = parseDeepLink(hash);
 			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, findingId: null });

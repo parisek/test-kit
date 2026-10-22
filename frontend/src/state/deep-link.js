@@ -18,6 +18,8 @@ const modeApplies = (artifact) => artifact === null || artifact === 'screenshot'
 // backslashes, a colon before a slash or backslash, or starts with a scheme that a
 // browser runs, fetches or opens.
 // Other ids with ":" stay linkable: a finding id joins a check id, which may hold one.
+// So an id such as "ssh:x" passes here. It is safe because the viewer accepts an id
+// only when the open report holds it, and never uses a part as a URL attribute.
 const SCHEMES = /^(?:https?|ftp|wss?|javascript|vbscript|livescript|data|blob|file|filesystem|about|view-source|chrome|chrome-extension|moz-extension|resource|intent|jar|mailto|tel|sms):/i;
 const URL_LIKE = {
 	test(part) {
@@ -36,6 +38,15 @@ function decode(part) {
 	} catch {
 		return undefined;
 	}
+}
+
+// For the URL check only: an ignored part that fails to decode still must not hide
+// a URL. Decode each ASCII escape and drop the others.
+function looseDecode(part) {
+	return part.replace(/%([0-9A-Fa-f]{2})/g, (match, hex) => {
+		const code = parseInt(hex, 16);
+		return code < 0x80 ? String.fromCharCode(code) : '';
+	});
 }
 
 function encode(part) {
@@ -83,7 +94,7 @@ export function parseDeepLink(hash, options) {
 	}
 	const bad = (notice) => ({ ...empty(reportId), notice });
 	// No URL anywhere in the query either, whatever the view or the key.
-	const queryUrl = query.split(/[&=]/).some((part) => URL_LIKE.test(decode(part) ?? part));
+	const queryUrl = query.split(/[&=]/).some((part) => URL_LIKE.test(decode(part) ?? looseDecode(part)));
 	if (queryUrl) return bad('The link holds a URL. A link part must be an id.');
 	const view = decode(segments[0] ?? '');
 	if (view === undefined) return bad('A part of the link cannot be read.');
@@ -94,7 +105,7 @@ export function parseDeepLink(hash, options) {
 	}
 	if (!SCOPED(result.view)) {
 		// Overview and Run info ignore the other parts and the mode, but never take a URL.
-		const urlLike = segments.slice(1).some((part) => URL_LIKE.test(decode(part) ?? part));
+		const urlLike = segments.slice(1).some((part) => URL_LIKE.test(decode(part) ?? looseDecode(part)));
 		return urlLike ? bad('The link holds a URL. A link part must be an id.') : result;
 	}
 	if (segments.length > 1 + PARTS.length) return bad('The link has too many parts.');
