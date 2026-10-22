@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeText, groupByDay, historyStrip, homeRows, latestRow, localDay, rowClass, shortId, verdictSentence } from './home-model.js';
+import { changeText, groupByDay, historyStrip, homeRows, latestRow, localDay, kindWord, rowClass, shortId, verdictSentence } from './home-model.js';
 import { parseIndex } from './index-list.js';
 
 const summary = (extra = {}) => ({ unexplained: 0, explained: 0, match: 0, oracle: 0, unclassified: 0, incomplete: 0, ...extra });
@@ -143,5 +143,14 @@ describe('short identifier', () => {
 		expect(shortId(long).endsWith('end1')).toBe(true);
 		expect(shortId(long)).toContain('…');
 		expect(shortId(null)).toBeNull();
+	});
+});
+
+describe('kind word', () => {
+	it('shows only a pair kind of the specification', () => {
+		expect(kindWord('update')).toBe('update');
+		expect(kindWord('migration')).toBe('migration');
+		expect(kindWord('<b>x</b>')).toBeNull();
+		expect(kindWord(null)).toBeNull();
 	});
 });

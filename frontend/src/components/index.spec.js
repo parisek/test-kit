@@ -35,7 +35,8 @@ describe('Home', () => {
 		const view = mount(IndexView, { props: { index } });
 		expect(view.find('img').exists()).toBe(false);
 		expect(view.text()).toContain('Not listed because of an invalid id: 1.');
-		expect(view.html()).toContain('&lt;img src=x onerror=alert(1)&gt;');
+		// The hostile kind is not a pair kind, so the row does not show it at all.
+		expect(view.html()).not.toContain('onerror');
 	});
 	it('opens with the latest comparison: verdict in words, counts, incomplete as a state', async () => {
 		const view = mount(IndexView, { props: { index } });
@@ -72,6 +73,9 @@ describe('Home', () => {
 		expect(first.text()).toContain('+1 unexplained, −1 match, +1 incomplete');
 		expect(first.text()).toContain('settings changed: ' + hash('b').slice(0, 19));
 		expect(first.find('.row-id').attributes('title')).toBe('example-c');
+		// A kind outside the pair kinds of section 3 (here a hostile string) is not shown.
+		expect(first.find('.row-id').text()).toBe('example-c');
+		expect(groups[1].find('.row-id').text()).toBe('update example-b');
 	});
 	it('shows an unavailable comparison with its summary, not as a link', async () => {
 		const view = mount(IndexView, { props: { index } });

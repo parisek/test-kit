@@ -115,3 +115,9 @@ export function shortId(id, max = 32) {
 	const head = Math.ceil((max - 1) / 2);
 	return `${id.slice(0, head)}…${id.slice(id.length - (max - 1 - head))}`;
 }
+
+// The pair kinds of the specification (section 3). The row shows the kind word before
+// the identifier, as DESIGN.md does with "update". An unknown kind is not shown: the
+// index is untrusted and the row stays short.
+export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'];
+export const kindWord = (kind) => (PAIR_KINDS.includes(kind) ? kind : null);

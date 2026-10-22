@@ -4,7 +4,7 @@
 // Index data is untrusted: every value goes in as text (R10.6).
 import { computed, ref } from 'vue';
 import { anchorFor } from '../state/index-list.js';
-import { groupByDay, historyStrip, homeRows, latestRow, shortId, verdictSentence } from '../state/home-model.js';
+import { groupByDay, historyStrip, homeRows, kindWord, latestRow, shortId, verdictSentence } from '../state/home-model.js';
 
 const props = defineProps({ index: Object });
 const emit = defineEmits(['open']);
@@ -115,7 +115,7 @@ function open(row, event) {
                             <span v-if="row.incomplete" class="row-state">{{ row.incomplete }} incomplete</span>
                             <span class="home-meta">{{ detail(row) }}</span>
                             <span v-if="row.change" class="home-meta">{{ row.change }}</span>
-                            <span class="record row-id" :title="row.id">{{ row.kind ? `${row.kind} ${shortId(row.id)}` : shortId(row.id) }}</span>
+                            <span class="record row-id" :title="row.id">{{ kindWord(row.kind) ? `${kindWord(row.kind)} ${shortId(row.id)}` : shortId(row.id) }}</span>
                             <span v-if="!row.available" class="row-unavailable">unavailable</span>
                             <span v-if="row.hashChanged" class="record row-hash">settings changed: {{ row.settingsHash }}</span>
                         </component>
