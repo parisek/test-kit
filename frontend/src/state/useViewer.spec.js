@@ -242,7 +242,12 @@ describe('evidence types (R10.4) and the publish directory', () => {
 		const index = (extra = {}) => ({ schemaVersion: 1, reports: [{ id: 'example-a', kind: 'convergence', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: hash, path: 'reports/example-a/report.json', targets: 1 }], runs: [], ...extra });
 		const missing = { ok: false, status: 404, text: async () => '' };
 		const server = (files) => vi.fn(async (url) => files[new URL(url).pathname] ?? missing);
-		const host = (hash = '') => ({ document: { baseURI: 'http://localhost:4178/site/index.html' }, location: { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash }, history: { replaceState: vi.fn(), pushState: vi.fn() } });
+		// A fake browser whose history writes update location.hash, as a real one does.
+		const host = (hash = '') => {
+			const location = { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash };
+			const write = (state, title, url) => { const at = url.indexOf('#'); location.hash = at < 0 ? '' : url.slice(at); };
+			return { document: { baseURI: 'http://localhost:4178/site/index.html' }, location, history: { replaceState: vi.fn(write), pushState: vi.fn(write) } };
+		};
 
 		describe('deep link wiring (R10.14)', () => {
 			const withFinding = () => {
@@ -434,6 +439,20 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				const instance = useViewer({ browser: host('#r-example-a/evidence/empty'), fetch, width: () => 1280 });
 				await instance.start();
 				expect(instance.state).toMatchObject({ view: 'evidence', targetId: 'empty', viewportId: 'wide' });
+			});
+			it('writes an empty evidence type for behavior, so the link still names the Evidence view', async () => {
+				const data = withFinding();
+				data.entries[0].viewports[0].artifacts = { screenshot: {}, behavior: { state: 'missing' } };
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(data) }), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'screenshot', findingId: 'f1' });
+				const before = browser.history.pushState.mock.calls.length;
+				instance.dispatch('artifact', 'screenshot');
+				expect(browser.history.pushState.mock.calls.length).toBe(before);
+				expect(instance.state.findingId).toBe('f1');
+				instance.dispatch('artifact', 'behavior');
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide');
 			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });

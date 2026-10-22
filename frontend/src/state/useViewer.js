@@ -107,6 +107,8 @@ export function useViewer(options = {}) {
 		if (action === 'artifact') {
 			// R10.4: an evidence type shows only when the row has that artifact.
 			if (!['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value)) return;
+			// The selected type again changes nothing, and keeps the finding.
+			if (value === state.artifact) return;
 			invalidateEvidence();
 			state.artifact = value;
 			state.findingId = null;
@@ -220,6 +222,18 @@ export function useViewer(options = {}) {
 		} else if (action === 'error') {
 			state.loading = false;
 			state.notice = value;
+		} else if (action === 'notice') {
+			// A notice from a link, or none: a valid link clears an earlier link notice.
+			if (typeof value === 'string') state.notice = value;
+			else if (!state.notice.startsWith('Loaded')) state.notice = '';
+		} else if (action === 'cancel-load') {
+			// A newer hash change cancels a report load in flight (R10.14).
+			requestId++;
+			invalidateEvidence();
+			state.loading = false;
+			state.notice = '';
+		} else if (action === 'report-id') {
+			state.reportId = value;
 		}
 	}
 
@@ -284,7 +298,8 @@ export function useViewer(options = {}) {
 		const finding = evidence && state.findingId ? state.report.findings?.find((item) => item?.id === state.findingId) : null;
 		// With a finding, the segment carries the finding's own evidence type, and only
 		// when the view shows it; otherwise it stays empty and reads back to the first valid type.
-		const shown = selectedRow.value?.artifacts && Object.hasOwn(selectedRow.value.artifacts, state.artifact) ? state.artifact : null;
+		// A type that the grammar does not name (behavior, until R10.14 lists it) stays empty.
+		const shown = ARTIFACTS.includes(state.artifact) && selectedRow.value?.artifacts && Object.hasOwn(selectedRow.value.artifacts, state.artifact) ? state.artifact : null;
 		// Only a type that the row holds goes in, so the link reads back without a notice.
 		const artifact = !evidence || !shown ? null : finding ? (ARTIFACTS.includes(finding.artifact) && finding.artifact === shown ? shown : null) : shown;
 		const mode = evidence && state.artifact === 'screenshot' && state.comparison !== 'side-by-side' ? modeFromState(state.comparison) : null;
@@ -314,9 +329,7 @@ export function useViewer(options = {}) {
 			// The mode applies to screenshot only; an omitted type may resolve to another one.
 			if (resolved.view === 'evidence') apply('comparison', (state.artifact === 'screenshot' && modeToState(resolved.mode)) || 'side-by-side');
 			apply('view', resolved.view);
-			// A valid link clears the notice of an earlier bad link.
-			if (resolved.notice) state.notice = resolved.notice;
-			else if (!state.notice.startsWith('Loaded')) state.notice = '';
+			apply('notice', resolved.notice);
 		} finally {
 			applyingLink = false;
 		}
@@ -332,10 +345,7 @@ export function useViewer(options = {}) {
 		// names the report that is open now (Back during a slow load).
 		// The source form and start-up load with no report and no index; leave those alone.
 		if (state.loading && (state.report || state.index)) {
-			requestId++;
-			invalidateEvidence();
-			state.loading = false;
-			state.notice = '';
+			apply('cancel-load');
 		}
 		if (state.index) {
 			const parsed = parseDeepLink(hash);
@@ -391,7 +401,7 @@ export function useViewer(options = {}) {
 		if (!row?.available) return { ok: false };
 		const result = await load(reportPath(row.id));
 		if (result.ok) {
-			state.reportId = row.id;
+			apply('report-id', row.id);
 			// Opening a report from the Home adds a history entry; a link does not.
 			if (push) setAnchor(anchorFor(row.id), true);
 		}
