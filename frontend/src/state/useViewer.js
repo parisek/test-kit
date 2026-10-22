@@ -140,7 +140,8 @@ export function useViewer(options = {}) {
 			if (value.viewportId != null && !viewportExists) return;
 			invalidateEvidence();
 			state.targetId = target.id;
-			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? null;
+			// The first valid viewport: the target's first row, else the report's first declared one.
+			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? state.report.meta.viewports[0]?.id ?? null;
 			// R10.14: a finding id names the first finding with that id. A later finding with a
 			// repeated id gets no finding part, so its link does not read back as another one.
 			const first = state.report.findings?.find((finding) => finding?.id === value.findingId);
@@ -168,7 +169,7 @@ export function useViewer(options = {}) {
 			if (!target) return;
 			invalidateEvidence();
 			state.targetId = target.id;
-			state.viewportId = target.viewports[0]?.id ?? null;
+			state.viewportId = target.viewports[0]?.id ?? state.report.meta.viewports[0]?.id ?? null;
 			state.findingId = null;
 			state.view = 'evidence';
 			selectArtifact();
@@ -325,6 +326,8 @@ export function useViewer(options = {}) {
 	let booting = false;
 	async function applyHash(hash = browser?.location?.hash ?? '') {
 		if (booting) return;
+		// With an index, a hash that is not a deep link (#main) changes nothing.
+		if (state.index && !parseDeepLink(hash) && hash.replace(/^#/, '') !== '') return;
 		// A newer hash change cancels a report load in flight, also when the new hash
 		// names the report that is open now (Back during a slow load).
 		// The source form and start-up load with no report and no index; leave those alone.

@@ -427,6 +427,14 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				await instance.applyHash('#main');
 				expect(instance.state.reportId).toBe('example-a');
 			});
+			it('takes the first declared viewport for a target without rows', async () => {
+				const data = withFinding();
+				data.entries.push({ id: 'empty', viewports: [] });
+				const fetch = server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(data) });
+				const instance = useViewer({ browser: host('#r-example-a/evidence/empty'), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state).toMatchObject({ view: 'evidence', targetId: 'empty', viewportId: 'wide' });
+			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });
 				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });
