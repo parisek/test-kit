@@ -3,6 +3,22 @@ import { buildDeepLink, modeFromState, modeToState, parseDeepLink, resolveDeepLi
 
 const base = { reportId: 'example-a', view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice: null };
 const link = (extra) => ({ ...base, ...extra });
+// A notice comes from a closed set and never repeats text from the link.
+const NOTICES = [
+	'The link names no valid report.',
+	'A part of the link cannot be read.',
+	'The link holds a URL. A link part must be an id.',
+	'The link names an unknown view.',
+	'The link has too many parts.',
+	'The link names an unknown evidence type.',
+	'The link names an unknown mode.',
+	'The link names a finding that this report does not hold.',
+	'The link names a target that this report does not hold.',
+	'The link names a viewport that this report does not hold.',
+	'The link names an evidence type that this page does not have.',
+	'The link and its finding name different parts. The finding wins.',
+];
+const notice = { asymmetricMatch: (value) => NOTICES.includes(value), toAsymmetricMatcher: () => 'a known notice' };
 
 describe('deep link parse (R10.14)', () => {
 	it('reads a full link and decodes each part', () => {
@@ -19,8 +35,8 @@ describe('deep link parse (R10.14)', () => {
 		expect(parseDeepLink('#r-example-a/overview/home')).toEqual(base);
 		expect(parseDeepLink('#r-example-a/info/a/b/c/d/e/f')).toEqual(link({ view: 'info' }));
 		// A part that fails to decode shows a notice, also where the view ignores it.
-		expect(parseDeepLink('#r-example-a/info/%E0%A4%A').notice).toEqual(expect.any(String));
-		expect(parseDeepLink('#r-example-a/info?x=%E0').notice).toEqual(expect.any(String));
+		expect(parseDeepLink('#r-example-a/info/%E0%A4%A').notice).toEqual(notice);
+		expect(parseDeepLink('#r-example-a/info?x=%E0').notice).toEqual(notice);
 	});
 	it('treats an omitted trailing part and an empty middle part as missing', () => {
 		expect(parseDeepLink('#r-example-a/evidence/home')).toEqual(link({ view: 'evidence', targetId: 'home' }));
@@ -46,7 +62,7 @@ describe('deep link parse (R10.14)', () => {
 			'#r-example-a/evidence/urn%3Aisbn%3A9780141036144',
 			'#r-example-a/findings/home/desktop/content/content-home-desktop-a11y%3Acontrast-0',
 			'#r-example-a/evidence/a%2Fb',
-		]) expect(parseDeepLink(hash).notice).toEqual(expect.any(String));
+		]) expect(parseDeepLink(hash).notice).toEqual(notice);
 		expect(buildDeepLink({ reportId: 'example-a', view: 'findings', findingId: 'check:x' })).toBeNull();
 		expect(buildDeepLink({ reportId: 'example-a', view: 'evidence', targetId: 'a/b' })).toBeNull();
 	});
@@ -69,14 +85,14 @@ describe('deep link parse (R10.14)', () => {
 		]) {
 			const result = parseDeepLink(hash);
 			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, artifact: null, mode: null });
-			expect(result.notice).toEqual(expect.any(String));
+			expect(result.notice).toEqual(notice);
 		}
 	});
 	it('opens the Home with a notice for an invalid report id', () => {
 		for (const hash of ['#r-', '#r-../x', '#r-a%20b', '#r-%3Cx%3E', '#r-%E0%A4%A']) {
 			const result = parseDeepLink(hash);
 			expect(result.reportId).toBeNull();
-			expect(result.notice).toEqual(expect.any(String));
+			expect(result.notice).toEqual(notice);
 		}
 	});
 	it('returns null for a hash that is not a deep link', () => {
@@ -110,18 +126,22 @@ describe('deep link parse (R10.14)', () => {
 		]) {
 			const result = parseDeepLink(hash);
 			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, findingId: null });
-			expect(result.notice).toEqual(expect.any(String));
+			expect(result.notice).toEqual(notice);
 		}
 	});
 	it('drops the report part next to an adjacent report.json', () => {
 		expect(parseDeepLink('#evidence/home/desktop/status', { adjacent: true })).toEqual(link({
 			reportId: null, view: 'evidence', targetId: 'home', viewportId: 'desktop', artifact: 'status',
 		}));
-		expect(parseDeepLink('#r-example-a', { adjacent: true }).notice).toEqual(expect.any(String));
+		expect(parseDeepLink('#r-example-a', { adjacent: true }).notice).toEqual(notice);
 	});
 });
 
 describe('deep link build (R10.14)', () => {
+	it('treats an empty mode as no mode, as the parse does', () => {
+		expect(buildDeepLink({ reportId: 'example-a', view: 'evidence', targetId: 'home', artifact: 'screenshot', mode: '' })).toBe('#r-example-a/evidence/home//screenshot');
+		expect(parseDeepLink('#r-example-a/evidence/home//screenshot?mode=').mode).toBeNull();
+	});
 	it('builds the plain report link for the Overview', () => {
 		expect(buildDeepLink({ reportId: 'example-a' })).toBe('#r-example-a');
 		expect(buildDeepLink({ reportId: 'example-a', view: 'overview', targetId: 'home' })).toBe('#r-example-a');
@@ -167,6 +187,7 @@ describe('deep link build (R10.14)', () => {
 			link({ view: 'evidence', targetId: '@project', viewportId: 'mobile', artifact: 'screenshot', findingId: 'a b?c', mode: 'difference' }),
 			link({ view: 'findings', targetId: 'home', findingId: 'f1' }),
 			link({ view: 'evidence', targetId: 'home', viewportId: 'desktop', artifact: 'lighthouse' }),
+			link({ view: 'evidence', targetId: 'home', viewportId: 'desktop', artifact: 'behavior' }),
 		];
 		for (const state of states) expect(parseDeepLink(buildDeepLink(state))).toEqual(state);
 		const adjacent = link({ reportId: null, view: 'evidence', targetId: 'home', artifact: 'content' });
@@ -198,21 +219,21 @@ describe('deep link against the open report (R10.14)', () => {
 		for (const hash of ['#r-example-a/evidence/away', '#r-example-a/evidence/home/tablet', '#r-example-a/evidence/home/mobile/html', '#r-example-a/findings////f9']) {
 			const result = resolve(hash);
 			expect(result.view).toBe('overview');
-			expect(result.notice).toEqual(expect.any(String));
+			expect(result.notice).toEqual(notice);
 		}
 	});
 	it('selects the first finding with the id, which wins over the other parts', () => {
 		expect(resolve('#r-example-a/findings////f1')).toMatchObject({ view: 'findings', targetId: 'home', viewportId: 'mobile', artifact: 'screenshot', findingId: 'f1', notice: null });
 		const differs = resolve('#r-example-a/evidence/%40project/desktop/status/f1');
 		expect(differs).toMatchObject({ targetId: 'home', viewportId: 'mobile', artifact: 'screenshot' });
-		expect(differs.notice).toEqual(expect.any(String));
+		expect(differs.notice).toEqual(notice);
 	});
 	it('keeps an empty evidence type for a finding whose artifact is not an evidence type', () => {
 		expect(resolve('#r-example-a/evidence/home/desktop//b1')).toMatchObject({ targetId: 'home', viewportId: 'desktop', artifact: null, findingId: 'b1', notice: null });
 		// The finding wins over an evidence type in the path, with a notice.
 		const named = resolve('#r-example-a/evidence/home/desktop/html/b1');
 		expect(named).toMatchObject({ artifact: null, findingId: 'b1' });
-		expect(named.notice).toEqual(expect.any(String));
+		expect(named.notice).toEqual(notice);
 	});
 	it('shows the first valid type when the evidence type of a finding is missing on its row', () => {
 		const sparse = { meta: { viewports: [{ id: 'desktop' }] }, entries: [{ id: 'home', viewports: [{ id: 'desktop', artifacts: { html: {} } }] }], findings: [{ id: 'f3', targetId: 'home', viewportId: 'desktop', artifact: 'screenshot' }] };
@@ -227,7 +248,7 @@ describe('deep link against the open report (R10.14)', () => {
 	});
 	it('ignores everything but the view on overview and info, and passes a parse notice on', () => {
 		expect(resolve('#r-example-a/info')).toMatchObject({ view: 'info', targetId: null, notice: null });
-		expect(resolve('#r-example-a/compare')).toMatchObject({ view: 'overview', notice: expect.any(String) });
+		expect(resolve('#r-example-a/compare')).toMatchObject({ view: 'overview', notice: notice });
 		expect(resolveDeepLink(null, report).view).toBe('overview');
 	});
 	it('maps the stored comparison mode to the link mode and back', () => {

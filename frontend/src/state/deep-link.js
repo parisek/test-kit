@@ -5,8 +5,9 @@
 import { validId } from './index-list.js';
 
 export const VIEWS = ['overview', 'evidence', 'findings', 'info'];
-// Evidence types of R10.4 by artifact id. `lighthouse` is shown as speed.
-export const ARTIFACTS = ['screenshot', 'html', 'status', 'content', 'lighthouse'];
+// Evidence types of R10.4 by artifact id, in the order the viewer offers them.
+// `lighthouse` is shown as speed.
+export const ARTIFACTS = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'];
 export const MODES = ['side-by-side', 'overlay', 'difference'];
 
 const PARTS = ['targetId', 'viewportId', 'artifact', 'findingId'];
@@ -110,13 +111,15 @@ export function parseDeepLink(hash, options) {
 }
 
 // Builds the hash for a view state. Returns null when the state cannot form a valid link.
-// For a finding whose artifact is not an evidence type (for example behavior), pass
+// For a finding whose artifact is not an evidence type (for example a11y), pass
 // artifact null: the link then has an empty artifact segment (R10.14).
 // A missing part is an empty segment in the middle and is omitted at the end.
 export function buildDeepLink(state, options) {
 	const adjacent = options?.adjacent === true;
 	state = state ?? {};
-	const { reportId = null, view = 'overview', mode = null } = state;
+	const { reportId = null, view = 'overview' } = state;
+	// An empty mode is no mode, as `?mode=` reads back to null.
+	const mode = state.mode === '' ? null : (state.mode ?? null);
 	if (!adjacent && !validId(reportId)) return null;
 	if (!VIEWS.includes(view)) return null;
 	const parts = [];
