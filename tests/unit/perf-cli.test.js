@@ -19,3 +19,12 @@ test('performance CLI plan rejects missing, duplicate, unknown, component and HT
   assert.throws(() => planPerfCommand(config, { side: 'missing', targetIds: ['home'] }));
   assert.throws(() => planPerfCommand(config, { side: 'local', targetIds: ['home'], budgets: { lcp_ms: -1 } }));
 });
+test('performance CLI plan on a production side waits for consent for one target (R6.5)', () => {
+  const production = { ...config, sides: { ...config.sides, local: { origin: 'http://localhost:8080', production: true } } };
+  assert.throws(() => planPerfCommand(production, { side: 'local', targetIds: ['home'] }),
+    (error) => error.code === 'PERFORMANCE_COST_CONSENT_REQUIRED' && /production side/.test(error.message) && /4 navigations \(3 measured\)/.test(error.message));
+  assert.equal(planPerfCommand(production, { side: 'local', targetIds: ['home'], consent: true }).cost.navigations, 4);
+  // The side id alone does not mark production.
+  const named = { ...config, sides: { production: { origin: 'http://localhost:8080' } } };
+  assert.equal(planPerfCommand(named, { side: 'production', targetIds: ['home'] }).cost.targets, 1);
+});

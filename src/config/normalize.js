@@ -90,11 +90,14 @@ export function normalizeConfig(input) {
   if (!sideEntries.length || sideEntries.length > 20) fail('sides must have 1..20 entries');
   const sides = Object.fromEntries(sideEntries.map(([sideId, side]) => {
     id(sideId, 'side ID');
-    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote']);
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
+    // R6.5: the flag, not the side id, marks a production side.
+    if (Object.hasOwn(side, 'production') && typeof side.production !== 'boolean') fail(`sides.${sideId}.production must be a boolean`);
     const remote = side.remote === true;
     return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`, remote),
       ...(remote ? { remote: true } : {}),
+      ...(side.production === true ? { production: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
   const targets = list(input.targets, 'targets', 1000, 1).map(target => {

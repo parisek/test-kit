@@ -13,7 +13,7 @@ export function planPerfCommand(config, { side, label = '', targetIds, runs, for
     return target;
   });
   const settings = performanceSettings({ runs, formFactor, throttling });
-  const cost = performanceConsent(targets.length, settings, consent);
+  const cost = performanceConsent(targets.length, settings, consent, { production: config.sides[side].production === true });
   evaluateBudgets(null, budgets);
   const origin = new URL(config.sides[side].origin);
   if (origin.protocol !== 'http:') throw new Error('Performance accepts local HTTP only. HTTPS is unsupported.');

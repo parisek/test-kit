@@ -41,6 +41,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `sides` | object | none | yes | 1 to 20 entries. A key is a safe ID (`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`). |
 | `sides.<id>.origin` | string | none | yes | An HTTP origin with no path or credentials. Local unless `remote` is `true`. |
 | `sides.<id>.remote` | boolean | `false` | no | R3.3. Added in 0.5.0. |
+| `sides.<id>.production` | boolean | `false` | no | R6.5. `perf` on this side waits for `--consent` for any number of targets. The side id does not decide. |
 | `sides.<id>.settle` | object | see below | no | Settle recipe (R5.4). |
 | `targets` | list | none | yes | 1 to 1000 entries. |
 | `targets[].id` | string | none | yes | Safe ID. Unique. |
@@ -110,7 +111,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
 | `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. |
-| `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. Specification section 17, item 3: on a production side `perf` waits for `--consent` (decided 2026-10-22, not built yet, #162). |
+| `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. On a side with `production: true`, `perf` waits for `--consent` for any number of targets (R6.5, #162). |
 | `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). |
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 | `history` | none (`--config`, `--store`, `--port` or `--export`) | Experimental | Same reason as `run`. |

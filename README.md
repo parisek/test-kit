@@ -305,8 +305,9 @@ show medians, samples and full observed spread. Significant improvements and
 regressions become findings. The default command exit does not judge them.
 
 More than three targets requires `--consent` after the command states its cost.
-On a production side `perf` will require `--consent` for any number of targets
-(decided 2026-10-22, not built yet, #162).
+A side with `"production": true` in its configuration is a production side.
+There `perf` requires `--consent` for any number of targets, one included.
+The side id does not mark production.
 High machine load refuses capture. `--allow-high-load` marks such measurements
 suspect. They cannot produce a speed regression comparison. `--fail-on-budget`
 is the only budget option that changes exit status. It works on measurement
