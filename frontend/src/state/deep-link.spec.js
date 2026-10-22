@@ -30,6 +30,14 @@ describe('deep link parse (R10.14)', () => {
 			expect(parseDeepLink(`#r-example-a/evidence/home/desktop/${artifact}`).artifact).toBe(artifact);
 		}
 	});
+	it('ignores a mode where it does not apply, even an unknown one', () => {
+		expect(parseDeepLink('#r-example-a?mode=blink')).toEqual(base);
+		expect(parseDeepLink('#r-example-a/info?mode=blink')).toEqual(link({ view: 'info' }));
+		expect(parseDeepLink('#r-example-a/evidence/home/desktop/html?mode=blink').notice).toBeNull();
+	});
+	it('accepts one trailing slash', () => {
+		expect(parseDeepLink('#r-example-a/evidence/home/desktop/screenshot/f1/').findingId).toBe('f1');
+	});
 	it('applies the mode to screenshot only', () => {
 		expect(parseDeepLink('#r-example-a/evidence/home/desktop/html?mode=overlay').mode).toBeNull();
 		expect(parseDeepLink('#r-example-a/evidence/home?mode=difference').mode).toBe('difference');
@@ -39,7 +47,7 @@ describe('deep link parse (R10.14)', () => {
 		for (const hash of [
 			'#r-example-a/compare',
 			'#r-example-a/evidence/home/desktop/video',
-			'#r-example-a/evidence/home?mode=blink',
+			'#r-example-a/evidence/home/desktop/screenshot?mode=blink',
 			'#r-example-a/evidence/%E0%A4%A',
 			'#r-example-a/evidence/home?mode=%E0%A4%A',
 			'#r-example-a/evidence/a/b/screenshot/f1/extra',
@@ -60,9 +68,16 @@ describe('deep link parse (R10.14)', () => {
 		for (const hash of ['', '#', '#report=a', '#evidence', null, undefined, 42]) expect(parseDeepLink(hash)).toBeNull();
 	});
 	it('never takes a URL as a part', () => {
-		const result = parseDeepLink('#r-example-a/https%3A%2F%2Fexample.invalid');
-		expect(result.view).toBe('overview');
-		expect(result.notice).toEqual(expect.any(String));
+		for (const hash of [
+			'#r-example-a/https%3A%2F%2Fexample.invalid',
+			'#r-example-a/evidence/https%3A%2F%2Fexample.invalid',
+			'#r-example-a/evidence/home/%2F%2Fexample.invalid',
+			'#r-example-a/findings/home/desktop//javascript%3Aalert(1)',
+		]) {
+			const result = parseDeepLink(hash);
+			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, findingId: null });
+			expect(result.notice).toEqual(expect.any(String));
+		}
 	});
 	it('drops the report part next to an adjacent report.json', () => {
 		expect(parseDeepLink('#evidence/home/desktop/status', { adjacent: true })).toEqual(link({
@@ -98,12 +113,18 @@ describe('deep link build (R10.14)', () => {
 			{ reportId: 'example-a', view: 'evidence', artifact: 'screenshot', mode: 'blink' },
 			{ reportId: 'example-a', view: 'evidence', targetId: 7 },
 			{ reportId: 'example-a', view: 'evidence', targetId: '' },
+			{ reportId: 'example-a', view: 'evidence', targetId: 'https://example.invalid' },
+			{ reportId: 'example-a', view: 'findings', findingId: '//example.invalid' },
+			{ reportId: 'example-a', view: 'evidence', targetId: '\ud800' },
+			{ reportId: 'example-a', view: 'findings', findingId: 'x\udfff' },
 			null,
 		]) expect(buildDeepLink(state)).toBeNull();
 	});
 	it('drops the report part next to an adjacent report.json', () => {
 		expect(buildDeepLink({ view: 'evidence', targetId: 'home' }, { adjacent: true })).toBe('#evidence/home');
 		expect(buildDeepLink({}, { adjacent: true })).toBe('');
+		expect(buildDeepLink({ reportId: 'example-a' }, null)).toBe('#r-example-a');
+		expect(parseDeepLink('#r-example-a', null)).toEqual(base);
 	});
 	it('round-trips through parse', () => {
 		const states = [

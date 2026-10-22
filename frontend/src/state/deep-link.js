@@ -12,6 +12,8 @@ export const MODES = ['side-by-side', 'overlay', 'difference'];
 const PARTS = ['targetId', 'viewportId', 'artifact', 'findingId'];
 const SCOPED = (view) => view === 'evidence' || view === 'findings';
 const modeApplies = (artifact) => artifact === null || artifact === 'screenshot';
+// The hash never carries a URL: a part with a scheme or a leading "//" is refused.
+const URL_LIKE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
 function empty(reportId) {
 	return { reportId, view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice: null };
@@ -20,6 +22,14 @@ function empty(reportId) {
 function decode(part) {
 	try {
 		return decodeURIComponent(part);
+	} catch {
+		return undefined;
+	}
+}
+
+function encode(part) {
+	try {
+		return encodeURIComponent(part);
 	} catch {
 		return undefined;
 	}
@@ -43,7 +53,8 @@ function queryMode(query) {
 // { reportId, view, targetId, viewportId, artifact, findingId, mode, notice }.
 // A notice means the link was not usable: an invalid report id gives reportId null
 // (open the Home), any other bad part gives the Overview of that report.
-export function parseDeepLink(hash, { adjacent = false } = {}) {
+export function parseDeepLink(hash, options) {
+	const adjacent = options?.adjacent === true;
 	if (typeof hash !== 'string') return null;
 	const body = hash.startsWith('#') ? hash.slice(1) : hash;
 	if (body === '') return null;
@@ -51,6 +62,7 @@ export function parseDeepLink(hash, { adjacent = false } = {}) {
 	const path = cut < 0 ? body : body.slice(0, cut);
 	const query = cut < 0 ? '' : body.slice(cut + 1);
 	const segments = path.split('/');
+	if (segments.length > 1 && segments[segments.length - 1] === '') segments.pop();
 	let reportId = null;
 	if (!adjacent) {
 		if (!segments[0].startsWith('r-')) return null;
@@ -68,35 +80,45 @@ export function parseDeepLink(hash, { adjacent = false } = {}) {
 		if (!VIEWS.includes(view)) return bad(`The link names an unknown view: ${view}.`);
 		result.view = view;
 	}
+	if (!SCOPED(result.view)) return result;
 	const mode = queryMode(query);
 	if (mode === undefined) return bad('A part of the link cannot be read.');
-	if (mode !== null && !MODES.includes(mode)) return bad(`The link names an unknown mode: ${mode}.`);
-	if (!SCOPED(result.view)) return result;
 	PARTS.forEach((name, i) => { result[name] = rest[i] ? rest[i] : null; });
+	if (PARTS.some((name) => result[name] !== null && URL_LIKE.test(result[name]))) {
+		return bad('The link holds a URL. A link part must be an id.');
+	}
 	if (result.artifact !== null && !ARTIFACTS.includes(result.artifact)) {
 		return bad(`The link names an unknown evidence type: ${result.artifact}.`);
 	}
-	result.mode = modeApplies(result.artifact) ? mode : null;
+	// A mode counts only where it applies. The caller drops it when an empty
+	// artifact resolves to a type other than screenshot.
+	if (!modeApplies(result.artifact)) return result;
+	if (mode !== null && !MODES.includes(mode)) return bad(`The link names an unknown mode: ${mode}.`);
+	result.mode = mode;
 	return result;
 }
 
 // Builds the hash for a view state. Returns null when the state cannot form a valid link.
 // A missing part is an empty segment in the middle and is omitted at the end.
-export function buildDeepLink(state, { adjacent = false } = {}) {
-	const { reportId = null, view = 'overview', mode = null } = state ?? {};
+export function buildDeepLink(state, options) {
+	const adjacent = options?.adjacent === true;
+	state = state ?? {};
+	const { reportId = null, view = 'overview', mode = null } = state;
 	if (!adjacent && !validId(reportId)) return null;
 	if (!VIEWS.includes(view)) return null;
 	const parts = [];
 	if (SCOPED(view)) {
 		const values = PARTS.map((name) => state[name] ?? null);
-		if (values.some((value) => value !== null && (typeof value !== 'string' || value === ''))) return null;
+		if (values.some((value) => value !== null && (typeof value !== 'string' || value === '' || URL_LIKE.test(value)))) return null;
 		if (values[2] !== null && !ARTIFACTS.includes(values[2])) return null;
 		parts.push(view, ...values);
 	} else if (view !== 'overview') {
 		parts.push(view);
 	}
 	while (parts.length && parts[parts.length - 1] === null) parts.pop();
-	const segments = parts.map((part) => (part === null ? '' : encodeURIComponent(part)));
+	// A lone surrogate in an untrusted id makes encodeURIComponent throw.
+	const segments = parts.map((part) => (part === null ? '' : encode(part)));
+	if (segments.includes(undefined)) return null;
 	if (!adjacent) segments.unshift(`r-${reportId}`);
 	let hash = `#${segments.join('/')}`;
 	if (mode !== null && SCOPED(view) && modeApplies(state.artifact ?? null)) {
