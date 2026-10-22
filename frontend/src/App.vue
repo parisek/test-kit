@@ -12,7 +12,9 @@ import TimelineView from './components/TimelineView.vue';
 import { anchorFor } from './state/index-list.js';
 import { localDateTime, reportNeighbors } from './state/report-nav.js';
 
-const { state, summary, filteredTargets, dispatch, load, start, openReport } = useViewer();
+const { state, summary, filteredTargets, dispatch, load, start, openReport, applyHash } = useViewer();
+// R10.14: Back, Forward and an edited hash apply the link.
+const onHashChange = () => applyHash();
 const source = ref('report.json');
 const sidebar = ref(null);
 const indexView = ref(null);
@@ -190,11 +192,13 @@ onMounted(() => {
 	mounted.value = true;
 	document.addEventListener('keydown', keydown);
 	window.addEventListener('resize', resize);
+	window.addEventListener('hashchange', onHashChange);
 	start(source.value);
 });
 onUnmounted(() => {
 	document.removeEventListener('keydown', keydown);
 	window.removeEventListener('resize', resize);
+	window.removeEventListener('hashchange', onHashChange);
 	restoreScroll();
 });
 </script>

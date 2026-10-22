@@ -242,7 +242,58 @@ describe('evidence types (R10.4) and the publish directory', () => {
 		const index = (extra = {}) => ({ schemaVersion: 1, reports: [{ id: 'example-a', kind: 'convergence', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: hash, path: 'reports/example-a/report.json', targets: 1 }], runs: [], ...extra });
 		const missing = { ok: false, status: 404, text: async () => '' };
 		const server = (files) => vi.fn(async (url) => files[new URL(url).pathname] ?? missing);
-		const host = (hash = '') => ({ document: { baseURI: 'http://localhost:4178/site/index.html' }, location: { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash }, history: { replaceState: vi.fn() } });
+		const host = (hash = '') => ({ document: { baseURI: 'http://localhost:4178/site/index.html' }, location: { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash }, history: { replaceState: vi.fn(), pushState: vi.fn() } });
+
+		describe('deep link wiring (R10.14)', () => {
+			const withFinding = () => {
+				const data = report('update');
+				data.entries[0].viewports[0].artifacts = { screenshot: {} };
+				data.findings = [{ id: 'f1', targetId: 'example', viewportId: 'wide', artifact: 'screenshot' }];
+				return data;
+			};
+			const files = () => ({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(withFinding()) });
+			it('opens the view that the link names on load, without a history entry', async () => {
+				const browser = host('#r-example-a/evidence/example/wide/screenshot?mode=difference');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state).toMatchObject({ reportId: 'example-a', view: 'evidence', targetId: 'example', viewportId: 'wide', artifact: 'screenshot', comparison: 'diff' });
+				expect(browser.history.pushState).not.toHaveBeenCalled();
+			});
+			it('adds one history entry for each change of view, target or finding', async () => {
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('view', 'findings');
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/findings');
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'screenshot', findingId: 'f1' });
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide/screenshot/f1');
+				instance.dispatch('comparison', 'overlay');
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide/screenshot/f1?mode=overlay');
+				expect(browser.history.pushState).toHaveBeenCalledTimes(3);
+			});
+			it('applies a hash change from Back without a history entry, and returns to the Home for an empty hash', async () => {
+				const browser = host('#r-example-a/evidence');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				await instance.applyHash('#r-example-a/info');
+				expect(instance.state.view).toBe('info');
+				await instance.applyHash('');
+				expect(instance.state.report).toBeNull();
+				expect(browser.history.pushState).not.toHaveBeenCalled();
+			});
+			it('opens the Overview with a notice for a part that the report does not hold', async () => {
+				const instance = useViewer({ browser: host('#r-example-a/evidence/away'), fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.view).toBe('overview');
+				expect(instance.state.notice).toBe('The link names a target that this report does not hold.');
+			});
+			it('reads the link without the report part next to an adjacent report.json', async () => {
+				const fetch = server({ '/site/report.json': response(withFinding()) });
+				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.view).toBe('findings');
+			});
+		});
 
 		it('shows the list when report.json answers 404 and index.json loads', async () => {
 			const fetch = server({ '/site/index.json': response(index()) });
@@ -292,11 +343,12 @@ describe('evidence types (R10.4) and the publish directory', () => {
 			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/reports/example-a/report.json', { redirect: 'error' });
 			expect(instance.state.report.entries[0].id).toBe('example');
 			expect(instance.state.source).toBe('http://localhost:4178/site/reports/example-a/report.json');
-			expect(browser.history.replaceState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a');
+			// Opening a report and going back to the Home each add one history entry (R10.14).
+			expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a');
 			instance.dispatch('close-report');
 			expect(instance.state.report).toBeNull();
 			expect(instance.state.index.reports).toHaveLength(1);
-			expect(browser.history.replaceState).toHaveBeenLastCalledWith(null, '', '/site/index.html');
+			expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html');
 		});
 		it('opens the report named by the anchor, and ignores an invalid anchor', async () => {
 			const files = { '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(report()) };

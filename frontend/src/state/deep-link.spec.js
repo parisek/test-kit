@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDeepLink, parseDeepLink } from './deep-link.js';
+import { buildDeepLink, modeFromState, modeToState, parseDeepLink, resolveDeepLink } from './deep-link.js';
 
 const base = { reportId: 'example-a', view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice: null };
 const link = (extra) => ({ ...base, ...extra });
@@ -171,5 +171,58 @@ describe('deep link build (R10.14)', () => {
 		for (const state of states) expect(parseDeepLink(buildDeepLink(state))).toEqual(state);
 		const adjacent = link({ reportId: null, view: 'evidence', targetId: 'home', artifact: 'content' });
 		expect(parseDeepLink(buildDeepLink(adjacent, { adjacent: true }), { adjacent: true })).toEqual(adjacent);
+	});
+});
+
+describe('deep link against the open report (R10.14)', () => {
+	const report = {
+		meta: { viewports: [{ id: 'desktop' }, { id: 'mobile' }] },
+		entries: [
+			{ id: 'home', viewports: [{ id: 'desktop', artifacts: { screenshot: {}, html: {} } }, { id: 'mobile', artifacts: { screenshot: {} } }] },
+			{ id: '@project', viewports: [{ id: 'desktop', artifacts: { status: {} } }] },
+		],
+		findings: [
+			{ id: 'f1', targetId: 'home', viewportId: 'mobile', artifact: 'screenshot' },
+			{ id: 'f1', targetId: '@project', viewportId: 'desktop', artifact: 'status' },
+			{ id: 'b1', targetId: 'home', viewportId: 'desktop', artifact: 'a11y' },
+		],
+	};
+	const resolve = (hash) => resolveDeepLink(parseDeepLink(hash), report);
+	it('accepts ids that the report holds, the reserved @project included', () => {
+		expect(resolve('#r-example-a/evidence/%40project/desktop/status')).toMatchObject({ view: 'evidence', targetId: '@project', viewportId: 'desktop', artifact: 'status', notice: null });
+	});
+	it('takes the first valid value for an omitted part', () => {
+		expect(resolve('#r-example-a/evidence')).toMatchObject({ view: 'evidence', targetId: 'home', viewportId: null, artifact: null, notice: null });
+	});
+	it('opens the Overview with a notice for an id that the report does not hold', () => {
+		for (const hash of ['#r-example-a/evidence/away', '#r-example-a/evidence/home/tablet', '#r-example-a/evidence/home/mobile/html', '#r-example-a/findings////f9']) {
+			const result = resolve(hash);
+			expect(result.view).toBe('overview');
+			expect(result.notice).toEqual(expect.any(String));
+		}
+	});
+	it('selects the first finding with the id, which wins over the other parts', () => {
+		expect(resolve('#r-example-a/findings////f1')).toMatchObject({ view: 'findings', targetId: 'home', viewportId: 'mobile', artifact: 'screenshot', findingId: 'f1', notice: null });
+		const differs = resolve('#r-example-a/evidence/%40project/desktop/status/f1');
+		expect(differs).toMatchObject({ targetId: 'home', viewportId: 'mobile', artifact: 'screenshot' });
+		expect(differs.notice).toEqual(expect.any(String));
+	});
+	it('keeps an empty evidence type for a finding whose artifact is not an evidence type', () => {
+		expect(resolve('#r-example-a/evidence/home/desktop//b1')).toMatchObject({ targetId: 'home', viewportId: 'desktop', artifact: null, findingId: 'b1', notice: null });
+	});
+	it('keeps the mode only for screenshot', () => {
+		expect(resolve('#r-example-a/evidence/home/desktop/screenshot?mode=overlay').mode).toBe('overlay');
+		expect(resolve('#r-example-a/evidence/home/desktop/html?mode=overlay').mode).toBeNull();
+	});
+	it('ignores everything but the view on overview and info, and passes a parse notice on', () => {
+		expect(resolve('#r-example-a/info')).toMatchObject({ view: 'info', targetId: null, notice: null });
+		expect(resolve('#r-example-a/compare')).toMatchObject({ view: 'overview', notice: expect.any(String) });
+		expect(resolveDeepLink(null, report).view).toBe('overview');
+	});
+	it('maps the stored comparison mode to the link mode and back', () => {
+		expect(modeToState('difference')).toBe('diff');
+		expect(modeFromState('diff')).toBe('difference');
+		expect(modeFromState('side-by-side')).toBe('side-by-side');
+		expect(modeToState('blink')).toBeNull();
 	});
 });

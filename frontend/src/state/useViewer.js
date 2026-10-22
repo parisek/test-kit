@@ -3,7 +3,8 @@ import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
 import { summarize, targetClass, cellState } from '../../../src/report/classify.js';
 import { sameOriginUrl } from '../../../src/report/safe.js';
-import { anchorFor, idFromAnchor, parseIndex, reportPath } from './index-list.js';
+import { anchorFor, parseIndex, reportPath } from './index-list.js';
+import { buildDeepLink, modeFromState, modeToState, parseDeepLink, resolveDeepLink } from './deep-link.js';
 
 // R10.4: four report views. A report opens on Overview, whatever the pair kind (R10.5).
 export const VIEWS = Object.freeze(['overview', 'evidence', 'findings', 'info']);
@@ -40,6 +41,8 @@ export function useViewer(options = {}) {
 		index: null,
 		// The id of the open report when it comes from the index (R10.3), else null.
 		reportId: null,
+		// The finding that opened the Evidence view, for its deep link (R10.14), else null.
+		findingId: null,
 		targetId: null,
 		viewportId: null,
 		view: 'overview',
@@ -92,12 +95,21 @@ export function useViewer(options = {}) {
 		if (state.view === 'evidence' && ['html', 'status', 'content', 'behavior', 'lighthouse'].includes(state.artifact)) loadArtifact(state.artifact);
 	}
 
+	// R10.14: a change of view, target, viewport, evidence type, finding or mode adds one
+	// history entry. A change that comes from the link itself adds none.
+	const LINKED = new Set(['view', 'target', 'viewport', 'artifact', 'comparison', 'evidence']);
+	let applyingLink = false;
 	function dispatch(action, value) {
+		apply(action, value);
+		if (!applyingLink && state.report && LINKED.has(action)) writeHash(true);
+	}
+	function apply(action, value) {
 		if (action === 'artifact') {
 			// R10.4: an evidence type shows only when the row has that artifact.
 			if (!['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value)) return;
 			invalidateEvidence();
 			state.artifact = value;
+			state.findingId = null;
 			loadSelectedEvidence();
 		} else if (action === 'comparison') {
 			if (['side-by-side', 'overlay', 'diff'].includes(value)) state.comparison = value;
@@ -129,6 +141,7 @@ export function useViewer(options = {}) {
 			invalidateEvidence();
 			state.targetId = target.id;
 			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? null;
+			state.findingId = state.report.findings?.some((finding) => finding?.id === value.findingId) ? value.findingId : null;
 			state.view = 'evidence';
 			selectArtifact(value.artifact ?? state.artifact);
 			if (width() <= 860) dispatch('sidebar', true);
@@ -149,6 +162,7 @@ export function useViewer(options = {}) {
 			invalidateEvidence();
 			state.targetId = target.id;
 			state.viewportId = target.viewports[0]?.id ?? null;
+			state.findingId = null;
 			state.view = 'evidence';
 			selectArtifact();
 			if (width() <= 860) dispatch('sidebar', true);
@@ -157,12 +171,13 @@ export function useViewer(options = {}) {
 			action === 'viewport' &&
 			(selectedTarget.value?.viewports.some((row) => row.id === value) || state.report?.meta.viewports.some((row) => row.id === value))
 		)
-		{ invalidateEvidence(); state.viewportId = value; selectArtifact(); loadSelectedEvidence(); }
+		{ invalidateEvidence(); state.viewportId = value; state.findingId = null; selectArtifact(); loadSelectedEvidence(); }
 		else if (action === 'loaded') {
 			dispatch('clear-filters');
 			invalidateEvidence();
 			state.report = markRaw(value.report);
 			state.reportId = null;
+			state.findingId = null;
 			state.source = value.source;
 			state.targetId = value.report.entries[0]?.id ?? null;
 			state.viewportId = value.report.entries[0]?.viewports[0]?.id ?? null;
@@ -187,8 +202,10 @@ export function useViewer(options = {}) {
 			state.source = null;
 			state.targetId = null;
 			state.viewportId = null;
+			state.findingId = null;
 			state.notice = '';
-			setAnchor('');
+			// Opening the Home from the breadcrumb adds one history entry (R10.14).
+			setAnchor('', !applyingLink);
 		} else if (action === 'loading') {
 			state.loading = true;
 			state.notice = 'Loading report…';
@@ -241,11 +258,69 @@ export function useViewer(options = {}) {
 		}
 		return JSON.parse(text);
 	}
-	function setAnchor(hash) {
+	function setAnchor(hash, push = false) {
 		try {
-			browser?.history?.replaceState?.(null, '', (browser.location.pathname ?? '') + (browser.location.search ?? '') + hash);
+			const path = (browser.location.pathname ?? '') + (browser.location.search ?? '') + hash;
+			if (push) browser?.history?.pushState?.(null, '', path);
+			else browser?.history?.replaceState?.(null, '', path);
 		} catch {
 			/* A deep link is optional. */
+		}
+	}
+	// The hash of the current view state (R10.14). Parts go in only for the Evidence view.
+	function currentHash() {
+		if (!state.report) return '';
+		const adjacent = !state.reportId;
+		const evidence = state.view === 'evidence';
+		const mode = evidence && state.artifact === 'screenshot' && state.comparison !== 'side-by-side' ? modeFromState(state.comparison) : null;
+		const hash = buildDeepLink({
+			reportId: state.reportId,
+			view: state.view,
+			targetId: evidence ? state.targetId : null,
+			viewportId: evidence ? state.viewportId : null,
+			artifact: evidence ? state.artifact : null,
+			findingId: evidence ? state.findingId : null,
+			mode,
+		}, { adjacent });
+		// An id that cannot form a link keeps the plain report link.
+		return hash ?? (adjacent ? '' : anchorFor(state.reportId));
+	}
+	function writeHash(push) {
+		const hash = currentHash();
+		if ((browser?.location?.hash ?? '') === hash) return;
+		setAnchor(hash, push);
+	}
+	// Applies a resolved link to the view state without adding history entries.
+	function applyLink(resolved) {
+		applyingLink = true;
+		try {
+			if (resolved.targetId) apply('evidence', { targetId: resolved.targetId, viewportId: resolved.viewportId, artifact: resolved.artifact, findingId: resolved.findingId });
+			if (resolved.mode) apply('comparison', modeToState(resolved.mode));
+			apply('view', resolved.view);
+			if (resolved.notice) state.notice = resolved.notice;
+		} finally {
+			applyingLink = false;
+		}
+	}
+	// Reads the hash on load and on hashchange (R10.14).
+	async function applyHash(hash = browser?.location?.hash ?? '') {
+		if (state.index) {
+			const parsed = parseDeepLink(hash);
+			const toHome = (notice) => {
+				applyingLink = true;
+				try { if (state.report) apply('close-report'); } finally { applyingLink = false; }
+				if (notice) apply('error', notice);
+			};
+			if (!parsed) return toHome(null);
+			if (parsed.reportId === null) return toHome(parsed.notice);
+			if (parsed.reportId !== state.reportId) {
+				if (!state.index.reports.find((row) => row.id === parsed.reportId)?.available) return toHome(`Report ${parsed.reportId} is not available in the index.`);
+				const result = await openReport(parsed.reportId, { push: false });
+				if (!result.ok) return;
+			}
+			applyLink(resolveDeepLink(parsed, state.report));
+		} else if (state.report) {
+			applyLink(resolveDeepLink(parseDeepLink(hash, { adjacent: true }), state.report));
 		}
 	}
 	async function loadIndex() {
@@ -275,13 +350,14 @@ export function useViewer(options = {}) {
 		}
 	}
 	// Open a report that the index lists. The id must pass the id charset (R10.13).
-	async function openReport(id) {
+	async function openReport(id, { push = true } = {}) {
 		const row = state.index?.reports.find((report) => report.id === id);
 		if (!row?.available) return { ok: false };
 		const result = await load(reportPath(row.id));
 		if (result.ok) {
 			state.reportId = row.id;
-			setAnchor(anchorFor(row.id));
+			// Opening a report from the Home adds a history entry; a link does not.
+			if (push) setAnchor(anchorFor(row.id), true);
 		}
 		return result;
 	}
@@ -290,6 +366,7 @@ export function useViewer(options = {}) {
 	// and index.json loads.
 	async function start(source = 'report.json') {
 		const result = await load(source);
+		if (result.ok) await applyHash();
 		if (result.ok || result.stale || !result.missing) return result;
 		const failure = state.notice;
 		const listed = await loadIndex();
@@ -299,11 +376,7 @@ export function useViewer(options = {}) {
 			dispatch('sources-missing');
 		}
 		if (!listed.ok) return listed;
-		const wanted = idFromAnchor(browser?.location?.hash);
-		if (wanted) {
-			if (state.index.reports.find((row) => row.id === wanted)?.available) await openReport(wanted);
-			else dispatch('error', `Report ${wanted} is not available in the index.`);
-		}
+		await applyHash();
 		return listed;
 	}
 
@@ -333,5 +406,5 @@ export function useViewer(options = {}) {
 			return { ok: false, status: error.status, missing: error.status === 404 || error.html === true };
 		}
 	}
-	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load, start, openReport };
+	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load, start, openReport, applyHash };
 }
