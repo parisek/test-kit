@@ -32,15 +32,6 @@ function decode(part) {
 	}
 }
 
-// For the URL check only: an ignored part that fails to decode still must not hide
-// a URL. Decode each ASCII escape and drop the others.
-function looseDecode(part) {
-	return part.replace(/%([0-9A-Fa-f]{2})/g, (match, hex) => {
-		const code = parseInt(hex, 16);
-		return code < 0x80 ? String.fromCharCode(code) : '';
-	});
-}
-
 function encode(part) {
 	try {
 		return encodeURIComponent(part);
@@ -85,30 +76,28 @@ export function parseDeepLink(hash, options) {
 		reportId = id;
 	}
 	const bad = (notice) => ({ ...empty(reportId), notice });
-	// No URL anywhere in the query either, whatever the view or the key.
-	const queryUrl = query.split(/[&=]/).some((part) => URL_LIKE.test(decode(part) ?? looseDecode(part)));
-	if (queryUrl) return bad('The link holds a URL. A link part must be an id.');
-	const view = decode(segments[0] ?? '');
-	if (view === undefined) return bad('A part of the link cannot be read.');
+	// Every part and every query key and value must decode and must not hold a URL,
+	// also where the view ignores it (R10.14).
+	const decoded = segments.map(decode);
+	const queryParts = query.split(/[&=]/).map(decode);
+	if (decoded.includes(undefined) || queryParts.includes(undefined)) return bad('A part of the link cannot be read.');
+	if (decoded.slice(1).some((part) => URL_LIKE.test(part)) || queryParts.some((part) => URL_LIKE.test(part))) {
+		return bad('The link holds a URL. A link part must be an id.');
+	}
+	const view = decoded[0] ?? '';
 	const result = empty(reportId);
 	if (view !== '') {
 		if (!VIEWS.includes(view)) return bad('The link names an unknown view.');
 		result.view = view;
 	}
 	if (!SCOPED(result.view)) {
-		// Overview and Run info ignore the other parts and the mode, but never take a URL.
-		const urlLike = segments.slice(1).some((part) => URL_LIKE.test(decode(part) ?? looseDecode(part)));
-		return urlLike ? bad('The link holds a URL. A link part must be an id.') : result;
+		// Overview and Run info ignore the other parts and the mode.
+		return result;
 	}
 	if (segments.length > 1 + PARTS.length) return bad('The link has too many parts.');
-	const rest = segments.slice(1).map(decode);
-	if (rest.includes(undefined)) return bad('A part of the link cannot be read.');
+	const rest = decoded.slice(1);
 	const mode = queryMode(query);
-	if (mode === undefined) return bad('A part of the link cannot be read.');
 	PARTS.forEach((name, i) => { result[name] = rest[i] ? rest[i] : null; });
-	if (PARTS.some((name) => result[name] !== null && URL_LIKE.test(result[name]))) {
-		return bad('The link holds a URL. A link part must be an id.');
-	}
 	if (result.artifact !== null && !ARTIFACTS.includes(result.artifact)) {
 		return bad('The link names an unknown evidence type.');
 	}

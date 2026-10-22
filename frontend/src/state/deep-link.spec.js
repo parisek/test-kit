@@ -17,7 +17,10 @@ describe('deep link parse (R10.14)', () => {
 	it('ignores the target, viewport, artifact, finding and mode parts on overview and info', () => {
 		expect(parseDeepLink('#r-example-a/info/home/desktop/html/f1?mode=overlay')).toEqual(link({ view: 'info' }));
 		expect(parseDeepLink('#r-example-a/overview/home')).toEqual(base);
-		expect(parseDeepLink('#r-example-a/info/%E0%A4%A/a/b/c/d/e')).toEqual(link({ view: 'info' }));
+		expect(parseDeepLink('#r-example-a/info/a/b/c/d/e/f')).toEqual(link({ view: 'info' }));
+		// A part that fails to decode shows a notice, also where the view ignores it.
+		expect(parseDeepLink('#r-example-a/info/%E0%A4%A').notice).toEqual(expect.any(String));
+		expect(parseDeepLink('#r-example-a/info?x=%E0').notice).toEqual(expect.any(String));
 	});
 	it('treats an omitted trailing part and an empty middle part as missing', () => {
 		expect(parseDeepLink('#r-example-a/evidence/home')).toEqual(link({ view: 'evidence', targetId: 'home' }));
