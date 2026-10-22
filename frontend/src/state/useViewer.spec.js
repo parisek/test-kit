@@ -387,6 +387,9 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				expect(instance.state.findingId).toBeNull();
 				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'screenshot', findingId: 'f1' });
 				expect(instance.state.findingId).toBe('f1');
+				// Same target and viewport, another evidence type: not the first finding with this id.
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'html', findingId: 'f1' });
+				expect(instance.state.findingId).toBeNull();
 			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });

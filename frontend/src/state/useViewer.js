@@ -144,7 +144,9 @@ export function useViewer(options = {}) {
 			// R10.14: a finding id names the first finding with that id. A later finding with a
 			// repeated id gets no finding part, so its link does not read back as another one.
 			const first = state.report.findings?.find((finding) => finding?.id === value.findingId);
-			state.findingId = first && first.targetId === target.id && (first.viewportId ?? null) === (value.viewportId ?? null) ? value.findingId : null;
+			// A link already resolved its finding to the first one (resolveDeepLink).
+			const same = first && first.targetId === target.id && (first.viewportId ?? null) === (value.viewportId ?? null) && (first.artifact ?? null) === (value.artifact ?? null);
+			state.findingId = first && (value.fromLink || same) ? value.findingId : null;
 			state.view = 'evidence';
 			// A link without an evidence type takes the first valid one (R10.14). This holds
 			// also for a finding whose artifact is not an evidence type: its segment is empty.
@@ -316,15 +318,14 @@ export function useViewer(options = {}) {
 		}
 	}
 	// Reads the hash on load and on hashchange (R10.14).
-	let linkRequest = 0;
 	// While start() loads the sources, a hashchange waits: start applies the hash at the end.
 	let booting = false;
 	async function applyHash(hash = browser?.location?.hash ?? '') {
 		if (booting) return;
-		const id = ++linkRequest;
 		// A newer hash change cancels a report load in flight, also when the new hash
 		// names the report that is open now (Back during a slow load).
-		if (state.loading) {
+		// The source form and start-up load with no report and no index; leave those alone.
+		if (state.loading && (state.report || state.index)) {
 			requestId++;
 			invalidateEvidence();
 			state.loading = false;
@@ -344,8 +345,7 @@ export function useViewer(options = {}) {
 			if (parsed.reportId !== state.reportId) {
 				if (!state.index.reports.find((row) => row.id === parsed.reportId)?.available) return toHome(`Report ${parsed.reportId} is not available in the index.`);
 				const result = await openReport(parsed.reportId, { push: false });
-				// A newer hash change wins over this one.
-				if (!result.ok || id !== linkRequest) return;
+				if (!result.ok) return;
 			}
 			applyLink(resolveDeepLink(parsed, state.report));
 		} else if (state.report) {
