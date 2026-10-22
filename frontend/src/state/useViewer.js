@@ -6,15 +6,8 @@ import { summarize, targetClass, cellState } from '../../../src/report/classify.
 import { sameOriginUrl } from '../../../src/report/safe.js';
 import { anchorFor, idFromAnchor, parseIndex, reportPath } from './index-list.js';
 
-export const FIRST_VIEW = Object.freeze({
-	convergence: 'detail',
-	'self-baseline': 'matrix',
-	update: 'findings',
-	migration: 'findings',
-	deploy: 'matrix',
-	adhoc: 'detail',
-});
-const VIEWS = ['detail', 'matrix', 'findings', 'timeline', 'content', 'speed'];
+// R10.4: four report views. A report opens on Overview, whatever the pair kind (R10.5).
+export const VIEWS = Object.freeze(['overview', 'evidence', 'findings', 'info']);
 
 export function useViewer(options = {}) {
 	const browser = options.browser ?? globalThis.window;
@@ -50,7 +43,7 @@ export function useViewer(options = {}) {
 		reportId: null,
 		targetId: null,
 		viewportId: null,
-		view: 'detail',
+		view: 'overview',
 		sidebarHidden: preference == null ? width() <= 860 : preference === 'hidden',
 		theme: stored('test-kit-theme') === 'dark' ? 'dark' : 'light',
 		notice: '',
@@ -98,7 +91,7 @@ export function useViewer(options = {}) {
 		state.artifactEvidence = null;
 	}
 	function loadSelectedEvidence() {
-		if (['detail', 'speed'].includes(state.view) && ['html', 'status', 'content', 'behavior', 'lighthouse'].includes(state.artifact)) loadArtifact(state.artifact);
+		if (state.view === 'evidence' && ['html', 'status', 'content', 'behavior', 'lighthouse'].includes(state.artifact)) loadArtifact(state.artifact);
 	}
 
 	function dispatch(action, value) {
@@ -138,7 +131,7 @@ export function useViewer(options = {}) {
 			invalidateEvidence();
 			state.targetId = target.id;
 			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? null;
-			state.view = 'detail';
+			state.view = 'evidence';
 			selectArtifact(value.artifact ?? state.artifact);
 			if (width() <= 860) dispatch('sidebar', true);
 			loadSelectedEvidence();
@@ -149,9 +142,7 @@ export function useViewer(options = {}) {
 			state.theme = state.theme === 'light' ? 'dark' : 'light';
 			persist('test-kit-theme', state.theme);
 		} else if (action === 'view' && VIEWS.includes(value)) {
-            if (['content', 'speed'].includes(value) && !hasPrototypes(state.report) && !state.report?.entries.some(target => target.viewports.some(row => row.artifacts?.[value === 'speed' ? 'lighthouse' : 'content']))) return;
 			state.view = value;
-            if (value === 'speed' && selectedRow.value?.artifacts?.lighthouse) { selectArtifact('lighthouse'); loadSelectedEvidence(); }
 			if (!state.artifactEvidence) loadSelectedEvidence();
 		}
 		else if (action === 'target') {
@@ -160,7 +151,7 @@ export function useViewer(options = {}) {
 			invalidateEvidence();
 			state.targetId = target.id;
 			state.viewportId = target.viewports[0]?.id ?? null;
-			state.view = 'detail';
+			state.view = 'evidence';
 			selectArtifact();
 			if (width() <= 860) dispatch('sidebar', true);
 			loadSelectedEvidence();
@@ -177,7 +168,7 @@ export function useViewer(options = {}) {
 			state.source = value.source;
 			state.targetId = value.report.entries[0]?.id ?? null;
 			state.viewportId = value.report.entries[0]?.viewports[0]?.id ?? null;
-			state.view = FIRST_VIEW[value.report.pair.kind];
+			state.view = 'overview';
 			selectArtifact();
 			loadSelectedEvidence();
 			state.loading = false;

@@ -138,6 +138,7 @@ try {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(viewer.origin);
   await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+  await page.locator('[data-view=findings]').click();
   await page.getByRole('button', { name: 'home · wide evidence' }).click();
   await page.getByText('Fired: response', { exact: false }).waitFor();
   const html = page.getByRole('region', { name: 'HTML line comparison' });

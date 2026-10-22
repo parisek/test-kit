@@ -89,7 +89,8 @@ try {
 		page.on('pageerror', (error) => errors.push(error.message));
 		await page.goto(viewer.origin);
 		await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
-		assert.equal(await page.locator('[data-view=findings]').getAttribute('aria-current'), 'page');
+		// R10.5: a report opens on Overview, whatever the pair kind.
+		assert.equal(await page.locator('[data-view=overview]').getAttribute('aria-selected'), 'true');
 		assert.ok(
 			await page
 				.locator('#content')
@@ -97,14 +98,14 @@ try {
 				.then((text) => text.includes('<img src=x onerror=alert(1)>')),
 		);
 		assert.equal(await page.locator('#content script, #content img').count(), 0);
-		for (const view of ['detail', 'matrix', 'timeline', 'findings']) {
+		for (const view of ['evidence', 'overview', 'info', 'findings']) {
 			await page.locator(`[data-view=${view}]`).click();
             await page.waitForFunction((selected) =>
-                document.querySelector('[data-view="' + selected + '"]').getAttribute('aria-current') === 'page', view);
+                document.querySelector('[data-view="' + selected + '"]').getAttribute('aria-selected') === 'true', view);
             const visible = {
-                detail: page.getByRole('heading', { name: 'Example page', exact: true }),
-                matrix: page.locator('#content table'),
-                timeline: page.locator('.timeline-list').getByRole('heading', { name: 'Before', exact: true }),
+                evidence: page.getByRole('heading', { name: 'Example page', exact: true }),
+                overview: page.locator('#content table'),
+                info: page.locator('.timeline-list').getByRole('heading', { name: 'Before', exact: true }),
                 findings: page.getByRole('heading', { name: 'Unknown change', exact: true }),
             };
             await visible[view].waitFor();
@@ -126,7 +127,7 @@ try {
         await page.getByRole('button', { name: 'Example page · mobile evidence' }).click();
         assert.equal(await page.locator('[aria-label="Viewport"]').getByRole('button', { name: 'mobile', exact: true }).getAttribute('aria-pressed'), 'true');
         await page.getByRole('button', { name: 'Clear filters' }).click();
-		await page.locator('[data-view=detail]').click();
+		await page.locator('[data-view=evidence]').click();
 		assert.match(await page.locator('#content').textContent(), /http-error/);
 		await page.locator('[aria-label="Viewport"]').getByRole('button', { name: 'desktop', exact: true }).click();
 		assert.match(await page.locator('#content').textContent(), /incompatible/);
@@ -152,6 +153,8 @@ try {
 		const page = await context.newPage();
 		await page.goto(viewer.origin);
 		await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+		// The target panel lives in the Evidence view only.
+		await page.locator('[data-view=evidence]').click();
 		if (initialWidth > 860) {
 			await page.locator('#theme').focus();
 			await page.setViewportSize({ width: 390, height: 900 });
@@ -159,7 +162,7 @@ try {
 		await page.waitForFunction(() =>
 			document.querySelector('#sidebar').contains(document.activeElement),
 		);
-		assert.equal(await page.locator('header').evaluate((element) => Boolean(element.closest('[inert]'))), true);
+		assert.equal(await page.locator('header.viewer-toolbar').evaluate((element) => Boolean(element.closest('[inert]'))), true);
 		assert.equal(await page.locator('#content').evaluate((element) => Boolean(element.closest('[inert]'))), true);
 		assert.equal(await page.locator('#sidebar').getAttribute('aria-modal'), 'true');
 		await page.keyboard.press('Shift+Tab');
@@ -170,10 +173,10 @@ try {
 			true,
 		);
 		await page.keyboard.press('Escape');
-		assert.equal(await page.locator('header').evaluate((element) => Boolean(element.closest('[inert]'))), false);
+		assert.equal(await page.locator('header.viewer-toolbar').evaluate((element) => Boolean(element.closest('[inert]'))), false);
 		assert.equal(
 			await page.evaluate(() => document.activeElement.id),
-			initialWidth > 860 ? 'theme' : 'sidebar-toggle',
+			initialWidth > 860 ? 'theme' : 'tab-evidence',
 		);
 		await context.close();
 	}

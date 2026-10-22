@@ -63,7 +63,7 @@ It must work for pages and for components with the same viewer. It must give a p
 | `deploy` | production, earlier | production, now | none |
 | `adhoc` | any URL | any | by choice |
 
-- R3.1 For a pair, the pair kind must decide which normalisers apply and which view opens first.
+- R3.1 For a pair, the pair kind must decide which normalisers apply. A report opens on Overview whatever the pair kind (R10.5).
 - R3.2 A pair across two environments must not be used to judge speed (see R6.5).
 - R3.3 A side may set `remote: true`. A remote side may use any HTTP or HTTPS origin without credentials or a path. Its capture must send GET and HEAD to that origin only. It must abort a frame or subresource of another origin and keep the capture. It must fail the capture on a redirect, popup or top-level navigation to another origin, and on any other method. Speed (`perf`) and DDEV discovery must refuse a remote side. A side without `remote: true` must stay local. (Issue #90)
 

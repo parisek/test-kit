@@ -22,7 +22,7 @@ describe('App on the Home', () => {
 		expect(app.find('.header-brand').text()).toContain('test kit');
 		expect(app.find('#sidebar').exists()).toBe(false);
 		expect(app.find('#sidebar-toggle').exists()).toBe(false);
-		expect(app.find('nav[aria-label="Report views"]').exists()).toBe(false);
+		expect(app.find('[role=tablist]').exists()).toBe(false);
 		document.dispatchEvent(new KeyboardEvent('keydown', { key: '[' }));
 		await flushPromises();
 		expect(app.find('#sidebar').exists()).toBe(false);
@@ -145,6 +145,48 @@ describe('App on a report from the index (R10.3)', () => {
 		expect(app.find('nav[aria-label="Breadcrumb"]').exists()).toBe(false);
 		expect(app.find('nav[aria-label="Comparison order"]').exists()).toBe(false);
 		expect(app.find('.report-time').text()).toBe('Time unknown');
+		app.unmount();
+	});
+});
+
+describe('App report views (R10.4, R10.5)', () => {
+	it('opens on Overview with four tabs, shows the target panel only on Evidence, and leads back to the Overview', async () => {
+		const file = reportFile('Adjacent', null);
+		vi.stubGlobal('fetch', vi.fn(async (url) => (String(url).endsWith('/report.json') ? respond(200, JSON.stringify(file)) : respond(404, 'Not found'))));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		const tabs = app.findAll('[role=tab]');
+		expect(tabs.map((tab) => tab.text())).toEqual(['Overview', 'Evidence', 'Findings', 'Run info']);
+		expect(app.find('[role=tab][aria-selected=true]').text()).toBe('Overview');
+		expect(app.find('[role=tabpanel]').attributes('aria-labelledby')).toBe('tab-overview');
+		expect(app.find('#sidebar').exists()).toBe(false);
+		await app.find('[role=tablist]').trigger('keydown', { key: 'ArrowRight' });
+		await flushPromises();
+		expect(app.find('[role=tab][aria-selected=true]').text()).toBe('Evidence');
+		expect(app.find('#sidebar').exists()).toBe(true);
+		// One filter set: the target panel has no class filter of its own (DESIGN.md).
+		expect(app.find('[aria-label="Quick class filters"]').exists()).toBe(false);
+		const crumb = app.find('nav[aria-label="Breadcrumb"]');
+		expect(crumb.text()).toContain('Evidence');
+		await crumb.find('a').trigger('click');
+		await flushPromises();
+		expect(app.find('[role=tab][aria-selected=true]').text()).toBe('Overview');
+		expect(app.find('#sidebar').exists()).toBe(false);
+		expect(app.find('nav[aria-label="Breadcrumb"]').exists()).toBe(false);
+		// Keyboard: left wraps to the last tab, End and Home jump; focus follows the selected tab.
+		const selected = () => app.find('[role=tab][aria-selected=true]');
+		for (const [key, name] of [['ArrowLeft', 'Run info'], ['Home', 'Overview'], ['End', 'Run info'], ['ArrowRight', 'Overview']]) {
+			await app.find('[role=tablist]').trigger('keydown', { key });
+			await flushPromises();
+			expect(selected().text()).toBe(name);
+			expect(document.activeElement).toBe(selected().element);
+			expect(app.findAll('[role=tab]').filter((tab) => tab.attributes('tabindex') === '0')).toHaveLength(1);
+		}
+		// A modified key keeps its browser meaning.
+		await app.find('[role=tablist]').trigger('keydown', { key: 'ArrowLeft', altKey: true });
+		await flushPromises();
+		expect(selected().text()).toBe('Overview');
 		app.unmount();
 	});
 });

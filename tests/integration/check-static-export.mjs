@@ -70,6 +70,7 @@ try {
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin + prefix);
     await page.locator('h1').filter({ hasText: 'Static export fixture' }).waitFor();
+    await page.locator('[data-view=evidence]').click();
     await page.locator('img').first().waitFor();
     assert.equal(await page.locator('img').first().evaluate(image => image.complete && image.naturalWidth === 2), true);
     for (const title of ['HTML', 'Status', 'Content', 'Behavior', 'Lighthouse']) {
@@ -84,7 +85,7 @@ try {
       assert.match(raw.headers()['content-type'], /text\/plain/);
       assert.match(await raw.text(), /<script>/);
     }
-    for (const view of ['matrix', 'findings', 'timeline', 'content', 'speed', 'detail']) await page.locator(`[data-view="${view}"]`).click();
+    for (const view of ['overview', 'findings', 'info', 'evidence']) await page.locator(`[data-view="${view}"]`).click();
     assert.equal(await page.evaluate(() => window.injected), undefined);
     assert.deepEqual(errors, []);
     assert.ok(requests.includes(prefix + 'report.json'));

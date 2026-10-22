@@ -41,13 +41,3 @@ it('bounds the visual width of finite large measurements', () => {
   expect(wrapper.findAll('a')[0].attributes('download')).toBe('lighthouse-a-1.html');
  });
 
- it('exposes original reports in Speed even when the selected target has no speed evidence', async () => {
-  const { default: Overview } = await import('./SpeedOverview.vue');
-  const artifact = { state: 'complete', a: { reports: [{ html: { src: 'runs/a/audit.html' } }] } };
-  const wrapper = mount(Overview, { props: { source: 'http://localhost/report.json', targetId: 'unmeasured', viewportId: 'wide', targets: [
-    { id: 'unmeasured', viewports: [{ id: 'wide', artifacts: {} }] },
-    { id: 'measured', viewports: [{ id: 'wide', artifacts: { lighthouse: artifact } }] }
-  ] } });
-  expect(wrapper.get('details').attributes('open')).toBeDefined();
-  expect(wrapper.get('a[download]').attributes('href')).toBe('http://localhost/runs/a/audit.html');
- });

@@ -46,7 +46,7 @@ try {
     const failures = []; page.on('pageerror', error => failures.push(error.message));
     await page.goto(viewer.origin);
     await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
-    await page.locator('[data-view=detail]').click();
+    await page.locator('[data-view=evidence]').click();
     await page.locator('img').first().waitFor();
     await page.locator('img').evaluateAll(images => images.forEach(image => image.loading = 'eager'));
     await page.waitForFunction(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));

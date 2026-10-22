@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { isReadonly } from 'vue';
-import { FIRST_VIEW, useViewer } from './useViewer.js';
+import { VIEWS, useViewer } from './useViewer.js';
 
 function report(kind = 'convergence') {
 	return {
@@ -29,11 +29,12 @@ describe('viewer actions', () => {
 		expect(fetch).toHaveBeenCalledTimes(1);
 		expect(instance.state.notice).toBe('Use a report URL on this origin.');
 	});
-	it('uses the initial view for each pair kind without inventing a match', async () => {
-		for (const [kind, view] of Object.entries(FIRST_VIEW)) {
+	it('opens every pair kind on Overview without inventing a match (R10.5)', async () => {
+		expect(VIEWS).toEqual(['overview', 'evidence', 'findings', 'info']);
+		for (const kind of ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc']) {
 			const instance = viewer({ fetch: async () => response(report(kind)) });
 			await instance.load('/report.json');
-			expect(instance.state.view).toBe(view);
+			expect(instance.state.view).toBe('overview');
 			expect(instance.selectedTarget.value.id).toBe('example');
 			expect(instance.selectedRow.value.state).toBe('failed');
 			expect(instance.summary.value.counts.incomplete).toBe(1);
@@ -64,7 +65,7 @@ describe('viewer actions', () => {
 		instance.dispatch('view', '__proto__');
 		expect(instance.state.targetId).toBe('example');
 		expect(instance.state.viewportId).toBe('wide');
-		expect(instance.state.view).toBe('detail');
+		expect(instance.state.view).toBe('overview');
 	});
 	it('closes and persists the drawer when a phone selects a target', () => {
 		const storage = { getItem: () => null, setItem: vi.fn() };
@@ -90,7 +91,7 @@ describe('viewer actions', () => {
 		resolveFirst(response(report('deploy')));
 		await pending;
 		expect(instance.state.source).toBe('http://localhost:4178/second.json');
-		expect(instance.state.view).toBe('findings');
+		expect(instance.state.view).toBe('overview');
 	});
 	it('invalid source cancels a pending request and leaves the current report visible', async () => {
 		let resolve;
@@ -171,7 +172,7 @@ describe('viewer filters', () => {
         instance.dispatch('loaded', { report: data, source: '/report.json' });
         instance.dispatch('view', 'findings');
         instance.dispatch('evidence', { targetId: 'example', viewportId: 'phone' });
-        expect(instance.state.view).toBe('detail');
+        expect(instance.state.view).toBe('evidence');
         expect(instance.state.viewportId).toBe('phone');
         expect(instance.selectedRow.value).toBe(null);
         instance.dispatch('evidence', { targetId: 'example', viewportId: 'invalid' });
@@ -187,6 +188,7 @@ describe('bounded response evidence actions', () => {
             let resolve, reject;
             const instance = viewer({ fetch: () => new Promise((done, fail) => { resolve = done; reject = fail; }) });
             instance.dispatch('loaded', { report: data, source: 'http://localhost:4178/report.json' });
+            instance.dispatch('view', 'evidence');
             instance.dispatch('artifact', 'status');
             expect(instance.state.artifactEvidence.loading).toBe(true);
             instance.dispatch('artifact', 'screenshot');
@@ -229,8 +231,9 @@ describe('planned artifact isolation', () => {
         instance.dispatch('artifact', 'behavior');
         expect(instance.state.artifact).toBe('behavior');
         expect(instance.state.artifactEvidence).toBe(null);
+        // Speed is an evidence type, not a view (R10.4).
         instance.dispatch('view', 'speed');
-        expect(instance.state.view).toBe('speed');
+        expect(instance.state.view).toBe('overview');
         expect(instance.summary.value.counts.total).toBe(1);
         const real = report();
         real.entries[0].viewports[0].artifacts = { screenshot: {} };
@@ -238,7 +241,7 @@ describe('planned artifact isolation', () => {
         instance.dispatch('artifact', 'behavior');
         instance.dispatch('view', 'speed');
         expect(instance.state.artifact).toBe('screenshot');
-        expect(instance.state.view).toBe('detail');
+        expect(instance.state.view).toBe('overview');
     });
 
 	describe('publish directory index (R10.13)', () => {
@@ -417,7 +420,7 @@ describe('planned artifact isolation', () => {
 			expect(result).toMatchObject({ ok: false, stale: true });
 			expect(instance.state.index).toBeNull();
 			expect(instance.state.report.entries[0].id).toBe('example');
-			expect(instance.state.view).toBe('findings');
+			expect(instance.state.view).toBe('overview');
 		});
 		it('drops a delayed report response after close-report', async () => {
 			let release;
