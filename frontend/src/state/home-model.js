@@ -14,14 +14,22 @@ export function rowClass(summary) {
 	return ROW_ORDER.find((name) => summary[name] > 0) ?? null;
 }
 
-// The verdict sentence of a comparison (DESIGN.md "Verdict wording").
+// The verdict sentence of a comparison (DESIGN.md "Verdict wording"). Incomplete is a
+// measurement state beside the class (DESIGN.md "Verdict incomplete"), so the sentence
+// names it too: an incomplete measurement never reads as "Nothing changed".
 export function verdictSentence(summary) {
 	if (!summary) return 'Not measured';
+	const sentence = classSentence(summary);
+	if (summary.incomplete === 0) return sentence;
+	return `${sentence}. ${plural(summary.incomplete, 'page is', 'pages are')} incomplete`;
+}
+
+function classSentence(summary) {
 	if (summary.unexplained > 0) return `${plural(summary.unexplained, 'page differs', 'pages differ')} without an explanation`;
 	if (summary.explained > 0) return `${plural(summary.explained, 'page has', 'pages have')} only known differences`;
 	if (summary.oracle > 0) return `${plural(summary.oracle, 'page needs', 'pages need')} a check by a person`;
 	if (summary.unclassified > 0) return `${plural(summary.unclassified, 'page is', 'pages are')} not measured`;
-	if (summary.match > 0) return 'Nothing changed';
+	if (summary.match > 0) return summary.incomplete > 0 ? 'No difference found' : 'Nothing changed';
 	return 'No pages';
 }
 
@@ -53,11 +61,16 @@ export function homeRows(reports, { timeZone } = {}) {
 	const list = Array.isArray(reports) ? reports : [];
 	return list.map((row, i) => {
 		const previous = list.slice(i + 1).find((item) => item.available) ?? null;
+		// An unavailable row is not a link and shows no verdict.
+		const summary = row.available ? row.summary : null;
 		return {
 			...row,
 			day: localDay(row.createdAt, timeZone),
-			verdict: rowClass(row.summary),
-			change: changeText(row.summary, previous?.summary ?? null),
+			verdict: rowClass(summary),
+			// Incomplete is a state beside the class, never the class (DESIGN.md).
+			// The row carries it so that no view can show the class without it.
+			incomplete: summary ? summary.incomplete : null,
+			change: changeText(summary, previous?.summary ?? null),
 			hashChanged: Boolean(row.settingsHash && previous?.settingsHash && row.settingsHash !== previous.settingsHash),
 		};
 	});
