@@ -36,6 +36,11 @@ describe('deep link parse (R10.14)', () => {
 		expect(parseDeepLink('#r-example-a/info?mode=blink')).toEqual(link({ view: 'info' }));
 		expect(parseDeepLink('#r-example-a/evidence/home/desktop/html?mode=blink').notice).toBeNull();
 	});
+	it('keeps an id with a colon that is not a URL', () => {
+		expect(parseDeepLink('#r-example-a/findings/home/desktop/content/content-home-desktop-a11y%3Acontrast-0').findingId)
+			.toBe('content-home-desktop-a11y:contrast-0');
+		expect(buildDeepLink({ reportId: 'example-a', view: 'findings', findingId: 'check:x' })).toBe('#r-example-a/findings////check%3Ax');
+	});
 	it('accepts one trailing slash', () => {
 		expect(parseDeepLink('#r-example-a/evidence/home/desktop/screenshot/f1/').findingId).toBe('f1');
 	});
@@ -80,6 +85,11 @@ describe('deep link parse (R10.14)', () => {
 			'#r-example-a/info?mode=javascript%3Aalert(1)',
 			'#r-example-a/evidence/home/desktop/html?mode=%2F%2Fexample.invalid',
 			'#r-example-a/evidence?next=https%3A%2F%2Fexample.invalid',
+			'#r-example-a/evidence/%20https%3A%2F%2Fexample.invalid',
+			'#r-example-a/evidence/%09javascript%3Ax',
+			'#r-example-a/evidence/%5C%5Cexample.invalid',
+			'#r-example-a/evidence/a%3A%2F%2Fb',
+			'#r-example-a/evidence/%2F%5Cexample.invalid',
 		]) {
 			const result = parseDeepLink(hash);
 			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, findingId: null });

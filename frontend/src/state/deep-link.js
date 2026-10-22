@@ -12,9 +12,12 @@ export const MODES = ['side-by-side', 'overlay', 'difference'];
 const PARTS = ['targetId', 'viewportId', 'artifact', 'findingId'];
 const SCOPED = (view) => view === 'evidence' || view === 'findings';
 const modeApplies = (artifact) => artifact === null || artifact === 'screenshot';
-// The hash never carries a URL: a part with a scheme or a leading "//" is refused,
-// also in a part that the view ignores. Config ids never hold ":" or "/".
-const URL_LIKE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+// The hash never carries a URL, also not in a part that the view ignores. A part is
+// refused when it holds "://", or when, after leading white space and control
+// characters, it starts with two slashes or backslashes, or a scheme that a browser runs or fetches.
+// Other ids with ":" stay linkable: a finding id joins a check id, which may hold one.
+const URL_PATTERN = /^(?:[\/\\]{2}|(?:https?|ftp|wss?|javascript|vbscript|data|blob|file|filesystem|mailto|tel|sms):)|:\/\//i;
+const URL_LIKE = { test: (part) => URL_PATTERN.test(part.replace(/^[\s\u0000-\u001f]+/, '')) };
 
 function empty(reportId) {
 	return { reportId, view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice: null };
