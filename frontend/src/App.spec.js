@@ -190,3 +190,20 @@ describe('App report views (R10.4, R10.5)', () => {
 		app.unmount();
 	});
 });
+
+describe('App hashchange (R10.14)', () => {
+	it('applies a changed hash to the open report', async () => {
+		const file = reportFile('Adjacent', null);
+		vi.stubGlobal('fetch', vi.fn(async (url) => (String(url).endsWith('/report.json') ? respond(200, JSON.stringify(file)) : respond(404, 'Not found'))));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		expect(app.find('[role=tab][aria-selected=true]').text()).toBe('Overview');
+		window.location.hash = '#info';
+		window.dispatchEvent(new HashChangeEvent('hashchange'));
+		await flushPromises();
+		expect(app.find('[role=tab][aria-selected=true]').text()).toBe('Run info');
+		app.unmount();
+		window.location.hash = '';
+	});
+});

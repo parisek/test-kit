@@ -283,7 +283,9 @@ export function useViewer(options = {}) {
 		const finding = evidence && state.findingId ? state.report.findings?.find((item) => item?.id === state.findingId) : null;
 		// With a finding, the segment carries the finding's own evidence type, and only
 		// when the view shows it; otherwise it stays empty and reads back to the first valid type.
-		const artifact = !evidence ? null : finding ? (ARTIFACTS.includes(finding.artifact) && finding.artifact === state.artifact ? state.artifact : null) : state.artifact;
+		const shown = selectedRow.value?.artifacts && Object.hasOwn(selectedRow.value.artifacts, state.artifact) ? state.artifact : null;
+		// Only a type that the row holds goes in, so the link reads back without a notice.
+		const artifact = !evidence || !shown ? null : finding ? (ARTIFACTS.includes(finding.artifact) && finding.artifact === shown ? shown : null) : shown;
 		const mode = evidence && state.artifact === 'screenshot' && state.comparison !== 'side-by-side' ? modeFromState(state.comparison) : null;
 		const hash = buildDeepLink({
 			reportId: state.reportId,
@@ -308,7 +310,8 @@ export function useViewer(options = {}) {
 		try {
 			if (resolved.targetId) apply('evidence', { targetId: resolved.targetId, viewportId: resolved.viewportId, artifact: resolved.artifact, findingId: resolved.findingId, fromLink: true });
 			// A link without a mode means side by side, so Back undoes a mode change.
-			if (resolved.view === 'evidence') apply('comparison', modeToState(resolved.mode) ?? 'side-by-side');
+			// The mode applies to screenshot only; an omitted type may resolve to another one.
+			if (resolved.view === 'evidence') apply('comparison', (state.artifact === 'screenshot' && modeToState(resolved.mode)) || 'side-by-side');
 			apply('view', resolved.view);
 			// A valid link clears the notice of an earlier bad link.
 			if (resolved.notice) state.notice = resolved.notice;
@@ -340,7 +343,8 @@ export function useViewer(options = {}) {
 				try { apply('close-report'); } finally { applyingLink = false; }
 				if (notice) apply('error', notice);
 			};
-			if (!parsed) return toHome(null);
+			// An empty hash is the Home. Another hash that is not a deep link (#main) is ignored.
+			if (!parsed) return hash.replace(/^#/, '') === '' ? toHome(null) : undefined;
 			if (parsed.reportId === null) return toHome(parsed.notice);
 			if (parsed.reportId !== state.reportId) {
 				if (!state.index.reports.find((row) => row.id === parsed.reportId)?.available) return toHome(`Report ${parsed.reportId} is not available in the index.`);
