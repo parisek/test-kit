@@ -18,6 +18,9 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(server.origin);
+  // R10.5: the report opens on Overview; the evidence of one target is the Evidence view.
+  await page.locator('[data-view=overview][aria-selected=true]').waitFor();
+  await page.locator('[data-view=evidence]').click();
   await page.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
   // This section has an accessible label, but no region role without a heading in some browsers.
   await page.getByRole('button', { name: 'Behavior', exact: true }).click();
@@ -29,12 +32,8 @@ try {
   await page.getByRole('button', { name: 'Lighthouse · Prototype', exact: true }).click();
   await page.getByRole('heading', { name: 'Performance lab', exact: true }).waitFor();
   assert.match(await page.locator('#content').textContent(), /Illustrative median/);
-  await page.locator('[data-view=content]').click();
-  await page.locator('[aria-label="Measured content overview"]').waitFor();
-  assert.equal(await page.getByRole('button', { name: 'Open check evidence →', exact: true }).count(), 5);
-  await page.locator('[data-view=speed]').click();
-  await page.locator('[aria-label="Planned artifact overview"]').getByRole('article').filter({ hasText: 'Component catalogue' }).getByRole('button').click();
-  await page.getByText('Comparison unavailable · Simulated incompatible pair', { exact: true }).waitFor();
+  // R10.4: content and speed are evidence types, not views.
+  assert.equal(await page.locator('[data-view=content], [data-view=speed]').count(), 0);
   await page.locator('#sidebar').getByRole('button', { name: /Homepage/ }).click();
   await page.getByRole('button', { name: 'Screenshot', exact: true }).click();
   const comparison = page.locator('[aria-label="Screenshot comparison"]');
@@ -69,7 +68,6 @@ try {
     await page.setViewportSize({ width, height: 900 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Workspace overflows at ${width}`);
   }
-  await page.locator('[data-view=timeline]').click();
   await page.setViewportSize({ width: 390, height: 900 });
   await page.locator('#sidebar[aria-modal=true]').waitFor();
   await page.locator('#sidebar').getByRole('button', { name: 'Close', exact: true }).click();
@@ -81,6 +79,7 @@ try {
     const preview = await context.newPage();
     preview.on('pageerror', error => errors.push(error.message));
     await preview.goto(server.origin);
+    await preview.locator('[data-view=evidence]').click();
     await preview.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
     if (width >= 1100) assert.equal(await preview.locator('.viewer-toolbar').evaluate(node => node.getBoundingClientRect().height), 66);
     for (const name of ['Behavior', 'Content', 'Lighthouse · Prototype']) {

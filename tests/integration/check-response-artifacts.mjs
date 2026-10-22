@@ -110,6 +110,7 @@ try {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(viewer.origin);
   await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+  await page.locator('[data-view=findings]').click();
   await page.getByRole('button', { name: 'home · wide evidence' }).click();
   assert.equal(await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: 'HTML', exact: true }).getAttribute('aria-pressed'), 'true');
   const html = page.getByRole('region', { name: 'HTML line comparison' });

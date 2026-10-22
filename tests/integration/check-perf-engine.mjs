@@ -104,6 +104,7 @@ try {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       await page.goto(viewer.origin);
+      await page.locator('[data-view=evidence]').click();
       await page.getByRole('button', { name: 'Lighthouse', exact: true }).click();
       await page.locator('[aria-label="Measured performance comparison"]').waitFor();
       assert.equal(await page.getByRole('heading', { name: 'Performance lab', exact: true }).isVisible(), true);

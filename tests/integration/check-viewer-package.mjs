@@ -71,6 +71,7 @@ try {
 	page.on('pageerror', (error) => errors.push(error.message));
 	await page.goto(viewer.origin);
 	await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+	await page.locator('[data-view=evidence]').click();
 	assert.match(await page.locator('#content').textContent(), /Capture failed/);
 	assert.deepEqual(errors, []);
 	console.log('Installed viewer works without frontend source, dependencies, or a build step.');
