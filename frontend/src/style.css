@@ -215,7 +215,11 @@
 .verdict-count[data-verdict=incomplete] strong { color: var(--verdict-incomplete); }
 .verdict-state { padding-left: 24px; border-left: 1px solid var(--ui-border); }
 .button-primary { display: inline-flex; align-items: center; min-height: 2rem; padding: 0 14px; border-radius: 0.25rem; background: var(--ui-active-surface); color: var(--ui-active-text); font-size: 0.8125rem; font-weight: 600; }
-@media (pointer: coarse) { .button-primary, .comparison-row, .home-runs summary { min-height: 2.75rem; } .home-runs summary { display: flex; align-items: center; } }
+.header-brand { display: flex; align-items: center; gap: 8px; margin-right: auto; font-size: 0.9375rem; color: var(--ui-text); }
+.header-mark { width: 1.75rem; height: 1.75rem; border: 1px solid var(--ui-control-border); border-radius: 0.25rem; font-weight: 700; letter-spacing: -1px; display: grid; place-content: center; grid-auto-flow: column; }
+/* On a coarse pointer the hit area is 2.75rem; the visible size stays (DESIGN.md). */
+.button-primary { position: relative; }
+@media (pointer: coarse) { .button-primary::after { content: ""; position: absolute; inset: -0.375rem 0; } a.comparison-row, .home-runs summary { min-height: 2.75rem; } .home-runs summary { display: flex; align-items: center; } }
 .strip-dots { display: flex; flex-wrap: wrap; gap: 12px 16px; list-style: none; margin: 0; padding: 0; }
 .strip-dots li { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--ui-muted); min-width: 0; }
 .comparison-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

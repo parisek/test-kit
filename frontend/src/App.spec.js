@@ -19,6 +19,7 @@ describe('App on the Home', () => {
 		await flushPromises();
 		await flushPromises();
 		expect(app.find('h1').text()).toBe('Comparisons');
+		expect(app.find('.header-brand').text()).toContain('test kit');
 		expect(app.find('#sidebar').exists()).toBe(false);
 		expect(app.find('#sidebar-toggle').exists()).toBe(false);
 		expect(app.find('nav[aria-label="Report views"]').exists()).toBe(false);

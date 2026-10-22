@@ -4,7 +4,7 @@
 // Index data is untrusted: every value goes in as text (R10.6).
 import { computed, ref } from 'vue';
 import { anchorFor } from '../state/index-list.js';
-import { groupByDay, historyStrip, homeRows, latestRow, verdictSentence } from '../state/home-model.js';
+import { groupByDay, historyStrip, homeRows, latestRow, shortId, verdictSentence } from '../state/home-model.js';
 
 const props = defineProps({ index: Object });
 const emit = defineEmits(['open']);
@@ -56,7 +56,13 @@ function counts(summary) {
 	if (summary.unclassified > 0) list.push({ name: 'unclassified', label: 'not measured', value: summary.unclassified });
 	return list;
 }
-const open = (row) => emit('open', row.id);
+// A plain click opens the report in place. A modified click keeps the browser default
+// (new tab or window), because the href is a real same-page anchor.
+function open(row, event) {
+	if (event && (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
+	event?.preventDefault();
+	emit('open', row.id);
+}
 </script>
 <template>
     <section class="home-view" aria-labelledby="home-title">
@@ -81,7 +87,7 @@ const open = (row) => emit('open', row.id);
                     </p>
                 </div>
                 <p v-else class="home-meta">No counts: this comparison has no summary.</p>
-                <a v-if="latest.available" class="button-primary" :href="anchorFor(latest.id)" @click.prevent="open(latest)">Open comparison</a>
+                <a v-if="latest.available" class="button-primary" :href="anchorFor(latest.id)" @click="open(latest, $event)">Open comparison</a>
                 <p v-else class="home-meta">Unavailable: the publish directory holds no report file for it.</p>
             </section>
 
@@ -102,14 +108,14 @@ const open = (row) => emit('open', row.id);
                 <h2 :id="'day-' + (group.day ?? 'unknown')" class="small-heading">{{ dayTitle(group.day) }}</h2>
                 <ul class="comparison-list">
                     <li v-for="row in group.rows" :key="row.id">
-                        <component :is="row.available ? 'a' : 'div'" class="comparison-row" :href="row.available ? anchorFor(row.id) : undefined" :aria-disabled="row.available ? undefined : 'true'" @click="row.available && ($event.preventDefault(), open(row))">
+                        <component :is="row.available ? 'a' : 'div'" class="comparison-row" :href="row.available ? anchorFor(row.id) : undefined" :aria-disabled="row.available ? undefined : 'true'" @click="row.available && open(row, $event)">
                             <span class="verdict-dot" :data-verdict="dot(row)" aria-hidden="true"></span>
                             <time class="record" :datetime="row.createdAt ?? undefined" :title="row.createdAt ?? undefined">{{ time(row.createdAt) }}</time>
                             <span class="row-word" :data-verdict="dot(row)">{{ word(row) }}</span>
                             <span v-if="row.incomplete" class="row-state">{{ row.incomplete }} incomplete</span>
                             <span class="home-meta">{{ detail(row) }}</span>
                             <span v-if="row.change" class="home-meta">{{ row.change }}</span>
-                            <span class="record row-id" :title="row.id">{{ row.kind ? `${row.kind} ${row.id}` : row.id }}</span>
+                            <span class="record row-id" :title="row.id">{{ row.kind ? `${row.kind} ${shortId(row.id)}` : shortId(row.id) }}</span>
                             <span v-if="!row.available" class="row-unavailable">unavailable</span>
                             <span v-if="row.hashChanged" class="record row-hash">settings changed: {{ row.settingsHash }}</span>
                         </component>

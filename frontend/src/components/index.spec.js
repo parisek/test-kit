@@ -71,6 +71,7 @@ describe('Home', () => {
 		expect(first.text()).toContain('3 pages, 2 viewports');
 		expect(first.text()).toContain('+1 unexplained, −1 match, +1 incomplete');
 		expect(first.text()).toContain('settings changed: ' + hash('b').slice(0, 19));
+		expect(first.find('.row-id').attributes('title')).toBe('example-c');
 	});
 	it('shows an unavailable comparison with its summary, not as a link', async () => {
 		const view = mount(IndexView, { props: { index } });
@@ -94,6 +95,20 @@ describe('Home', () => {
 		const runs = view.find('details.home-runs');
 		expect(runs.attributes('open')).toBeUndefined();
 		expect(runs.text()).toContain('Stored runs (1)');
+	});
+	it('keeps a modified click for the browser, so the report can open in a new tab', async () => {
+		const view = mount(IndexView, { props: { index } });
+		await view.find('a.button-primary').trigger('click', { ctrlKey: true });
+		expect(view.emitted('open')).toBeUndefined();
+	});
+	it('says so when the latest comparison is unavailable or has no summary', () => {
+		const only = (extra) => parseIndex({ schemaVersion: 1, reports: [{ id: 'example-z', kind: null, createdAt: null, settingsHash: null, path: 'reports/example-z/report.json', targets: null, summary: null, ...extra }], runs: [] });
+		const missing = mount(IndexView, { props: { index: only({ path: null }) } }).find('.latest-card');
+		expect(missing.text()).toContain('Unavailable');
+		expect(missing.find('a').exists()).toBe(false);
+		const unknown = mount(IndexView, { props: { index: only({}) } }).find('.latest-card');
+		expect(unknown.text()).toContain('Not measured');
+		expect(unknown.text()).toContain('No counts');
 	});
 	it('says so when the index lists no comparisons', () => {
 		const view = mount(IndexView, { props: { index: parseIndex({ schemaVersion: 1, reports: [], runs: [] }) } });

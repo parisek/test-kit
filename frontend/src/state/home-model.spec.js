@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeText, groupByDay, historyStrip, homeRows, latestRow, localDay, rowClass, verdictSentence } from './home-model.js';
+import { changeText, groupByDay, historyStrip, homeRows, latestRow, localDay, rowClass, shortId, verdictSentence } from './home-model.js';
 import { parseIndex } from './index-list.js';
 
 const summary = (extra = {}) => ({ unexplained: 0, explained: 0, match: 0, oracle: 0, unclassified: 0, incomplete: 0, ...extra });
@@ -132,5 +132,16 @@ describe('home rows', () => {
 		expect(historyStrip(rows, 1).dots.map((item) => item.id)).toEqual(['c']);
 		expect(latestRow([])).toBeNull();
 		expect(homeRows(null)).toEqual([]);
+	});
+});
+
+describe('short identifier', () => {
+	it('keeps a short id and shortens a long one at both ends', () => {
+		expect(shortId('2026-10-22-0915')).toBe('2026-10-22-0915');
+		const long = 'a'.repeat(80) + 'end1';
+		expect(shortId(long)).toHaveLength(32);
+		expect(shortId(long).endsWith('end1')).toBe(true);
+		expect(shortId(long)).toContain('…');
+		expect(shortId(null)).toBeNull();
 	});
 });

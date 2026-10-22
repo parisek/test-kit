@@ -211,6 +211,7 @@ onUnmounted(() => {
         </aside>
         <div class="shell-main min-w-0" :inert="drawerOpen">
             <header class="viewer-toolbar">
+                <p v-if="home" class="header-brand"><span class="header-mark" aria-hidden="true">tk</span><strong>test kit</strong></p>
                 <button v-if="!home" id="sidebar-toggle" aria-label="Targets" ref="toggle" :class="[pill, idle]" :aria-expanded="!state.sidebarHidden" aria-controls="sidebar" @click="dispatch('sidebar')"><span aria-hidden="true">☰</span><span class="target-toggle-label">Targets</span></button>
                 <nav v-if="!home" aria-label="Report views" class="view-navigation">
                     <button v-for="(title, view) in views" :key="view" :data-view="view" :class="[pill, state.view === view ? active : idle]" :aria-current="state.view === view ? 'page' : undefined" @click="dispatch('view', view)">{{ title }}</button>
