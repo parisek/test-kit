@@ -1,5 +1,4 @@
 <script setup>
-import { hasPrototypes } from './prototypes/planned.js';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { targetClass, targetState } from '../../src/report/classify.js';
 import { useViewer } from './state/useViewer.js';
@@ -201,7 +200,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="app-shell" :class="{ 'sidebar-hidden': state.sidebarHidden || !targetPanel, 'has-prototypes': hasPrototypes(state.report) }">
+    <div class="app-shell" :class="{ 'sidebar-hidden': state.sidebarHidden || !targetPanel}">
         <button v-if="drawerOpen" class="drawer-backdrop" aria-label="Close targets" tabindex="-1" @click="dispatch('sidebar', true)"></button>
         <aside v-if="targetPanel" id="sidebar" ref="sidebar" v-show="!state.sidebarHidden" class="viewer-sidebar" :role="drawerOpen ? 'dialog' : undefined" :aria-modal="drawerOpen ? 'true' : undefined" aria-label="Targets">
             <div class="sidebar-brand">
@@ -248,7 +247,6 @@ onUnmounted(() => {
                         <span class="record">{{ neighbors.position }} of {{ neighbors.total }}</span>
                         <a v-if="neighbors.newer" :href="anchorFor(neighbors.newer.id)" @click.prevent="open(neighbors.newer.id)">Newer</a><span v-else class="report-order-end">Newer</span>
                     </nav>
-                    <aside v-if="hasPrototypes(state.report)" role="status" class="prototype-banner">Planned artifacts · UI prototype. Evidence types marked Prototype use simulated examples. They do not affect measured findings or counts. Other evidence types show stored capture evidence.</aside>
                     <RunSummary :report="state.report" :summary="summary" />
                     <ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
  <div role="tablist" aria-label="Report views" class="report-tabs" @keydown="tabKey">
