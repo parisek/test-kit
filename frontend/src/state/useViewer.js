@@ -143,7 +143,8 @@ export function useViewer(options = {}) {
 			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? null;
 			state.findingId = state.report.findings?.some((finding) => finding?.id === value.findingId) ? value.findingId : null;
 			state.view = 'evidence';
-			selectArtifact(value.artifact ?? state.artifact);
+			// A link without an evidence type takes the first valid one (R10.14).
+			selectArtifact(value.fromLink ? value.artifact : (value.artifact ?? state.artifact));
 			if (width() <= 860) dispatch('sidebar', true);
 			loadSelectedEvidence();
 		} else if (action === 'sidebar') {
@@ -294,8 +295,9 @@ export function useViewer(options = {}) {
 	function applyLink(resolved) {
 		applyingLink = true;
 		try {
-			if (resolved.targetId) apply('evidence', { targetId: resolved.targetId, viewportId: resolved.viewportId, artifact: resolved.artifact, findingId: resolved.findingId });
-			if (resolved.mode) apply('comparison', modeToState(resolved.mode));
+			if (resolved.targetId) apply('evidence', { targetId: resolved.targetId, viewportId: resolved.viewportId, artifact: resolved.artifact, findingId: resolved.findingId, fromLink: true });
+			// A link without a mode means side by side, so Back undoes a mode change.
+			if (resolved.view === 'evidence') apply('comparison', modeToState(resolved.mode) ?? 'side-by-side');
 			apply('view', resolved.view);
 			if (resolved.notice) state.notice = resolved.notice;
 		} finally {
@@ -303,12 +305,16 @@ export function useViewer(options = {}) {
 		}
 	}
 	// Reads the hash on load and on hashchange (R10.14).
+	let linkRequest = 0;
 	async function applyHash(hash = browser?.location?.hash ?? '') {
+		const id = ++linkRequest;
 		if (state.index) {
 			const parsed = parseDeepLink(hash);
+			// close-report also cancels a report load in flight (requestId), so a
+			// slow load cannot open a report after Back to the Home.
 			const toHome = (notice) => {
 				applyingLink = true;
-				try { if (state.report) apply('close-report'); } finally { applyingLink = false; }
+				try { apply('close-report'); } finally { applyingLink = false; }
 				if (notice) apply('error', notice);
 			};
 			if (!parsed) return toHome(null);
@@ -316,7 +322,8 @@ export function useViewer(options = {}) {
 			if (parsed.reportId !== state.reportId) {
 				if (!state.index.reports.find((row) => row.id === parsed.reportId)?.available) return toHome(`Report ${parsed.reportId} is not available in the index.`);
 				const result = await openReport(parsed.reportId, { push: false });
-				if (!result.ok) return;
+				// A newer hash change wins over this one.
+				if (!result.ok || id !== linkRequest) return;
 			}
 			applyLink(resolveDeepLink(parsed, state.report));
 		} else if (state.report) {

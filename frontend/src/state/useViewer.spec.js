@@ -287,6 +287,31 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				expect(instance.state.view).toBe('overview');
 				expect(instance.state.notice).toBe('The link names a target that this report does not hold.');
 			});
+			it('lets Back undo a mode change and takes the first evidence type for an omitted one', async () => {
+				const browser = host('#r-example-a/evidence/example/wide/screenshot?mode=overlay');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.comparison).toBe('overlay');
+				await instance.applyHash('#r-example-a/evidence/example/wide/screenshot');
+				expect(instance.state.comparison).toBe('side-by-side');
+				await instance.applyHash('#r-example-a/evidence/example/wide');
+				expect(instance.state.artifact).toBe('screenshot');
+			});
+			it('does not open a slow report after Back to the Home', async () => {
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const base = server(files());
+				const fetch = vi.fn((url) => (new URL(url).pathname.endsWith('example-a/report.json') ? slow : base(url)));
+				const instance = useViewer({ browser: host(''), fetch, width: () => 1280 });
+				await instance.start();
+				const opening = instance.applyHash('#r-example-a');
+				await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+				await instance.applyHash('');
+				release(response(withFinding()));
+				await opening;
+				expect(instance.state.report).toBeNull();
+				expect(instance.state.reportId).toBeNull();
+			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });
 				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });

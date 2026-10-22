@@ -209,6 +209,10 @@ describe('deep link against the open report (R10.14)', () => {
 	});
 	it('keeps an empty evidence type for a finding whose artifact is not an evidence type', () => {
 		expect(resolve('#r-example-a/evidence/home/desktop//b1')).toMatchObject({ targetId: 'home', viewportId: 'desktop', artifact: null, findingId: 'b1', notice: null });
+		// The finding wins over an evidence type in the path, with a notice.
+		const named = resolve('#r-example-a/evidence/home/desktop/html/b1');
+		expect(named).toMatchObject({ artifact: null, findingId: 'b1' });
+		expect(named.notice).toEqual(expect.any(String));
 	});
 	it('keeps the mode only for screenshot', () => {
 		expect(resolve('#r-example-a/evidence/home/desktop/screenshot?mode=overlay').mode).toBe('overlay');

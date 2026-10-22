@@ -164,12 +164,13 @@ export function resolveDeepLink(parsed, report) {
 		if (!finding) return overview('The link names a finding that this report does not hold.');
 		const findingArtifact = ARTIFACTS.includes(finding.artifact) ? finding.artifact : null;
 		const differs = (part, value) => part !== null && value != null && part !== value;
-		if (differs(targetId, finding.targetId) || differs(viewportId, finding.viewportId) || differs(artifact, findingArtifact)) {
+		// The finding wins, also with its empty evidence type (an artifact such as a11y).
+		if (differs(targetId, finding.targetId) || differs(viewportId, finding.viewportId) || (artifact !== null && artifact !== findingArtifact)) {
 			result.notice = 'The link and its finding name different parts. The finding wins.';
 		}
 		targetId = finding.targetId ?? targetId;
 		viewportId = finding.viewportId ?? viewportId;
-		artifact = findingArtifact ?? artifact;
+		artifact = findingArtifact;
 		result.findingId = finding.id;
 	}
 	const target = targetId === null ? entries[0] : entries.find((item) => item?.id === targetId);
