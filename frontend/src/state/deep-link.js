@@ -12,12 +12,19 @@ export const MODES = ['side-by-side', 'overlay', 'difference'];
 const PARTS = ['targetId', 'viewportId', 'artifact', 'findingId'];
 const SCOPED = (view) => view === 'evidence' || view === 'findings';
 const modeApplies = (artifact) => artifact === null || artifact === 'screenshot';
-// The hash never carries a URL, also not in a part that the view ignores. A part is
-// refused when it holds "://", or when, after leading white space and control
-// characters, it starts with two slashes or backslashes, or a scheme that a browser runs or fetches.
+// The hash never carries a URL, also not in a part that the view ignores (R10.14).
+// Browsers drop white space, control and format characters inside a URL, so the
+// check removes them all first. A part is refused when it then holds two slashes or
+// backslashes, a colon before a slash or backslash, or starts with a scheme that a
+// browser runs, fetches or opens.
 // Other ids with ":" stay linkable: a finding id joins a check id, which may hold one.
-const URL_PATTERN = /^(?:[\/\\]{2}|(?:https?|ftp|wss?|javascript|vbscript|data|blob|file|filesystem|mailto|tel|sms):)|:\/\//i;
-const URL_LIKE = { test: (part) => URL_PATTERN.test(part.replace(/^[\s\u0000-\u001f]+/, '')) };
+const SCHEMES = /^(?:https?|ftp|wss?|javascript|vbscript|livescript|data|blob|file|filesystem|about|view-source|chrome|chrome-extension|moz-extension|resource|intent|jar|mailto|tel|sms):/i;
+const URL_LIKE = {
+	test(part) {
+		const plain = part.replace(/[\s\p{Cc}\p{Cf}]/gu, '');
+		return /[\/\\]{2}|:[\/\\]/.test(plain) || SCHEMES.test(plain);
+	},
+};
 
 function empty(reportId) {
 	return { reportId, view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice: null };
@@ -55,7 +62,7 @@ function queryMode(query) {
 
 // Returns null when the hash is not a deep link. Otherwise returns
 // { reportId, view, targetId, viewportId, artifact, findingId, mode, notice }.
-// A notice means the link was not usable: an invalid report id gives reportId null
+// A notice means the link was not usable. It never repeats text from the link: an invalid report id gives reportId null
 // (open the Home), any other bad part gives the Overview of that report.
 export function parseDeepLink(hash, options) {
 	const adjacent = options?.adjacent === true;
@@ -82,7 +89,7 @@ export function parseDeepLink(hash, options) {
 	if (view === undefined) return bad('A part of the link cannot be read.');
 	const result = empty(reportId);
 	if (view !== '') {
-		if (!VIEWS.includes(view)) return bad(`The link names an unknown view: ${view}.`);
+		if (!VIEWS.includes(view)) return bad('The link names an unknown view.');
 		result.view = view;
 	}
 	if (!SCOPED(result.view)) {
@@ -100,12 +107,12 @@ export function parseDeepLink(hash, options) {
 		return bad('The link holds a URL. A link part must be an id.');
 	}
 	if (result.artifact !== null && !ARTIFACTS.includes(result.artifact)) {
-		return bad(`The link names an unknown evidence type: ${result.artifact}.`);
+		return bad('The link names an unknown evidence type.');
 	}
 	// A mode counts only where it applies. The caller drops it when an empty
 	// artifact resolves to a type other than screenshot.
 	if (!modeApplies(result.artifact)) return result;
-	if (mode !== null && !MODES.includes(mode)) return bad(`The link names an unknown mode: ${mode}.`);
+	if (mode !== null && !MODES.includes(mode)) return bad('The link names an unknown mode.');
 	result.mode = mode;
 	return result;
 }

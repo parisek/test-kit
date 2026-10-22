@@ -90,6 +90,11 @@ describe('deep link parse (R10.14)', () => {
 			'#r-example-a/evidence/%5C%5Cexample.invalid',
 			'#r-example-a/evidence/a%3A%2F%2Fb',
 			'#r-example-a/evidence/%2F%5Cexample.invalid',
+			'#r-example-a/evidence/java%09script%3A1',
+			'#r-example-a/evidence/jav%0Aascript%3A1',
+			'#r-example-a/evidence/%E2%80%8Bjavascript%3A1',
+			'#r-example-a/info/about%3Ablank',
+			'#r-example-a?view-source%3Ax=1',
 		]) {
 			const result = parseDeepLink(hash);
 			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, findingId: null });
