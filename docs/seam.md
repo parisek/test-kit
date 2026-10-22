@@ -220,7 +220,6 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 | Findings of completed checks in a mixed artifact | ADR 0004, open question 5. |
 | Pack versioning (one tag or one for each pack) | Vision open decision 10. |
 | Version numbers before the release candidate | Vision open decision 7. |
-| Speed measurement of production | Specification section 17, item 3. |
 
 ## 8. Gaps found while writing this
 
