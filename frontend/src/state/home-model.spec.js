@@ -28,6 +28,7 @@ describe('index summary fields (R10.13)', () => {
 		expect(parse({ targets: 3, summary: summary() }).summary).toBeNull();
 		expect(parse({ targets: 3, summary: summary({ match: 2, unexplained: 1, incomplete: 3 }) }).summary).not.toBeNull();
 		expect(parse({ targets: null, summary: summary() }).summary).toEqual(summary());
+		expect(parse({ targets: 3, summary: summary({ match: 3, incomplete: 4 }) }).summary).toBeNull();
 	});
 });
 
@@ -40,7 +41,9 @@ describe('row class and verdict sentence', () => {
 		expect(rowClass(summary({ unclassified: 2, incomplete: 2 }))).toBe('unclassified');
 		// An unmeasured page is never hidden behind the match color.
 		expect(rowClass(summary({ match: 3, unclassified: 1, incomplete: 1 }))).toBe('unclassified');
-		expect(rowClass(summary({ explained: 1, unclassified: 1 }))).toBe('explained');
+		expect(rowClass(summary({ explained: 1, unclassified: 1 }))).toBe('unclassified');
+		expect(rowClass(summary({ oracle: 1, unclassified: 1 }))).toBe('unclassified');
+		expect(rowClass(summary({ unexplained: 1, unclassified: 1 }))).toBe('unexplained');
 		expect(rowClass(summary())).toBeNull();
 		expect(rowClass(null)).toBeNull();
 	});
@@ -91,7 +94,7 @@ describe('home rows', () => {
 			row('a', null, { available: false, summary: summary({ unexplained: 1 }) }),
 		]);
 		expect(rows[0]).toMatchObject({ verdict: 'match', incomplete: 1 });
-		expect(rows[1]).toMatchObject({ verdict: null, incomplete: null, change: null });
+		expect(rows[1]).toMatchObject({ verdict: null, incomplete: null, change: null, summary: null });
 	});
 	it('does not mark a hash change when a hash is unknown', () => {
 		const rows = homeRows([row('b', null, { settingsHash: null }), row('a', null)]);
@@ -121,8 +124,10 @@ describe('home rows', () => {
 		const rows = homeRows([row('c', null, { available: false }), row('b', null), row('a', null)]);
 		// The newest comparison is the latest, also when it is unavailable.
 		expect(latestRow(rows)).toMatchObject({ id: 'c', verdict: null });
-		expect(historyStrip(rows).map((item) => item.id)).toEqual(['a', 'b', 'c']);
-		expect(historyStrip(rows, 1).map((item) => item.id)).toEqual(['c']);
+		expect(historyStrip(rows).dots.map((item) => item.id)).toEqual(['a', 'b', 'c']);
+		expect(historyStrip(rows).omitted).toBe(0);
+		expect(historyStrip(rows, 1)).toMatchObject({ omitted: 2 });
+		expect(historyStrip(rows, 1).dots.map((item) => item.id)).toEqual(['c']);
 		expect(latestRow([])).toBeNull();
 		expect(homeRows(null)).toEqual([]);
 	});

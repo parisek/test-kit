@@ -6,9 +6,10 @@ import { SUMMARY_KEYS } from './index-list.js';
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 // The word of a row: the worst class over its targets (R8.12). A target without a
-// class (unclassified) is never match (R8.12), so it ranks just above match: a row
-// with an unmeasured page never shows the match color. Null when the summary is unknown.
-const ROW_ORDER = ['unexplained', 'explained', 'oracle', 'unclassified', 'match'];
+// class (unclassified) has missing evidence. No class color may hide that gap
+// (DESIGN.md), so it ranks above every class except unexplained, the only problem
+// signal. Null when the summary is unknown.
+const ROW_ORDER = ['unexplained', 'unclassified', 'explained', 'oracle', 'match'];
 export function rowClass(summary) {
 	if (!summary) return null;
 	return ROW_ORDER.find((name) => summary[name] > 0) ?? null;
@@ -69,6 +70,7 @@ export function homeRows(reports, { timeZone } = {}) {
 		const summary = row.available ? row.summary : null;
 		return {
 			...row,
+			summary,
 			day: localDay(row.createdAt, timeZone),
 			verdict: rowClass(summary),
 			// Incomplete is a state beside the class, never the class (DESIGN.md).
@@ -100,6 +102,7 @@ export const latestRow = (rows) => rows[0] ?? null;
 
 // The verdict history strip: one dot per comparison (DESIGN.md), oldest on the left,
 // the newest `limit` comparisons. An unavailable comparison keeps its dot, with no verdict.
+// `omitted` counts the older comparisons left out, so a view can say so.
 export function historyStrip(rows, limit = 30) {
-	return rows.slice(0, limit).reverse();
+	return { dots: rows.slice(0, limit).reverse(), omitted: Math.max(0, rows.length - limit) };
 }

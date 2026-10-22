@@ -67,7 +67,7 @@ export function parseIndex(data) {
 		const targets = count(row.targets);
 		let summary = summaryOf(row.summary);
 		// R10.13: the five classes partition the targets. A file that breaks this is untrusted.
-		if (summary && targets !== null && CLASS_KEYS.reduce((sum, key) => sum + summary[key], 0) !== targets) summary = null;
+		if (summary && targets !== null && (CLASS_KEYS.reduce((sum, key) => sum + summary[key], 0) !== targets || summary.incomplete > targets)) summary = null;
 		return {
 			...base,
 			kind: typeof row.kind === 'string' ? row.kind : null,
