@@ -233,8 +233,9 @@ accepted choices as unresolved gates on restart.
 Routine implementation choices: file names, internal functions, test fixtures,
 error wording, and fixes within the approved contract.
 
-Remaining owner decisions: cross-engine scope, later check defaults, snapshot
-deletion policy, review provider availability, and an optional spending limit.
+Remaining owner decisions: cross-engine scope, review provider availability,
+and an optional spending limit. Check defaults and snapshot deletion were
+decided on 2026-10-22 (specification section 17).
 Breaking project interfaces are decided. Alpha breaks are allowed. They need a
 changelog entry and a migration note (R13.9).
 
