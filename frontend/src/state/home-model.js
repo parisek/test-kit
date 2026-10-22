@@ -19,9 +19,12 @@ export function rowClass(summary) {
 // names it too: an incomplete measurement never reads as "Nothing changed".
 export function verdictSentence(summary) {
 	if (!summary) return 'Not measured';
-	const sentence = classSentence(summary);
-	if (summary.incomplete === 0) return sentence;
-	return `${sentence}. ${plural(summary.incomplete, 'page is', 'pages are')} incomplete`;
+	const parts = [classSentence(summary)];
+	// Unmeasured pages are named even beside a worse class.
+	const worse = summary.unexplained + summary.explained + summary.oracle > 0;
+	if (worse && summary.unclassified > 0) parts.push(`${plural(summary.unclassified, 'page is', 'pages are')} not measured`);
+	if (summary.incomplete > 0) parts.push(`${plural(summary.incomplete, 'page is', 'pages are')} incomplete`);
+	return parts.join('. ');
 }
 
 function classSentence(summary) {
@@ -42,7 +45,8 @@ export function changeText(summary, previous) {
 		const delta = summary[name] - previous[name];
 		if (delta) parts.push(`${delta > 0 ? '+' : '−'}${Math.abs(delta)} ${name}`);
 	}
-	return parts.length ? parts.join(', ') : 'Same as before';
+	// Equal counts do not prove equal pages, so the text says counts.
+	return parts.length ? parts.join(', ') : 'Same counts as before';
 }
 
 // The local calendar day of an ISO time, as YYYY-MM-DD. timeZone is for tests.
@@ -90,10 +94,12 @@ export function groupByDay(rows) {
 	return groups;
 }
 
-// The first available comparison, or null.
-export const latestRow = (rows) => rows.find((row) => row.available) ?? null;
+// The newest comparison, or null. It may be unavailable: the card then says so and
+// never shows an older comparison as the latest.
+export const latestRow = (rows) => rows[0] ?? null;
 
-// The verdict history strip: available comparisons, oldest on the left, at most `limit`.
+// The verdict history strip: one dot per comparison (DESIGN.md), oldest on the left,
+// the newest `limit` comparisons. An unavailable comparison keeps its dot, with no verdict.
 export function historyStrip(rows, limit = 30) {
-	return rows.filter((row) => row.available).slice(0, limit).reverse();
+	return rows.slice(0, limit).reverse();
 }

@@ -24,6 +24,11 @@ describe('index summary fields (R10.13)', () => {
 		}
 		expect(parse({ viewports: -1 }).viewports).toBeNull();
 	});
+	it('treats a summary whose classes do not sum to the targets as unknown', () => {
+		expect(parse({ targets: 3, summary: summary() }).summary).toBeNull();
+		expect(parse({ targets: 3, summary: summary({ match: 2, unexplained: 1, incomplete: 3 }) }).summary).not.toBeNull();
+		expect(parse({ targets: null, summary: summary() }).summary).toEqual(summary());
+	});
 });
 
 describe('row class and verdict sentence', () => {
@@ -50,6 +55,7 @@ describe('row class and verdict sentence', () => {
 		expect(verdictSentence(summary({ unexplained: 1, match: 1, incomplete: 2 }))).toBe('1 page differs without an explanation. 2 pages are incomplete');
 		expect(verdictSentence(summary({ oracle: 2 }))).toBe('2 pages need a check by a person');
 		expect(verdictSentence(summary({ match: 3, oracle: 1 }))).toBe('1 page needs a check by a person');
+		expect(verdictSentence(summary({ explained: 1, unclassified: 1 }))).toBe('1 page has only known differences. 1 page is not measured');
 		expect(verdictSentence(summary())).toBe('No pages');
 		expect(verdictSentence(null)).toBe('Not measured');
 	});
@@ -58,7 +64,7 @@ describe('row class and verdict sentence', () => {
 describe('change against the previous comparison', () => {
 	it('names each class that changed', () => {
 		expect(changeText(summary({ match: 2, unexplained: 1 }), summary({ match: 3 }))).toBe('+1 unexplained, −1 match');
-		expect(changeText(summary({ match: 3 }), summary({ match: 3 }))).toBe('Same as before');
+		expect(changeText(summary({ match: 3 }), summary({ match: 3 }))).toBe('Same counts as before');
 		expect(changeText(summary({ match: 3, oracle: 1 }), summary({ match: 3 }))).toBe('+1 oracle');
 		expect(changeText(summary({ match: 3, unclassified: 1, incomplete: 1 }), summary({ match: 3 }))).toBe('+1 unclassified, +1 incomplete');
 	});
@@ -113,9 +119,10 @@ describe('home rows', () => {
 	});
 	it('picks the latest available comparison and builds the strip oldest first', () => {
 		const rows = homeRows([row('c', null, { available: false }), row('b', null), row('a', null)]);
-		expect(latestRow(rows).id).toBe('b');
-		expect(historyStrip(rows).map((item) => item.id)).toEqual(['a', 'b']);
-		expect(historyStrip(rows, 1).map((item) => item.id)).toEqual(['b']);
+		// The newest comparison is the latest, also when it is unavailable.
+		expect(latestRow(rows)).toMatchObject({ id: 'c', verdict: null });
+		expect(historyStrip(rows).map((item) => item.id)).toEqual(['a', 'b', 'c']);
+		expect(historyStrip(rows, 1).map((item) => item.id)).toEqual(['c']);
 		expect(latestRow([])).toBeNull();
 		expect(homeRows(null)).toEqual([]);
 	});
