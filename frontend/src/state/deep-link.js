@@ -13,20 +13,12 @@ const PARTS = ['targetId', 'viewportId', 'artifact', 'findingId'];
 const SCOPED = (view) => view === 'evidence' || view === 'findings';
 const modeApplies = (artifact) => artifact === null || artifact === 'screenshot';
 // The hash never carries a URL, also not in a part that the view ignores (R10.14).
-// Browsers drop white space, control and format characters inside a URL, so the
-// check removes them all first. A part is refused when it then holds two slashes or
-// backslashes, a colon before a slash or backslash, or starts with a scheme that a
-// browser runs, fetches or opens.
-// Other ids with ":" stay linkable: a finding id joins a check id, which may hold one.
-// So an id such as "ssh:x" passes here. It is safe because the viewer accepts an id
-// only when the open report holds it, and never uses a part as a URL attribute.
-const SCHEMES = /^(?:https?|ftp|wss?|javascript|vbscript|livescript|data|blob|file|filesystem|about|view-source|chrome|chrome-extension|moz-extension|resource|intent|jar|mailto|tel|sms):/i;
-const URL_LIKE = {
-	test(part) {
-		const plain = part.replace(/[\s\p{Cc}\p{Cf}]/gu, '');
-		return /[\/\\]{2}|:[\/\\]/.test(plain) || SCHEMES.test(plain);
-	},
-};
+// Every URL needs a ":" or a "/" or "\\", so a part that holds one is refused. Browsers
+// drop white space, control and format characters inside a URL, so the check removes
+// them first. No id that test-kit writes holds these characters (config ids, the
+// reserved "@project", finding ids built from them). A finding id from other data
+// that holds one gets no deep link.
+const URL_LIKE = { test: (part) => /[:\/\\]/.test(part.replace(/[\s\p{Cc}\p{Cf}]/gu, '')) };
 
 function empty(reportId) {
 	return { reportId, view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice: null };

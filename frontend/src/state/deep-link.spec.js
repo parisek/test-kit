@@ -6,8 +6,8 @@ const link = (extra) => ({ ...base, ...extra });
 
 describe('deep link parse (R10.14)', () => {
 	it('reads a full link and decodes each part', () => {
-		expect(parseDeepLink('#r-example-a/evidence/%40project/desktop/screenshot/f%2F1?mode=overlay')).toEqual(link({
-			view: 'evidence', targetId: '@project', viewportId: 'desktop', artifact: 'screenshot', findingId: 'f/1', mode: 'overlay',
+		expect(parseDeepLink('#r-example-a/evidence/%40project/desktop/screenshot/f%3F1%20x?mode=overlay')).toEqual(link({
+			view: 'evidence', targetId: '@project', viewportId: 'desktop', artifact: 'screenshot', findingId: 'f?1 x', mode: 'overlay',
 		}));
 	});
 	it('keeps the plain report link valid and opens the Overview', () => {
@@ -36,14 +36,16 @@ describe('deep link parse (R10.14)', () => {
 		expect(parseDeepLink('#r-example-a/info?mode=blink')).toEqual(link({ view: 'info' }));
 		expect(parseDeepLink('#r-example-a/evidence/home/desktop/html?mode=blink').notice).toBeNull();
 	});
-	it('keeps an id with a colon and an unlisted scheme as an id, to match against the report', () => {
-		expect(parseDeepLink('#r-example-a/evidence/ssh%3Ax').targetId).toBe('ssh:x');
-		expect(buildDeepLink({ reportId: 'example-a', view: 'evidence', targetId: 'web+x:y' })).toBe('#r-example-a/evidence/web%2Bx%3Ay');
-	});
-	it('keeps an id with a colon that is not a URL', () => {
-		expect(parseDeepLink('#r-example-a/findings/home/desktop/content/content-home-desktop-a11y%3Acontrast-0').findingId)
-			.toBe('content-home-desktop-a11y:contrast-0');
-		expect(buildDeepLink({ reportId: 'example-a', view: 'findings', findingId: 'check:x' })).toBe('#r-example-a/findings////check%3Ax');
+	it('refuses any id with a colon, slash or backslash, because every URL needs one', () => {
+		for (const hash of [
+			'#r-example-a/evidence/ssh%3Ax',
+			'#r-example-a/evidence/gopher%3Aselector',
+			'#r-example-a/evidence/urn%3Aisbn%3A9780141036144',
+			'#r-example-a/findings/home/desktop/content/content-home-desktop-a11y%3Acontrast-0',
+			'#r-example-a/evidence/a%2Fb',
+		]) expect(parseDeepLink(hash).notice).toEqual(expect.any(String));
+		expect(buildDeepLink({ reportId: 'example-a', view: 'findings', findingId: 'check:x' })).toBeNull();
+		expect(buildDeepLink({ reportId: 'example-a', view: 'evidence', targetId: 'a/b' })).toBeNull();
 	});
 	it('accepts one trailing slash', () => {
 		expect(parseDeepLink('#r-example-a/evidence/home/desktop/screenshot/f1/').findingId).toBe('f1');
@@ -124,8 +126,8 @@ describe('deep link build (R10.14)', () => {
 	});
 	it('encodes each part, keeps empty middle parts and omits trailing ones', () => {
 		expect(buildDeepLink({
-			reportId: 'example-a', view: 'evidence', targetId: '@project', viewportId: 'desktop', artifact: 'screenshot', findingId: 'f/1?x', mode: 'overlay',
-		})).toBe('#r-example-a/evidence/%40project/desktop/screenshot/f%2F1%3Fx?mode=overlay');
+			reportId: 'example-a', view: 'evidence', targetId: '@project', viewportId: 'desktop', artifact: 'screenshot', findingId: 'f?1#x', mode: 'overlay',
+		})).toBe('#r-example-a/evidence/%40project/desktop/screenshot/f%3F1%23x?mode=overlay');
 		expect(buildDeepLink({ reportId: 'example-a', view: 'findings', targetId: 'home', viewportId: 'desktop', findingId: 'f1' }))
 			.toBe('#r-example-a/findings/home/desktop//f1');
 		expect(buildDeepLink({ reportId: 'example-a', view: 'evidence', targetId: 'home' })).toBe('#r-example-a/evidence/home');
@@ -159,7 +161,7 @@ describe('deep link build (R10.14)', () => {
 		const states = [
 			link({}),
 			link({ view: 'info' }),
-			link({ view: 'evidence', targetId: '@project', viewportId: 'mobile', artifact: 'screenshot', findingId: 'a b/c', mode: 'difference' }),
+			link({ view: 'evidence', targetId: '@project', viewportId: 'mobile', artifact: 'screenshot', findingId: 'a b?c', mode: 'difference' }),
 			link({ view: 'findings', targetId: 'home', findingId: 'f1' }),
 			link({ view: 'evidence', targetId: 'home', viewportId: 'desktop', artifact: 'lighthouse' }),
 		];
