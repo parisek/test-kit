@@ -143,7 +143,8 @@ export function useViewer(options = {}) {
 			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? null;
 			state.findingId = state.report.findings?.some((finding) => finding?.id === value.findingId) ? value.findingId : null;
 			state.view = 'evidence';
-			// A link without an evidence type takes the first valid one (R10.14).
+			// A link without an evidence type takes the first valid one (R10.14). This holds
+			// also for a finding whose artifact is not an evidence type: its segment is empty.
 			selectArtifact(value.fromLink ? value.artifact : (value.artifact ?? state.artifact));
 			if (width() <= 860) dispatch('sidebar', true);
 			loadSelectedEvidence();
@@ -308,6 +309,13 @@ export function useViewer(options = {}) {
 	let linkRequest = 0;
 	async function applyHash(hash = browser?.location?.hash ?? '') {
 		const id = ++linkRequest;
+		// A newer hash change cancels a report load in flight, also when the new hash
+		// names the report that is open now (Back during a slow load).
+		if (state.loading) {
+			requestId++;
+			invalidateEvidence();
+			state.loading = false;
+		}
 		if (state.index) {
 			const parsed = parseDeepLink(hash);
 			// close-report also cancels a report load in flight (requestId), so a

@@ -248,7 +248,7 @@ describe('evidence types (R10.4) and the publish directory', () => {
 			const withFinding = () => {
 				const data = report('update');
 				data.entries[0].viewports[0].artifacts = { screenshot: {} };
-				data.findings = [{ id: 'f1', targetId: 'example', viewportId: 'wide', artifact: 'screenshot' }];
+				data.findings = [{ id: 'f1', targetId: 'example', viewportId: 'wide', artifact: 'screenshot' }, { id: 'f2', targetId: 'example', viewportId: 'wide', artifact: 'a11y' }];
 				return data;
 			};
 			const files = () => ({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(withFinding()) });
@@ -311,6 +311,32 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				await opening;
 				expect(instance.state.report).toBeNull();
 				expect(instance.state.reportId).toBeNull();
+			});
+			it('does not let a slow load win when Back returns to the open report', async () => {
+				const index2 = index({ reports: [
+					{ id: 'example-a', kind: 'update', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: hash, path: 'reports/example-a/report.json', targets: 1 },
+					{ id: 'example-b', kind: 'update', createdAt: '2026-10-01T09:00:00.000Z', settingsHash: hash, path: 'reports/example-b/report.json', targets: 1 },
+				] });
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const base = server({ ...files(), '/site/index.json': response(index2) });
+				const fetch = vi.fn((url) => (new URL(url).pathname.endsWith('example-b/report.json') ? slow : base(url)));
+				const instance = useViewer({ browser: host('#r-example-a'), fetch, width: () => 1280 });
+				await instance.start();
+				const going = instance.applyHash('#r-example-b');
+				await vi.waitFor(() => expect(fetch.mock.calls.some(([url]) => url.endsWith('example-b/report.json'))).toBe(true));
+				await instance.applyHash('#r-example-a/findings');
+				release(response(withFinding()));
+				await going;
+				expect(instance.state.reportId).toBe('example-a');
+				expect(instance.state.view).toBe('findings');
+				expect(instance.state.loading).toBe(false);
+			});
+			it('shows the first valid evidence type for a finding whose artifact is not an evidence type', async () => {
+				// R10.14: such a finding has an empty artifact segment, and an empty part takes the first valid value.
+				const instance = useViewer({ browser: host('#r-example-a/evidence/example/wide//f2'), fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state).toMatchObject({ view: 'evidence', targetId: 'example', artifact: 'screenshot', findingId: 'f2' });
 			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });
