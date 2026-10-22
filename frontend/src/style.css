@@ -243,3 +243,15 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 .open-report .source-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .open-report label { font-size: 0.8125rem; font-weight: 500; color: var(--ui-muted); }
 .open-report input { flex: 1 1 16rem; min-height: 2rem; }
+
+/* Report page navigation (R10.3): the breadcrumb is the first element of the column. */
+.breadcrumb ol { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0 0 12px; padding: 0; font-size: 0.8125rem; color: var(--ui-muted); min-width: 0; }
+.breadcrumb li { min-width: 0; overflow-wrap: anywhere; }
+.breadcrumb li + li::before { content: "/"; margin-right: 6px; }
+.breadcrumb a { color: var(--ui-text); text-decoration: underline; }
+.report-time { font-size: 0.9375rem; color: var(--ui-muted); margin-top: 4px; }
+.report-order { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; font-size: 0.8125rem; }
+.report-order a { color: var(--ui-text); text-decoration: underline; }
+.report-order-end { color: var(--ui-muted); }
+.report-order .record { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; color: var(--ui-muted); }
+@media (pointer: coarse) { .breadcrumb a, .report-order a { display: inline-flex; align-items: center; min-height: 2.75rem; } }

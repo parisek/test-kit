@@ -87,3 +87,64 @@ describe('App with no data (R10.10)', () => {
 		app.unmount();
 	});
 });
+
+const reportFile = (title, generated) => ({
+	schemaVersion: 2,
+	meta: { title, generated, viewports: [{ id: 'wide' }], matchBelow: 3, noiseFloor: null },
+	pair: { kind: 'update', aRunId: 'a', bRunId: 'b' },
+	runs: [{ id: 'a' }, { id: 'b' }],
+	entries: [{ id: 'example', viewports: [{ id: 'wide', state: 'complete', ratio: 0 }] }],
+	findings: [], causes: [], rules: {},
+});
+
+describe('App on a report from the index (R10.3)', () => {
+	const entry = (id, createdAt, path = `reports/${id}/report.json`) => ({ id, kind: 'update', createdAt, settingsHash: null, path, targets: 1, viewports: 1,
+		summary: { unexplained: 0, explained: 0, match: 1, oracle: 0, unclassified: 0, incomplete: 0 } });
+	const listed = { schemaVersion: 1, reports: [entry('example-c', '2026-10-03T09:00:00.000Z'), entry('example-b', '2026-10-02T09:00:00.000Z', null), entry('example-a', '2026-10-01T09:00:00.000Z')], runs: [] };
+	const files = {
+		'index.json': listed,
+		'reports/example-c/report.json': reportFile('Newest example', '2026-10-03T09:00:00.000Z'),
+		'reports/example-a/report.json': reportFile('Oldest example', '2026-10-01T09:00:00.000Z'),
+	};
+	const serve = async (url) => {
+		const key = Object.keys(files).find((name) => String(url).endsWith('/' + name));
+		return key ? respond(200, JSON.stringify(files[key])) : respond(404, 'Not found');
+	};
+	it('shows the breadcrumb first, the time in the title, and older and newer links that skip unavailable entries', async () => {
+		vi.stubGlobal('fetch', vi.fn(serve));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		await app.find('a.button-primary').trigger('click', { button: 0 });
+		await flushPromises();
+		await flushPromises();
+		const crumb = app.find('nav[aria-label="Breadcrumb"]');
+		expect(crumb.exists()).toBe(true);
+		expect(crumb.text()).toContain('Comparisons');
+		expect(app.find('.report-time time').attributes('title')).toBe('2026-10-03T09:00:00.000Z');
+		expect(document.title).toContain('Newest example');
+		const order = app.find('nav[aria-label="Comparison order"]');
+		expect(order.text()).toContain('1 of 2');
+		expect(order.find('a').text()).toBe('Older');
+		await order.find('a').trigger('click');
+		await flushPromises();
+		await flushPromises();
+		expect(app.find('h1').text()).toBe('Oldest example');
+		expect(app.find('nav[aria-label="Comparison order"]').text()).toContain('2 of 2');
+		await app.find('nav[aria-label="Breadcrumb"] a').trigger('click');
+		await flushPromises();
+		expect(app.find('h1').text()).toBe('Comparisons');
+		expect(document.title).toBe('Comparisons · test kit');
+		app.unmount();
+	});
+	it('shows no breadcrumb and no order links for a report next to the viewer', async () => {
+		vi.stubGlobal('fetch', vi.fn(async (url) => (String(url).endsWith('/report.json') ? respond(200, JSON.stringify(reportFile('Adjacent', null))) : respond(404, 'Not found'))));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		expect(app.find('nav[aria-label="Breadcrumb"]').exists()).toBe(false);
+		expect(app.find('nav[aria-label="Comparison order"]').exists()).toBe(false);
+		expect(app.find('.report-time').text()).toBe('Time unknown');
+		app.unmount();
+	});
+});
