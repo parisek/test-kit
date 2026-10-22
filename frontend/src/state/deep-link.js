@@ -159,10 +159,12 @@ export function resolveDeepLink(parsed, report) {
 	if (parsed.view === 'overview' || parsed.view === 'info') return result;
 	const entries = Array.isArray(report.entries) ? report.entries : [];
 	let { targetId, viewportId, artifact } = parsed;
+	let findingType = null;
 	if (parsed.findingId !== null) {
 		const finding = (Array.isArray(report.findings) ? report.findings : []).find((item) => item?.id === parsed.findingId);
 		if (!finding) return overview('The link names a finding that this report does not hold.');
 		const findingArtifact = ARTIFACTS.includes(finding.artifact) ? finding.artifact : null;
+		findingType = findingArtifact;
 		const differs = (part, value) => part !== null && value != null && part !== value;
 		// The finding wins, also with its empty evidence type (an artifact such as a11y).
 		if (differs(targetId, finding.targetId) || differs(viewportId, finding.viewportId) || (artifact !== null && artifact !== findingArtifact)) {
@@ -174,7 +176,11 @@ export function resolveDeepLink(parsed, report) {
 		result.findingId = finding.id;
 	}
 	const target = targetId === null ? entries[0] : entries.find((item) => item?.id === targetId);
-	if (!target) return overview(targetId === null ? null : 'The link names a target that this report does not hold.');
+	if (!target) {
+		if (targetId !== null) return overview('The link names a target that this report does not hold.');
+		// A report with no targets: Findings still opens; Evidence has nothing to show.
+		return parsed.view === 'findings' ? result : overview(null);
+	}
 	result.targetId = target.id;
 	if (viewportId !== null) {
 		const known = (report.meta?.viewports ?? []).some((row) => row?.id === viewportId) || (target.viewports ?? []).some((row) => row?.id === viewportId);
@@ -183,8 +189,11 @@ export function resolveDeepLink(parsed, report) {
 	}
 	if (artifact !== null) {
 		const row = (target.viewports ?? []).find((item) => item?.id === (result.viewportId ?? target.viewports?.[0]?.id));
-		if (!row?.artifacts || !Object.hasOwn(row.artifacts, artifact)) return overview('The link names an evidence type that this page does not have.');
-		result.artifact = artifact;
+		const present = Boolean(row?.artifacts) && Object.hasOwn(row.artifacts, artifact);
+		// The evidence type of a finding may be missing on its row: the first valid type
+		// shows then. An evidence type from the path must exist.
+		if (!present && !(result.findingId !== null && artifact === findingType)) return overview('The link names an evidence type that this page does not have.');
+		result.artifact = present ? artifact : null;
 	}
 	result.mode = parsed.mode !== null && (result.artifact === null || result.artifact === 'screenshot') ? parsed.mode : null;
 	return result;

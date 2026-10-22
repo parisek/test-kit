@@ -12,7 +12,7 @@ import TimelineView from './components/TimelineView.vue';
 import { anchorFor } from './state/index-list.js';
 import { localDateTime, reportNeighbors } from './state/report-nav.js';
 
-const { state, summary, filteredTargets, dispatch, load, start, openReport, applyHash } = useViewer();
+const { state, summary, filteredTargets, dispatch, loadSource, start, openReport, applyHash } = useViewer();
 // R10.14: Back, Forward and an edited hash apply the link.
 const onHashChange = () => applyHash();
 const source = ref('report.json');
@@ -265,7 +265,7 @@ onUnmounted(() => {
                 <section v-else-if="state.sourcesMissing" class="open-report" aria-labelledby="open-title">
                     <h1 id="open-title">Open a report</h1>
                     <p class="home-meta">This page found no <code>report.json</code> and no <code>index.json</code> next to it. Enter the path of a report on this site.</p>
-                    <form id="source-form" class="source-form" @submit.prevent="load(source)"><label for="source">Report path</label><input id="source" v-model="source" class="min-w-0 rounded border border-ui-control-border bg-ui-surface px-2 py-1 text-ui-text" /><button type="submit" :class="[pill, idle]">Open</button></form>
+                    <form id="source-form" class="source-form" @submit.prevent="loadSource(source)"><label for="source">Report path</label><input id="source" v-model="source" class="min-w-0 rounded border border-ui-control-border bg-ui-surface px-2 py-1 text-ui-text" /><button type="submit" :class="[pill, idle]">Open</button></form>
                 </section>
                 <p v-else-if="!state.loading" class="empty-report">No report is open.</p>
             </main>

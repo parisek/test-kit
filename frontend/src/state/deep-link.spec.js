@@ -214,6 +214,13 @@ describe('deep link against the open report (R10.14)', () => {
 		expect(named).toMatchObject({ artifact: null, findingId: 'b1' });
 		expect(named.notice).toEqual(expect.any(String));
 	});
+	it('shows the first valid type when the evidence type of a finding is missing on its row', () => {
+		const sparse = { meta: { viewports: [{ id: 'desktop' }] }, entries: [{ id: 'home', viewports: [{ id: 'desktop', artifacts: { html: {} } }] }], findings: [{ id: 'f3', targetId: 'home', viewportId: 'desktop', artifact: 'screenshot' }] };
+		expect(resolveDeepLink(parseDeepLink('#r-example-a/evidence/home/desktop/screenshot/f3'), sparse)).toMatchObject({ view: 'evidence', artifact: null, findingId: 'f3', notice: null });
+	});
+	it('opens Findings for a report with no targets', () => {
+		expect(resolveDeepLink(parseDeepLink('#r-example-a/findings'), { meta: { viewports: [] }, entries: [], findings: [] })).toMatchObject({ view: 'findings', notice: null });
+	});
 	it('keeps the mode only for screenshot', () => {
 		expect(resolve('#r-example-a/evidence/home/desktop/screenshot?mode=overlay').mode).toBe('overlay');
 		expect(resolve('#r-example-a/evidence/home/desktop/html?mode=overlay').mode).toBeNull();

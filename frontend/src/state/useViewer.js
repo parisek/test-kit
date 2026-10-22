@@ -141,7 +141,10 @@ export function useViewer(options = {}) {
 			invalidateEvidence();
 			state.targetId = target.id;
 			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? null;
-			state.findingId = state.report.findings?.some((finding) => finding?.id === value.findingId) ? value.findingId : null;
+			// R10.14: a finding id names the first finding with that id. A later finding with a
+			// repeated id gets no finding part, so its link does not read back as another one.
+			const first = state.report.findings?.find((finding) => finding?.id === value.findingId);
+			state.findingId = first && first.targetId === target.id && (first.viewportId ?? null) === (value.viewportId ?? null) ? value.findingId : null;
 			state.view = 'evidence';
 			// A link without an evidence type takes the first valid one (R10.14). This holds
 			// also for a finding whose artifact is not an evidence type: its segment is empty.
@@ -276,7 +279,9 @@ export function useViewer(options = {}) {
 		const evidence = state.view === 'evidence';
 		// R10.14: a finding whose artifact is not an evidence type has an empty artifact segment.
 		const finding = evidence && state.findingId ? state.report.findings?.find((item) => item?.id === state.findingId) : null;
-		const artifact = evidence && (!finding || ARTIFACTS.includes(finding.artifact)) ? state.artifact : null;
+		// With a finding, the segment carries the finding's own evidence type, and only
+		// when the view shows it; otherwise it stays empty and reads back to the first valid type.
+		const artifact = !evidence ? null : finding ? (ARTIFACTS.includes(finding.artifact) && finding.artifact === state.artifact ? state.artifact : null) : state.artifact;
 		const mode = evidence && state.artifact === 'screenshot' && state.comparison !== 'side-by-side' ? modeFromState(state.comparison) : null;
 		const hash = buildDeepLink({
 			reportId: state.reportId,
@@ -303,7 +308,9 @@ export function useViewer(options = {}) {
 			// A link without a mode means side by side, so Back undoes a mode change.
 			if (resolved.view === 'evidence') apply('comparison', modeToState(resolved.mode) ?? 'side-by-side');
 			apply('view', resolved.view);
+			// A valid link clears the notice of an earlier bad link.
 			if (resolved.notice) state.notice = resolved.notice;
+			else if (!state.notice.startsWith('Loaded')) state.notice = '';
 		} finally {
 			applyingLink = false;
 		}
@@ -433,5 +440,11 @@ export function useViewer(options = {}) {
 			return { ok: false, status: error.status, missing: error.status === 404 || error.html === true };
 		}
 	}
-	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load, start, openReport, applyHash };
+	// The source form (R10.10): load the report, then read the hash like a start (R10.14).
+	async function loadSource(source) {
+		const result = await load(source);
+		if (result.ok) await applyHash();
+		return result;
+	}
+	return { state: readonly(state), summary, filteredTargets, selectedTarget, selectedRow, dispatch, load, loadSource, start, openReport, applyHash };
 }

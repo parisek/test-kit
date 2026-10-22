@@ -364,6 +364,30 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				expect(instance.state.notice).not.toMatch(/finding wins/);
 				expect(instance.state.findingId).toBe('f2');
 			});
+			it('clears the notice of a bad link when a valid link follows', async () => {
+				const instance = useViewer({ browser: host('#r-example-a/evidence/away'), fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.notice).toMatch(/does not hold/);
+				await instance.applyHash('#r-example-a/info');
+				expect(instance.state.notice).toBe('');
+			});
+			it('reads the hash after a report loads through the source form', async () => {
+				const fetch = server({ '/site/other.json': response(withFinding()) });
+				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.sourcesMissing).toBe(true);
+				await instance.loadSource('other.json');
+				expect(instance.state.view).toBe('findings');
+			});
+			it('gives no finding part to a later finding with a repeated id', async () => {
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'phone', artifact: 'screenshot', findingId: 'f1' });
+				expect(instance.state.findingId).toBeNull();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'screenshot', findingId: 'f1' });
+				expect(instance.state.findingId).toBe('f1');
+			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });
 				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });
