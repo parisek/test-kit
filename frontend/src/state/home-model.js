@@ -61,16 +61,17 @@ export function localDay(iso, timeZone) {
 }
 
 // Rows of the Home in file order (newest first, R10.13), with what each row shows.
-// The previous row is the next older entry that is available (R10.3 skips path null).
+// The previous row is the next older entry, available or not (DESIGN.md "Comparison
+// row"). Only the older and newer links skip unavailable entries (R10.3). An
+// unavailable report keeps its summary (R10.13): its row is not a link, but it shows
+// what is known.
 export function homeRows(reports, { timeZone } = {}) {
 	const list = Array.isArray(reports) ? reports : [];
 	return list.map((row, i) => {
-		const previous = list.slice(i + 1).find((item) => item.available) ?? null;
-		// An unavailable row is not a link and shows no verdict.
-		const summary = row.available ? row.summary : null;
+		const previous = list[i + 1] ?? null;
+		const summary = row.summary ?? null;
 		return {
 			...row,
-			summary,
 			day: localDay(row.createdAt, timeZone),
 			verdict: rowClass(summary),
 			// Incomplete is a state beside the class, never the class (DESIGN.md).
@@ -101,8 +102,8 @@ export function groupByDay(rows) {
 export const latestRow = (rows) => rows[0] ?? null;
 
 // The verdict history strip: one dot per comparison (DESIGN.md), oldest on the left,
-// the newest `limit` comparisons. An unavailable comparison keeps its dot, with no verdict.
-// `omitted` counts the older comparisons left out, so a view can say so.
-export function historyStrip(rows, limit = 30) {
+// every comparison by default. An unavailable comparison keeps its dot. A view may pass
+// a `limit`; `omitted` then counts the older comparisons left out, so it can say so.
+export function historyStrip(rows, limit = Infinity) {
 	return { dots: rows.slice(0, limit).reverse(), omitted: Math.max(0, rows.length - limit) };
 }

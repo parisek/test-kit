@@ -78,23 +78,25 @@ describe('change against the previous comparison', () => {
 });
 
 describe('home rows', () => {
-	it('compares each row with the next older available row and marks a new settings hash', () => {
+	it('compares each row with the previous row and marks a new settings hash', () => {
 		const rows = homeRows([
 			row('c', '2026-10-03T09:00:00.000Z', { summary: summary({ match: 2, unexplained: 1 }), settingsHash: hashB }),
-			row('b', '2026-10-02T09:00:00.000Z', { available: false, summary: null }),
-			row('a', '2026-10-01T09:00:00.000Z'),
+			row('b', '2026-10-02T09:00:00.000Z', { available: false }),
+			row('a', '2026-10-01T09:00:00.000Z', { summary: null }),
 		], { timeZone: 'UTC' });
+		// The previous row of c is b, also though b is unavailable.
 		expect(rows[0]).toMatchObject({ verdict: 'unexplained', change: '+1 unexplained, −1 match', hashChanged: true, day: '2026-10-03' });
-		expect(rows[1]).toMatchObject({ verdict: null, change: null, incomplete: null });
-		expect(rows[2]).toMatchObject({ change: null, hashChanged: false });
+		expect(rows[1]).toMatchObject({ verdict: 'match', change: null, hashChanged: false });
+		expect(rows[2]).toMatchObject({ verdict: null, change: null, hashChanged: false });
 	});
-	it('carries the incomplete count beside the class and shows no verdict on an unavailable row', () => {
+	it('carries the incomplete count beside the class and keeps the summary of an unavailable report', () => {
 		const rows = homeRows([
 			row('b', null, { summary: summary({ match: 2, incomplete: 1 }) }),
 			row('a', null, { available: false, summary: summary({ unexplained: 1 }) }),
 		]);
 		expect(rows[0]).toMatchObject({ verdict: 'match', incomplete: 1 });
-		expect(rows[1]).toMatchObject({ verdict: null, incomplete: null, change: null, summary: null });
+		// R10.13: an unavailable report keeps its summary. The view shows it, not as a link.
+		expect(rows[1]).toMatchObject({ verdict: 'unexplained', incomplete: 0, available: false });
 	});
 	it('does not mark a hash change when a hash is unknown', () => {
 		const rows = homeRows([row('b', null, { settingsHash: null }), row('a', null)]);
@@ -123,7 +125,7 @@ describe('home rows', () => {
 	it('picks the latest available comparison and builds the strip oldest first', () => {
 		const rows = homeRows([row('c', null, { available: false }), row('b', null), row('a', null)]);
 		// The newest comparison is the latest, also when it is unavailable.
-		expect(latestRow(rows)).toMatchObject({ id: 'c', verdict: null });
+		expect(latestRow(rows)).toMatchObject({ id: 'c', available: false });
 		expect(historyStrip(rows).dots.map((item) => item.id)).toEqual(['a', 'b', 'c']);
 		expect(historyStrip(rows).omitted).toBe(0);
 		expect(historyStrip(rows, 1)).toMatchObject({ omitted: 2 });
