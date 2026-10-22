@@ -12,7 +12,8 @@ export const MODES = ['side-by-side', 'overlay', 'difference'];
 const PARTS = ['targetId', 'viewportId', 'artifact', 'findingId'];
 const SCOPED = (view) => view === 'evidence' || view === 'findings';
 const modeApplies = (artifact) => artifact === null || artifact === 'screenshot';
-// The hash never carries a URL: a part with a scheme or a leading "//" is refused.
+// The hash never carries a URL: a part with a scheme or a leading "//" is refused,
+// also in a part that the view ignores. Config ids never hold ":" or "/".
 const URL_LIKE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
 function empty(reportId) {
@@ -71,16 +72,21 @@ export function parseDeepLink(hash, options) {
 		reportId = id;
 	}
 	const bad = (notice) => ({ ...empty(reportId), notice });
-	if (segments.length > 1 + PARTS.length) return bad('The link has too many parts.');
-	const decoded = segments.map(decode);
-	if (decoded.includes(undefined)) return bad('A part of the link cannot be read.');
-	const [view = '', ...rest] = decoded;
+	const view = decode(segments[0] ?? '');
+	if (view === undefined) return bad('A part of the link cannot be read.');
 	const result = empty(reportId);
 	if (view !== '') {
 		if (!VIEWS.includes(view)) return bad(`The link names an unknown view: ${view}.`);
 		result.view = view;
 	}
-	if (!SCOPED(result.view)) return result;
+	if (!SCOPED(result.view)) {
+		// Overview and Run info ignore the other parts and the mode, but never take a URL.
+		const urlLike = segments.slice(1).some((part) => URL_LIKE.test(decode(part) ?? part));
+		return urlLike ? bad('The link holds a URL. A link part must be an id.') : result;
+	}
+	if (segments.length > 1 + PARTS.length) return bad('The link has too many parts.');
+	const rest = segments.slice(1).map(decode);
+	if (rest.includes(undefined)) return bad('A part of the link cannot be read.');
 	const mode = queryMode(query);
 	if (mode === undefined) return bad('A part of the link cannot be read.');
 	PARTS.forEach((name, i) => { result[name] = rest[i] ? rest[i] : null; });
@@ -99,6 +105,8 @@ export function parseDeepLink(hash, options) {
 }
 
 // Builds the hash for a view state. Returns null when the state cannot form a valid link.
+// For a finding whose artifact is not an evidence type (for example behavior), pass
+// artifact null: the link then has an empty artifact segment (R10.14).
 // A missing part is an empty segment in the middle and is omitted at the end.
 export function buildDeepLink(state, options) {
 	const adjacent = options?.adjacent === true;

@@ -17,6 +17,7 @@ describe('deep link parse (R10.14)', () => {
 	it('ignores the target, viewport, artifact, finding and mode parts on overview and info', () => {
 		expect(parseDeepLink('#r-example-a/info/home/desktop/html/f1?mode=overlay')).toEqual(link({ view: 'info' }));
 		expect(parseDeepLink('#r-example-a/overview/home')).toEqual(base);
+		expect(parseDeepLink('#r-example-a/info/%E0%A4%A/a/b/c/d/e')).toEqual(link({ view: 'info' }));
 	});
 	it('treats an omitted trailing part and an empty middle part as missing', () => {
 		expect(parseDeepLink('#r-example-a/evidence/home')).toEqual(link({ view: 'evidence', targetId: 'home' }));
@@ -73,6 +74,8 @@ describe('deep link parse (R10.14)', () => {
 			'#r-example-a/evidence/https%3A%2F%2Fexample.invalid',
 			'#r-example-a/evidence/home/%2F%2Fexample.invalid',
 			'#r-example-a/findings/home/desktop//javascript%3Aalert(1)',
+			'#r-example-a/overview/https%3A%2F%2Fexample.invalid',
+			'#r-example-a/info/home//https:',
 		]) {
 			const result = parseDeepLink(hash);
 			expect(result).toMatchObject({ reportId: 'example-a', view: 'overview', targetId: null, findingId: null });
