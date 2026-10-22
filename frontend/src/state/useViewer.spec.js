@@ -391,6 +391,22 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'html', findingId: 'f1' });
 				expect(instance.state.findingId).toBeNull();
 			});
+			it('does not cancel a source-form load when the hash changes while it runs', async () => {
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const fetch = vi.fn((url) => (new URL(url).pathname === '/site/other.json' ? slow : Promise.resolve(missing)));
+				const browser = host('');
+				const instance = useViewer({ browser, fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.sourcesMissing).toBe(true);
+				const loading = instance.loadSource('other.json');
+				browser.location.hash = '#findings';
+				await instance.applyHash();
+				release(response(withFinding()));
+				await loading;
+				expect(instance.state.report).not.toBeNull();
+				expect(instance.state.view).toBe('findings');
+			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });
 				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });
