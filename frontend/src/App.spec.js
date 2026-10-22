@@ -29,3 +29,37 @@ describe('App on the Home', () => {
 		app.unmount();
 	});
 });
+
+describe('App with no data (R10.10)', () => {
+	it('shows the source form only when report.json and index.json are both missing, and keeps the origin rule', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => respond(404, 'Not found')));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		expect(app.find('h1').text()).toBe('Open a report');
+		const input = app.find('#source');
+		await input.setValue('https://example.invalid/report.json');
+		await app.find('#source-form').trigger('submit');
+		await flushPromises();
+		expect(app.find('#notice').text()).toMatch(/origin/);
+		app.unmount();
+	});
+	it('shows no source form on the Home', async () => {
+		vi.stubGlobal('fetch', vi.fn(async (url) => (String(url).endsWith('index.json') ? respond(200, JSON.stringify(index)) : respond(404, 'Not found'))));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		expect(app.find('#source-form').exists()).toBe(false);
+		expect(app.text()).not.toContain('Report source');
+		app.unmount();
+	});
+	it('shows no source form when a source fails for another reason than missing', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => respond(500, 'Server error')));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		expect(app.find('#source-form').exists()).toBe(false);
+		expect(app.find('#notice').text()).toMatch(/HTTP 500/);
+		app.unmount();
+	});
+});

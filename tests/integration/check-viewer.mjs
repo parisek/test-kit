@@ -140,10 +140,8 @@ try {
 		const expanded = await page.locator('#sidebar-toggle').getAttribute('aria-expanded');
 		assert.equal(expanded, width <= 860 ? 'true' : 'false');
 		if (expanded === 'true') await page.keyboard.press('Escape');
-		await page.getByText('Report source', { exact: true }).click();
-		await page.locator('#source').fill('https://example.invalid/report.json');
-		await page.locator('#source-form').getByRole('button').click();
-		assert.match(await page.locator('#notice').textContent(), /origin/);
+		// R10.10: a page that loads a report shows no source form.
+		assert.equal(await page.locator('#source-form').count(), 0);
 		assert.deepEqual(errors, []);
 		assert.deepEqual(await page.evaluate(() => window.cspViolations), []);
 		await context.close();

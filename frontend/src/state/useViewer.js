@@ -53,6 +53,8 @@ export function useViewer(options = {}) {
 		theme: stored('test-kit-theme') === 'dark' ? 'dark' : 'light',
 		notice: '',
 		loading: false,
+		// R10.10: both report.json and index.json are missing. Only then the form shows.
+		sourcesMissing: false,
 	});
 	let requestId = 0;
 	let evidenceRequest = 0;
@@ -176,6 +178,8 @@ export function useViewer(options = {}) {
 			loadSelectedEvidence();
 			state.loading = false;
 			state.notice = `Loaded ${value.report.entries.length} targets.`;
+		} else if (action === 'sources-missing') {
+			state.sourcesMissing = true;
 		} else if (action === 'index-loaded') {
 			state.index = markRaw(value);
 			state.loading = false;
@@ -293,7 +297,10 @@ export function useViewer(options = {}) {
 		const failure = state.notice;
 		const listed = await loadIndex();
 		if (listed.stale) return listed;
-		if (listed.missing) dispatch('error', failure);
+		if (listed.missing) {
+			dispatch('error', failure);
+			dispatch('sources-missing');
+		}
 		if (!listed.ok) return listed;
 		const wanted = idFromAnchor(browser?.location?.hash);
 		if (wanted) {
