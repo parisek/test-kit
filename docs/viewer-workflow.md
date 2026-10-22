@@ -52,15 +52,15 @@ flowchart TD
 
 ## Decision actions
 
-On a finding the page shows four labelled actions: Fix (copy the link), Known difference (copy the command), Noise or unstable (not defined yet) and Pass on (copy the link). Decided by the owner on 2026-10-20 (#153, D15).
+On a finding the page shows four labelled actions: Fix (copy the link), Known difference (copy the command), Noise or unstable (copy a re-capture command) and Pass on (copy the link). Decided by the owner on 2026-10-20 (#153, D15).
 
 The viewer is a static application. It cannot run a command or write a file. A decision action therefore produces text for the person to use:
 
 | Decision | What the viewer offers | What exists today |
 | --- | --- | --- |
 | Fix | Copy the link. The task or the agent gets the same view. | The link holds only `#r-<id>`. |
-| Known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT` with the report, target, viewport and artifact filled in. The person adds the cause and the reason and runs it. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. | The command exists. The viewer does not build it. |
-| Noise or unstable | Not defined. A noise floor is measured per pair (R8.3). What a mark stores is an owner decision. | None. |
+| Known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT`. The viewer fills in the report, target, viewport and artifact. `--config`, `--cause` and `--reason` stay placeholders. The person adds them and runs the command. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
+| Noise or unstable | Copy the command `test-kit run --config FILE --target ID --viewport ID` with the target and viewport filled in. The person runs it and sees whether the difference stays. Nothing is stored. A stored noise mark is not part of 1.0. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
 | Pass on | Copy the link. Later: an evidence bundle (issue #149). | None. |
 
 ## Deep link grammar (R10.14)
@@ -73,11 +73,11 @@ Each part is percent-encoded. In an export with an adjacent `report.json` the `r
 - A missing or empty part takes the first valid value for its position. The report id must pass `validId`. The viewer matches target, viewport and finding ids against the open report, so the reserved target id `@project` is valid. A present but unknown part shows a message and opens the Overview of that report. A finding id selects the first finding with that id in report order (report data is untrusted).
 - The hash stays under the page origin. It never carries a URL.
 
-## Open points for the owner
+## Decided points
 
-The actions below are binding only after the owner decides them. Issue #148 does not build "Noise or unstable" and builds "Known difference" as copy-text only until then.
+The owner decided these on 2026-10-22:
 
-- What "mark as noise or unstable" stores, and where.
-- Whether the viewer builds the `record-known` command text, or only links to the documentation. R5.3 allows text but forbids a viewer action that records.
-- Where Content and Speed go in the four-view model (issue #155).
+- "Noise or unstable" copies a re-capture command. It stores nothing.
+- The viewer builds the `record-known` command text (see the table above).
+- Content and Speed are evidence types of the Evidence view (R10.4, issue #155).
 - Any future change to the adopted view set or the deep link grammar needs a new owner decision and a specification change.
