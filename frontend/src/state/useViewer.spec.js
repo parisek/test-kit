@@ -440,7 +440,7 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				await instance.start();
 				expect(instance.state).toMatchObject({ view: 'evidence', targetId: 'empty', viewportId: 'wide' });
 			});
-			it('writes an empty evidence type for behavior, so the link still names the Evidence view', async () => {
+			it('writes behavior as an evidence type of the link (R10.14)', async () => {
 				const data = withFinding();
 				data.entries[0].viewports[0].artifacts = { screenshot: {}, behavior: { state: 'missing' } };
 				const browser = host('#r-example-a');
@@ -452,7 +452,7 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				expect(browser.history.pushState.mock.calls.length).toBe(before);
 				expect(instance.state.findingId).toBe('f1');
 				instance.dispatch('artifact', 'behavior');
-				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide');
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide/behavior');
 			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });

@@ -6,6 +6,9 @@ import { sameOriginUrl } from '../../../src/report/safe.js';
 import { anchorFor, parseIndex, reportPath } from './index-list.js';
 import { ARTIFACTS, buildDeepLink, modeFromState, modeToState, parseDeepLink, resolveDeepLink } from './deep-link.js';
 
+// Evidence types that load a comparison file. A screenshot shows its images directly.
+const LOADED = ARTIFACTS.filter((kind) => kind !== 'screenshot');
+
 // R10.4: four report views. A report opens on Overview, whatever the pair kind (R10.5).
 export const VIEWS = Object.freeze(['overview', 'evidence', 'findings', 'info']);
 
@@ -84,7 +87,7 @@ export function useViewer(options = {}) {
 
 	function selectArtifact(preferred = state.artifact) {
 		const artifacts = selectedRow.value?.artifacts ?? {};
-		const available = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => Object.hasOwn(artifacts, kind));
+		const available = ARTIFACTS.filter(kind => Object.hasOwn(artifacts, kind));
 		state.artifact = available.includes(preferred) ? preferred : (available[0] ?? 'screenshot');
 	}
 	function invalidateEvidence() {
@@ -92,7 +95,7 @@ export function useViewer(options = {}) {
 		state.artifactEvidence = null;
 	}
 	function loadSelectedEvidence() {
-		if (state.view === 'evidence' && ['html', 'status', 'content', 'behavior', 'lighthouse'].includes(state.artifact)) loadArtifact(state.artifact);
+		if (state.view === 'evidence' && LOADED.includes(state.artifact)) loadArtifact(state.artifact);
 	}
 
 	// R10.14: a change of view, target, viewport, evidence type, finding or mode adds one
@@ -106,7 +109,7 @@ export function useViewer(options = {}) {
 	function apply(action, value) {
 		if (action === 'artifact') {
 			// R10.4: an evidence type shows only when the row has that artifact.
-			if (!['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value)) return;
+			if (!ARTIFACTS.includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value)) return;
 			// The selected type again changes nothing, and keeps the finding.
 			if (value === state.artifact) return;
 			invalidateEvidence();
@@ -238,7 +241,7 @@ export function useViewer(options = {}) {
 	}
 
 	async function loadArtifact(kind) {
-		if (!['html', 'status', 'content', 'behavior', 'lighthouse'].includes(kind)) return;
+		if (!LOADED.includes(kind)) return;
 		const src = selectedRow.value?.artifacts?.[kind]?.diff?.src;
 		const url = sameOriginUrl(src, state.source ?? base);
 		if (!src || !url) return;
@@ -298,7 +301,6 @@ export function useViewer(options = {}) {
 		const finding = evidence && state.findingId ? state.report.findings?.find((item) => item?.id === state.findingId) : null;
 		// With a finding, the segment carries the finding's own evidence type, and only
 		// when the view shows it; otherwise it stays empty and reads back to the first valid type.
-		// A type that the grammar does not name (behavior, until R10.14 lists it) stays empty.
 		const shown = ARTIFACTS.includes(state.artifact) && selectedRow.value?.artifacts && Object.hasOwn(selectedRow.value.artifacts, state.artifact) ? state.artifact : null;
 		// Only a type that the row holds goes in, so the link reads back without a notice.
 		const artifact = !evidence || !shown ? null : finding ? (ARTIFACTS.includes(finding.artifact) && finding.artifact === shown ? shown : null) : shown;
