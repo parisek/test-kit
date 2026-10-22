@@ -29,9 +29,8 @@ try {
   await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: 'Content', exact: true }).click();
   await page.locator('[aria-label="Stored content checks"]').waitFor();
   assert.match(await page.locator('#content').textContent(), /No new crawl/);
-  await page.getByRole('button', { name: 'Lighthouse · Prototype', exact: true }).click();
-  await page.getByRole('heading', { name: 'Performance lab', exact: true }).waitFor();
-  assert.match(await page.locator('#content').textContent(), /Illustrative median/);
+  // R10.4: no simulated evidence type. The demo has no Lighthouse artifact, so no Lighthouse button.
+  assert.equal(await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: /Lighthouse/ }).count(), 0);
   // R10.4: content and speed are evidence types, not views.
   assert.equal(await page.locator('[data-view=content], [data-view=speed]').count(), 0);
   await page.locator('#sidebar').getByRole('button', { name: /Homepage/ }).click();
@@ -82,7 +81,7 @@ try {
     await preview.locator('[data-view=evidence]').click();
     await preview.getByRole('heading', { name: 'Homepage', exact: true }).waitFor();
     if (width >= 1100) assert.equal(await preview.locator('.viewer-toolbar').evaluate(node => node.getBoundingClientRect().height), 66);
-    for (const name of ['Behavior', 'Content', 'Lighthouse · Prototype']) {
+    for (const name of ['Behavior', 'Content']) {
       await preview.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name, exact: true }).click();
       assert.equal(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name} overflows at ${width}`);
       await preview.locator('#theme').click();

@@ -6,14 +6,12 @@ import ArtifactEvidence from './ArtifactEvidence.vue';
 import ScreenshotComparison from './ScreenshotComparison.vue';
 import FindingCards from './FindingCards.vue';
 import Badge from './Badge.vue';
-import PlannedEvidence from './PlannedEvidence.vue';
-import { hasPrototypes, PLANNED_KINDS, plannedSample } from '../prototypes/planned.js';
 const props = defineProps({ report: Object, targetId: String, viewportId: String, source: String, artifactEvidence: Object, artifact: { type: String, default: 'screenshot' }, comparison: { type: String, default: 'side-by-side' }, overlay: { type: Number, default: 50 }, evidenceView: { type: String, default: 'normalized' } });
 const emit = defineEmits(['action']);
 const target = computed(() => props.report?.entries?.find(item => item.id === props.targetId));
 const row = computed(() => target.value?.viewports?.find(item => item.id === props.viewportId) ?? (props.viewportId == null ? target.value?.viewports?.[0] : null));
-const artifacts = computed(() => [...['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => row.value?.artifacts?.[kind]), ...(hasPrototypes(props.report) && row.value ? PLANNED_KINDS.filter(kind => !row.value.artifacts?.[kind]) : [])]);
-const planned = computed(() => row.value?.artifacts?.[selectedArtifact.value] ? null : plannedSample(props.report, props.targetId, row.value?.id, selectedArtifact.value));
+// R10.4: an evidence type shows only when the row has that artifact.
+const artifacts = computed(() => ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => row.value?.artifacts?.[kind]));
 const selectedArtifact = computed(() => artifacts.value.includes(props.artifact) ? props.artifact : artifacts.value[0] ?? props.artifact);
 const viewports = computed(() => props.report?.meta?.viewports?.length ? props.report.meta.viewports : target.value?.viewports ?? []);
 const parts = computed(() => (Array.isArray(target.value?.composedOf) ? target.value.composedOf : []).map(item => typeof item === 'string' ? item : item?.id).filter(Boolean).join(', '));
@@ -22,7 +20,7 @@ const findings = computed(() => target.value ? findingsFor(props.report, target.
 const selectedState = computed(() => row.value && target.value ? artifactState(target.value, row.value.id, selectedArtifact.value) : 'missing');
 const selectedClass = computed(() => row.value && target.value ? artifactClass(props.report, target.value, row.value.id, selectedArtifact.value) : null);
 const diagnostic = value => typeof value === 'string' ? value : value?.message ?? 'This measurement cannot be compared. Inspect technical details for its diagnostic.';
-const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status', behavior: row.value?.artifacts?.behavior ? 'Behavior' : 'Behavior · Prototype', content: row.value?.artifacts?.content ? 'Content' : 'Content · Prototype', lighthouse: row.value?.artifacts?.lighthouse ? 'Lighthouse' : 'Lighthouse · Prototype' })[kind];
+const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status', behavior: 'Behavior', content: 'Content', lighthouse: 'Lighthouse' })[kind];
 </script>
 <template>
     <section v-if="target" class="min-w-0 rounded-ui-panel border border-ui-border bg-ui-surface">
@@ -40,8 +38,7 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
             <template v-if="row">
                 <div class="mb-2 flex flex-wrap items-center gap-2 text-xs" aria-label="Selected artifact measurement"><span class="text-ui-muted">{{ label(selectedArtifact) }}</span><Badge :text="selectedClass ?? 'unclassified'" /><Badge :text="selectedState" /><span v-for="side in ['a', 'b']" :key="side" :class="row.availability?.[side] === 'http-error' || row.availability?.[side] === 'capture-error' ? 'text-red-700 dark:text-red-300' : 'text-ui-muted'">{{ side.toUpperCase() }}: {{ row.availability?.[side] ?? 'unknown' }}</span><span v-if="selectedArtifact === 'screenshot'" class="text-ui-muted">· Pixel difference {{ Number.isFinite(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio) ? `${(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio).toFixed(3)}%` : 'not measured' }} · not a verdict</span></div>
                 <p v-if="row.error ?? row.diagnostic" role="status" class="mb-4 rounded-ui-panel border border-ui-border bg-ui-toolbar p-3 text-sm">{{ diagnostic(row.error ?? row.diagnostic) }}</p>
-                <PlannedEvidence v-if="planned" :kind="selectedArtifact" :sample="planned" />
-                <ScreenshotComparison v-else-if="selectedArtifact === 'screenshot' && row.artifacts?.screenshot" :screenshot="row.artifacts.screenshot" :source="source" :target-title="target.title ?? target.id" :viewport-id="row.id" :mode="comparison" :overlay="overlay" :ratio="row.ratio" @action="(...args) => emit('action', ...args)" />
+                <ScreenshotComparison v-if="selectedArtifact === 'screenshot' && row.artifacts?.screenshot" :screenshot="row.artifacts.screenshot" :source="source" :target-title="target.title ?? target.id" :viewport-id="row.id" :mode="comparison" :overlay="overlay" :ratio="row.ratio" @action="(...args) => emit('action', ...args)" />
                 <ArtifactEvidence v-else-if="['html', 'status', 'content', 'behavior', 'lighthouse'].includes(selectedArtifact)" :row="row" :source="source" :evidence="artifactEvidence" :kind="selectedArtifact" :evidence-view="evidenceView" @action="(...args) => emit('action', ...args)" />
                 <p v-else role="status" class="rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">No evidence is indexed for this viewport.</p>
                 <RuleAudit v-if="selectedArtifact === 'html'" :report="report" :target-id="targetId" :row="row" :evidence="artifactEvidence?.kind === 'html' ? artifactEvidence.data : null" />
@@ -50,7 +47,7 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
             </template>
             <p v-else role="status" class="my-4 rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">Missing evidence for {{ viewportId ?? 'this target' }}. This measurement is unclassified.</p>
 <details v-if="parts || usedOn || target.note" class="mt-4 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Target details · composition and usage</summary><p v-if="target.note" class="mt-2 break-words">{{ target.note }}</p><p v-if="parts" class="mt-2 break-words">Composed of: {{ parts }}</p><p v-if="usedOn" class="mt-2 break-words">Used on: {{ usedOn }}</p></details>
-            <FindingCards v-if="!planned" :findings="findings" :report="report" :source="source" />
+            <FindingCards :findings="findings" :report="report" :source="source" />
         </div>
     </section>
     <p v-else class="text-ui-muted">No target available.</p>

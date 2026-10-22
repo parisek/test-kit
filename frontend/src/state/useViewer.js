@@ -1,4 +1,3 @@
-import { hasPrototypes, PLANNED_KINDS } from '../prototypes/planned.js';
 import { comparisonDetail } from '../../../src/artifacts/schema.js';
 import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
@@ -83,7 +82,6 @@ export function useViewer(options = {}) {
 	function selectArtifact(preferred = state.artifact) {
 		const artifacts = selectedRow.value?.artifacts ?? {};
 		const available = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => Object.hasOwn(artifacts, kind));
-        if (hasPrototypes(state.report) && selectedRow.value) available.push(...PLANNED_KINDS.filter(kind => !available.includes(kind)));
 		state.artifact = available.includes(preferred) ? preferred : (available[0] ?? 'screenshot');
 	}
 	function invalidateEvidence() {
@@ -96,8 +94,8 @@ export function useViewer(options = {}) {
 
 	function dispatch(action, value) {
 		if (action === 'artifact') {
-			const planned = hasPrototypes(state.report) && selectedRow.value && PLANNED_KINDS.includes(value);
-            if (!planned && (!['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value))) return;
+			// R10.4: an evidence type shows only when the row has that artifact.
+			if (!['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].includes(value) || !Object.hasOwn(selectedRow.value?.artifacts ?? {}, value)) return;
 			invalidateEvidence();
 			state.artifact = value;
 			loadSelectedEvidence();

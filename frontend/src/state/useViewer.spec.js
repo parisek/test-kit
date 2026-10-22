@@ -221,26 +221,19 @@ describe('bounded response evidence actions', () => {
 });
 
 
-describe('planned artifact isolation', () => {
-    it('gates prototype navigation and restores real evidence on a normal report', () => {
+describe('evidence types (R10.4) and the publish directory', () => {
+    it('never selects an evidence type that the row does not have, even with an old prototype marker', () => {
         const data = report();
         data.meta.prototype = 'planned-artifacts-v1';
         data.entries[0].viewports[0].artifacts = { screenshot: {} };
         const instance = viewer();
         instance.dispatch('loaded', { report: data, source: '/report.json' });
-        instance.dispatch('artifact', 'behavior');
-        expect(instance.state.artifact).toBe('behavior');
-        expect(instance.state.artifactEvidence).toBe(null);
-        // Speed is an evidence type, not a view (R10.4).
+        for (const kind of ['behavior', 'content', 'lighthouse']) {
+            instance.dispatch('artifact', kind);
+            expect(instance.state.artifact).toBe('screenshot');
+        }
+        // Speed is an evidence type, not a view.
         instance.dispatch('view', 'speed');
-        expect(instance.state.view).toBe('overview');
-        expect(instance.summary.value.counts.total).toBe(1);
-        const real = report();
-        real.entries[0].viewports[0].artifacts = { screenshot: {} };
-        instance.dispatch('loaded', { report: real, source: '/real.json' });
-        instance.dispatch('artifact', 'behavior');
-        instance.dispatch('view', 'speed');
-        expect(instance.state.artifact).toBe('screenshot');
         expect(instance.state.view).toBe('overview');
     });
 
