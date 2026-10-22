@@ -121,7 +121,7 @@ describe('filtered evidence navigation', () => {
         const wrapper = mount(FindingsView, { props: { ...props(), report: data, targets: [data.entries[0]], filters: { cause: 'cause:known' } } });
         expect(wrapper.text()).not.toContain('Example page');
         await wrapper.get('button').trigger('click');
-        expect(wrapper.emitted('action')[0]).toEqual(['evidence', { targetId: 'button', viewportId: 'phone', artifact: 'screenshot' }]);
+        expect(wrapper.emitted('action')[0]).toEqual(['evidence', { targetId: 'button', viewportId: 'phone', artifact: 'screenshot', findingId: data.findings[0].id }]);
     });
     it('shows missing selected evidence instead of another viewport', () => {
         const data = report();

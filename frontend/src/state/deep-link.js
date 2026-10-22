@@ -140,3 +140,61 @@ export function buildDeepLink(state, options) {
 	}
 	return hash === '#' ? '' : hash;
 }
+
+const MODE_NAMES = { 'side-by-side': 'side-by-side', overlay: 'overlay', difference: 'diff' };
+// The viewer stores the difference mode as "diff". The link names it "difference".
+export const modeToState = (mode) => MODE_NAMES[mode] ?? null;
+export const modeFromState = (comparison) => Object.keys(MODE_NAMES).find((key) => MODE_NAMES[key] === comparison) ?? null;
+
+// Resolves a parsed link against the open report (R10.14). The viewer accepts a target,
+// viewport or finding id only when the report holds it. A finding wins over the other
+// parts and gives a notice when they differ. An unknown part gives a notice and the
+// Overview. An omitted part takes the first valid value (left null here; the viewer
+// picks it). Pure: the report is plain data.
+export function resolveDeepLink(parsed, report) {
+	const overview = (notice) => ({ view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice });
+	if (!parsed || !report) return overview(parsed?.notice ?? null);
+	if (parsed.notice) return overview(parsed.notice);
+	const result = { view: parsed.view, targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice: null };
+	if (parsed.view === 'overview' || parsed.view === 'info') return result;
+	const entries = Array.isArray(report.entries) ? report.entries : [];
+	let { targetId, viewportId, artifact } = parsed;
+	let findingType = null;
+	if (parsed.findingId !== null) {
+		const finding = (Array.isArray(report.findings) ? report.findings : []).find((item) => item?.id === parsed.findingId);
+		if (!finding) return overview('The link names a finding that this report does not hold.');
+		const findingArtifact = ARTIFACTS.includes(finding.artifact) ? finding.artifact : null;
+		findingType = findingArtifact;
+		const differs = (part, value) => part !== null && value != null && part !== value;
+		// The finding wins, also with its empty evidence type (an artifact such as a11y).
+		if (differs(targetId, finding.targetId) || differs(viewportId, finding.viewportId) || (artifact !== null && artifact !== findingArtifact)) {
+			result.notice = 'The link and its finding name different parts. The finding wins.';
+		}
+		targetId = finding.targetId ?? targetId;
+		viewportId = finding.viewportId ?? viewportId;
+		artifact = findingArtifact;
+		result.findingId = finding.id;
+	}
+	const target = targetId === null ? entries[0] : entries.find((item) => item?.id === targetId);
+	if (!target) {
+		if (targetId !== null) return overview('The link names a target that this report does not hold.');
+		// A report with no targets: Findings still opens; Evidence has nothing to show.
+		return parsed.view === 'findings' ? result : overview(null);
+	}
+	result.targetId = target.id;
+	if (viewportId !== null) {
+		const known = (report.meta?.viewports ?? []).some((row) => row?.id === viewportId) || (target.viewports ?? []).some((row) => row?.id === viewportId);
+		if (!known) return overview('The link names a viewport that this report does not hold.');
+		result.viewportId = viewportId;
+	}
+	if (artifact !== null) {
+		const row = (target.viewports ?? []).find((item) => item?.id === (result.viewportId ?? target.viewports?.[0]?.id));
+		const present = Boolean(row?.artifacts) && Object.hasOwn(row.artifacts, artifact);
+		// The evidence type of a finding may be missing on its row: the first valid type
+		// shows then. An evidence type from the path must exist.
+		if (!present && !(result.findingId !== null && artifact === findingType)) return overview('The link names an evidence type that this page does not have.');
+		result.artifact = present ? artifact : null;
+	}
+	result.mode = parsed.mode !== null && (result.artifact === null || result.artifact === 'screenshot') ? parsed.mode : null;
+	return result;
+}

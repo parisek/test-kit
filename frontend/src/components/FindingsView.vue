@@ -45,7 +45,7 @@ const targetFor = (finding) => props.report.entries.find((item) => item.id === f
 			<template v-if="targetFor(finding)"
 				><button
 					class="text-left font-medium underline focus-visible:outline-ui-focus"
-					@click="emit('action', 'evidence', { targetId: finding.targetId, viewportId: finding.viewportId, artifact: finding.artifact })"
+					@click="emit('action', 'evidence', { targetId: finding.targetId, viewportId: finding.viewportId, artifact: finding.artifact, findingId: finding.id })"
 				>
 					{{ targetFor(finding).title ?? targetFor(finding).id }} · {{ finding.viewportId ?? 'all viewports' }} evidence
 				</button>

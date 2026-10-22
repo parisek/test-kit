@@ -242,7 +242,225 @@ describe('evidence types (R10.4) and the publish directory', () => {
 		const index = (extra = {}) => ({ schemaVersion: 1, reports: [{ id: 'example-a', kind: 'convergence', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: hash, path: 'reports/example-a/report.json', targets: 1 }], runs: [], ...extra });
 		const missing = { ok: false, status: 404, text: async () => '' };
 		const server = (files) => vi.fn(async (url) => files[new URL(url).pathname] ?? missing);
-		const host = (hash = '') => ({ document: { baseURI: 'http://localhost:4178/site/index.html' }, location: { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash }, history: { replaceState: vi.fn() } });
+		// A fake browser whose history writes update location.hash, as a real one does.
+		const host = (hash = '') => {
+			const location = { href: 'http://localhost:4178/site/index.html', pathname: '/site/index.html', search: '', hash };
+			const write = (state, title, url) => { const at = url.indexOf('#'); location.hash = at < 0 ? '' : url.slice(at); };
+			return { document: { baseURI: 'http://localhost:4178/site/index.html' }, location, history: { replaceState: vi.fn(write), pushState: vi.fn(write) } };
+		};
+
+		describe('deep link wiring (R10.14)', () => {
+			const withFinding = () => {
+				const data = report('update');
+				data.entries[0].viewports[0].artifacts = { screenshot: {} };
+				data.findings = [{ id: 'f1', targetId: 'example', viewportId: 'wide', artifact: 'screenshot' }, { id: 'f2', targetId: 'example', viewportId: 'wide', artifact: 'a11y' }];
+				return data;
+			};
+			const files = () => ({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(withFinding()) });
+			it('opens the view that the link names on load, without a history entry', async () => {
+				const browser = host('#r-example-a/evidence/example/wide/screenshot?mode=difference');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state).toMatchObject({ reportId: 'example-a', view: 'evidence', targetId: 'example', viewportId: 'wide', artifact: 'screenshot', comparison: 'diff' });
+				expect(browser.history.pushState).not.toHaveBeenCalled();
+			});
+			it('adds one history entry for each change of view, target or finding', async () => {
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('view', 'findings');
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/findings');
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'screenshot', findingId: 'f1' });
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide/screenshot/f1');
+				instance.dispatch('comparison', 'overlay');
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide/screenshot/f1?mode=overlay');
+				expect(browser.history.pushState).toHaveBeenCalledTimes(3);
+			});
+			it('applies a hash change from Back without a history entry, and returns to the Home for an empty hash', async () => {
+				const browser = host('#r-example-a/evidence');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				await instance.applyHash('#r-example-a/info');
+				expect(instance.state.view).toBe('info');
+				await instance.applyHash('');
+				expect(instance.state.report).toBeNull();
+				expect(browser.history.pushState).not.toHaveBeenCalled();
+			});
+			it('opens the Overview with a notice for a part that the report does not hold', async () => {
+				const instance = useViewer({ browser: host('#r-example-a/evidence/away'), fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.view).toBe('overview');
+				expect(instance.state.notice).toBe('The link names a target that this report does not hold.');
+			});
+			it('lets Back undo a mode change and takes the first evidence type for an omitted one', async () => {
+				const browser = host('#r-example-a/evidence/example/wide/screenshot?mode=overlay');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.comparison).toBe('overlay');
+				await instance.applyHash('#r-example-a/evidence/example/wide/screenshot');
+				expect(instance.state.comparison).toBe('side-by-side');
+				await instance.applyHash('#r-example-a/evidence/example/wide');
+				expect(instance.state.artifact).toBe('screenshot');
+			});
+			it('does not open a slow report after Back to the Home', async () => {
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const base = server(files());
+				const fetch = vi.fn((url) => (new URL(url).pathname.endsWith('example-a/report.json') ? slow : base(url)));
+				const instance = useViewer({ browser: host(''), fetch, width: () => 1280 });
+				await instance.start();
+				const opening = instance.applyHash('#r-example-a');
+				await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+				await instance.applyHash('');
+				release(response(withFinding()));
+				await opening;
+				expect(instance.state.report).toBeNull();
+				expect(instance.state.reportId).toBeNull();
+			});
+			it('does not let a slow load win when Back returns to the open report', async () => {
+				const index2 = index({ reports: [
+					{ id: 'example-a', kind: 'update', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: hash, path: 'reports/example-a/report.json', targets: 1 },
+					{ id: 'example-b', kind: 'update', createdAt: '2026-10-01T09:00:00.000Z', settingsHash: hash, path: 'reports/example-b/report.json', targets: 1 },
+				] });
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const base = server({ ...files(), '/site/index.json': response(index2) });
+				const fetch = vi.fn((url) => (new URL(url).pathname.endsWith('example-b/report.json') ? slow : base(url)));
+				const instance = useViewer({ browser: host('#r-example-a'), fetch, width: () => 1280 });
+				await instance.start();
+				const going = instance.applyHash('#r-example-b');
+				await vi.waitFor(() => expect(fetch.mock.calls.some(([url]) => url.endsWith('example-b/report.json'))).toBe(true));
+				await instance.applyHash('#r-example-a/findings');
+				release(response(withFinding()));
+				await going;
+				expect(instance.state.reportId).toBe('example-a');
+				expect(instance.state.view).toBe('findings');
+				expect(instance.state.loading).toBe(false);
+			});
+			it('shows the first valid evidence type for a finding whose artifact is not an evidence type', async () => {
+				// R10.14: such a finding has an empty artifact segment, and an empty part takes the first valid value.
+				const instance = useViewer({ browser: host('#r-example-a/evidence/example/wide//f2'), fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state).toMatchObject({ view: 'evidence', targetId: 'example', artifact: 'screenshot', findingId: 'f2' });
+			});
+			it('applies a hash that changes while the sources load, and still falls back to the index', async () => {
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const base = server(files());
+				const fetch = vi.fn((url) => (new URL(url).pathname === '/site/report.json' ? slow : base(url)));
+				const browser = host('');
+				const instance = useViewer({ browser, fetch, width: () => 1280 });
+				const starting = instance.start();
+				browser.location.hash = '#r-example-a/info';
+				await instance.applyHash();
+				release({ ok: false, status: 404, text: async () => 'Not found' });
+				await starting;
+				expect(instance.state.index).not.toBeNull();
+				expect(instance.state).toMatchObject({ reportId: 'example-a', view: 'info' });
+			});
+			it('writes an empty evidence type for an a11y finding, so the written link reads back without a notice', async () => {
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'a11y', findingId: 'f2' });
+				const written = browser.history.pushState.mock.lastCall[2].slice('/site/index.html'.length);
+				expect(written).toBe('#r-example-a/evidence/example/wide//f2');
+				await instance.applyHash(written);
+				expect(instance.state.notice).not.toMatch(/finding wins/);
+				expect(instance.state.findingId).toBe('f2');
+			});
+			it('clears the notice of a bad link when a valid link follows', async () => {
+				const instance = useViewer({ browser: host('#r-example-a/evidence/away'), fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				expect(instance.state.notice).toMatch(/does not hold/);
+				await instance.applyHash('#r-example-a/info');
+				expect(instance.state.notice).toBe('');
+			});
+			it('reads the hash after a report loads through the source form', async () => {
+				const fetch = server({ '/site/other.json': response(withFinding()) });
+				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.sourcesMissing).toBe(true);
+				await instance.loadSource('other.json');
+				expect(instance.state.view).toBe('findings');
+			});
+			it('gives no finding part to a later finding with a repeated id', async () => {
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'phone', artifact: 'screenshot', findingId: 'f1' });
+				expect(instance.state.findingId).toBeNull();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'screenshot', findingId: 'f1' });
+				expect(instance.state.findingId).toBe('f1');
+				// Same target and viewport, another evidence type: not the first finding with this id.
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'html', findingId: 'f1' });
+				expect(instance.state.findingId).toBeNull();
+			});
+			it('does not cancel a source-form load when the hash changes while it runs', async () => {
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const fetch = vi.fn((url) => (new URL(url).pathname === '/site/other.json' ? slow : Promise.resolve(missing)));
+				const browser = host('');
+				const instance = useViewer({ browser, fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.sourcesMissing).toBe(true);
+				const loading = instance.loadSource('other.json');
+				browser.location.hash = '#findings';
+				await instance.applyHash();
+				release(response(withFinding()));
+				await loading;
+				expect(instance.state.report).not.toBeNull();
+				expect(instance.state.view).toBe('findings');
+			});
+			it('drops the mode when an omitted evidence type resolves to a type other than screenshot', async () => {
+				const htmlOnly = withFinding();
+				htmlOnly.entries[0].viewports[0].artifacts = { html: { state: 'missing' } };
+				htmlOnly.findings = [];
+				const fetch = server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(htmlOnly) });
+				const instance = useViewer({ browser: host('#r-example-a/evidence/example/wide?mode=overlay'), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state).toMatchObject({ view: 'evidence', artifact: 'html', comparison: 'side-by-side' });
+			});
+			it('writes no evidence type that the row does not hold, and ignores a hash that is not a deep link', async () => {
+				const data = withFinding();
+				data.meta.viewports.push({ id: 'phone' });
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(data) }), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'phone' });
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/phone');
+				await instance.applyHash('#main');
+				expect(instance.state.reportId).toBe('example-a');
+			});
+			it('takes the first declared viewport for a target without rows', async () => {
+				const data = withFinding();
+				data.entries.push({ id: 'empty', viewports: [] });
+				const fetch = server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(data) });
+				const instance = useViewer({ browser: host('#r-example-a/evidence/empty'), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state).toMatchObject({ view: 'evidence', targetId: 'empty', viewportId: 'wide' });
+			});
+			it('writes an empty evidence type for behavior, so the link still names the Evidence view', async () => {
+				const data = withFinding();
+				data.entries[0].viewports[0].artifacts = { screenshot: {}, behavior: { state: 'missing' } };
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(data) }), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'screenshot', findingId: 'f1' });
+				const before = browser.history.pushState.mock.calls.length;
+				instance.dispatch('artifact', 'screenshot');
+				expect(browser.history.pushState.mock.calls.length).toBe(before);
+				expect(instance.state.findingId).toBe('f1');
+				instance.dispatch('artifact', 'behavior');
+				expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a/evidence/example/wide');
+			});
+			it('reads the link without the report part next to an adjacent report.json', async () => {
+				const fetch = server({ '/site/report.json': response(withFinding()) });
+				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });
+				await instance.start();
+				expect(instance.state.view).toBe('findings');
+			});
+		});
 
 		it('shows the list when report.json answers 404 and index.json loads', async () => {
 			const fetch = server({ '/site/index.json': response(index()) });
@@ -292,11 +510,12 @@ describe('evidence types (R10.4) and the publish directory', () => {
 			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/reports/example-a/report.json', { redirect: 'error' });
 			expect(instance.state.report.entries[0].id).toBe('example');
 			expect(instance.state.source).toBe('http://localhost:4178/site/reports/example-a/report.json');
-			expect(browser.history.replaceState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a');
+			// Opening a report and going back to the Home each add one history entry (R10.14).
+			expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html#r-example-a');
 			instance.dispatch('close-report');
 			expect(instance.state.report).toBeNull();
 			expect(instance.state.index.reports).toHaveLength(1);
-			expect(browser.history.replaceState).toHaveBeenLastCalledWith(null, '', '/site/index.html');
+			expect(browser.history.pushState).toHaveBeenLastCalledWith(null, '', '/site/index.html');
 		});
 		it('opens the report named by the anchor, and ignores an invalid anchor', async () => {
 			const files = { '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(report()) };
