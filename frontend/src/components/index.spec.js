@@ -4,17 +4,22 @@ import IndexView from './IndexView.vue';
 import { parseIndex } from '../state/index-list.js';
 
 const hostile = '<img src=x onerror=alert(1)>';
+const hash = (c) => 'sha256:' + c.repeat(64);
+const summary = (extra = {}) => ({ unexplained: 0, explained: 0, match: 0, oracle: 0, unclassified: 0, incomplete: 0, ...extra });
+const report = (id, createdAt, extra = {}) => ({ id, kind: 'update', createdAt, settingsHash: hash('a'), path: `reports/${id}/report.json`, targets: 3, viewports: 2, summary: summary({ match: 3 }), ...extra });
 const index = parseIndex({
 	schemaVersion: 1,
 	reports: [
-		{ id: 'example-a', kind: hostile, createdAt: '2026-10-02T09:00:00.000Z', settingsHash: 'sha256:' + 'ab'.repeat(32), path: 'reports/example-a/report.json', targets: 2 },
-		{ id: 'example-b', kind: null, createdAt: null, settingsHash: null, path: null, targets: null },
+		report('example-c', '2026-10-03T09:00:00.000Z', { kind: hostile, settingsHash: hash('b'), summary: summary({ match: 2, unexplained: 1, incomplete: 1 }) }),
+		report('example-b', '2026-10-02T09:00:00.000Z', { path: null }),
+		report('example-a', '2026-10-01T09:00:00.000Z'),
+		report('example-old', null, { targets: null, viewports: null, summary: null }),
 		{ id: hostile, kind: 'adhoc', path: null },
 	],
 	runs: [{ id: 'example-run', createdAt: null, settingsHash: null, path: null }],
 });
 
-describe('IndexView focus', () => {
+describe('Home focus', () => {
 	it('makes the heading focusable by script only and focuses it on request', () => {
 		const view = mount(IndexView, { props: { index }, attachTo: document.body });
 		const heading = view.find('h1');
@@ -25,34 +30,92 @@ describe('IndexView focus', () => {
 	});
 });
 
-describe('IndexView', () => {
-	it('renders hostile strings as text and lists nothing with an invalid id', () => {
+describe('Home', () => {
+	it('renders hostile strings as text and counts entries with an invalid id', () => {
 		const view = mount(IndexView, { props: { index } });
 		expect(view.find('img').exists()).toBe(false);
 		expect(view.text()).toContain('Not listed because of an invalid id: 1.');
-		expect(view.text()).toContain(hostile);
-		expect(view.html()).toContain('&lt;img src=x onerror=alert(1)&gt;');
+		// The hostile kind is not a pair kind, so the row does not show it at all.
+		expect(view.html()).not.toContain('onerror');
 	});
-	it('keeps the order and shows unknown values as unknown', () => {
+	it('opens with the latest comparison: verdict in words, counts, incomplete as a state', async () => {
 		const view = mount(IndexView, { props: { index } });
-		const rows = view.findAll('.index-list')[0].findAll('.index-row');
-		expect(rows.map((row) => row.find('.index-open').text())).toEqual(['example-a', 'example-b']);
-		expect(rows[1].text()).toContain('unknown · unknown · targets unknown · unknown');
-		expect(rows[0].text()).toContain('2 targets');
+		const card = view.find('.latest-card');
+		expect(card.text()).toContain('1 page differs without an explanation. 1 page is incomplete');
+		expect(card.find('time').attributes('title')).toBe('2026-10-03T09:00:00.000Z');
+		const counts = card.findAll('.verdict-count').map((item) => [item.attributes('data-verdict'), item.text()]);
+		expect(counts).toEqual([['match', '2match'], ['zero', '0explained'], ['unexplained', '1unexplained'], ['incomplete', '1incomplete (state)']]);
+		const button = card.find('a.button-primary');
+		expect(button.attributes('href')).toBe('#r-example-c');
+		await button.trigger('click');
+		expect(view.emitted('open')).toEqual([['example-c']]);
 	});
-	it('makes an available report a same-page anchor and emits its id', async () => {
+	it('shows one dot per comparison, oldest first, and marks an unavailable one', () => {
 		const view = mount(IndexView, { props: { index } });
-		const link = view.find('a.index-open');
-		expect(link.attributes('href')).toBe('#r-example-a');
-		await link.trigger('click');
-		expect(view.emitted('open')).toEqual([['example-a']]);
+		const dots = view.findAll('.strip-dots li').map((item) => item.text());
+		expect(dots).toHaveLength(4);
+		expect(dots[0]).toContain('not measured');
+		// An unavailable comparison keeps its class word; availability is extra text.
+		expect(dots[2]).toContain('match');
+		expect(dots[2]).toContain('unavailable');
+		expect(dots[3]).toContain('unexplained');
 	});
-	it('shows an unavailable entry that is not clickable', async () => {
+	it('groups rows by day and shows the change, the incomplete state and a new settings hash', () => {
 		const view = mount(IndexView, { props: { index } });
-		const row = view.findAll('.index-row')[1];
-		expect(row.find('a').exists()).toBe(false);
+		const groups = view.findAll('.home-day');
+		expect(groups).toHaveLength(4);
+		expect(groups[3].find('h2').text()).toBe('Time unknown');
+		const first = groups[0].find('.comparison-row');
+		expect(first.element.tagName).toBe('A');
+		expect(first.text()).toContain('unexplained');
+		expect(first.text()).toContain('1 incomplete');
+		expect(first.text()).toContain('3 pages, 2 viewports');
+		expect(first.text()).toContain('+1 unexplained, −1 match, +1 incomplete');
+		expect(first.text()).toContain('settings changed: ' + hash('b').slice(0, 19));
+		expect(first.find('.row-id').attributes('title')).toBe('example-c');
+		// A kind outside the pair kinds of section 3 (here a hostile string) is not shown.
+		expect(first.find('.row-id').text()).toBe('example-c');
+		expect(groups[1].find('.row-id').text()).toBe('update example-b');
+	});
+	it('shows an unavailable comparison with its summary, not as a link', async () => {
+		const view = mount(IndexView, { props: { index } });
+		const row = view.findAll('.home-day')[1].find('.comparison-row');
+		expect(row.element.tagName).toBe('DIV');
+		expect(row.attributes('aria-disabled')).toBe('true');
+		expect(row.text()).toContain('match');
 		expect(row.text()).toContain('unavailable');
-		await row.find('.index-open').trigger('click');
+		await row.trigger('click');
 		expect(view.emitted('open')).toBeUndefined();
+	});
+	it('shows unknown values as unknown, never as 0', () => {
+		const view = mount(IndexView, { props: { index } });
+		const row = view.findAll('.home-day')[3].find('.comparison-row');
+		expect(row.text()).toContain('not measured');
+		expect(row.text()).toContain('pages unknown');
+		expect(row.text()).not.toContain('0 pages');
+	});
+	it('lists stored runs in a closed disclosure', () => {
+		const view = mount(IndexView, { props: { index } });
+		const runs = view.find('details.home-runs');
+		expect(runs.attributes('open')).toBeUndefined();
+		expect(runs.text()).toContain('Stored runs (1)');
+	});
+	it('keeps a modified click for the browser, so the report can open in a new tab', async () => {
+		const view = mount(IndexView, { props: { index } });
+		await view.find('a.button-primary').trigger('click', { ctrlKey: true });
+		expect(view.emitted('open')).toBeUndefined();
+	});
+	it('says so when the latest comparison is unavailable or has no summary', () => {
+		const only = (extra) => parseIndex({ schemaVersion: 1, reports: [{ id: 'example-z', kind: null, createdAt: null, settingsHash: null, path: 'reports/example-z/report.json', targets: null, summary: null, ...extra }], runs: [] });
+		const missing = mount(IndexView, { props: { index: only({ path: null }) } }).find('.latest-card');
+		expect(missing.text()).toContain('Unavailable');
+		expect(missing.find('a').exists()).toBe(false);
+		const unknown = mount(IndexView, { props: { index: only({}) } }).find('.latest-card');
+		expect(unknown.text()).toContain('Not measured');
+		expect(unknown.text()).toContain('No counts');
+	});
+	it('says so when the index lists no comparisons', () => {
+		const view = mount(IndexView, { props: { index: parseIndex({ schemaVersion: 1, reports: [], runs: [] }) } });
+		expect(view.text()).toContain('The index lists no comparisons.');
 	});
 });

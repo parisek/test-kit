@@ -107,3 +107,17 @@ export const latestRow = (rows) => rows[0] ?? null;
 export function historyStrip(rows, limit = Infinity) {
 	return { dots: rows.slice(0, limit).reverse(), omitted: Math.max(0, rows.length - limit) };
 }
+
+// A short identifier for a row (DESIGN.md "Comparison row"). Ids may hold 160
+// characters (validId), so a long id keeps its start and end. The full id goes in a title.
+export function shortId(id, max = 32) {
+	if (typeof id !== 'string' || id.length <= max) return id;
+	const head = Math.ceil((max - 1) / 2);
+	return `${id.slice(0, head)}…${id.slice(id.length - (max - 1 - head))}`;
+}
+
+// The pair kinds of the specification (section 3). The row shows the kind word before
+// the identifier, as DESIGN.md does with "update". An unknown kind is not shown: the
+// index is untrusted and the row stays short.
+export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'];
+export const kindWord = (kind) => (PAIR_KINDS.includes(kind) ? kind : null);

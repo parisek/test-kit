@@ -22,7 +22,9 @@ const reportHeading = ref(null);
 const toggle = ref(null);
 const phone = ref(innerWidth <= 860);
 const mounted = ref(false);
-const drawerOpen = computed(() => mounted.value && phone.value && !state.sidebarHidden);
+// The Home has no side panel and no report views (DESIGN.md "Layout").
+const home = computed(() => !state.report && Boolean(state.index));
+const drawerOpen = computed(() => mounted.value && phone.value && !state.sidebarHidden && !home.value);
 let previousOverflow = null;
 let previousFocus = null;
 function resize() {
@@ -150,6 +152,7 @@ function keydown(event) {
 		}
 	}
 	if (
+		home.value ||
 		event.key !== '[' ||
 		event.ctrlKey ||
 		event.metaKey ||
@@ -177,9 +180,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="app-shell" :class="{ 'sidebar-hidden': state.sidebarHidden, 'has-prototypes': hasPrototypes(state.report) }">
+    <div class="app-shell" :class="{ 'sidebar-hidden': state.sidebarHidden || home, 'has-prototypes': hasPrototypes(state.report) }">
         <button v-if="drawerOpen" class="drawer-backdrop" aria-label="Close targets" tabindex="-1" @click="dispatch('sidebar', true)"></button>
-        <aside id="sidebar" ref="sidebar" v-show="!state.sidebarHidden" class="viewer-sidebar" :role="drawerOpen ? 'dialog' : undefined" :aria-modal="drawerOpen ? 'true' : undefined" aria-label="Targets">
+        <aside v-if="!home" id="sidebar" ref="sidebar" v-show="!state.sidebarHidden" class="viewer-sidebar" :role="drawerOpen ? 'dialog' : undefined" :aria-modal="drawerOpen ? 'true' : undefined" aria-label="Targets">
             <div class="sidebar-brand">
                 <div class="brand-mark" aria-hidden="true">t<span>k</span></div>
                 <div><strong>test kit<span class="brand-period">.</span></strong><p>Compare. Understand. Improve.</p></div>
@@ -208,8 +211,9 @@ onUnmounted(() => {
         </aside>
         <div class="shell-main min-w-0" :inert="drawerOpen">
             <header class="viewer-toolbar">
-                <button id="sidebar-toggle" aria-label="Targets" ref="toggle" :class="[pill, idle]" :aria-expanded="!state.sidebarHidden" aria-controls="sidebar" @click="dispatch('sidebar')"><span aria-hidden="true">☰</span><span class="target-toggle-label">Targets</span></button>
-                <nav aria-label="Report views" class="view-navigation">
+                <p v-if="home" class="header-brand"><span class="header-mark" aria-hidden="true">tk</span><strong>test kit</strong></p>
+                <button v-if="!home" id="sidebar-toggle" aria-label="Targets" ref="toggle" :class="[pill, idle]" :aria-expanded="!state.sidebarHidden" aria-controls="sidebar" @click="dispatch('sidebar')"><span aria-hidden="true">☰</span><span class="target-toggle-label">Targets</span></button>
+                <nav v-if="!home" aria-label="Report views" class="view-navigation">
                     <button v-for="(title, view) in views" :key="view" :data-view="view" :class="[pill, state.view === view ? active : idle]" :aria-current="state.view === view ? 'page' : undefined" @click="dispatch('view', view)">{{ title }}</button>
                 </nav>
                 <div class="toolbar-end">
