@@ -28,7 +28,7 @@ This policy can block page features. Such measurements fail rather than imply a 
 The runner refuses high machine load.
 Windows does not expose this load value through Node. It needs an explicit suspect-run override. An explicit override marks measurements suspect.
 Suspect measurements do not produce a speed comparison.
-More than three targets need explicit consent. A side with `production: true` needs it for any number of targets (R6.5). The error states the measured audit and navigation counts.
+More than three targets need explicit consent. A side with `production: true` needs it for any number of targets (R6.5). The plan of the `perf` command applies that rule. The library export `runPerformance` gets URLs, not a side, so a caller that measures a production site must pass `consent: true` itself. The error states the measured audit and navigation counts.
 
 Raw JSON and HTML stay in the immutable local run directory.
 The report integration must publish summary metrics and safe relative paths only.
