@@ -16,6 +16,20 @@ export function shortHash(value) {
 	return typeof value === 'string' && /^sha256:[0-9a-f]+$/i.test(value) ? value.slice(0, 19) : null;
 }
 
+const count = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : null);
+export const SUMMARY_KEYS = ['unexplained', 'explained', 'match', 'oracle', 'unclassified', 'incomplete'];
+// R10.13: every key must be a count, else the whole summary is unknown (null).
+function summaryOf(value) {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const result = {};
+	for (const key of SUMMARY_KEYS) {
+		const n = count(value[key]);
+		if (n === null) return null;
+		result[key] = n;
+	}
+	return result;
+}
+
 function common(row, expectedPath) {
 	if (!row || typeof row !== 'object' || !validId(row.id)) return null;
 	return {
@@ -51,7 +65,9 @@ export function parseIndex(data) {
 		return base && {
 			...base,
 			kind: typeof row.kind === 'string' ? row.kind : null,
-			targets: Number.isSafeInteger(row.targets) && row.targets >= 0 ? row.targets : null,
+			targets: count(row.targets),
+			viewports: count(row.viewports),
+			summary: summaryOf(row.summary),
 		};
 	});
 	const runs = list(data.runs, (row) => common(row, runPath));
