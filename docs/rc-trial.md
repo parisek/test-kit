@@ -176,7 +176,7 @@ From `docs/seam.md`, section 8, and the open issues, read with `gh` on 2026-10-1
 | Versioned contract sets: error wording, the Swiper walk stops at the first malformed instance. Loop mode, virtual slides and `swiper-element` are not covered. The Swiper 12 and 14 sets are identical. | [#121](https://github.com/parisek/test-kit/issues/121) | Swiper only. |
 | Process documents (#109) have wording nits and open questions marked unverified (bot `author_association`, event names, tree comparison). Owner actions are open: the `merge-halt` label now exists; the main-protection ruleset does NOT exist yet, because the owner has not allowed creating it; the tag ruleset for `v*` is not confirmed. | [#122](https://github.com/parisek/test-kit/issues/122) | None for the trial. It concerns the release process, not the product. Without the ruleset, nothing blocks a merge on failed checks. |
 | The report is `schemaVersion` 2. Version 3 (`pair` optional, single-run results) is planned. | `CHANGELOG.md`, `[1.0.0-rc.1]`, Migration | Pack findings do not reach the report. |
-| Open design questions: the default set of checks, retention of snapshots, the allowlist file, selection per target, the lint config seam, pack versioning, options for a pack (section 1). | `docs/seam.md` sections 1 and 7 | Tell us what you need. |
+| Open design questions: the allowlist file, selection per target, pack versioning, options for a pack (section 1). The default set of checks, retention and the lint seam were decided on 2026-10-22 (specification section 17). | `docs/seam.md` sections 1 and 7 | Tell us what you need. |
 
 ## 7. Decisions already closed
 

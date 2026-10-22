@@ -51,7 +51,7 @@ Sharing rules (principle 4 holds: no account, no upload, no hosted service):
 - The default is local. A project keeps the publish directory under the project and in `.gitignore`.
 - Sharing is an explicit project act. The project exposes the directory through its own web server. The package never publishes.
 - Captured pages can hold personal or client data. A refresh prints the absolute directory and says it contains captured pages. This is a message, not a gate (principle 3).
-- Retention and deletion stay open for a project that shares (spec section 17, item 4).
+- Nothing removes runs or snapshots automatically. A person removes them on request (spec section 17, item 4, decided 2026-10-22).
 
 ## Design authority
 
@@ -279,9 +279,9 @@ These need the owner. The agent does not decide them.
    - whether findings of completed checks in a mixed artifact keep counting toward a class.
 2. (Decided, 2026-10-16) The owner alone approves a stable release tag. The agent may tag dev versions (R13.25).
 3. **Roadmap issues.** #7 to #10 are open, but tags v0.2.0 to v0.5.0 exist, and their content differs from the plan. (proposal: close them as shipped and rewrite #5 as the roadmap that links this document.) This edits owner-created issues, so it is Tier 3.
-4. The small default set of checks (spec section 17, item 2).
-5. How long content snapshots live (spec section 17, item 4).
-6. The shape of the ESLint and Stylelint seam (spec section 17, item 7).
+4. (Decided, 2026-10-22) The default set of checks is empty (spec section 17, item 2).
+5. (Decided, 2026-10-22) Nothing removes snapshots automatically. A person removes them on request (spec section 17, item 4).
+6. (Decided, 2026-10-22) The ESLint and Stylelint seam is an entry point with a thin import (spec section 17, item 7).
 7. Version numbers. The last tag is v0.5.0. Does the first owner milestone start at 0.6 or at 1.0? (proposal: 1.0 is the first stable release, so milestones before it use 0.x.)
 
 8. (Decided, 2026-10-16) Milestone work merges into `main`. Dev tags come from `main` after a green cumulative run.

@@ -77,9 +77,9 @@ Items inside the configuration that stay open:
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| The default set of `artifacts` and `checks` | Not frozen, owner decision open | Specification section 17, item 2. Vision open decision 4. The shipped defaults are `["screenshot"]` and `[]`. R5.1 says the default set must be small. |
+| The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
 | Options for a selected pack | Not frozen, owner decision open | The `packs` key takes IDs only (R13.44). The pack API has no options. A pack that needs options needs a new decision. |
-| A key for the ESLint and Stylelint seam | Not frozen, owner decision open | Specification section 17, item 7. Vision open decision 6. |
+| The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, not built yet | Specification section 17, item 7, R13.40: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). |
 | The allowlist (`reason`, `owner`) | Not frozen, owner decision open | ADR 0004, open question 4. No config key exists. |
 | Selection of checks or contracts per target | Not frozen, owner decision open | ADR 0004, open question 2. |
 | Artifact kinds `a11y` and `lint` in `artifacts` | Not frozen, change planned | Both are glossary artifacts (specification section 2). The code rejects both today. |
@@ -110,8 +110,8 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
 | `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. |
-| `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. Specification section 17, item 3 (speed against production) is open. |
-| `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. The store keeps all runs. Retention is open (specification section 17, item 4). |
+| `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. Specification section 17, item 3: on a production side `perf` waits for `--consent` (decided 2026-10-22, not built yet, #162). |
+| `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). |
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 | `history` | none (`--config`, `--store`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 
@@ -181,7 +181,7 @@ Entry points in `package.json` `exports`. The list on `main` has nine entries. v
 | `./packs/a11y` | Frozen (decided) | Decided by the owner, 2026-10-19. The pack ID `a11y`, the check ID `a11y-axe`, the artifact shape and the axe result to pack finding mapping (`src/packs/a11y/README.md`, R8.14). The artifact kind `a11y` in the config, the browser step per component state, frame injection and the report fields are not built. They arrive as additions. |
 | `./packs/a11y/runner` | Frozen (decided) | Decided by the owner, 2026-10-19. `runAxe(page, options)` and its options. It needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
 | `./packs/swiper` | Experimental | The browser step that collects DOM facts and the version is not built (`src/packs/versioned/README.md`). |
-| `./packs/lint`, `./packs/lint/runner` | Not frozen (decided) | Decided by the owner, 2026-10-19. The pack may change in minor releases. The config-key seam for ESLint and Stylelint stays open (specification section 17, item 7; vision open decision 6). R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
+| `./packs/lint`, `./packs/lint/runner` | Not frozen (decided) | Decided by the owner, 2026-10-19. The pack may change in minor releases. The ESLint and Stylelint seam is decided as entry points with a thin import (specification section 17, item 7; R13.40). It is not built yet. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
 
 A new pack that a project selects, a new contract set for a new library major, and a new entry point are additions (vision layers rules 6 to 9). Pack identity lives in stable contract IDs.
 
@@ -213,17 +213,13 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 | Item | Pointer |
 | --- | --- |
-| The small default set of checks and artifacts | Specification section 17, item 2. Vision open decision 4. |
-| Retention of content snapshots and of the store | Specification section 17, item 4. Vision open decision 5. |
 | The allowlist file, with `reason` and `owner` | ADR 0004, open question 4. |
 | Behavior identity | ADR 0004, open question 1. |
 | Selection per target | ADR 0004, open question 2. |
 | The absolute fingerprint | ADR 0004, open question 3. |
 | Findings of completed checks in a mixed artifact | ADR 0004, open question 5. |
-| The ESLint and Stylelint seam | Specification section 17, item 7. Vision open decision 6. |
 | Pack versioning (one tag or one for each pack) | Vision open decision 10. |
 | Version numbers before the release candidate | Vision open decision 7. |
-| Speed measurement of production | Specification section 17, item 3. |
 
 ## 8. Gaps found while writing this
 

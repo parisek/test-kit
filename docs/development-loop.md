@@ -222,8 +222,8 @@ Drupal pilot. All target access stays local. The pilot identity and paths stay i
 The owner accepts these choices in the Codex chat on 2026-10-09: MIT licence;
 screenshot A/B, viewer, and summary for the first version;
 no checks run by default in the first screenshot milestone. The content
-milestone shipped in v0.2.0 with no default checks. The default check set stays
-open and needs an owner decision (specification section 17). The choice of
+milestone shipped in v0.2.0 with no default checks. The owner decided on
+2026-10-22 that the default check set stays empty (specification section 17). The choice of
 2026-10-09 that component-specific behavior contracts stay with the components
 is superseded by R13.42 (2026-10-18): packs live in the package, and
 project-owned contracts stay in the project. Reconcile the accepted choices with the specification and
@@ -233,8 +233,9 @@ accepted choices as unresolved gates on restart.
 Routine implementation choices: file names, internal functions, test fixtures,
 error wording, and fixes within the approved contract.
 
-Remaining owner decisions: cross-engine scope, later check defaults, snapshot
-deletion policy, review provider availability, and an optional spending limit.
+Remaining owner decisions: cross-engine scope, review provider availability,
+and an optional spending limit. Check defaults and snapshot deletion were
+decided on 2026-10-22 (specification section 17).
 Breaking project interfaces are decided. Alpha breaks are allowed. They need a
 changelog entry and a migration note (R13.9).
 

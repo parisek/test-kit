@@ -82,9 +82,8 @@ Everything in this repository is English: code, comments, documents, commit mess
 - After you open a pull request or push to it, wait for CI. A pull request is not ready until the checks are green or you explained the failure.
 - A change to the specification updates `docs/specification.md` and the issue linked from the README in the same step.
 
-## Not decided yet
+## Open questions
 
-These are open in the specification, section 17. Decided: releases are git tags, there is no npm registry (section 13.2). Do not decide them in code. Ask the owner.
+The specification, section 17, lists the open questions and the decided ones. Do not decide an open question in code. Ask the owner.
 
-- The small default set of checks.
-- How long content snapshots live, and who deletes them.
+The owner decided on 2026-10-22: the default set of checks is empty (R5.1). Snapshots stay until a person removes them, and nothing removes them automatically (section 17, item 4).

@@ -9,4 +9,4 @@ Each list has a limit of 1000 items. Text has a limit of 100000 characters.
 The snapshot records omissions. Checks report incomplete evidence.
 The extractor does not detect language. An empty alt attribute can mark a decorative image.
 Internal link checks use explicit stored final responses. An unmeasured link is unknown.
-No check runs by default. Snapshot retention stays undecided.
+No check runs by default. Nothing removes snapshots automatically (specification section 17).
