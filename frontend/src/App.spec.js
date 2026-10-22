@@ -165,6 +165,8 @@ describe('App report views (R10.4, R10.5)', () => {
 		await flushPromises();
 		expect(app.find('[role=tab][aria-selected=true]').text()).toBe('Evidence');
 		expect(app.find('#sidebar').exists()).toBe(true);
+		// One filter set: the target panel has no class filter of its own (DESIGN.md).
+		expect(app.find('[aria-label="Quick class filters"]').exists()).toBe(false);
 		const crumb = app.find('nav[aria-label="Breadcrumb"]');
 		expect(crumb.text()).toContain('Evidence');
 		await crumb.find('a').trigger('click');
@@ -172,6 +174,19 @@ describe('App report views (R10.4, R10.5)', () => {
 		expect(app.find('[role=tab][aria-selected=true]').text()).toBe('Overview');
 		expect(app.find('#sidebar').exists()).toBe(false);
 		expect(app.find('nav[aria-label="Breadcrumb"]').exists()).toBe(false);
+		// Keyboard: left wraps to the last tab, End and Home jump; focus follows the selected tab.
+		const selected = () => app.find('[role=tab][aria-selected=true]');
+		for (const [key, name] of [['ArrowLeft', 'Run info'], ['Home', 'Overview'], ['End', 'Run info'], ['ArrowRight', 'Overview']]) {
+			await app.find('[role=tablist]').trigger('keydown', { key });
+			await flushPromises();
+			expect(selected().text()).toBe(name);
+			expect(document.activeElement).toBe(selected().element);
+			expect(app.findAll('[role=tab]').filter((tab) => tab.attributes('tabindex') === '0')).toHaveLength(1);
+		}
+		// A modified key keeps its browser meaning.
+		await app.find('[role=tablist]').trigger('keydown', { key: 'ArrowLeft', altKey: true });
+		await flushPromises();
+		expect(selected().text()).toBe('Overview');
 		app.unmount();
 	});
 });

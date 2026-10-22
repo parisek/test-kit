@@ -311,7 +311,7 @@ Checked 2026-10-16 by a research pass. Repository metadata came from `gh api`. R
 What no tool in this list shows (not proof that none exists):
 
 - One pair-of-runs model over screenshot, HTML, status, behavior, content and speed.
-- Pair kinds that choose normalisers and the first view.
+- Pair kinds that choose normalisers.
 - `explained` and `unexplained` classes with named causes and evidenced normalisers.
 - A noise floor as a first-class value.
 - A bounded agent query that uses the same classification as the viewer.

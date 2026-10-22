@@ -61,6 +61,8 @@ const targetPanel = computed(() => Boolean(state.report) && state.view === 'evid
 function tabKey(event) {
 	const order = Object.keys(views);
 	const at = order.indexOf(state.view);
+	// A modified key keeps its browser meaning (Alt+Left is Back).
+	if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
 	const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: order.length - 1 }[event.key];
 	if (next === undefined) return;
 	event.preventDefault();
@@ -210,11 +212,6 @@ onUnmounted(() => {
             <div class="sidebar-section-label">WORKSPACE</div>
             <p class="sidebar-project">{{ state.report?.meta.project ?? 'Local reports' }}</p>
             <div class="sidebar-section-label flex items-center justify-between"><span>TARGETS</span><span>{{ filteredTargets.length }}</span></div>
-            <div v-if="state.report" class="sidebar-filters" aria-label="Quick class filters">
-                <button v-for="name in ['all', 'unexplained', 'explained', 'match']" :key="name" :aria-pressed="state.filters.classification === name" @click="dispatch('filter', { key: 'classification', value: name })">
-                    {{ name === 'all' ? 'All' : name }} <span>{{ name === 'all' ? summary.counts.total : summary.counts[name] }}</span>
-                </button>
-            </div>
             <div class="sidebar-targets">
                 <section v-for="group in groups" :key="group.name">
                     <h2 class="sidebar-group">{{ group.name }} <span>{{ group.targets.length }}</span></h2>
@@ -251,7 +248,7 @@ onUnmounted(() => {
                         <span class="record">{{ neighbors.position }} of {{ neighbors.total }}</span>
                         <a v-if="neighbors.newer" :href="anchorFor(neighbors.newer.id)" @click.prevent="open(neighbors.newer.id)">Newer</a><span v-else class="report-order-end">Newer</span>
                     </nav>
-                    <aside v-if="hasPrototypes(state.report)" role="status" class="prototype-banner">Planned artifacts · UI prototype. Tabs marked Prototype use simulated examples. They do not affect measured findings or counts. Other tabs show stored capture evidence.</aside>
+                    <aside v-if="hasPrototypes(state.report)" role="status" class="prototype-banner">Planned artifacts · UI prototype. Evidence types marked Prototype use simulated examples. They do not affect measured findings or counts. Other evidence types show stored capture evidence.</aside>
                     <RunSummary :report="state.report" :summary="summary" />
                     <ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
  <div role="tablist" aria-label="Report views" class="report-tabs" @keydown="tabKey">
