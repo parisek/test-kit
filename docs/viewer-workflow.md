@@ -80,4 +80,5 @@ The owner decided these on 2026-10-22:
 - "Noise or unstable" copies a re-capture command. It stores nothing.
 - The viewer builds the `record-known` command text (see the table above).
 - Content and Speed are evidence types of the Evidence view (R10.4, issue #155).
+- Behavior is an evidence type of the Evidence view too (R10.4). Decided on 2026-10-22.
 - Any future change to the adopted view set or the deep link grammar needs a new owner decision and a specification change.
