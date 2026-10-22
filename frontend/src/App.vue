@@ -218,7 +218,6 @@ onUnmounted(() => {
                 </nav>
                 <div class="toolbar-end">
                     <button id="theme" :aria-label="state.theme === 'dark' ? 'Light theme' : 'Dark theme'" :class="[pill, idle]" :aria-pressed="state.theme === 'dark'" @click="dispatch('theme')"><span aria-hidden="true">{{ state.theme === 'dark' ? '☀' : '◐' }}</span><span class="theme-label">{{ state.theme === 'dark' ? 'Light theme' : 'Dark theme' }}</span></button>
-                    <details class="source-switch text-xs"><summary class="cursor-pointer rounded-ui-pill px-3 py-2 text-ui-muted">Report source</summary><form id="source-form" class="source-form flex gap-2 rounded-ui-panel border border-ui-border bg-ui-surface p-3" @submit.prevent="load(source)"><label class="flex min-w-0 flex-1 flex-col gap-1" for="source">Report URL<input id="source" v-model="source" class="min-w-0 rounded border border-ui-control-border bg-ui-surface px-2 py-1 text-ui-text" /></label><button type="submit" :class="[pill, idle, 'self-end']">Load</button></form></details>
                 </div>
             </header>
             <p id="notice" :class="state.report && !state.loading && state.notice.startsWith('Loaded') ? 'sr-only' : 'viewer-notice'" role="status" aria-live="polite">{{ state.notice }}</p>
@@ -235,7 +234,12 @@ onUnmounted(() => {
                     <details class="measurement-details"><summary>Measurement context</summary><p>Target states from stored rows (all targets): <span v-for="(count, name) in summary.states" :key="name">{{ name }}: {{ count }} · </span></p><p>Noise floor: {{ state.report.meta.noiseFloor == null ? 'unknown; repeatability is not measured' : JSON.stringify(state.report.meta.noiseFloor) }}. Display hint: {{ state.report.meta.matchBelow }}%. The ratio is not a verdict.</p></details>
                 </template>
                 <IndexView v-else-if="state.index" ref="indexView" :index="state.index" @open="open" />
-                <p v-else class="empty-report">Load a local report to inspect its evidence.</p>
+                <section v-else-if="state.sourcesMissing" class="open-report" aria-labelledby="open-title">
+                    <h1 id="open-title">Open a report</h1>
+                    <p class="home-meta">This page found no <code>report.json</code> and no <code>index.json</code> next to it. Enter the path of a report on this site.</p>
+                    <form id="source-form" class="source-form" @submit.prevent="load(source)"><label for="source">Report path</label><input id="source" v-model="source" class="min-w-0 rounded border border-ui-control-border bg-ui-surface px-2 py-1 text-ui-text" /><button type="submit" :class="[pill, idle]">Open</button></form>
+                </section>
+                <p v-else-if="!state.loading" class="empty-report">No report is open.</p>
             </main>
         </div>
     </div>
