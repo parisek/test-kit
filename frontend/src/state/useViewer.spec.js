@@ -338,6 +338,32 @@ describe('evidence types (R10.4) and the publish directory', () => {
 				await instance.start();
 				expect(instance.state).toMatchObject({ view: 'evidence', targetId: 'example', artifact: 'screenshot', findingId: 'f2' });
 			});
+			it('applies a hash that changes while the sources load, and still falls back to the index', async () => {
+				let release;
+				const slow = new Promise((resolve) => { release = resolve; });
+				const base = server(files());
+				const fetch = vi.fn((url) => (new URL(url).pathname === '/site/report.json' ? slow : base(url)));
+				const browser = host('');
+				const instance = useViewer({ browser, fetch, width: () => 1280 });
+				const starting = instance.start();
+				browser.location.hash = '#r-example-a/info';
+				await instance.applyHash();
+				release({ ok: false, status: 404, text: async () => 'Not found' });
+				await starting;
+				expect(instance.state.index).not.toBeNull();
+				expect(instance.state).toMatchObject({ reportId: 'example-a', view: 'info' });
+			});
+			it('writes an empty evidence type for an a11y finding, so the written link reads back without a notice', async () => {
+				const browser = host('#r-example-a');
+				const instance = useViewer({ browser, fetch: server(files()), width: () => 1280 });
+				await instance.start();
+				instance.dispatch('evidence', { targetId: 'example', viewportId: 'wide', artifact: 'a11y', findingId: 'f2' });
+				const written = browser.history.pushState.mock.lastCall[2].slice('/site/index.html'.length);
+				expect(written).toBe('#r-example-a/evidence/example/wide//f2');
+				await instance.applyHash(written);
+				expect(instance.state.notice).not.toMatch(/finding wins/);
+				expect(instance.state.findingId).toBe('f2');
+			});
 			it('reads the link without the report part next to an adjacent report.json', async () => {
 				const fetch = server({ '/site/report.json': response(withFinding()) });
 				const instance = useViewer({ browser: host('#findings'), fetch, width: () => 1280 });

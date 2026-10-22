@@ -4,7 +4,7 @@ import { adaptReport } from '../../../src/report/model.js';
 import { summarize, targetClass, cellState } from '../../../src/report/classify.js';
 import { sameOriginUrl } from '../../../src/report/safe.js';
 import { anchorFor, parseIndex, reportPath } from './index-list.js';
-import { buildDeepLink, modeFromState, modeToState, parseDeepLink, resolveDeepLink } from './deep-link.js';
+import { ARTIFACTS, buildDeepLink, modeFromState, modeToState, parseDeepLink, resolveDeepLink } from './deep-link.js';
 
 // R10.4: four report views. A report opens on Overview, whatever the pair kind (R10.5).
 export const VIEWS = Object.freeze(['overview', 'evidence', 'findings', 'info']);
@@ -274,13 +274,16 @@ export function useViewer(options = {}) {
 		if (!state.report) return '';
 		const adjacent = !state.reportId;
 		const evidence = state.view === 'evidence';
+		// R10.14: a finding whose artifact is not an evidence type has an empty artifact segment.
+		const finding = evidence && state.findingId ? state.report.findings?.find((item) => item?.id === state.findingId) : null;
+		const artifact = evidence && (!finding || ARTIFACTS.includes(finding.artifact)) ? state.artifact : null;
 		const mode = evidence && state.artifact === 'screenshot' && state.comparison !== 'side-by-side' ? modeFromState(state.comparison) : null;
 		const hash = buildDeepLink({
 			reportId: state.reportId,
 			view: state.view,
 			targetId: evidence ? state.targetId : null,
 			viewportId: evidence ? state.viewportId : null,
-			artifact: evidence ? state.artifact : null,
+			artifact,
 			findingId: evidence ? state.findingId : null,
 			mode,
 		}, { adjacent });
@@ -307,7 +310,10 @@ export function useViewer(options = {}) {
 	}
 	// Reads the hash on load and on hashchange (R10.14).
 	let linkRequest = 0;
+	// While start() loads the sources, a hashchange waits: start applies the hash at the end.
+	let booting = false;
 	async function applyHash(hash = browser?.location?.hash ?? '') {
+		if (booting) return;
 		const id = ++linkRequest;
 		// A newer hash change cancels a report load in flight, also when the new hash
 		// names the report that is open now (Back during a slow load).
@@ -315,6 +321,7 @@ export function useViewer(options = {}) {
 			requestId++;
 			invalidateEvidence();
 			state.loading = false;
+			state.notice = '';
 		}
 		if (state.index) {
 			const parsed = parseDeepLink(hash);
@@ -380,19 +387,24 @@ export function useViewer(options = {}) {
 	// shows only when that file is missing (HTTP 404 or an HTML body, R10.10)
 	// and index.json loads.
 	async function start(source = 'report.json') {
-		const result = await load(source);
-		if (result.ok) await applyHash();
-		if (result.ok || result.stale || !result.missing) return result;
-		const failure = state.notice;
-		const listed = await loadIndex();
-		if (listed.stale) return listed;
-		if (listed.missing) {
-			dispatch('error', failure);
-			dispatch('sources-missing');
+		booting = true;
+		try {
+			const result = await load(source);
+			if (result.ok || result.stale || !result.missing) return result;
+			const failure = state.notice;
+			const listed = await loadIndex();
+			if (listed.stale) return listed;
+			if (listed.missing) {
+				dispatch('error', failure);
+				dispatch('sources-missing');
+			}
+			return listed;
+		} finally {
+			booting = false;
+			// The hash as it is now, after the sources load; a hashchange during the
+			// load is not lost.
+			if (state.report || state.index) await applyHash();
 		}
-		if (!listed.ok) return listed;
-		await applyHash();
-		return listed;
 	}
 
 	async function load(source) {
