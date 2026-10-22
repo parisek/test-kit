@@ -54,6 +54,8 @@ describe('Home', () => {
 		const dots = view.findAll('.strip-dots li').map((item) => item.text());
 		expect(dots).toHaveLength(4);
 		expect(dots[0]).toContain('not measured');
+		// An unavailable comparison keeps its class word; availability is extra text.
+		expect(dots[2]).toContain('match');
 		expect(dots[2]).toContain('unavailable');
 		expect(dots[3]).toContain('unexplained');
 	});

@@ -26,6 +26,12 @@ function time(iso) {
 	const date = new Date(iso);
 	return Number.isNaN(date.getTime()) ? 'time unknown' : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
+// The strip spans several days, so each dot shows a short date and the time.
+function shortDateTime(iso) {
+	if (typeof iso !== 'string') return 'time unknown';
+	const date = new Date(iso);
+	return Number.isNaN(date.getTime()) ? 'time unknown' : date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
 function dateTime(iso) {
 	if (typeof iso !== 'string') return 'time unknown';
 	const date = new Date(iso);
@@ -84,8 +90,9 @@ const open = (row) => emit('open', row.id);
                 <ol class="strip-dots">
                     <li v-for="row in strip.dots" :key="row.id" :title="row.createdAt ?? undefined">
                         <span class="verdict-dot" :data-verdict="dot(row)" aria-hidden="true"></span>
-                        <span class="record">{{ time(row.createdAt) }}</span>
-                        <span>{{ row.available ? word(row) : 'unavailable' }}</span>
+                        <span class="record">{{ shortDateTime(row.createdAt) }}</span>
+                        <span>{{ word(row) }}</span>
+                        <span v-if="!row.available" class="row-unavailable">unavailable</span>
                     </li>
                 </ol>
                 <p v-if="strip.omitted" class="home-meta">{{ plural(strip.omitted, 'older comparison is', 'older comparisons are') }} not shown.</p>
