@@ -54,6 +54,7 @@ export function useViewer(options = {}) {
 		notice: '',
 		loading: false,
 		// R10.10: both report.json and index.json are missing. Only then the form shows.
+		// It stays after a failed try from the form: the adjacent sources are still missing.
 		sourcesMissing: false,
 	});
 	let requestId = 0;
