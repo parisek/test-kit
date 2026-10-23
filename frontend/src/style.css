@@ -264,7 +264,9 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 @media (pointer: coarse) { .report-tabs [role=tab] { min-height: 2.75rem; } }
 /* DESIGN.md: on a coarse pointer every control has a 2.75rem hit area. The visible size stays. */
 @media (pointer: coarse) {
-	button:not(.button-primary), [role=tab] { position: relative; }
-	button:not(.button-primary)::after, [role=tab]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)) 0; }
-	select { min-height: 2.75rem; }
+	button:not(.button-primary), [role=tab], summary, a[href] { position: relative; }
+	button:not(.button-primary)::after, [role=tab]::after, summary::after, a[href]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)) 0; }
+	select, input:not([type=checkbox], [type=radio]) { min-height: 2.75rem; }
+	/* The filter caption summary sits under "Clear filters". The gap keeps both hit areas apart. */
+	.filter-caption { margin-top: 1.125rem; }
 }
