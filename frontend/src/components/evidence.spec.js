@@ -30,7 +30,7 @@ describe('detail evidence navigation', () => {
         expect(wrapper.text()).toContain('Wide difference');
         expect(wrapper.text()).not.toContain('Phone difference');
         expect(wrapper.text()).not.toContain('HTML difference');
-        await wrapper.get('[aria-label="Evidence artifacts"]').findAll('button')[1].trigger('click');
+        await wrapper.get('[aria-label="Evidence type"]').findAll('button')[1].trigger('click');
         expect(wrapper.emitted('action')[0]).toEqual(['artifact', 'html']);
         await wrapper.get('[aria-label="Viewport"]').findAll('button')[1].trigger('click');
         expect(wrapper.emitted('action')[1]).toEqual(['viewport', 'phone']);
@@ -40,13 +40,13 @@ describe('detail evidence navigation', () => {
         expect(wrapper.text()).toContain('HTML difference');
         expect(wrapper.text()).not.toContain('Wide difference');
         expect(wrapper.find('[aria-label="Screenshot comparison mode"]').exists()).toBe(false);
-        expect(wrapper.get('[aria-label="Evidence artifacts"]').findAll('button')[1].attributes('aria-pressed')).toBe('true');
+        expect(wrapper.get('[aria-label="Evidence type"]').findAll('button')[1].attributes('aria-pressed')).toBe('true');
     });
     it('exposes only indexed artifact tabs and keeps HTTP-only failures readable', () => {
         const data = report();
         data.entries[0].viewports[0].artifacts = { status: { state: 'failed', diagnostic: 'Response exceeds limit.' } };
         const wrapper = mount(TargetDetail, { props: { report: data, targetId: 'home', viewportId: 'wide', source } });
-        expect(wrapper.get('[aria-label="Evidence artifacts"]').findAll('button').map(button => button.text())).toEqual(['Status']);
+        expect(wrapper.get('[aria-label="Evidence type"]').findAll('button').map(button => button.text())).toEqual(['Status']);
         expect(wrapper.text()).toContain('Response exceeds limit.');
         expect(wrapper.find('img').exists()).toBe(false);
     });
@@ -209,5 +209,16 @@ describe('decision actions on a finding (viewer-workflow "Decision actions")', (
         await flushPromises();
         expect(wrapper.text()).toContain('Copy is not available. Select the text and copy it.');
         vi.unstubAllGlobals();
+    });
+});
+describe('view group (DESIGN.md "View state and filters")', () => {
+    it('puts evidence type, viewport and mode in one group labelled View', () => {
+        const wrapper = mount(TargetDetail, { props: { report: report(), targetId: 'home', viewportId: 'wide', source } });
+        const group = wrapper.get('[role=group][aria-labelledby=view-group-label]');
+        expect(group.get('#view-group-label').text()).toBe('View');
+        expect(group.find('[aria-label="Evidence type"]').exists()).toBe(true);
+        expect(group.find('[aria-label="Viewport"]').exists()).toBe(true);
+        expect(group.text()).toContain('Evidence type');
+        expect(wrapper.findAll('[role=group][aria-labelledby=view-group-label]')).toHaveLength(1);
     });
 });

@@ -74,7 +74,7 @@ try {
     await page.locator('img').first().waitFor();
     assert.equal(await page.locator('img').first().evaluate(image => image.complete && image.naturalWidth === 2), true);
     for (const title of ['HTML', 'Status', 'Content', 'Behavior', 'Lighthouse']) {
-      await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: title, exact: true }).click();
+      await page.getByRole('navigation', { name: 'Evidence type' }).getByRole('button', { name: title, exact: true }).click();
       await page.waitForFunction(() => !document.body.textContent.includes('Loading evidence…'));
       assert.equal(await page.getByText(/Invalid .*comparison|Evidence request fails/).count(), 0, title);
     }
