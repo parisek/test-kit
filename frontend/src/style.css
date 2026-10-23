@@ -97,8 +97,7 @@
 .summary-metric { flex: 1 0 auto; min-width: max-content; padding: 0 15px; border-left: 1px solid var(--ui-border); }
 .summary-metric:first-child { border-left: 0; padding-left: 0; }
 /* The measurement state stands apart from the class counts (DESIGN.md "Counts"). */
-.summary-metric.summary-state { margin-left: 12px; padding-left: 24px; }
-.summary-metric.summary-state:first-child { margin-left: 0; }
+.summary-metric.summary-state { flex-basis: 100%; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--ui-border); }
 .summary-metric.summary-state span { text-transform: none; }
 .summary-metric strong { font-size: 30px; line-height: 1.2; font-weight: 650; letter-spacing: -1px; display: block; font-variant-numeric: tabular-nums; }
 .summary-metric span { display: block; color: var(--ui-muted); font-size: 0.75rem; text-transform: capitalize; margin-top: 4px; }
@@ -283,5 +282,3 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 }
 /* Below 1100px the filter caption sits under "Clear filters". The gap keeps both hit areas apart. */
 @media (pointer: coarse) and (max-width: 1099.98px) { .filter-caption { margin-top: 1.125rem; } }
-/* On a phone the state takes its own row under a rule, so a wrap does not look like a class. */
-@media (max-width: 550px) { .summary-metric.summary-state { flex-basis: 100%; margin-left: 0; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--ui-border); } }
