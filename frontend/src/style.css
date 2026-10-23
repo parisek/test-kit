@@ -265,7 +265,7 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 /* DESIGN.md control-touch: on a coarse pointer every control has a 2.75rem hit area. Buttons, tabs, summaries and links keep their visible size. Form fields grow to 2.75rem. */
 @media (pointer: coarse) {
 	button:not(.button-primary), [role=tab], summary, a[href] { position: relative; }
-	button:not(.button-primary)::after, [role=tab]::after, summary::after, a[href]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)) 0; }
+	button:not(.button-primary)::after, [role=tab]::after, summary::after, a[href]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)); }
 	select, input:not([type=checkbox], [type=radio]) { min-height: 2.75rem; }
 	/* Wrapped evidence type buttons and a caption link need room for their hit areas. */
 	.evidence-artifacts { row-gap: 1rem; }

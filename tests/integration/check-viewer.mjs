@@ -195,14 +195,13 @@ try {
 				.map((element) => {
 					element.scrollIntoView({ block: 'center' });
 					const box = element.getBoundingClientRect();
-					const x = box.left + box.width / 2;
+					const center = box.left + box.width / 2;
 					const middle = box.top + box.height / 2;
-					const hits = (y) => { const target = document.elementFromPoint(x, y); return Boolean(target) && (target === element || element.contains(target)); };
-					let up = 0;
-					let down = 0;
-					while (up < 30 && hits(middle - up - 1)) up++;
-					while (down < 30 && hits(middle + down + 1)) down++;
-					return up + down + 1 < 43 ? `${element.tagName} ${(element.getAttribute('aria-label') || element.textContent).trim().slice(0, 30)}` : null;
+					const hits = (x, y) => { const target = document.elementFromPoint(x, y); return Boolean(target) && (target === element || element.contains(target)); };
+					const reach = (step) => { let distance = 0; while (distance < 30 && step(distance + 1)) distance++; return distance; };
+					const height = reach((d) => hits(center, middle - d)) + reach((d) => hits(center, middle + d)) + 1;
+					const width = reach((d) => hits(center - d, middle)) + reach((d) => hits(center + d, middle)) + 1;
+					return height < 43 || width < 43 ? `${element.tagName} ${(element.getAttribute('aria-label') || element.textContent).trim().slice(0, 30)} ${width}x${height}` : null;
 				})
 				.filter(Boolean));
 			assert.deepEqual(small, [], `${view}: tap area under 2.75rem`);
