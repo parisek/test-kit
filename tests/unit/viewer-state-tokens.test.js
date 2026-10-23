@@ -27,3 +27,15 @@ test('the sidebar status dots use the dark verdict tokens', () => {
   for (const verdict of ['match', 'explained', 'unexplained', 'oracle']) assert.equal(dot(verdict), token(`dark-verdict-${verdict}`), verdict);
   for (const state of ['failed', 'missing', 'incompatible']) assert.equal(dot(state), token('dark-verdict-incomplete'), state);
 });
+
+test('no fixed label carries a verdict dot (DESIGN.md: a verdict color appears only on a verdict)', () => {
+  for (const path of sources(root)) {
+    assert.doesNotMatch(readFileSync(path, 'utf8'), /class="status-dot" data-status="(?:match|explained|unexplained|oracle)"/, path);
+  }
+});
+
+test('no viewer source holds a merge conflict marker', () => {
+  for (const path of sources(root)) {
+    assert.doesNotMatch(readFileSync(path, 'utf8'), /^(?:<{7}|\|{7}|={7}|>{7})(?: |$)/m, path);
+  }
+});
