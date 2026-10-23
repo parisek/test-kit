@@ -22,6 +22,9 @@ test('aggregation requires all measured metrics and calculates even median and f
 test('cost consent is required beyond three targets and high load needs explicit override', () => {
   assert.throws(() => performanceConsent(4, performanceSettings()), /16 navigations/);
   assert.equal(performanceConsent(4, performanceSettings(), true).measurements, 12);
+  assert.throws(() => performanceConsent(1, performanceSettings(), false, { production: true }), /production side/);
+  assert.equal(performanceConsent(1, performanceSettings(), true, { production: true }).targets, 1);
+  assert.equal(performanceConsent(3, performanceSettings()).targets, 3);
   assert.throws(() => machineLoad(3, 4));
   assert.equal(machineLoad(3, 4, true).suspect, true);
   assert.equal(machineLoad(0.1, 4).suspect, false);

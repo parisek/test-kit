@@ -197,3 +197,16 @@ test('settlement validation bounds reveal actions selectors and partial override
   source.targets[0].settle = { reveal: Array.from({ length: 20 }, () => ({ action: 'focus', selector: 'x'.repeat(2048) })), lazyImages: false };
   assert.equal(normalizeConfig(source).targets[0].settle.reveal.length, 20);
 });
+
+test('a side marks production with a boolean flag, not with its id (R6.5)', () => {
+  const source = input(); source.sides.staging = { origin: 'http://localhost:8081', production: true };
+  const result = normalizeConfig(source);
+  assert.equal(result.sides.staging.production, true);
+  assert.equal(Object.hasOwn(result.sides.local, 'production'), false);
+  const off = input(); off.sides.local.production = false;
+  assert.equal(Object.hasOwn(normalizeConfig(off).sides.local, 'production'), false);
+  for (const value of ['true', 1, null]) {
+    const bad = input(); bad.sides.local.production = value;
+    assert.throws(() => normalizeConfig(bad), /Invalid configuration/);
+  }
+});

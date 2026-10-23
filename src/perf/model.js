@@ -17,12 +17,14 @@ export function extractMetrics(lhr) {
   }));
 }
 
-export function performanceConsent(targetCount, settings, consent = false) {
+// R6.5: a production side needs consent for any number of targets, one included.
+export function performanceConsent(targetCount, settings, consent = false, { production = false } = {}) {
   if (!Number.isInteger(targetCount) || targetCount < 1) throw new Error('Performance needs at least one target.');
   const measurements = targetCount * settings.runs;
   const navigations = targetCount * (settings.runs + 1);
-  if (targetCount > 3 && consent !== true) {
-    const error = new Error(`Performance needs ${navigations} navigations (${measurements} measured). Pass explicit cost consent.`);
+  if ((targetCount > 3 || production === true) && consent !== true) {
+    const where = production === true ? 'On a production side, performance' : 'Performance';
+    const error = new Error(`${where} needs ${navigations} navigations (${measurements} measured). Pass explicit cost consent.`);
     error.code = 'PERFORMANCE_COST_CONSENT_REQUIRED';
     error.cost = { targets: targetCount, measurements, navigations };
     throw error;
