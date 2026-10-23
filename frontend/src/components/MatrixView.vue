@@ -1,14 +1,24 @@
 <script setup>
 import { targetClass, targetState, cellClass, cellState } from '../../../src/report/classify.js';
 import Badge from './Badge.vue';
+import { formatRatio } from '../state/format.js';
 defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array });
 const emit = defineEmits(['action']);
 function ratio(row) {
 	if (row.artifacts && !row.artifacts.screenshot && (row.artifacts.html || row.artifacts.status)) return 'Screenshot not requested';
 	const value = row.ratio ?? row.artifacts?.screenshot?.diff?.ratio;
-	return Number.isFinite(value) ? `${value.toFixed(3)}%` : 'No ratio';
+	return Number.isFinite(value) ? formatRatio(value) : 'No ratio';
 }
 const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
+// A side shows unless its availability is "ok". "unknown" means not measured
+// (src/compare/runs.js) and the query counts it as a problem, so it stays visible.
+// When neither side was measured, one badge says so instead of two.
+const availability = (row) => ['a', 'b'].map((side) => [side, row?.availability?.[side] ?? 'unknown']).filter(([, value]) => value !== 'ok');
+const availabilityBadges = (row) => {
+	const sides = availability(row);
+	if (sides.length === 2 && sides.every(([, value]) => value === 'unknown')) return ['Availability not measured'];
+	return sides.map(([side, value]) => `${side.toUpperCase()}: ${value}`);
+};
 </script>
 <template>
 	<div class="matrix-panel min-w-0 max-w-full overflow-x-auto rounded-ui-panel border border-ui-border bg-ui-surface">
@@ -33,6 +43,7 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 						</button>
 						<div class="mt-2 flex flex-wrap gap-1">
 							<Badge :text="targetClass(report, target) ?? 'unclassified'" /><Badge
+								v-if="targetState(target) !== 'complete'"
 								:text="targetState(target)"
 							/>
 						</div>
@@ -45,16 +56,17 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 						<button class="matrix-evidence mb-2 focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id, viewportId: viewport.id })" :disabled="!rowFor(target, viewport.id)">Open {{ viewport.id }} evidence</button>
 						<div class="flex flex-wrap gap-1">
 							<Badge :text="cellClass(report, target, viewport.id) ?? 'unclassified'" /><Badge
+								v-if="cellState(target, viewport.id) !== 'complete'"
 								:text="cellState(target, viewport.id)"
 							/>
 						</div>
 						<template v-if="rowFor(target, viewport.id)"
 							><p class="matrix-ratio my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
-							<div class="flex flex-wrap gap-1">
+							<div v-if="availabilityBadges(rowFor(target, viewport.id)).length" class="flex flex-wrap gap-1">
 								<Badge
-									v-for="side in ['a', 'b']"
-									:key="side"
-									:text="`${side.toUpperCase()}: ${rowFor(target, viewport.id).availability?.[side] ?? 'unknown'}`"
+									v-for="text in availabilityBadges(rowFor(target, viewport.id))"
+									:key="text"
+									:text="text"
 								/></div
 						></template>
 					</td>
