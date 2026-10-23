@@ -95,24 +95,28 @@
 .summary-metric:first-child { border-left: 0; padding-left: 0; }
 .summary-metric strong { font-size: 30px; line-height: 1.2; font-weight: 650; letter-spacing: -1px; display: block; font-variant-numeric: tabular-nums; }
 .summary-metric span { display: block; color: var(--ui-muted); font-size: 0.75rem; text-transform: capitalize; margin-top: 4px; }
-.summary-metric[data-status=unexplained] strong { color: #dc4046; }
-.summary-metric[data-status=explained] strong { color: #3b82f6; }
-.summary-metric[data-status=match] strong { color: #16835e; }
-.summary-metric[data-status=incomplete] strong { color: #b7791f; }
-.dark .summary-metric[data-status=match] strong { color: #48bb92; }
+.summary-metric[data-status=unexplained] strong { color: #b91c1c; }
+.summary-metric[data-status=explained] strong { color: #1d4ed8; }
+.summary-metric[data-status=match] strong { color: #15803d; }
+.summary-metric[data-status=incomplete] strong { color: #b45309; }
+.dark .summary-metric[data-status=unexplained] strong { color: #f87171; }
+.dark .summary-metric[data-status=explained] strong { color: #60a5fa; }
+.dark .summary-metric[data-status=match] strong { color: #4ade80; }
+.dark .summary-metric[data-status=incomplete] strong { color: #fbbf24; }
+.summary-metric[data-status=oracle] strong, .summary-metric[data-status=unclassified] strong, .summary-metric[data-zero] strong, .dark .summary-metric[data-zero] strong { color: var(--ui-muted); }
 .summary-caption { font-size: 0.75rem; color: var(--ui-muted); margin-top: 15px; }
 .summary-warning { background: var(--ui-toolbar); border: 1px solid var(--ui-border); border-radius: 0.25rem; padding: 10px; font-size: 0.75rem; margin-top: 14px; }
 .filter-panel { border-radius: 7px; }
 .filter-help { font-size: 0.75rem; }
 .status-badge { border-color: transparent; background: var(--ui-toolbar); font-size: 0.75rem; }
-.badge-match { color: #16835e; background: #16835e12; }
-.badge-explained { color: #2563eb; background: #3b82f612; }
-.badge-unexplained { color: #cf3840; background: #ef444412; }
-.badge-oracle { color: #8055be; background: #8b5cf612; }
-.dark .badge-match { color: #60ceaa; }
-.dark .badge-explained { color: #93baff; }
-.dark .badge-unexplained { color: #ffa0a5; }
-.dark .badge-oracle { color: #cbb0fa; }
+.badge-match { color: #15803d; }
+.badge-explained { color: #1d4ed8; }
+.badge-unexplained { color: #b91c1c; }
+.badge-oracle { color: #52525b; }
+.dark .badge-match { color: #4ade80; }
+.dark .badge-explained { color: #60a5fa; }
+.dark .badge-unexplained { color: #f87171; }
+.dark .badge-oracle { color: #d4d4d8; }
 .finding-card { border-radius: 8px; }
 .finding-count { margin-left: auto; font-size: 0.75rem; color: var(--ui-muted); }
 .technical-details, .measurement-details { margin-top: 12px; font-size: 0.75rem; color: var(--ui-muted); }
