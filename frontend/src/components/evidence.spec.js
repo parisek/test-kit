@@ -192,6 +192,8 @@ describe('decision actions on a finding (viewer-workflow "Decision actions")', (
         expect(group.text()).toContain('#r-example-a/evidence/home/desktop/screenshot/f1');
         expect(group.text()).toContain('test-kit record-known report.json --config FILE --target home --viewport desktop --artifact screenshot --cause ID --reason TEXT');
         expect(group.text()).toContain('test-kit run --config FILE --target home --viewport desktop');
+        // DESIGN.md "Button secondary": surface fill, control border, 2rem height, panel radius, 16px padding.
+        for (const button of group.findAll('button')) expect(button.classes()).toEqual(expect.arrayContaining(['h-ui-control', 'rounded-ui-panel', 'border-ui-control-border', 'bg-ui-surface', 'px-4', 'text-ui-text']));
     });
     it('copies on a click and says so, and falls back to selection when copy fails', async () => {
         const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'));

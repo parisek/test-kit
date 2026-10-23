@@ -36,7 +36,7 @@ async function copy(key, text) {
                     <p class="eyebrow">Decision</p>
                     <ul class="mt-2 grid gap-2">
                         <li v-for="action in actions(finding)" :key="action.id" class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1"><span class="text-sm font-medium">{{ action.label }}</span><button v-if="action.text" type="button" class="rounded-ui-pill border border-ui-control-border px-3 py-1 text-xs focus-visible:outline-ui-focus" @click="copy(`${index}-${action.id}`, action.text)">{{ action.button }}</button><span v-if="copied[`${index}-${action.id}`]" role="status" class="text-xs text-ui-muted">{{ copied[`${index}-${action.id}`] }}</span></div>
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1"><span class="text-sm font-medium">{{ action.label }}</span><button v-if="action.text" type="button" class="inline-flex h-ui-control items-center rounded-ui-panel border border-ui-control-border bg-ui-surface px-4 text-xs text-ui-text focus-visible:outline-ui-focus" @click="copy(`${index}-${action.id}`, action.text)">{{ action.button }}</button><span v-if="copied[`${index}-${action.id}`]" role="status" class="text-xs text-ui-muted">{{ copied[`${index}-${action.id}`] }}</span></div>
                             <code v-if="action.text" class="mt-1 block min-w-0 select-all whitespace-pre-wrap break-all text-xs text-ui-muted">{{ action.text }}</code>
                             <p v-else class="mt-1 text-xs text-ui-muted">{{ action.reason }}</p>
                         </li>
