@@ -4,20 +4,42 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.4] - not tagged yet
+
+Fourth release candidate for 1.0.0. It is not a stable release. It replaces the viewer with the redesign of issue #148: a Home page with the history of comparisons, a report page with four views, and a deep link. The owner sets the date when the tag exists.
+
 ### Added
 
-- The review skill `vision-check` (`docs/skills/vision-check.md`, `.claude/skills/vision-check/SKILL.md`) and the review record checker `scripts/milestone/check-record.js` (`docs/process-skills.md`, Skill 1). The skill covers the design-file conformance check for viewer changes.
-
-- `history --publish` writes `viewports` and `summary` for each report in `index.json` (R10.13, issue #148). `summary` counts targets by class and agrees with the counts of the `summary` command. It is `null` for a legacy or invalid report. The viewer does not read the fields yet. An index without them stays valid (schemaVersion 1).
+- The viewer Home lists the comparisons as a history, newest first, with the latest verdict, its counts and a verdict history (R10.2, #167, #168).
+- The report page has four views: Overview, Evidence, Findings and Run info (R10.4, #171). It has a breadcrumb, the report time, and older and newer links (R10.3, #170).
+- A deep link selects the report, the view, the target, the viewport, the evidence type and the finding (R10.14, #165, #174, #175). Behavior is an evidence type (#172).
+- A finding offers four decision actions: Fix, Known difference, Noise or unstable, and Pass on. Each copies a link or a command (#197).
+- `history --publish` writes `viewports` and `summary` for each report in `index.json` (R10.13, #160). `summary` agrees with the counts of the `summary` command. It is `null` for a legacy or invalid report. An index without them stays valid (schemaVersion 1).
+- A side can carry `production: true`. `perf` against such a side needs `--consent` (#177).
+- The review skill `vision-check` and the record checker `scripts/milestone/check-record.js` (#159).
+- The design files `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md`. They bind viewer work (#150, #151, #154).
 
 ### Fixed
 
-- The viewer falls back to `index.json` when `report.json` answers HTTP 200 with an HTML page (issue #147). A front controller serves such a page for an unknown path. Malformed JSON still shows its own message.
+- A target whose state is not `complete` never reads `match` (R8.12, R8.7, #189).
+- `perf` refuses a remote side in its plan (R3.3, #181).
+- The viewer treats an HTML body as a missing source and falls back to `index.json` (#147, #158).
+- The viewer shows the source form only when `report.json` and `index.json` are both missing (R10.10, #169).
+- Viewer accessibility and colors: every text size is at least 0.75rem (#185). Every control has a 2.75rem hit area on a coarse pointer (#187, #192). Badges and counts use the verdict colors of DESIGN.md (#186, #196). Red marks only unexplained, and an incomplete state is amber (#188, #191). The summary warning has a border, not a side stripe (#183).
+- Viewer findings of the acceptance critique: a 1040px report column with incomplete shown as a state (#199), a verdict sentence on the report (#200), local run times with the ISO time in a title (#201), no green dot on local labels (#202), less repeated noise in the matrix (#205), a "View" group with the "Evidence type" label (#207), and no filters on Run info (#208).
+
+### Removed
+
+- The viewer prototype mode for planned artifacts (#173).
 
 ### Changed
 
-- Specify the viewer redesign (R10.2 to R10.5, R10.10, R10.13 to R10.15; issue #148). Home and report pages, four report views, one first view, a deep link grammar, `index.json` fields `viewports` and `summary`, and a data-source form only when no data loads. The design files `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md` are the design authority (R10.15). The viewer code does not follow yet.
-- Document the static path first: README and `docs/rc-trial.md` say that `history --publish` output needs a static web host, not `file://`. Name `v1.0.0-rc.3` in `docs/seam.md`, the migration guide and the upgrade guide.
+- Specify the viewer redesign (R10.2 to R10.5, R10.10, R10.13 to R10.15, #156) and record the owner decisions of 2026-10-22 (#164). The default set of checks is empty (R5.1). Snapshots stay until a person removes them.
+- Measured findings of incomplete checks may set the target class (R8.12, #180).
+- Spec wording notes after the ADR 0004 alignment (#176).
+- DESIGN.md records the touch size rule (#195) and drops a stale badge color note (#190).
+- The `summary` and `query` output is pinned on fixtures (#157).
+- README and `docs/rc-trial.md` put the static publish path first (#145).
 
 ## [1.0.0-rc.3] - 2026-10-20
 
