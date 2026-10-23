@@ -193,6 +193,7 @@ describe('decision actions on a finding (viewer-workflow "Decision actions")', (
         expect(group.text()).toContain('test-kit record-known report.json --config FILE --target home --viewport desktop --artifact screenshot --cause ID --reason TEXT');
         expect(group.text()).toContain('test-kit run --config FILE --target home --viewport desktop');
         // DESIGN.md "Button secondary": surface fill, control border, 2rem height, panel radius, 16px padding.
+        expect(group.findAll('button').map((button) => button.attributes('aria-label'))).toEqual(['Fix: Copy link', 'Known difference: Copy command', 'Noise or unstable: Copy re-capture command', 'Pass on: Copy link']);
         for (const button of group.findAll('button')) expect(button.classes()).toEqual(expect.arrayContaining(['h-ui-control', 'rounded-ui-panel', 'border-ui-control-border', 'bg-ui-surface', 'px-4', 'text-ui-text']));
     });
     it('copies on a click and says so, and falls back to selection when copy fails', async () => {

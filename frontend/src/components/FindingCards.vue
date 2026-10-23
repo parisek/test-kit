@@ -36,12 +36,12 @@ async function copy(key, text) {
                     <p class="eyebrow">Decision</p>
                     <ul class="mt-2 grid gap-2">
                         <li v-for="action in actions(finding)" :key="action.id" class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1"><span class="text-sm font-medium">{{ action.label }}</span><button v-if="action.text" type="button" class="inline-flex h-ui-control items-center rounded-ui-panel border border-ui-control-border bg-ui-surface px-4 text-xs text-ui-text focus-visible:outline-ui-focus" @click="copy(`${index}-${action.id}`, action.text)">{{ action.button }}</button><span v-if="copied[`${index}-${action.id}`]" role="status" class="text-xs text-ui-muted">{{ copied[`${index}-${action.id}`] }}</span></div>
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1"><span class="text-sm font-medium">{{ action.label }}</span><button v-if="action.text" type="button" class="inline-flex h-ui-control items-center rounded-ui-panel border border-ui-control-border bg-ui-surface px-4 text-xs text-ui-text focus-visible:outline-ui-focus" :aria-label="`${action.label}: ${action.button}`" @click="copy(`${index}-${action.id}`, action.text)">{{ action.button }}</button><span v-if="copied[`${index}-${action.id}`]" role="status" class="text-xs text-ui-muted">{{ copied[`${index}-${action.id}`] }}</span></div>
                             <code v-if="action.text" class="mt-1 block min-w-0 select-all whitespace-pre-wrap break-all text-xs text-ui-muted">{{ action.text }}</code>
                             <p v-else class="mt-1 text-xs text-ui-muted">{{ action.reason }}</p>
                         </li>
                     </ul>
-                    <p class="mt-2 text-xs text-ui-muted">Copying stores nothing. A command keeps FILE, ID and TEXT as placeholders for you to fill in.</p>
+                    <p class="mt-2 text-xs text-ui-muted">Copying stores nothing. Fill in the placeholders FILE, ID and TEXT. The report path is relative to this page; adjust it, or replace REPORT, where you run the command.</p>
                 </div>
                 <details class="mt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Finding details</summary><pre class="mt-2 whitespace-pre-wrap break-all">{{ JSON.stringify(finding, null, 2) }}</pre></details>
             </article>
