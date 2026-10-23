@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { targetClass, targetState } from '../../src/report/classify.js';
 import { useViewer } from './state/useViewer.js';
 import TargetDetail from './components/TargetDetail.vue';
@@ -13,6 +13,8 @@ import { anchorFor } from './state/index-list.js';
 import { localDateTime, reportNeighbors } from './state/report-nav.js';
 
 const { state, summary, filteredTargets, dispatch, loadSource, start, openReport, applyHash } = useViewer();
+// The decision actions of a finding build a link to the open report.
+provide('reportId', computed(() => state.reportId));
 // R10.14: Back, Forward and an edited hash apply the link.
 const onHashChange = () => applyHash();
 const source = ref('report.json');
