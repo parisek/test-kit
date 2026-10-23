@@ -10,9 +10,15 @@ function ratio(row) {
 	return Number.isFinite(value) ? formatRatio(value) : 'No ratio';
 }
 const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
-// A side shows only when its availability is a problem. "ok" and "unknown" add no
-// information to a cell; the evidence view shows both sides in full.
-const problems = (row) => ['a', 'b'].filter((side) => ['http-error', 'capture-error'].includes(row?.availability?.[side]));
+// A side shows unless its availability is "ok". "unknown" means not measured
+// (src/compare/runs.js) and the query counts it as a problem, so it stays visible.
+// When neither side was measured, one badge says so instead of two.
+const availability = (row) => ['a', 'b'].map((side) => [side, row?.availability?.[side] ?? 'unknown']).filter(([, value]) => value !== 'ok');
+const availabilityBadges = (row) => {
+	const sides = availability(row);
+	if (sides.length === 2 && sides.every(([, value]) => value === 'unknown')) return ['Availability not measured'];
+	return sides.map(([side, value]) => `${side.toUpperCase()}: ${value}`);
+};
 </script>
 <template>
 	<div class="matrix-panel min-w-0 max-w-full overflow-x-auto rounded-ui-panel border border-ui-border bg-ui-surface">
@@ -56,11 +62,11 @@ const problems = (row) => ['a', 'b'].filter((side) => ['http-error', 'capture-er
 						</div>
 						<template v-if="rowFor(target, viewport.id)"
 							><p class="matrix-ratio my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
-							<div v-if="problems(rowFor(target, viewport.id)).length" class="flex flex-wrap gap-1">
+							<div v-if="availabilityBadges(rowFor(target, viewport.id)).length" class="flex flex-wrap gap-1">
 								<Badge
-									v-for="side in problems(rowFor(target, viewport.id))"
-									:key="side"
-									:text="`${side.toUpperCase()}: ${rowFor(target, viewport.id).availability[side]}`"
+									v-for="text in availabilityBadges(rowFor(target, viewport.id))"
+									:key="text"
+									:text="text"
 								/></div
 						></template>
 					</td>

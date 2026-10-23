@@ -259,12 +259,18 @@ describe('run times (DESIGN.md: local time in the text, ISO in a title)', () => 
 	});
 });
 describe('matrix cells without noise (#198)', () => {
-	it('shows a side only when its availability is a problem, and the state only when not complete', () => {
+	it('hides only an ok side, says once when no side was measured, and shows the state only when not complete', () => {
 		const data = report();
-		data.entries[0].viewports[0] = { id: 'phone', state: 'complete', ratio: 18.2, availability: { a: 'unknown', b: 'ok' } };
+		data.entries[0].viewports[0] = { id: 'phone', state: 'complete', ratio: 18.2, availability: { a: 'ok', b: 'ok' } };
 		const quiet = mount(MatrixView, { props: { report: data, targets: data.entries } });
-		expect(quiet.text()).not.toMatch(/[AB]: (unknown|ok)/);
+		expect(quiet.text()).not.toMatch(/[AB]: |Availability not measured/);
 		expect(quiet.text()).not.toContain('complete');
+		data.entries[0].viewports[0].availability = { a: 'unknown', b: 'unknown' };
+		const unmeasured = mount(MatrixView, { props: { report: data, targets: data.entries } });
+		expect(unmeasured.findAll('td').at(0).text()).toContain('Availability not measured');
+		expect(unmeasured.text()).not.toMatch(/[AB]: unknown/);
+		data.entries[0].viewports[0].availability = { a: 'unknown', b: 'ok' };
+		expect(mount(MatrixView, { props: { report: data, targets: data.entries } }).text()).toContain('A: unknown');
 		expect(quiet.text()).toContain('18.2%');
 		data.entries[0].viewports[0].availability = { a: 'ok', b: 'http-error' };
 		data.entries[0].viewports[0].state = 'failed';
