@@ -267,6 +267,9 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 	button:not(.button-primary), [role=tab], summary, a[href] { position: relative; }
 	button:not(.button-primary)::after, [role=tab]::after, summary::after, a[href]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)) 0; }
 	select, input:not([type=checkbox], [type=radio]) { min-height: 2.75rem; }
-	/* The filter caption summary sits under "Clear filters". The gap keeps both hit areas apart. */
-	.filter-caption { margin-top: 1.125rem; }
+	/* Wrapped evidence type buttons and a caption link need room for their hit areas. */
+	.evidence-artifacts { row-gap: 1rem; }
+	figcaption { min-height: 2.75rem; }
 }
+/* Below 1100px the filter caption sits under "Clear filters". The gap keeps both hit areas apart. */
+@media (pointer: coarse) and (max-width: 1099.98px) { .filter-caption { margin-top: 1.125rem; } }

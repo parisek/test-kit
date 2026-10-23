@@ -26,7 +26,7 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
     <section v-if="target" class="min-w-0 rounded-ui-panel border border-ui-border bg-ui-surface">
         <header class="border-b border-ui-border px-4 pt-3">
             <div class="flex flex-wrap items-start justify-between gap-3"><div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1"><h2 class="break-words text-lg font-semibold tracking-tight">{{ target.title ?? target.id }}</h2><p class="break-all text-xs text-ui-muted">{{ target.kind ?? 'Target' }}<span v-if="target.path"> · {{ target.path }}</span></p></div><div class="flex flex-wrap gap-2"><Badge :text="targetClass(report, target) ?? 'unclassified'" /><Badge v-if="targetState(target) !== 'complete'" :text="targetState(target)" /></div></div>
-            <nav class="mt-2 flex flex-wrap gap-x-5 gap-y-2" aria-label="Evidence artifacts">
+            <nav class="evidence-artifacts mt-2 flex flex-wrap gap-x-5 gap-y-2" aria-label="Evidence artifacts">
                 <button v-for="kind in artifacts" :key="kind" :aria-pressed="selectedArtifact === kind" :class="selectedArtifact === kind ? 'border-ui-text text-ui-text' : 'border-transparent text-ui-muted hover:text-ui-text'" class="border-b-2 px-0.5 pb-2 text-sm font-medium" @click="emit('action', 'artifact', kind)">{{ label(kind) }}</button>
             </nav>
         </header>

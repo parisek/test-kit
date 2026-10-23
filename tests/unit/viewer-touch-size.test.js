@@ -9,5 +9,8 @@ test('a coarse pointer gives every button, tab, summary, link, select and input 
   const coarse = [...css.matchAll(/@media \(pointer: coarse\) \{([\s\S]*?)\n\}/g)].map(([, body]) => body).join('\n');
   assert.match(coarse, /button:not\(\.button-primary\)::after, \[role=tab\]::after, summary::after, a\[href\]::after \{[^}]*inset: min\(0px, calc\(\(100% - 2\.75rem\) \/ 2\)\) 0;/);
   assert.match(coarse, /button:not\(\.button-primary\), \[role=tab\], summary, a\[href\] \{ position: relative; \}/);
+  assert.match(coarse, /\.evidence-artifacts \{ row-gap: 1rem; \}/);
+  assert.match(coarse, /figcaption \{ min-height: 2\.75rem; \}/);
+  assert.match(css, /@media \(pointer: coarse\) and \(max-width: 1099\.98px\) \{ \.filter-caption \{ margin-top: 1\.125rem; \} \}/);
   assert.match(coarse, /select, input:not\(\[type=checkbox\], \[type=radio\]\) \{ min-height: 2\.75rem; \}/);
 });
