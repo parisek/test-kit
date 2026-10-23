@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { describe, it, expect, vi } from 'vitest';
+import { mount, flushPromises } from '@vue/test-utils';
+import { computed } from 'vue';
 import TargetDetail from './TargetDetail.vue';
 import ScreenshotComparison from './ScreenshotComparison.vue';
 import HtmlDiff from './HtmlDiff.vue';
@@ -179,5 +180,31 @@ describe('finding explanation remains authoritative', () => {
         expect(wrapper.text()).toContain('unexplained');
         expect(wrapper.find('img').exists()).toBe(false);
         expect(wrapper.find('a').exists()).toBe(false);
+    });
+});
+describe('decision actions on a finding (viewer-workflow "Decision actions")', () => {
+    const finding = { id: 'f1', targetId: 'home', viewportId: 'desktop', artifact: 'screenshot', message: 'Changed.' };
+    const mountCards = () => mount(FindingCards, { props: { source: new URL('report.json', globalThis.location.href).href, report: report(), findings: [finding] }, global: { provide: { reportId: computed(() => 'example-a') } } });
+    it('shows the four labelled actions with the text they copy', () => {
+        const wrapper = mountCards();
+        const group = wrapper.get('[role=group]');
+        expect(group.findAll('li').map((item) => item.find('span').text())).toEqual(['Fix', 'Known difference', 'Noise or unstable', 'Pass on']);
+        expect(group.text()).toContain('#r-example-a/evidence/home/desktop/screenshot/f1');
+        expect(group.text()).toContain('test-kit record-known report.json --config FILE --target home --viewport desktop --artifact screenshot --cause ID --reason TEXT');
+        expect(group.text()).toContain('test-kit run --config FILE --target home --viewport desktop');
+    });
+    it('copies on a click and says so, and falls back to selection when copy fails', async () => {
+        const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'));
+        vi.stubGlobal('navigator', { clipboard: { writeText } });
+        const wrapper = mountCards();
+        const buttons = wrapper.findAll('[role=group] button');
+        await buttons[1].trigger('click');
+        await flushPromises();
+        expect(writeText).toHaveBeenCalledWith(expect.stringContaining('test-kit record-known'));
+        expect(wrapper.text()).toContain('Copied.');
+        await buttons[2].trigger('click');
+        await flushPromises();
+        expect(wrapper.text()).toContain('Copy is not available. Select the text and copy it.');
+        vi.unstubAllGlobals();
     });
 });
