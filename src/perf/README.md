@@ -18,6 +18,7 @@ Only `failOnBudget` changes the budget exit code.
 This is separate from a comparison between two environments.
 
 The first runner supports loopback HTTP only. HTTPS is unsupported.
+The plan refuses a side with `remote: true`, also when its origin is local (R3.3).
 For DDEV, use its local HTTP URL if it does not redirect to HTTPS.
 A forced browser proxy checks every request. It resolves each allowed host to a loopback address.
 It connects to the checked address. It blocks remote redirects, non-GET/HEAD methods, HTTPS tunnels and WebSockets.
