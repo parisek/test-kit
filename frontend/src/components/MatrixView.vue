@@ -17,7 +17,7 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 				<tr>
 					<th scope="col" class="p-4 text-xs font-semibold">Target</th>
 					<th v-for="viewport in report.meta.viewports" :key="viewport.id" scope="col" class="p-4 text-xs font-semibold">
-						{{ viewport.id }}<span class="mt-1 block text-[10px] font-normal text-ui-muted">{{ viewport.width }} × {{ viewport.height }}</span>
+						{{ viewport.id }}<span class="mt-1 block text-xs font-normal text-ui-muted">{{ viewport.width }} × {{ viewport.height }}</span>
 					</th>
 				</tr>
 			</thead>
