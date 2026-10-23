@@ -441,7 +441,7 @@ The numbers are an example, not a measurement. The budget rule is the current on
 
 A check that throws, times out or has no input produces no finding. It sets the state of its artifact to `failed` or `missing`. An empty report-level `findings` list is valid when an artifact is not `complete`. The list is silent about that artifact. It does not mean "no problem". The rule that keeps R8.7:
 
-- Class derives from state first. `artifactClass` returns `null` when the artifact state is not `complete` (`src/report/classify.js`). `cellClass` does the same. An empty list therefore never gives `match` for that scope. `targetClass` follows the target-scope rule of R8.12 (owner decision of 2026-10-23, issue #178).
+- Class derives from state first. `artifactClass` returns `null` when the artifact state is not `complete` (`src/report/classify.js`). `cellClass` does the same. An empty list therefore never gives `match` for that scope. `targetClass` follows the target-scope rules of R8.12 (owner decisions of 2026-10-23, issues #178 and #182). An incomplete target is never `match`.
 - At cell and artifact scope, a finding of a non-complete artifact does not count toward a class. At target scope, `targetClass` filters `screenshot` and `html` findings by `state === 'complete'`. It keeps `content`, `behavior` and `lighthouse` findings, and an `html` finding without `viewportId`, so a measured defect stays visible (R8.12). The owner chose this on 2026-10-23 (issue #178). It replaces the earlier plan to filter every artifact.
 - The summary counts the scope as incomplete, and a query counts `failed` and `missing` separately (R8.7).
 - The validator rejects an artifact with state `complete` and no `result`. It accepts an empty `findings` list for any state.

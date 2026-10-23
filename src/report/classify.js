@@ -71,7 +71,9 @@ export function targetClass(report, target) {
 		return row?.artifacts?.[finding.artifact]?.state === 'complete';
 	});
 	if (findings.length) values.push(target.judge === 'oracle' ? 'oracle' : findings.every((finding) => findingIsExplained(report, finding)) ? 'explained' : 'unexplained');
-	return CLASSES.find((value) => values.includes(value)) ?? null;
+	const value = CLASSES.find((value) => values.includes(value)) ?? null;
+	// R8.12: a target that is not complete never reads match (issue #182).
+	return value === 'match' && targetState(target) !== 'complete' ? null : value;
 }
 
 export function summarize(report) {
