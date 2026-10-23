@@ -260,3 +260,9 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 .report-tabs [role=tab] { padding: 8px 2px; margin-bottom: -1px; border-bottom: 3px solid transparent; font-size: 0.9375rem; color: var(--ui-muted); }
 .report-tabs [role=tab][aria-selected=true] { border-bottom-color: var(--ui-active-surface); color: var(--ui-text); font-weight: 700; }
 @media (pointer: coarse) { .report-tabs [role=tab] { min-height: 2.75rem; } }
+/* DESIGN.md: on a coarse pointer every control has a 2.75rem hit area. The visible size stays. */
+@media (pointer: coarse) {
+	button:not(.button-primary), [role=tab] { position: relative; }
+	button:not(.button-primary)::after, [role=tab]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)) 0; }
+	select { min-height: 2.75rem; }
+}
