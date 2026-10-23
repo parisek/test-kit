@@ -17,6 +17,8 @@ function color(selector) {
 }
 
 test('verdict badges and counts use the DESIGN.md verdict colors', () => {
+  // A tint behind a badge drops the match color below 4.5:1 on the toolbar color.
+  assert.doesNotMatch(css, /\.badge-(match|explained|unexplained|oracle) \{[^}]*background/);
   for (const verdict of ['match', 'explained', 'unexplained', 'oracle']) {
     assert.equal(color(`.badge-${verdict}`), token(`verdict-${verdict}`), verdict);
     assert.equal(color(`.dark .badge-${verdict}`), token(`dark-verdict-${verdict}`), `dark ${verdict}`);
@@ -27,8 +29,9 @@ test('verdict badges and counts use the DESIGN.md verdict colors', () => {
   }
 });
 
-test('a zero count and an oracle count use the muted text color', () => {
-  assert.match(css, /\.summary-metric\[data-status=oracle\] strong, \.summary-metric\[data-zero\] strong, \.dark \.summary-metric\[data-zero\] strong \{ color: var\(--ui-muted\); \}/);
+test('a zero count, an oracle count and an unclassified count use the muted text color', () => {
+  const muted = css.match(/\n([^\n{]*) \{ color: var\(--ui-muted\); \}/g)?.join(' ') ?? '';
+  for (const selector of ['.summary-metric[data-status=oracle] strong', '.summary-metric[data-status=unclassified] strong', '.summary-metric[data-zero] strong', '.dark .summary-metric[data-zero] strong']) assert.ok(muted.includes(selector), selector);
   const at = (rule) => css.indexOf(rule);
   assert.ok(at('.summary-metric[data-zero] strong') > at('.dark .summary-metric[data-status=incomplete] strong'), 'the zero rule comes after the verdict rules');
 });

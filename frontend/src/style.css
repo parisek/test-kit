@@ -103,15 +103,15 @@
 .dark .summary-metric[data-status=explained] strong { color: #60a5fa; }
 .dark .summary-metric[data-status=match] strong { color: #4ade80; }
 .dark .summary-metric[data-status=incomplete] strong { color: #fbbf24; }
-.summary-metric[data-status=oracle] strong, .summary-metric[data-zero] strong, .dark .summary-metric[data-zero] strong { color: var(--ui-muted); }
+.summary-metric[data-status=oracle] strong, .summary-metric[data-status=unclassified] strong, .summary-metric[data-zero] strong, .dark .summary-metric[data-zero] strong { color: var(--ui-muted); }
 .summary-caption { font-size: 0.75rem; color: var(--ui-muted); margin-top: 15px; }
 .summary-warning { background: var(--ui-toolbar); border: 1px solid var(--ui-border); border-radius: 0.25rem; padding: 10px; font-size: 0.75rem; margin-top: 14px; }
 .filter-panel { border-radius: 7px; }
 .filter-help { font-size: 0.75rem; }
 .status-badge { border-color: transparent; background: var(--ui-toolbar); font-size: 0.75rem; }
-.badge-match { color: #15803d; background: #15803d12; }
-.badge-explained { color: #1d4ed8; background: #1d4ed812; }
-.badge-unexplained { color: #b91c1c; background: #b91c1c12; }
+.badge-match { color: #15803d; }
+.badge-explained { color: #1d4ed8; }
+.badge-unexplained { color: #b91c1c; }
 .badge-oracle { color: #52525b; }
 .dark .badge-match { color: #4ade80; }
 .dark .badge-explained { color: #60a5fa; }
