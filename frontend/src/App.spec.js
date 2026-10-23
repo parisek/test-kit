@@ -123,6 +123,9 @@ describe('App on a report from the index (R10.3)', () => {
 		expect(crumb.text()).toContain('Comparisons');
 		expect(app.find('.report-time time').attributes('title')).toBe('2026-10-03T09:00:00.000Z');
 		expect(document.title).toContain('Newest example');
+		// DESIGN.md "Verdict wording": the report states its run sentence, as the home does.
+		expect(app.find('.report-verdict').text()).toBe('Nothing changed');
+		expect(app.find('.report-verdict .verdict-dot').attributes('data-verdict')).toBe('match');
 		const order = app.find('nav[aria-label="Comparison order"]');
 		expect(order.text()).toContain('1 of 2');
 		expect(order.find('a').text()).toBe('Older');
