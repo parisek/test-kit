@@ -113,10 +113,12 @@
 .badge-explained { color: #1d4ed8; }
 .badge-unexplained { color: #b91c1c; }
 .badge-oracle { color: #52525b; }
+.badge-incomplete { color: #b45309; }
 .dark .badge-match { color: #4ade80; }
 .dark .badge-explained { color: #60a5fa; }
 .dark .badge-unexplained { color: #f87171; }
 .dark .badge-oracle { color: #d4d4d8; }
+.dark .badge-incomplete { color: #fbbf24; }
 .finding-card { border-radius: 8px; }
 .finding-count { margin-left: auto; font-size: 0.75rem; color: var(--ui-muted); }
 .technical-details, .measurement-details { margin-top: 12px; font-size: 0.75rem; color: var(--ui-muted); }

@@ -18,11 +18,13 @@ function color(selector) {
 
 test('verdict badges and counts use the DESIGN.md verdict colors', () => {
   // A tint behind a badge drops the match color below 4.5:1 on the toolbar color.
-  assert.doesNotMatch(css, /\.badge-(match|explained|unexplained|oracle) \{[^}]*background/);
+  assert.doesNotMatch(css, /\.badge-(match|explained|unexplained|oracle|incomplete) \{[^}]*background/);
   for (const verdict of ['match', 'explained', 'unexplained', 'oracle']) {
     assert.equal(color(`.badge-${verdict}`), token(`verdict-${verdict}`), verdict);
     assert.equal(color(`.dark .badge-${verdict}`), token(`dark-verdict-${verdict}`), `dark ${verdict}`);
   }
+  assert.equal(color('.badge-incomplete'), token('verdict-incomplete'), 'incomplete');
+  assert.equal(color('.dark .badge-incomplete'), token('dark-verdict-incomplete'), 'dark incomplete');
   for (const verdict of ['match', 'explained', 'unexplained', 'incomplete']) {
     assert.equal(color(`.summary-metric[data-status=${verdict}] strong`), token(`verdict-${verdict}`), verdict);
     assert.equal(color(`.dark .summary-metric[data-status=${verdict}] strong`), token(`dark-verdict-${verdict}`), `dark ${verdict}`);
