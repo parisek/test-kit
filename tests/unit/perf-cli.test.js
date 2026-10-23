@@ -28,3 +28,9 @@ test('performance CLI plan on a production side waits for consent for one target
   const named = { ...config, sides: { production: { origin: 'http://localhost:8080' } } };
   assert.equal(planPerfCommand(named, { side: 'production', targetIds: ['home'] }).cost.targets, 1);
 });
+test('performance CLI plan refuses a remote side, also with a local HTTP origin and consent (R3.3)', () => {
+  for (const origin of ['http://localhost:8080', 'https://example.com']) {
+    const remote = { ...config, sides: { live: { origin, remote: true } } };
+    assert.throws(() => planPerfCommand(remote, { side: 'live', targetIds: ['home'], consent: true }), /refuses a remote side/);
+  }
+});
