@@ -51,3 +51,10 @@ test('a literal red color in style.css is an unexplained verdict token', () => {
     }
   }
 });
+
+test('the selected target row uses the neutral active surface, and a capture error stays amber', () => {
+  const css = readFileSync(join(root, 'style.css'), 'utf8');
+  assert.match(css, /\.target-row\.selected \{ background: #f4f4f5; border-color: #f4f4f5; color: #18181b; \}/);
+  assert.match(css, /\.sidebar-availability\[data-availability=capture-error\] \{ color: #fbbf24; \}/);
+  assert.match(css, /\.target-row\.selected \.sidebar-availability\[data-availability=capture-error\] \{ color: #b45309; \}/);
+});
