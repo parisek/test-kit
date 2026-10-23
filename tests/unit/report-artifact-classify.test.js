@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artifactState, artifactClass, cellState, cellClass, targetClass, targetState } from '../../src/report/classify.js';
+import { artifactState, artifactClass, cellState, cellClass, summarize, targetClass, targetState } from '../../src/report/classify.js';
 
 function fixture(artifacts, state = 'complete') {
   const target = { id: 'home', viewports: [{ id: 'desktop', state, artifacts }] };
@@ -104,4 +104,21 @@ test('target class keeps measured findings of incomplete checks and drops incomp
   const { target, report } = fixture({ html: { state: 'failed' } }, 'failed');
   report.findings.push({ targetId: 'home', artifact: 'html', message: 'Changed.' });
   assert.equal(targetClass(report, target), 'unexplained');
+});
+
+test('a target with an incomplete viewport never reads match (R8.12, issue #182)', () => {
+  const target = { id: 'home', viewports: [
+    { id: 'desktop', state: 'complete', artifacts: { screenshot: { state: 'complete' } } },
+    { id: 'mobile', state: 'failed', artifacts: { screenshot: { state: 'failed' } } },
+  ] };
+  const report = { entries: [target], findings: [], causes: [], meta: {} };
+  assert.equal(cellClass(report, target, 'desktop'), 'match');
+  assert.equal(targetState(target), 'failed');
+  assert.equal(targetClass(report, target), null);
+  assert.deepEqual(summarize(report).counts, { match: 0, explained: 0, unexplained: 0, oracle: 0, unclassified: 1, incomplete: 1, total: 1 });
+  report.findings.push({ targetId: 'home', viewportId: 'desktop', artifact: 'screenshot', message: 'Changed.' });
+  assert.equal(targetClass(report, target), 'unexplained');
+  report.findings.length = 0;
+  target.judge = 'oracle';
+  assert.equal(targetClass(report, target), 'oracle');
 });
