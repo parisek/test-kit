@@ -12,12 +12,9 @@ function sources(directory) {
     return /\.(vue|js|css)$/.test(entry.name) && !entry.name.endsWith('.spec.js') ? [path] : [];
   });
 }
-// The HTML diff keeps its removed-line color until the owner decides its replacement.
-const pending = new Set(['components/HtmlDiff.vue']);
 
 test('no viewer state other than unexplained uses a red utility class', () => {
   for (const path of sources(root)) {
-    if (pending.has(path.slice(root.length))) continue;
     assert.doesNotMatch(readFileSync(path, 'utf8'), /\b(?:text|bg|border)-red-\d/, path);
   }
 });
