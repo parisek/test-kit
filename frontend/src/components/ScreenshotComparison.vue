@@ -1,4 +1,5 @@
 <script setup>
+import { formatRatio } from '../state/format.js';
 import { computed, ref, watch } from 'vue';
 import { sameOriginUrl } from '../../../src/report/safe.js';
 import EvidenceImage from './EvidenceImage.vue';
@@ -16,7 +17,7 @@ const regions = computed(() => {
     return entries.slice(0, 50).filter(region => region && typeof region === 'object' && !Array.isArray(region)
         && [region.x, region.y, region.width ?? region.w, region.height ?? region.h].every(value => Number.isFinite(value) && value >= 0));
 });
-const ratio = computed(() => Number.isFinite(props.screenshot?.diff?.ratio ?? props.ratio) ? `${(props.screenshot?.diff?.ratio ?? props.ratio).toFixed(3)}%` : 'Not measured');
+const ratio = computed(() => Number.isFinite(props.screenshot?.diff?.ratio ?? props.ratio) ? formatRatio(props.screenshot?.diff?.ratio ?? props.ratio) : 'Not measured');
 function failed(side, event) {
     if (event.target.src === urls.value[side]) failures.value = { ...failures.value, [side]: true };
 }

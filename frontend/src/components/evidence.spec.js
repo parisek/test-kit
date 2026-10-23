@@ -82,7 +82,7 @@ describe('original screenshot overlay', () => {
         expect(images[1].attributes('style')).toContain('opacity: 0.5');
         await wrapper.setProps({ overlay: 25 });
         expect(images[1].attributes('style')).toContain('opacity: 0.25');
-        expect(wrapper.text()).toContain('2.000%');
+        expect(wrapper.text()).toContain('Pixel difference 2%');
     });
     it('disables mismatch overlays instead of silently stretching originals', async () => {
         const wrapper = mount(ScreenshotComparison, { props });

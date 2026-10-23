@@ -1,14 +1,18 @@
 <script setup>
 import { targetClass, targetState, cellClass, cellState } from '../../../src/report/classify.js';
 import Badge from './Badge.vue';
+import { formatRatio } from '../state/format.js';
 defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array });
 const emit = defineEmits(['action']);
 function ratio(row) {
 	if (row.artifacts && !row.artifacts.screenshot && (row.artifacts.html || row.artifacts.status)) return 'Screenshot not requested';
 	const value = row.ratio ?? row.artifacts?.screenshot?.diff?.ratio;
-	return Number.isFinite(value) ? `${value.toFixed(3)}%` : 'No ratio';
+	return Number.isFinite(value) ? formatRatio(value) : 'No ratio';
 }
 const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
+// A side shows only when its availability is a problem. "ok" and "unknown" add no
+// information to a cell; the evidence view shows both sides in full.
+const problems = (row) => ['a', 'b'].filter((side) => ['http-error', 'capture-error'].includes(row?.availability?.[side]));
 </script>
 <template>
 	<div class="matrix-panel min-w-0 max-w-full overflow-x-auto rounded-ui-panel border border-ui-border bg-ui-surface">
@@ -33,6 +37,7 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 						</button>
 						<div class="mt-2 flex flex-wrap gap-1">
 							<Badge :text="targetClass(report, target) ?? 'unclassified'" /><Badge
+								v-if="targetState(target) !== 'complete'"
 								:text="targetState(target)"
 							/>
 						</div>
@@ -45,16 +50,17 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 						<button class="matrix-evidence mb-2 focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id, viewportId: viewport.id })" :disabled="!rowFor(target, viewport.id)">Open {{ viewport.id }} evidence</button>
 						<div class="flex flex-wrap gap-1">
 							<Badge :text="cellClass(report, target, viewport.id) ?? 'unclassified'" /><Badge
+								v-if="cellState(target, viewport.id) !== 'complete'"
 								:text="cellState(target, viewport.id)"
 							/>
 						</div>
 						<template v-if="rowFor(target, viewport.id)"
 							><p class="matrix-ratio my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
-							<div class="flex flex-wrap gap-1">
+							<div v-if="problems(rowFor(target, viewport.id)).length" class="flex flex-wrap gap-1">
 								<Badge
-									v-for="side in ['a', 'b']"
+									v-for="side in problems(rowFor(target, viewport.id))"
 									:key="side"
-									:text="`${side.toUpperCase()}: ${rowFor(target, viewport.id).availability?.[side] ?? 'unknown'}`"
+									:text="`${side.toUpperCase()}: ${rowFor(target, viewport.id).availability[side]}`"
 								/></div
 						></template>
 					</td>

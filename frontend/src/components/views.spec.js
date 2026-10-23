@@ -256,5 +256,19 @@ describe('run times (DESIGN.md: local time in the text, ISO in a title)', () => 
 			expect(time.text()).not.toContain('T08:00');
 			expect(wrapper.text()).not.toContain(at);
 		}
+describe('matrix cells without noise (#198)', () => {
+	it('shows a side only when its availability is a problem, and the state only when not complete', () => {
+		const data = report();
+		data.entries[0].viewports[0] = { id: 'phone', state: 'complete', ratio: 18.2, availability: { a: 'unknown', b: 'ok' } };
+		const quiet = mount(MatrixView, { props: { report: data, targets: data.entries } });
+		expect(quiet.text()).not.toMatch(/[AB]: (unknown|ok)/);
+		expect(quiet.text()).not.toContain('complete');
+		expect(quiet.text()).toContain('18.2%');
+		data.entries[0].viewports[0].availability = { a: 'ok', b: 'http-error' };
+		data.entries[0].viewports[0].state = 'failed';
+		const loud = mount(MatrixView, { props: { report: data, targets: data.entries } });
+		expect(loud.text()).toContain('B: http-error');
+		expect(loud.text()).not.toContain('A: ok');
+		expect(loud.text()).toContain('failed');
 	});
 });
