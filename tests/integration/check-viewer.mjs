@@ -180,6 +180,35 @@ try {
 		);
 		await context.close();
 	}
+	// DESIGN.md control-touch: on a coarse pointer every control takes a 2.75rem (44px) tap.
+	{
+		const context = await browser.newContext({ viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true });
+		const page = await context.newPage();
+		await page.goto(viewer.origin);
+		await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+		for (const view of ['overview', 'evidence', 'findings', 'run']) {
+			const tab = page.locator(`[data-view=${view}]`);
+			if (!(await tab.count())) continue;
+			await tab.first().click();
+			const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], select, input, summary, [role=tab]')]
+				.filter((element) => element.getBoundingClientRect().width && !element.disabled && !element.closest('[inert], [hidden]'))
+				.map((element) => {
+					element.scrollIntoView({ block: 'center' });
+					const box = element.getBoundingClientRect();
+					const x = box.left + box.width / 2;
+					const middle = box.top + box.height / 2;
+					const hits = (y) => { const target = document.elementFromPoint(x, y); return Boolean(target) && (target === element || element.contains(target)); };
+					let up = 0;
+					let down = 0;
+					while (up < 30 && hits(middle - up - 1)) up++;
+					while (down < 30 && hits(middle + down + 1)) down++;
+					return up + down + 1 < 43 ? `${element.tagName} ${(element.getAttribute('aria-label') || element.textContent).trim().slice(0, 30)}` : null;
+				})
+				.filter(Boolean));
+			assert.deepEqual(small, [], `${view}: tap area under 2.75rem`);
+		}
+		await context.close();
+	}
 	console.log(
 		'Viewer checks pass at 390, 860, 1100, and 1440 px with blocked storage and strict CSP.',
 	);
