@@ -112,7 +112,7 @@ try {
   await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
   await page.locator('[data-view=findings]').click();
   await page.getByRole('button', { name: 'home · wide evidence' }).click();
-  assert.equal(await page.getByRole('navigation', { name: 'Evidence artifacts' }).getByRole('button', { name: 'HTML', exact: true }).getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.getByRole('navigation', { name: 'Evidence type' }).getByRole('button', { name: 'HTML', exact: true }).getAttribute('aria-pressed'), 'true');
   const html = page.getByRole('region', { name: 'HTML line comparison' });
   await html.waitFor();
   assert.match(await html.textContent(), /before/);
