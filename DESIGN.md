@@ -96,7 +96,7 @@ A change to a rule, a token set or a path in this file is Tier 3. A record of an
 
 Decisions D1 to D15 of #153 are recorded below. The owner accepted the recommended option of each on 2026-10-20, as the choice sheet showed it (the option text and its preview are the decision).
 
-Status: design authority for the viewer redesign (issue #148). The specification (R10.3 to R10.5, R10.10, R10.13 to R10.15) adopts it. It is not yet the state of `frontend/`: the viewer work follows in #148. The specification wins when this file and a requirement disagree. The current badge colors in `frontend/src/style.css` differ from the verdict colors below.
+Status: design authority for the viewer redesign (issue #148). The specification (R10.3 to R10.5, R10.10, R10.13 to R10.15) adopts it. It is not yet the state of `frontend/`: the viewer work follows in #148. The specification wins when this file and a requirement disagree. The badges and the summary counts use the verdict colors below (#186, #188).
 
 ## Overview
 
