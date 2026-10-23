@@ -21,7 +21,7 @@ const emit = defineEmits(['action']);
             <LighthouseReports v-if="kind === 'lighthouse'" class="mb-4" :artifact="row.artifacts[kind]" :source="source" />
             <template v-if="evidence?.kind === kind">
                 <p v-if="evidence.loading" role="status" class="rounded-ui-panel border border-ui-border p-6 text-sm text-ui-muted">Loading evidence…</p>
-                <div v-else-if="evidence.error" role="status" class="rounded-ui-panel border border-ui-border p-4 text-sm"><p class="text-red-700 dark:text-red-300">{{ evidence.error }}</p><button v-if="row.artifacts[kind].diff?.src" class="mt-3 underline" @click="emit('action', 'load-artifact', kind)">Retry evidence</button></div>
+                <div v-else-if="evidence.error" role="status" class="rounded-ui-panel border border-ui-border p-4 text-sm"><p class="text-amber-700 dark:text-amber-400">{{ evidence.error }}</p><button v-if="row.artifacts[kind].diff?.src" class="mt-3 underline" @click="emit('action', 'load-artifact', kind)">Retry evidence</button></div>
                 <HtmlDiff v-else-if="kind === 'html' && evidence.data" :data="evidence.data" :view="evidenceView" @action="(...args) => emit('action', ...args)" />
                 <PerformanceComparison v-else-if="kind === 'lighthouse' && evidence.data" :data="evidence.data" />
                 <BehaviorComparison v-else-if="kind === 'behavior' && evidence.data" :data="evidence.data" :source="source" />

@@ -66,8 +66,8 @@
 .status-dot { display: inline-block; width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: #a1a1aa; }
 .status-dot[data-status=match] { background: #34b487; }
 .status-dot[data-status=explained] { background: #60a5fa; }
-.status-dot[data-status=unexplained], .status-dot[data-status=failed] { background: #f06466; }
-.status-dot[data-status=missing], .status-dot[data-status=incompatible] { background: #fbbf24; }
+.status-dot[data-status=unexplained] { background: #f06466; }
+.status-dot[data-status=failed], .status-dot[data-status=missing], .status-dot[data-status=incompatible] { background: #fbbf24; }
 .status-dot[data-status=oracle] { background: #b797ed; }
 .sidebar-footer { display: flex; gap: 8px; align-items: center; border-top: 1px solid #393940; color: #a1a1aa; padding: 17px 10px; font-size: 0.75rem; }
 .sidebar-footer kbd { margin-left: auto; border: 1px solid #49494e; padding: 0 5px; border-radius: 3px; }

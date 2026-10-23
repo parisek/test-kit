@@ -1,6 +1,6 @@
 <script setup>
 defineProps({ data: Object });
-const tone = state => state === 'passed' ? 'text-emerald-700 dark:text-emerald-300' : state === 'failed' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300';
+const tone = state => state === 'passed' ? 'text-emerald-700 dark:text-emerald-300' : state === 'failed' ? 'font-semibold text-ui-text' : 'text-amber-700 dark:text-amber-400';
 </script>
 <template>
 <section aria-label="Stored content checks" class="min-w-0 space-y-3">
