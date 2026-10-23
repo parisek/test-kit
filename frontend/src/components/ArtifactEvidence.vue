@@ -12,7 +12,7 @@ const emit = defineEmits(['action']);
 <template>
     <section class="min-w-0" :aria-label="kind === 'html' ? 'HTML response evidence' : kind === 'lighthouse' ? 'Lighthouse performance evidence' : kind === 'behavior' ? 'Behavior contract evidence' : kind === 'content' ? 'Stored content evidence' : 'HTTP status evidence'">
         <template v-if="row?.artifacts?.[kind]">
-            <p v-if="row.artifacts[kind].state !== 'complete'" role="status" class="mb-4 rounded-ui-panel border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ row.artifacts[kind].state ?? 'Missing' }} evidence. {{ row.artifacts[kind].diagnostic ?? 'This artifact cannot be compared.' }}</p>
+            <p v-if="row.artifacts[kind].state !== 'complete'" role="status" class="mb-4 rounded-ui-panel border border-ui-border bg-ui-toolbar p-3 text-sm text-ui-text">{{ row.artifacts[kind].state ?? 'Missing' }} evidence. {{ row.artifacts[kind].diagnostic ?? 'This artifact cannot be compared.' }}</p>
             <div class="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ui-muted">
                 <template v-for="side in ['a', 'b', 'normalizedA', 'normalizedB']" :key="side">
                     <a v-if="sameOriginUrl(row.artifacts[kind][side]?.src, source)" :href="sameOriginUrl(row.artifacts[kind][side].src, source)" target="_blank" rel="noreferrer" class="underline">{{ side.startsWith('normalized') ? side.slice(-1) + ' normalized' : side.toUpperCase() + ' raw' }} {{ kind }}</a>
