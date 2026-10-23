@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artifactState, artifactClass, cellState, cellClass, targetState } from '../../src/report/classify.js';
+import { artifactState, artifactClass, cellState, cellClass, targetClass, targetState } from '../../src/report/classify.js';
 
 function fixture(artifacts, state = 'complete') {
   const target = { id: 'home', viewports: [{ id: 'desktop', state, artifacts }] };
@@ -86,4 +86,19 @@ test('recorded acceptance must match selected evidence and pair', () => {
   assert.equal(artifactClass(report, target, 'desktop', 'lighthouse'), 'explained');
   finding.acceptance.bRunId = 'another-run';
   assert.equal(artifactClass(report, target, 'desktop', 'lighthouse'), 'unexplained');
+});
+
+test('target class keeps measured findings of incomplete checks and drops incomplete comparisons (R8.12)', () => {
+  for (const artifact of ['content', 'behavior', 'lighthouse']) {
+    const { target, report } = fixture({ [artifact]: { state: 'failed' } }, 'failed');
+    report.findings.push({ targetId: 'home', viewportId: 'desktop', artifact, message: 'A measured defect.' });
+    assert.equal(cellClass(report, target, 'desktop'), null);
+    assert.equal(artifactClass(report, target, 'desktop', artifact), null);
+    assert.equal(targetClass(report, target), 'unexplained');
+  }
+  for (const artifact of ['screenshot', 'html']) {
+    const { target, report } = fixture({ [artifact]: { state: 'failed' } }, 'failed');
+    report.findings.push({ targetId: 'home', viewportId: 'desktop', artifact, message: 'Changed.' });
+    assert.equal(targetClass(report, target), null);
+  }
 });
