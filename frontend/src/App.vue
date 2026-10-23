@@ -255,7 +255,8 @@ onUnmounted(() => {
                         <a v-if="neighbors.newer" :href="anchorFor(neighbors.newer.id)" @click.prevent="open(neighbors.newer.id)">Newer</a><span v-else class="report-order-end">Newer</span>
                     </nav>
                     <RunSummary :report="state.report" :summary="summary" />
-                    <ReportFilters :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
+                    <!-- Run info has no target list, so a filter there narrows nothing (DESIGN.md "View state and filters"). -->
+                    <ReportFilters v-if="state.view !== 'info'" :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
  <div role="tablist" aria-label="Report views" class="report-tabs" @keydown="tabKey">
                         <button v-for="(title, view) in views" :key="view" :id="'tab-' + view" role="tab" :data-view="view" :aria-selected="state.view === view ? 'true' : 'false'" aria-controls="report-view" :tabindex="state.view === view ? 0 : -1" @click="dispatch('view', view)">{{ title }}</button>
                     </div>

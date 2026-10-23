@@ -188,6 +188,8 @@ try {
 		await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
 		for (const view of ['overview', 'evidence', 'findings', 'info']) {
 			await page.locator(`[data-view=${view}]`).first().click();
+			// Run info has no target list, so it shows no filters.
+			assert.equal(await page.getByRole('region', { name: 'Report filters' }).count(), view === 'info' ? 0 : 1, `${view}: filter panel`);
 			const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], select, input, summary, [role=tab]')]
 				.filter((element) => element.getBoundingClientRect().width && !element.disabled && !element.closest('[inert], [hidden]'))
 				.map((element) => {
