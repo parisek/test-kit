@@ -101,4 +101,7 @@ test('target class keeps measured findings of incomplete checks and drops incomp
     report.findings.push({ targetId: 'home', viewportId: 'desktop', artifact, message: 'Changed.' });
     assert.equal(targetClass(report, target), null);
   }
+  const { target, report } = fixture({ html: { state: 'failed' } }, 'failed');
+  report.findings.push({ targetId: 'home', artifact: 'html', message: 'Changed.' });
+  assert.equal(targetClass(report, target), 'unexplained');
 });
