@@ -36,7 +36,7 @@ function loaded(side, event) {
                 <a v-for="side in ['a', 'b']" :key="side" v-show="urls[side]" :href="urls[side] ?? undefined" target="_blank" rel="noreferrer" class="text-xs text-ui-muted underline">{{ side.toUpperCase() }} full resolution</a>
             </div>
             <p v-if="!urls.a || !urls.b" role="status" class="mb-3 rounded-ui-panel border border-ui-border p-3 text-sm">Overlay needs both original images. Missing evidence is unclassified.</p>
-            <p v-else-if="failures.a || failures.b" role="status" class="mb-3 text-sm text-amber-700 dark:text-amber-400">An original image is unavailable. Overlay is disabled.</p>
+            <p v-else-if="failures.a || failures.b" role="status" class="mb-3 text-sm text-[var(--verdict-incomplete)]">An original image is unavailable. Overlay is disabled.</p>
             <p v-else-if="ready && !equal" role="status" class="mb-3 rounded-ui-panel border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">Image dimensions differ: A {{ sizes.a.width }} × {{ sizes.a.height }} px; B {{ sizes.b.width }} × {{ sizes.b.height }} px. Overlay is disabled. Use side by side to preserve each original aspect ratio.</p>
             <p v-else-if="!ready" role="status" class="mb-3 text-sm text-ui-muted">Loading original image dimensions…</p>
             <div v-if="urls.a && urls.b" class="relative min-w-0 overflow-hidden rounded-ui-panel border border-ui-border bg-ui-preview" :class="!equal && 'h-0 border-0'">

@@ -26,3 +26,22 @@ test('a failed target dot uses the incomplete color, not the unexplained one', (
   assert.equal(rule[2], '#fbbf24');
   assert.doesNotMatch(rule[1], /unexplained/);
 });
+
+// A literal red in style.css may only style unexplained, the focus ring or the brand mark.
+function isRed(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (max - min < 0.25 || max !== r) return false;
+  const hue = (60 * (g - b) / (max - min) + 360) % 360;
+  return hue < 15 || hue > 345;
+}
+
+test('a literal red color in style.css styles only unexplained, the focus ring or the brand mark', () => {
+  const css = readFileSync(join(root, 'style.css'), 'utf8');
+  for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const declaration of body.split(';')) {
+      if (![...declaration.matchAll(/#[0-9a-f]{6}\b/gi)].some(([hex]) => isRed(hex))) continue;
+      assert.match(selector + declaration, /unexplained|focus|brand/, `${selector.trim()} ${declaration.trim()}`);
+    }
+  }
+});

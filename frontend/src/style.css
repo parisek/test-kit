@@ -53,7 +53,7 @@
 .sidebar-project { padding: 10px; margin: 0 0 28px; font-size: 13px; overflow-wrap: anywhere; }
 .sidebar-filters { display: flex; flex-wrap: wrap; gap: 5px; margin: 12px 8px 22px; }
 .sidebar-filters button { border: 1px solid #45454d; border-radius: 5px; padding: 5px 7px; font-size: 0.75rem; text-transform: capitalize; color: #d4d4d8; }
-.sidebar-filters button[aria-pressed=true] { background: #e33a3c; color: white; border-color: #e33a3c; }
+.sidebar-filters button[aria-pressed=true] { background: #f4f4f5; color: #18181b; border-color: #f4f4f5; }
 .sidebar-filters span { margin-left: 4px; opacity: .8; }
 .sidebar-targets { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 24px; }
 .sidebar-group { display: flex; justify-content: space-between; padding: 14px 10px 8px; color: #a1a1aa; font-size: 0.75rem; font-weight: 600; }
@@ -140,7 +140,7 @@
 .matrix-evidence:hover { border-color: var(--ui-control-hover-border); }
 .matrix-evidence:disabled { opacity: .5; cursor: default; }
 .matrix-ratio { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; }
-.sidebar-availability { display: block; color: #f99a9c; font-size: 0.75rem; margin-bottom: 3px; }
+.sidebar-availability { display: block; color: #fbbf24; font-size: 0.75rem; margin-bottom: 3px; }
 .filter-caption { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--ui-muted); }
 .filter-caption details { margin-left: auto; }
 .filter-caption summary { cursor: pointer; }
