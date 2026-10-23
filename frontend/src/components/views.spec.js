@@ -256,6 +256,8 @@ describe('run times (DESIGN.md: local time in the text, ISO in a title)', () => 
 			expect(time.text()).not.toContain('T08:00');
 			expect(wrapper.text()).not.toContain(at);
 		}
+	});
+});
 describe('matrix cells without noise (#198)', () => {
 	it('shows a side only when its availability is a problem, and the state only when not complete', () => {
 		const data = report();
