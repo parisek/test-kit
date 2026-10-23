@@ -143,7 +143,7 @@ describe('comparison overview', () => {
         expect(wrapper.findAll('h2').map(title => title.text())).toEqual(['<script>bad()</script>', 'run-b']);
         expect(wrapper.text()).toContain('Baseline · a');
         expect(wrapper.text()).toContain('Compared run');
-        expect(wrapper.text()).toContain('2026-10-09T10:00:00Z');
+        expect(wrapper.find('time').attributes('title')).toBe('2026-10-09T10:00:00Z');
         expect(wrapper.text()).toContain('Availability problems: 1');
         expect(wrapper.find('script').exists()).toBe(false);
     });
@@ -242,4 +242,19 @@ describe('measurement state badges', () => {
         }
         expect(mount(Badge, { props: { text: 'complete' } }).classes()).toContain('text-ui-muted');
     });
+});
+describe('run times (DESIGN.md: local time in the text, ISO in a title)', () => {
+	const at = '2026-10-22T08:00:00.000Z';
+	it('shows a local time with the ISO time in its title in Run info and the run cards', () => {
+		const data = report();
+		data.runs = [{ id: 'run-a', side: 'local', at }, { id: 'run-b', side: 'local' }];
+		data.pair = { aRunId: 'run-a', bRunId: 'run-b' };
+		for (const wrapper of [mount(TimelineView, { props: { report: data } }), mount(RunSummary, { props: { report: data, summary: null } })]) {
+			const time = wrapper.get('time');
+			expect(time.attributes('title')).toBe(at);
+			expect(time.attributes('datetime')).toBe(at);
+			expect(time.text()).not.toContain('T08:00');
+			expect(wrapper.text()).not.toContain(at);
+		}
+	});
 });

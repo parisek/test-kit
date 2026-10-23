@@ -1,4 +1,5 @@
 <script setup>
+import { localDateTime } from '../state/report-nav.js';
 import { computed } from 'vue';
 const props = defineProps({ report: Object, summary: Object });
 const sides = computed(() => ['a', 'b'].map((side) => ({
@@ -18,7 +19,7 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
         <div class="run-pair" aria-label="Compared runs">
             <section v-for="item in sides" :key="item.side" class="run-card">
                 <span class="run-letter">{{ item.side }}</span>
-                <div class="min-w-0"><p class="eyebrow">{{ item.side === 'A' ? 'Baseline' : 'Compared run' }} · {{ item.run?.side ?? 'Side not recorded' }}</p><h2>{{ item.run?.label ?? item.id }}</h2><details class="run-id"><summary>Capture details</summary><p>{{ item.run?.at ?? 'Capture date not recorded' }}</p><p>{{ item.id }}</p></details></div>
+                <div class="min-w-0"><p class="eyebrow">{{ item.side === 'A' ? 'Baseline' : 'Compared run' }} · {{ item.run?.side ?? 'Side not recorded' }}</p><h2>{{ item.run?.label ?? item.id }}</h2><details class="run-id"><summary>Capture details</summary><p><time v-if="localDateTime(item.run?.at)" :datetime="item.run.at" :title="item.run.at">{{ localDateTime(item.run.at) }}</time><template v-else>Capture date not recorded</template></p><p>{{ item.id }}</p></details></div>
             </section>
         </div>
         <div v-if="summary" class="summary-metrics" aria-label="All target counts">
