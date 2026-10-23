@@ -47,27 +47,30 @@
 .sidebar-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 34px; }
 .sidebar-brand strong { font-size: 22px; font-weight: 750; letter-spacing: -1px; }
 .sidebar-brand p { font-size: 0.75rem; color: #a1a1aa; margin-top: 1px; }
-.brand-period, .brand-mark span { color: #ef4444; }
+.brand-period, .brand-mark span { color: #a1a1aa; }
 .brand-mark { width: 34px; height: 34px; border: 1px solid #49494e; border-radius: 8px; font-weight: 750; font-size: 20px; letter-spacing: -2px; display: grid; place-content: center; grid-auto-flow: column; }
 .sidebar-section-label { padding: 0 10px; font-size: 0.75rem; font-weight: 700; letter-spacing: 1.6px; color: #909098; }
 .sidebar-project { padding: 10px; margin: 0 0 28px; font-size: 13px; overflow-wrap: anywhere; }
 .sidebar-filters { display: flex; flex-wrap: wrap; gap: 5px; margin: 12px 8px 22px; }
 .sidebar-filters button { border: 1px solid #45454d; border-radius: 5px; padding: 5px 7px; font-size: 0.75rem; text-transform: capitalize; color: #d4d4d8; }
-.sidebar-filters button[aria-pressed=true] { background: #e33a3c; color: white; border-color: #e33a3c; }
+.sidebar-filters button[aria-pressed=true] { background: #f4f4f5; color: #18181b; border-color: #f4f4f5; }
 .sidebar-filters span { margin-left: 4px; opacity: .8; }
 .sidebar-targets { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 24px; }
 .sidebar-group { display: flex; justify-content: space-between; padding: 14px 10px 8px; color: #a1a1aa; font-size: 0.75rem; font-weight: 600; }
 .target-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 10px; border-radius: 6px; text-align: left; margin: 2px 0; border: 1px solid transparent; }
 .target-row:hover { background: #2c2d33; }
-.target-row.selected { background: #3a2c31; border-color: #754047; }
+/* DESIGN.md: a selected row uses the neutral active surface. In the dark sidebar that is #f4f4f5 with #18181b text. */
+.target-row.selected { background: #f4f4f5; border-color: #f4f4f5; color: #18181b; }
+.target-row.selected .target-subtitle, .target-row.selected .target-ratio, .target-row.selected .sidebar-availability { color: #52525b; }
+.target-row.selected .sidebar-availability[data-availability=capture-error] { color: #b45309; }
 .target-title { display: block; font-size: 12px; font-weight: 550; overflow-wrap: anywhere; }
 .target-subtitle { display: block; font-size: 0.75rem; color: #a1a1aa; margin-top: 3px; }
 .target-ratio { font-size: 0.75rem; color: #b9b9c0; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .status-dot { display: inline-block; width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: #a1a1aa; }
 .status-dot[data-status=match] { background: #34b487; }
 .status-dot[data-status=explained] { background: #60a5fa; }
-.status-dot[data-status=unexplained], .status-dot[data-status=failed] { background: #f06466; }
-.status-dot[data-status=missing], .status-dot[data-status=incompatible] { background: #fbbf24; }
+.status-dot[data-status=unexplained] { background: #f87171; }
+.status-dot[data-status=failed], .status-dot[data-status=missing], .status-dot[data-status=incompatible] { background: #fbbf24; }
 .status-dot[data-status=oracle] { background: #b797ed; }
 .sidebar-footer { display: flex; gap: 8px; align-items: center; border-top: 1px solid #393940; color: #a1a1aa; padding: 17px 10px; font-size: 0.75rem; }
 .sidebar-footer kbd { margin-left: auto; border: 1px solid #49494e; padding: 0 5px; border-radius: 3px; }
@@ -140,7 +143,9 @@
 .matrix-evidence:hover { border-color: var(--ui-control-hover-border); }
 .matrix-evidence:disabled { opacity: .5; cursor: default; }
 .matrix-ratio { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; }
-.sidebar-availability { display: block; color: #f99a9c; font-size: 0.75rem; margin-bottom: 3px; }
+.sidebar-availability { display: block; color: #f4f4f5; font-weight: 600; font-size: 0.75rem; margin-bottom: 3px; }
+/* A capture error is an incomplete measurement. An HTTP error is a measured status. */
+.sidebar-availability[data-availability=capture-error] { color: #fbbf24; }
 .filter-caption { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--ui-muted); }
 .filter-caption details { margin-left: auto; }
 .filter-caption summary { cursor: pointer; }
