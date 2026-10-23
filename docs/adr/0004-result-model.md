@@ -441,8 +441,8 @@ The numbers are an example, not a measurement. The budget rule is the current on
 
 A check that throws, times out or has no input produces no finding. It sets the state of its artifact to `failed` or `missing`. An empty report-level `findings` list is valid when an artifact is not `complete`. The list is silent about that artifact. It does not mean "no problem". The rule that keeps R8.7:
 
-- Class derives from state first. `artifactClass` returns `null` when the artifact state is not `complete` (`src/report/classify.js`). `cellClass` and `targetClass` do the same. An empty list therefore never gives `match` for that scope.
-- A finding of a non-complete artifact does not count toward a class. `targetClass` already filters `screenshot` and `html` findings by `state === 'complete'`. The new classifier applies the same filter to every artifact.
+- Class derives from state first. `artifactClass` returns `null` when the artifact state is not `complete` (`src/report/classify.js`). `cellClass` does the same. An empty list therefore never gives `match` for that scope. `targetClass` follows the target-scope rule of R8.12 (owner decision of 2026-10-23, issue #178).
+- At cell and artifact scope, a finding of a non-complete artifact does not count toward a class. At target scope, `targetClass` filters `screenshot` and `html` findings by `state === 'complete'`. It keeps `content`, `behavior` and `lighthouse` findings, and an `html` finding without `viewportId`, so a measured defect stays visible (R8.12). The owner chose this on 2026-10-23 (issue #178). It replaces the earlier plan to filter every artifact.
 - The summary counts the scope as incomplete, and a query counts `failed` and `missing` separately (R8.7).
 - The validator rejects an artifact with state `complete` and no `result`. It accepts an empty `findings` list for any state.
 
@@ -529,7 +529,7 @@ The record cannot prove the answers below from the code. Each one states the que
 2. Selection per target. Where is it stored when a check or contract is selected for some targets and not for others? Candidates: a list of selected check ids on each entry, or a `scope.checks` list on each artifact. Constraints: the viewer tells an unselected check from a selected check with a missing outcome (R8.7); the field is derived from run settings and never invented by the viewer; it works in a `subject` report; it keeps `report.json` small (R9.2). Run-level selection is already encoded by the catalog (section 7, point 8).
 3. The absolute fingerprint (section 7, point 6).
 4. The allowlist file and its reason and owner fields (section 7, point 5).
-5. Completed checks in a non-complete artifact. A mixed `content` artifact is non-complete when one selected check throws. Findings of a non-complete artifact do not count toward a class ("A check that throws or cannot run"). So real findings of its completed checks drop out of class aggregation, and the scope reports the incomplete state instead of a class. It is never `match`. Should findings of completed checks keep counting? The spec states only the current rule.
+5. Completed checks in a non-complete artifact. A mixed `content` artifact is non-complete when one selected check throws. Findings of a non-complete artifact do not count toward a class ("A check that throws or cannot run"). So real findings of its completed checks drop out of class aggregation, and the scope reports the incomplete state instead of a class. It is never `match`. Should findings of completed checks keep counting? The spec states only the current rule. Decided by the owner on 2026-10-23 (issue #178): at target scope they keep counting. At cell and artifact scope the class stays `null`. R8.12 holds the rule.
 
 ## Open points
 
