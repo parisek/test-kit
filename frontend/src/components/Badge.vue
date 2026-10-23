@@ -7,7 +7,10 @@ const tone = computed(
 			match: 'badge-match',
 			explained: 'badge-explained',
 			unexplained: 'badge-unexplained',
-			failed: 'badge-unexplained',
+			// DESIGN.md: a measurement state that is not complete is amber, never red.
+			failed: 'badge-incomplete',
+			missing: 'badge-incomplete',
+			incompatible: 'badge-incomplete',
 			oracle: 'badge-oracle',
 		})[props.text] ?? 'text-ui-muted',
 );

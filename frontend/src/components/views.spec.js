@@ -8,6 +8,7 @@ import TimelineView from './TimelineView.vue';
 import RunSummary from './RunSummary.vue';
 import ReportFilters from './ReportFilters.vue';
 import ArtifactEvidence from './ArtifactEvidence.vue';
+import Badge from './Badge.vue';
 const row = {
 	id: 'phone',
 	state: 'failed',
@@ -219,5 +220,16 @@ describe('HTML-only detail', () => {
         expect(detail.findAll('img')).toHaveLength(0);
         const matrix = mount(MatrixView, { props: { ...props(), report: data } });
         expect(matrix.text()).toContain('Screenshot not requested');
+    });
+});
+
+describe('measurement state badges', () => {
+    it('shows an incomplete state in amber and never in the unexplained red', () => {
+        for (const state of ['failed', 'missing', 'incompatible']) {
+            const badge = mount(Badge, { props: { text: state } });
+            expect(badge.classes()).toContain('badge-incomplete');
+            expect(badge.classes()).not.toContain('badge-unexplained');
+        }
+        expect(mount(Badge, { props: { text: 'complete' } }).classes()).toContain('text-ui-muted');
     });
 });
