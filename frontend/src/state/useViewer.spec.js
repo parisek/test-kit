@@ -24,7 +24,7 @@ describe('viewer actions', () => {
 		const fetch = vi.fn(async () => response(report()));
 		const instance = useViewer({ browser: { document: { baseURI: 'http://localhost/reports/pair/index.html' }, location: { href: 'http://localhost/' } }, fetch });
 		await instance.load('report.json');
-		expect(fetch).toHaveBeenCalledWith('http://localhost/reports/pair/report.json', { redirect: 'error' });
+		expect(fetch).toHaveBeenCalledWith('http://localhost/reports/pair/report.json', { redirect: 'error', cache: 'no-cache' });
 		await instance.load('../other/report.json');
 		expect(fetch).toHaveBeenCalledTimes(1);
 		expect(instance.state.notice).toBe('Use a report URL on this origin.');
@@ -198,6 +198,17 @@ describe('bounded response evidence actions', () => {
             expect(instance.state.artifactEvidence).toBe(null);
             expect(instance.state.artifact).toBe('screenshot');
         }
+    });
+    it('asks the server before it uses a cached evidence file', async () => {
+        const data = report();
+        data.entries[0].viewports[0].artifacts = { screenshot: {}, status: { diff: { src: 'diff/status.json' } } };
+        const fetch = vi.fn(async () => new Response(JSON.stringify({ changed: false, a: { statusCode: 200 }, b: { statusCode: 200 } })));
+        const instance = viewer({ fetch });
+        instance.dispatch('loaded', { report: data, source: 'http://localhost:4178/report.json' });
+        instance.dispatch('view', 'evidence');
+        instance.dispatch('artifact', 'status');
+        await vi.waitFor(() => expect(instance.state.artifactEvidence.loading).toBe(false));
+        expect(fetch).toHaveBeenCalledWith('http://localhost:4178/diff/status.json', { redirect: 'error', cache: 'no-cache' });
     });
     it('selects the exact finding artifact and validates comparison controls', () => {
         const data = report();
@@ -507,7 +518,7 @@ describe('evidence types (R10.4) and the publish directory', () => {
 			const instance = useViewer({ browser, fetch, width: () => 1280 });
 			await instance.start();
 			await instance.openReport('example-a');
-			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/reports/example-a/report.json', { redirect: 'error' });
+			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/reports/example-a/report.json', { redirect: 'error', cache: 'no-cache' });
 			expect(instance.state.report.entries[0].id).toBe('example');
 			expect(instance.state.source).toBe('http://localhost:4178/site/reports/example-a/report.json');
 			// Opening a report and going back to the Home each add one history entry (R10.14).
@@ -528,10 +539,10 @@ describe('evidence types (R10.4) and the publish directory', () => {
 			expect(ignored.state.report).toBeNull();
 			expect(fetch).toHaveBeenCalledTimes(2);
 		});
-		it('requests index.json with redirect error', async () => {
+		it('requests index.json with redirect error and no cached copy', async () => {
 			const fetch = server({ '/site/index.json': response(index()) });
 			await useViewer({ browser: host(), fetch, width: () => 1280 }).start();
-			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/index.json', { redirect: 'error' });
+			expect(fetch).toHaveBeenLastCalledWith('http://localhost:4178/site/index.json', { redirect: 'error', cache: 'no-cache' });
 		});
 		it('does not fall back when report.json is 200 with invalid JSON', async () => {
 			const fetch = server({ '/site/report.json': { ok: true, text: async () => '{ "entries": ' }, '/site/index.json': response(index()) });
