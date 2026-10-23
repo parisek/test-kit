@@ -22,9 +22,11 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
             </section>
         </div>
         <div v-if="summary" class="summary-metrics" aria-label="All target counts">
-            <div v-for="name in ['unexplained', 'explained', 'match', 'incomplete']" :key="name" class="summary-metric" :data-status="name" :data-zero="summary.counts[name] === 0 || undefined"><strong>{{ summary.counts[name] }}</strong><span>{{ name }}</span></div>
+            <!-- DESIGN.md "Counts": the classes first, oracle only above zero, then a rule and incomplete as a state. -->
+            <div v-for="name in ['unexplained', 'explained', 'match']" :key="name" class="summary-metric" :data-status="name" :data-zero="summary.counts[name] === 0 || undefined"><strong>{{ summary.counts[name] }}</strong><span>{{ name }}</span></div>
             <div v-if="summary.counts.oracle" class="summary-metric" data-status="oracle"><strong>{{ summary.counts.oracle }}</strong><span>oracle</span></div>
             <div v-if="summary.counts.unclassified" class="summary-metric" data-status="unclassified"><strong>{{ summary.counts.unclassified }}</strong><span>unclassified</span></div>
+            <div class="summary-metric summary-state" data-status="incomplete" :data-zero="summary.counts.incomplete === 0 || undefined"><strong>{{ summary.counts.incomplete }}</strong><span>Incomplete (state)</span></div>
         </div>
         <p class="summary-caption">All {{ report.entries.length }} targets · {{ report.meta.viewports.length }} declared viewports. Counts remain visible under filters.</p>
         <p v-if="absent" class="summary-warning" role="status">Absent declared viewport measurements: {{ absent }}. Stored target counts do not include absent rows. Use the missing viewport measurement filter to find these targets.</p>
