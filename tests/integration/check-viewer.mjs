@@ -118,7 +118,7 @@ try {
         assert.match(await page.locator('[aria-label="Compared runs"]').textContent(), /Before/);
         await page.getByLabel('Measurement filter').selectOption('failed');
         assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);
-        assert.match(await page.locator('[aria-label="All target counts"] [data-status="incomplete"]').textContent(), /2\s*incomplete/);
+        assert.match(await page.locator('[aria-label="All target counts"] [data-status="incomplete"]').textContent(), /2\s*Incomplete \(state\)/);
         assert.match(await page.locator('#content').textContent(), /Availability problems: 1/);
         await page.getByLabel('Measurement filter').selectOption('missing');
         assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);

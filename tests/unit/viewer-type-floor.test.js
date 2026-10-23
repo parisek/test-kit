@@ -26,3 +26,8 @@ test('every viewer text size is at or above 0.75rem', () => {
   const found = sources(root).flatMap((path) => tooSmall(readFileSync(path, 'utf8')).map((size) => `${path.slice(root.length)}: ${size}`));
   assert.deepEqual(found, []);
 });
+
+test('the report column has the 1040px maximum of DESIGN.md "Layout"', () => {
+  const css = readFileSync(new URL('../../frontend/src/style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.viewer-content \{ max-width: 1040px;/);
+});

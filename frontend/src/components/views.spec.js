@@ -162,10 +162,20 @@ describe('comparison overview', () => {
         const summary = { counts: { unexplained: 1, explained: 0, match: 0, incomplete: 2, oracle: 0, unclassified: 1 } };
         const wrapper = mount(RunSummary, { props: { report: data, summary } });
         const zero = wrapper.findAll('.summary-metric[data-zero]').map(metric => metric.attributes('data-status'));
-        expect(zero).toEqual(['explained', 'match']);
+        expect(zero).toEqual(['match', 'explained']);
         expect(wrapper.findAll('.summary-metric').filter(metric => metric.text().startsWith('0')).every(metric => metric.attributes('data-zero') !== undefined)).toBe(true);
         expect(wrapper.findAll('.summary-metric').filter(metric => !metric.text().startsWith('0')).every(metric => metric.attributes('data-zero') === undefined)).toBe(true);
         expect(wrapper.find('.summary-metric[data-status=unclassified]').text()).toContain('unclassified');
+    });
+    it('shows the classes first and incomplete last, labelled as a state (DESIGN.md "Counts")', () => {
+        const data = report();
+        data.pair = { aRunId: 'run-a', bRunId: 'run-b' };
+        const summary = { counts: { unexplained: 1, explained: 0, match: 2, incomplete: 1, oracle: 1, unclassified: 1 } };
+        const wrapper = mount(RunSummary, { props: { report: data, summary } });
+        expect(wrapper.findAll('.summary-metric').map(metric => metric.attributes('data-status'))).toEqual(['match', 'explained', 'unexplained', 'oracle', 'unclassified', 'incomplete']);
+        const state = wrapper.get('.summary-metric[data-status=incomplete]');
+        expect(state.classes()).toContain('summary-state');
+        expect(state.text()).toContain('Incomplete (state)');
     });
     it('does not count healthy engine availability as an error', () => {
         const data = report();
