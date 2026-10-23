@@ -155,6 +155,17 @@ describe('comparison overview', () => {
         expect(wrapper.text()).toContain('Absent declared viewport measurements: 1');
         expect(wrapper.text()).toContain('Stored target counts do not include absent rows');
     });
+    it('marks zero counts and the unclassified count for the muted color', () => {
+        const data = report();
+        data.pair = { aRunId: 'run-a', bRunId: 'run-b' };
+        const summary = { counts: { unexplained: 1, explained: 0, match: 0, incomplete: 2, oracle: 0, unclassified: 1 } };
+        const wrapper = mount(RunSummary, { props: { report: data, summary } });
+        const zero = wrapper.findAll('.summary-metric[data-zero]').map(metric => metric.attributes('data-status'));
+        expect(zero).toEqual(['explained', 'match']);
+        expect(wrapper.findAll('.summary-metric').filter(metric => metric.text().startsWith('0')).every(metric => metric.attributes('data-zero') !== undefined)).toBe(true);
+        expect(wrapper.findAll('.summary-metric').filter(metric => !metric.text().startsWith('0')).every(metric => metric.attributes('data-zero') === undefined)).toBe(true);
+        expect(wrapper.find('.summary-metric[data-status=unclassified]').text()).toContain('unclassified');
+    });
     it('does not count healthy engine availability as an error', () => {
         const data = report();
         data.pair = { aRunId: 'run-a', bRunId: 'run-b' };
