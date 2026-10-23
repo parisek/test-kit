@@ -47,7 +47,7 @@
 .sidebar-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 34px; }
 .sidebar-brand strong { font-size: 22px; font-weight: 750; letter-spacing: -1px; }
 .sidebar-brand p { font-size: 0.75rem; color: #a1a1aa; margin-top: 1px; }
-.brand-period, .brand-mark span { color: #ef4444; }
+.brand-period, .brand-mark span { color: #a1a1aa; }
 .brand-mark { width: 34px; height: 34px; border: 1px solid #49494e; border-radius: 8px; font-weight: 750; font-size: 20px; letter-spacing: -2px; display: grid; place-content: center; grid-auto-flow: column; }
 .sidebar-section-label { padding: 0 10px; font-size: 0.75rem; font-weight: 700; letter-spacing: 1.6px; color: #909098; }
 .sidebar-project { padding: 10px; margin: 0 0 28px; font-size: 13px; overflow-wrap: anywhere; }
@@ -66,7 +66,7 @@
 .status-dot { display: inline-block; width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: #a1a1aa; }
 .status-dot[data-status=match] { background: #34b487; }
 .status-dot[data-status=explained] { background: #60a5fa; }
-.status-dot[data-status=unexplained] { background: #f06466; }
+.status-dot[data-status=unexplained] { background: #f87171; }
 .status-dot[data-status=failed], .status-dot[data-status=missing], .status-dot[data-status=incompatible] { background: #fbbf24; }
 .status-dot[data-status=oracle] { background: #b797ed; }
 .sidebar-footer { display: flex; gap: 8px; align-items: center; border-top: 1px solid #393940; color: #a1a1aa; padding: 17px 10px; font-size: 0.75rem; }

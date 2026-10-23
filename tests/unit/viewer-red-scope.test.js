@@ -27,7 +27,9 @@ test('a failed target dot uses the incomplete color, not the unexplained one', (
   assert.doesNotMatch(rule[1], /unexplained/);
 });
 
-// A literal red in style.css may only style unexplained, the focus ring or the brand mark.
+// A literal red in style.css is an unexplained verdict token of DESIGN.md, and nothing else.
+const design = readFileSync(new URL('../../DESIGN.md', import.meta.url), 'utf8');
+const unexplained = ['verdict-unexplained', 'dark-verdict-unexplained'].map((name) => design.match(new RegExp(`^\\s+${name}: "(#[0-9a-f]{6})"`, 'm'))[1]);
 function isRed(hex) {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -36,12 +38,16 @@ function isRed(hex) {
   return hue < 15 || hue > 345;
 }
 
-test('a literal red color in style.css styles only unexplained, the focus ring or the brand mark', () => {
+test('a literal red color in style.css is an unexplained verdict token', () => {
   const css = readFileSync(join(root, 'style.css'), 'utf8');
   for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     for (const declaration of body.split(';')) {
-      if (![...declaration.matchAll(/#[0-9a-f]{6}\b/gi)].some(([hex]) => isRed(hex))) continue;
-      assert.match(selector + declaration, /unexplained|focus|brand/, `${selector.trim()} ${declaration.trim()}`);
+      for (const [hex] of declaration.matchAll(/#[0-9a-f]{6}\b/gi)) {
+        if (!isRed(hex)) continue;
+        const where = `${selector.trim()} ${declaration.trim()}`;
+        assert.match(selector + declaration, /unexplained/, where);
+        assert.ok(unexplained.includes(hex.toLowerCase()), where);
+      }
     }
   }
 });
