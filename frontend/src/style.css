@@ -212,6 +212,8 @@
 .verdict-dot[data-verdict=unexplained] { background: var(--verdict-unexplained); border-color: var(--verdict-unexplained); }
 .verdict-dot[data-verdict=explained] { background: var(--verdict-explained); border-color: var(--verdict-explained); }
 .latest-card { border: 1px solid var(--ui-border); border-radius: 0.25rem; background: var(--ui-surface); padding: 20px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; min-width: 0; }
+/* DESIGN.md "Verdict wording": the report states its run sentence under the title, as the home does. */
+.report-verdict { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 1rem; font-weight: 600; min-width: 0; }
 .latest-verdict { display: flex; align-items: center; gap: 10px; font-size: 1.125rem; font-weight: 600; min-width: 0; }
 .latest-time { font-size: 0.9375rem; color: var(--ui-muted); }
 .verdict-counts { display: flex; flex-wrap: wrap; gap: 12px 24px; }
