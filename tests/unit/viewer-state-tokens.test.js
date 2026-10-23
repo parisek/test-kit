@@ -33,3 +33,9 @@ test('no fixed label carries a verdict dot (DESIGN.md: a verdict color appears o
     assert.doesNotMatch(readFileSync(path, 'utf8'), /class="status-dot" data-status="(?:match|explained|unexplained|oracle)"/, path);
   }
 });
+
+test('no viewer source holds a merge conflict marker', () => {
+  for (const path of sources(root)) {
+    assert.doesNotMatch(readFileSync(path, 'utf8'), /^(?:<{7}|\|{7}|={7}|>{7})(?: |$)/m, path);
+  }
+});
