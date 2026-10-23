@@ -181,15 +181,13 @@ try {
 		await context.close();
 	}
 	// DESIGN.md control-touch: on a coarse pointer every control takes a 2.75rem (44px) tap.
-	{
-		const context = await browser.newContext({ viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true });
+	for (const width of [390, 1100]) {
+		const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: true, isMobile: true });
 		const page = await context.newPage();
 		await page.goto(viewer.origin);
 		await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
-		for (const view of ['overview', 'evidence', 'findings', 'run']) {
-			const tab = page.locator(`[data-view=${view}]`);
-			if (!(await tab.count())) continue;
-			await tab.first().click();
+		for (const view of ['overview', 'evidence', 'findings', 'info']) {
+			await page.locator(`[data-view=${view}]`).first().click();
 			const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], select, input, summary, [role=tab]')]
 				.filter((element) => element.getBoundingClientRect().width && !element.disabled && !element.closest('[inert], [hidden]'))
 				.map((element) => {
@@ -204,7 +202,7 @@ try {
 					return height < 43 || width < 43 ? `${element.tagName} ${(element.getAttribute('aria-label') || element.textContent).trim().slice(0, 30)} ${width}x${height}` : null;
 				})
 				.filter(Boolean));
-			assert.deepEqual(small, [], `${view}: tap area under 2.75rem`);
+			assert.deepEqual(small, [], `${width} px ${view}: tap area under 2.75rem`);
 		}
 		await context.close();
 	}
