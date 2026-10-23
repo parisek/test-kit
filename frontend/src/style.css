@@ -267,9 +267,14 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 .report-tabs [role=tab] { padding: 8px 2px; margin-bottom: -1px; border-bottom: 3px solid transparent; font-size: 0.9375rem; color: var(--ui-muted); }
 .report-tabs [role=tab][aria-selected=true] { border-bottom-color: var(--ui-active-surface); color: var(--ui-text); font-weight: 700; }
 @media (pointer: coarse) { .report-tabs [role=tab] { min-height: 2.75rem; } }
-/* DESIGN.md: on a coarse pointer every control has a 2.75rem hit area. The visible size stays. */
+/* DESIGN.md control-touch: on a coarse pointer every control has a 2.75rem hit area. Buttons, tabs, summaries and links keep their visible size. Form fields grow to 2.75rem. */
 @media (pointer: coarse) {
-	button:not(.button-primary), [role=tab] { position: relative; }
-	button:not(.button-primary)::after, [role=tab]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)) 0; }
-	select { min-height: 2.75rem; }
+	button:not(.button-primary), [role=tab], summary, a[href] { position: relative; }
+	button:not(.button-primary)::after, [role=tab]::after, summary::after, a[href]::after { content: ""; position: absolute; inset: min(0px, calc((100% - 2.75rem) / 2)); }
+	select, input:not([type=checkbox], [type=radio]) { min-height: 2.75rem; }
+	/* Wrapped evidence type buttons and a caption link need room for their hit areas. */
+	.evidence-artifacts { row-gap: 1rem; }
+	figcaption { min-height: 2.75rem; }
 }
+/* Below 1100px the filter caption sits under "Clear filters". The gap keeps both hit areas apart. */
+@media (pointer: coarse) and (max-width: 1099.98px) { .filter-caption { margin-top: 1.125rem; } }

@@ -180,6 +180,32 @@ try {
 		);
 		await context.close();
 	}
+	// DESIGN.md control-touch: on a coarse pointer every control takes a 2.75rem (44px) tap.
+	for (const width of [390, 1100]) {
+		const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: true, isMobile: true });
+		const page = await context.newPage();
+		await page.goto(viewer.origin);
+		await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+		for (const view of ['overview', 'evidence', 'findings', 'info']) {
+			await page.locator(`[data-view=${view}]`).first().click();
+			const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], select, input, summary, [role=tab]')]
+				.filter((element) => element.getBoundingClientRect().width && !element.disabled && !element.closest('[inert], [hidden]'))
+				.map((element) => {
+					element.scrollIntoView({ block: 'center' });
+					const box = element.getBoundingClientRect();
+					const center = box.left + box.width / 2;
+					const middle = box.top + box.height / 2;
+					const hits = (x, y) => { const target = document.elementFromPoint(x, y); return Boolean(target) && (target === element || element.contains(target)); };
+					const reach = (step) => { let distance = 0; while (distance < 30 && step(distance + 1)) distance++; return distance; };
+					const height = reach((d) => hits(center, middle - d)) + reach((d) => hits(center, middle + d)) + 1;
+					const width = reach((d) => hits(center - d, middle)) + reach((d) => hits(center + d, middle)) + 1;
+					return height < 43 || width < 43 ? `${element.tagName} ${(element.getAttribute('aria-label') || element.textContent).trim().slice(0, 30)} ${width}x${height}` : null;
+				})
+				.filter(Boolean));
+			assert.deepEqual(small, [], `${width} px ${view}: tap area under 2.75rem`);
+		}
+		await context.close();
+	}
 	console.log(
 		'Viewer checks pass at 390, 860, 1100, and 1440 px with blocked storage and strict CSP.',
 	);
