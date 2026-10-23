@@ -156,6 +156,7 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 ## Components
 
 - **Button primary:** active surface fill, active text, height 2rem, radius panel. On a coarse pointer the hit area is 2.75rem (44px). The visible size stays.
+- **Touch size:** on a coarse pointer every control takes a 2.75rem (44px) tap area on both axes (`control-touch`). A button, a tab, a summary and a link keep their visible size and take a transparent hit area. A form field (select, text input, range) is at least 2.75rem tall, because a field cannot take a transparent hit area. The owner set this rule on 2026-10-23 (#194).
 - **Button secondary:** surface fill, a 1px control border, text color, the same height and radius as primary. Use it for an action next to a primary one.
 - **Link:** the text color with an underline on hover. In running text it is always underlined. A text action (such as "More filters") is an underlined link.
 - **Segmented control:** the selected segment uses the active surface.
