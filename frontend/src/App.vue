@@ -221,7 +221,7 @@ onUnmounted(() => {
                     <button v-for="target in group.targets" :key="target.id" class="target-row" :class="{ selected: state.targetId === target.id }" :aria-current="state.targetId === target.id ? 'true' : undefined" @click="dispatch('target', target.id)">
                         <span class="status-dot" :data-status="targetState(target) === 'complete' ? targetClass(state.report, target) : targetState(target)"></span>
                         <span class="min-w-0 flex-1"><span class="target-title">{{ target.title ?? target.id }}</span><span class="target-subtitle">{{ targetClass(state.report, target) ?? 'unclassified' }} · {{ targetState(target) }}</span></span>
-                        <span class="target-ratio"><span v-if="availabilityLabel(target)" class="sidebar-availability" title="Availability problem">{{ availabilityLabel(target) }}</span>{{ targetRatio(target) }}</span>
+                        <span class="target-ratio"><span v-if="availabilityLabel(target)" :data-availability="availabilityLabel(target) === 'Capture !' ? 'capture-error' : 'http-error'" class="sidebar-availability" title="Availability problem">{{ availabilityLabel(target) }}</span>{{ targetRatio(target) }}</span>
                     </button>
                 </section>
                 <p v-if="!filteredTargets.length" class="px-3 py-4 text-xs text-zinc-400">No targets in this selection.</p>

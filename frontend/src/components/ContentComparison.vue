@@ -1,6 +1,6 @@
 <script setup>
 defineProps({ data: Object });
-const tone = state => state === 'passed' ? 'text-emerald-700 dark:text-emerald-300' : state === 'failed' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300';
+const tone = state => state === 'passed' ? 'text-emerald-700 dark:text-emerald-300' : state === 'failed' ? 'font-semibold text-ui-text' : 'text-[var(--verdict-incomplete)]';
 </script>
 <template>
 <section aria-label="Stored content checks" class="min-w-0 space-y-3">
@@ -12,7 +12,7 @@ const tone = state => state === 'passed' ? 'text-emerald-700 dark:text-emerald-3
       <div class="flex justify-between gap-2 text-xs"><strong>{{ side.toUpperCase() }} · Stored evidence</strong><span :class="tone(check[side].state)">{{ check[side].state }}</span></div>
       <p v-if="!check[side].findings.length" class="mt-2 text-xs text-ui-muted">{{ check[side].state === 'passed' ? 'No defect is found by this enabled check.' : 'Evidence is incomplete.' }}</p>
       <ul class="mt-2 space-y-3"><li v-for="(finding,index) in check[side].findings" :key="index" class="text-xs"><span class="font-semibold">{{ finding.severity }}</span><p class="mt-1 break-words">{{ finding.message }}</p><details class="mt-2 text-ui-muted"><summary class="cursor-pointer">Finding evidence</summary><pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all">{{ JSON.stringify(finding.evidence,null,2) }}</pre></details></li></ul>
-      <p v-if="check[side].omitted" class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ check[side].omitted }} findings are omitted. Coverage is incomplete.</p>
+      <p v-if="check[side].omitted" class="mt-3 text-xs text-[var(--verdict-incomplete)]">{{ check[side].omitted }} findings are omitted. Coverage is incomplete.</p>
     </div></div>
   </article>
 </section>
