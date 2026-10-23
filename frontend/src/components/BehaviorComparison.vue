@@ -1,7 +1,7 @@
 <script setup>
 import { sameOriginUrl, relativePath } from '../../../src/report/safe.js';
 defineProps({ data: Object, source: String });
-const tone = state => state === 'same' ? 'text-emerald-700 dark:text-emerald-300' : 'text-[var(--verdict-incomplete)]';
+const tone = state => state === 'same' ? 'text-emerald-700 dark:text-emerald-300' : state === 'failed' ? 'text-[var(--verdict-incomplete)]' : 'font-semibold text-ui-text';
 </script>
 <template>
 <section aria-label="Measured behavior steps" class="min-w-0 space-y-4">

@@ -33,7 +33,7 @@ const unexplained = ['verdict-unexplained', 'dark-verdict-unexplained'].map((nam
 function isRed(hex) {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  if (max - min < 0.25 || max !== r) return false;
+  if (max - min < 0.15 || max !== r) return false;
   const hue = (60 * (g - b) / (max - min) + 360) % 360;
   return hue < 15 || hue > 345;
 }

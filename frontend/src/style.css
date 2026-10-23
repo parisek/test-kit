@@ -59,7 +59,7 @@
 .sidebar-group { display: flex; justify-content: space-between; padding: 14px 10px 8px; color: #a1a1aa; font-size: 0.75rem; font-weight: 600; }
 .target-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 10px; border-radius: 6px; text-align: left; margin: 2px 0; border: 1px solid transparent; }
 .target-row:hover { background: #2c2d33; }
-.target-row.selected { background: #3a2c31; border-color: #754047; }
+.target-row.selected { background: #3f3f46; border-color: #52525b; }
 .target-title { display: block; font-size: 12px; font-weight: 550; overflow-wrap: anywhere; }
 .target-subtitle { display: block; font-size: 0.75rem; color: #a1a1aa; margin-top: 3px; }
 .target-ratio { font-size: 0.75rem; color: #b9b9c0; flex-shrink: 0; font-variant-numeric: tabular-nums; }
@@ -140,7 +140,9 @@
 .matrix-evidence:hover { border-color: var(--ui-control-hover-border); }
 .matrix-evidence:disabled { opacity: .5; cursor: default; }
 .matrix-ratio { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; }
-.sidebar-availability { display: block; color: #fbbf24; font-size: 0.75rem; margin-bottom: 3px; }
+.sidebar-availability { display: block; color: #f4f4f5; font-weight: 600; font-size: 0.75rem; margin-bottom: 3px; }
+/* A capture error is an incomplete measurement. An HTTP error is a measured status. */
+.sidebar-availability[data-availability=capture-error] { color: #fbbf24; }
 .filter-caption { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--ui-muted); }
 .filter-caption details { margin-left: auto; }
 .filter-caption summary { cursor: pointer; }
