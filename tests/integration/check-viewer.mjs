@@ -192,8 +192,16 @@ try {
 			await page.locator(`[data-view=${view}]`).first().click();
 			// Run info has no target list, so it shows no filters.
 			assert.equal(await page.getByRole('region', { name: 'Report filters' }).count(), view === 'info' ? 0 : 1, `${view}: filter panel`);
+			// DESIGN.md "Layout" (#204): Evidence shows one line of counts. Run details opens the run cards.
+			assert.equal(await page.locator('[aria-label="Target counts"]').isVisible(), view === 'evidence', `${view}: one-line counts`);
+			assert.equal(await page.locator('[aria-label="Compared runs"]').isVisible(), view !== 'evidence', `${view}: run cards`);
+			if (view === 'evidence') {
+				await page.getByText('Run details', { exact: true }).click();
+				assert.ok(await page.locator('[aria-label="Compared runs"]').isVisible(), 'Run details opens the run cards');
+			}
 			const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], select, input, summary, [role=tab]')]
-				.filter((element) => element.getBoundingClientRect().width && !element.disabled && !element.closest('[inert], [hidden]'))
+				// checkVisibility() skips content inside a closed details element.
+				.filter((element) => element.getBoundingClientRect().width && !element.disabled && !element.closest('[inert], [hidden]') && element.checkVisibility())
 				.map((element) => {
 					element.scrollIntoView({ block: 'center' });
 					const box = element.getBoundingClientRect();

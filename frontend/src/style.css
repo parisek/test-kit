@@ -112,6 +112,21 @@
 .summary-metric[data-status=oracle] strong, .summary-metric[data-status=unclassified] strong, .summary-metric[data-zero] strong, .dark .summary-metric[data-zero] strong { color: var(--ui-muted); }
 .summary-caption { font-size: 0.75rem; color: var(--ui-muted); margin-top: 15px; }
 .summary-warning { background: var(--ui-toolbar); border: 1px solid var(--ui-border); border-radius: 0.25rem; padding: 10px; font-size: 0.75rem; margin-top: 14px; }
+/* DESIGN.md "Layout" (#204): the Evidence view shows the counts as one line of text with a "Run details" disclosure. */
+.run-overview-compact { padding: 10px 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.summary-line { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8125rem; color: var(--ui-muted); min-width: 0; }
+.summary-sentence { font-weight: 600; color: var(--ui-text); }
+.summary-count strong { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--ui-text); }
+.summary-count[data-status=match] strong { color: var(--verdict-match); }
+.summary-count[data-status=explained] strong { color: var(--verdict-explained); }
+.summary-count[data-status=unexplained] strong { color: var(--verdict-unexplained); }
+.summary-count[data-status=incomplete] strong { color: var(--verdict-incomplete); }
+.summary-count[data-zero] strong { color: var(--ui-muted); }
+.summary-count[data-status=warning] { color: var(--ui-text); }
+.run-overview-compact .run-details { margin-left: auto; font-size: 0.8125rem; }
+.run-overview-compact .run-details summary { cursor: pointer; color: var(--ui-text); }
+.run-overview-compact .run-details[open] { flex-basis: 100%; margin-left: 0; }
+.run-overview-compact .run-details[open] summary { margin-bottom: 12px; }
 .filter-panel { border-radius: 7px; }
 .filter-help { font-size: 0.75rem; }
 .status-badge { border-color: transparent; background: var(--ui-toolbar); font-size: 0.75rem; }
