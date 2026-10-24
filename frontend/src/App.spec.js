@@ -126,6 +126,14 @@ describe('App on a report from the index (R10.3)', () => {
 		// DESIGN.md "Verdict wording": the report states its run sentence, as the home does.
 		expect(app.find('.report-verdict').text()).toBe('Nothing changed');
 		expect(app.find('.report-verdict .verdict-dot').attributes('data-verdict')).toBe('match');
+		// DESIGN.md "Layout" (#204): on Evidence the sentence moves into the one-line summary and shows once.
+		await app.find('button[data-view="evidence"]').trigger('click');
+		await flushPromises();
+		expect(app.find('.report-verdict').exists()).toBe(false);
+		expect(app.find('.summary-line .summary-sentence').text()).toBe('Nothing changed');
+		await app.find('button[data-view="overview"]').trigger('click');
+		await flushPromises();
+		expect(app.find('.report-verdict').text()).toBe('Nothing changed');
 		const order = app.find('nav[aria-label="Comparison order"]');
 		expect(order.text()).toContain('1 of 2');
 		expect(order.find('a').text()).toBe('Older');

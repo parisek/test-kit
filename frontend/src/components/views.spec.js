@@ -9,6 +9,7 @@ import RunSummary from './RunSummary.vue';
 import ReportFilters from './ReportFilters.vue';
 import ArtifactEvidence from './ArtifactEvidence.vue';
 import Badge from './Badge.vue';
+import { verdictSentence } from '../state/home-model.js';
 const row = {
 	id: 'phone',
 	state: 'failed',
@@ -177,7 +178,7 @@ describe('comparison overview', () => {
         expect(state.classes()).toContain('summary-state');
         expect(state.text()).toContain('Incomplete (state)');
     });
-    it('shows one line of counts and a closed "Run details" disclosure when compact (DESIGN.md "Layout", #204)', () => {
+    it('shows one line with the verdict sentence and the counts, and a closed "Run details" disclosure when compact (DESIGN.md "Layout", #204)', () => {
         const data = report();
         data.pair = { aRunId: 'run-a', bRunId: 'run-b' };
         const summary = { counts: { unexplained: 1, explained: 0, match: 2, incomplete: 0, oracle: 0, unclassified: 0 } };
@@ -186,6 +187,8 @@ describe('comparison overview', () => {
         expect(line.findAll('.summary-count').map(count => count.attributes('data-status'))).toEqual(['match', 'explained', 'unexplained', 'incomplete', 'warning', 'warning']);
         expect(line.text()).toMatch(/\d+ absent viewport measurements/);
         expect(line.text()).toMatch(/\d+ availability problems/);
+        expect(line.get('.summary-sentence').text()).toBe(verdictSentence(summary.counts));
+        expect(line.element.firstElementChild.classList.contains('summary-sentence')).toBe(true);
         expect(line.text()).toContain('2 match');
         expect(line.text()).toContain('1 unexplained');
         expect(line.text()).toContain('0 incomplete (state)');

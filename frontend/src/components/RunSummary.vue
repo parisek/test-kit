@@ -1,6 +1,7 @@
 <script setup>
 import { localDateTime } from '../state/report-nav.js';
 import { computed } from 'vue';
+import { verdictSentence } from '../state/home-model.js';
 const props = defineProps({ report: Object, summary: Object, compact: Boolean });
 const sides = computed(() => ['a', 'b'].map((side) => ({
     side: side.toUpperCase(),
@@ -15,9 +16,10 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
         row.availability?.[side] && ['http-error', 'capture-error'].includes(row.availability[side]))).length, 0));
 </script>
 <template>
-    <!-- DESIGN.md "Layout" (#204): on the Evidence view the summary is one line of counts, and "Run details" opens the full summary. -->
+    <!-- DESIGN.md "Layout" (#204): on the Evidence view the summary is one line, the verdict sentence and the counts, and "Run details" opens the full summary. -->
     <section class="run-overview" :class="{ 'run-overview-compact': compact }" aria-label="Comparison summary">
         <p v-if="compact && summary" class="summary-line" aria-label="Target counts">
+            <span class="summary-sentence">{{ verdictSentence(summary.counts) }}</span>
             <span v-for="name in ['match', 'explained', 'unexplained']" :key="name" class="summary-count" :data-status="name" :data-zero="summary.counts[name] === 0 || undefined"><strong>{{ summary.counts[name] }}</strong> {{ name }}</span>
             <span v-if="summary.counts.oracle" class="summary-count" data-status="oracle"><strong>{{ summary.counts.oracle }}</strong> oracle</span>
             <span v-if="summary.counts.unclassified" class="summary-count" data-status="unclassified"><strong>{{ summary.counts.unclassified }}</strong> unclassified</span>
