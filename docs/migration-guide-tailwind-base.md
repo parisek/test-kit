@@ -1,6 +1,6 @@
 # Migration guide: a project that pins an old version
 
-Status: draft. It serves issue #105 and vision open decision 9. The author had no access to a consuming project. Only this repository was read. A pilot in one consumer project added the checks described below.
+Status: draft. It serves issue #105 and vision open decision 9. The first version came from this repository only. Three runs in one consumer project, described below, added the checks.
 
 One consumer project ran part of this guide once, on 2026-10-19, against a local site, with `v1.0.0-rc.2`. Part 1 steps 1 to 6 and checklist items 1 to 8 and 10 ran. Where a step or an item says "Verified once", it means that run and no other. It is one project and one local site. It is not a general result. Everything else stays "Not verified". In that run these parts did not run: checklist item 9 (the mapping of an old alias), `perf`, a remote side, the `packs` key with a pack ID, and the viewer in a browser.
 
@@ -8,7 +8,7 @@ A second run on 2026-10-23 used the same project and the same local site, with t
 
 A third run on 2026-10-24 used the tag `v1.0.0-rc.4` through the pilot pull request. It ran `before` and `after` with `--ddev` around one template change, then `history --publish`, and opened the viewer in Chromium. Results are in issue #106.
 
-The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its pin is `v0.2.1` (`docs/vision.md`, End state). The text uses `v0.2.1` as the worked example.
+The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its default branch pins `v0.2.1` (`docs/vision.md`, End state). The pilot pull request pins `v1.0.0-rc.4` (2026-10-24). The text uses `v0.2.1` as the worked example.
 
 Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` to `v1.0.0-rc.4` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
 
