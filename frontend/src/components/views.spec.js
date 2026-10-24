@@ -9,6 +9,7 @@ import RunSummary from './RunSummary.vue';
 import ReportFilters from './ReportFilters.vue';
 import ArtifactEvidence from './ArtifactEvidence.vue';
 import Badge from './Badge.vue';
+import { verdictSentence } from '../state/home-model.js';
 const row = {
 	id: 'phone',
 	state: 'failed',
@@ -176,6 +177,35 @@ describe('comparison overview', () => {
         const state = wrapper.get('.summary-metric[data-status=incomplete]');
         expect(state.classes()).toContain('summary-state');
         expect(state.text()).toContain('Incomplete (state)');
+    });
+    it('shows one line with the verdict sentence and the counts, and a closed "Run details" disclosure when compact (DESIGN.md "Layout", #204)', () => {
+        const data = report();
+        data.pair = { aRunId: 'run-a', bRunId: 'run-b' };
+        const summary = { counts: { unexplained: 1, explained: 0, match: 2, incomplete: 0, oracle: 0, unclassified: 0 } };
+        const wrapper = mount(RunSummary, { props: { report: data, summary, compact: true } });
+        const line = wrapper.get('[aria-label="Target counts"]');
+        expect(line.findAll('.summary-count').map(count => count.attributes('data-status'))).toEqual(['match', 'explained', 'unexplained', 'incomplete', 'warning', 'warning']);
+        expect(line.text()).toMatch(/\d+ absent viewport measurements/);
+        expect(line.text()).toMatch(/\d+ availability problems/);
+        expect(line.get('.summary-sentence').text()).toBe(verdictSentence(summary.counts));
+        expect(line.element.firstElementChild.classList.contains('summary-sentence')).toBe(true);
+        expect(line.text()).toContain('2 match');
+        expect(line.text()).toContain('1 unexplained');
+        expect(line.text()).toContain('0 incomplete (state)');
+        const details = wrapper.get('details.run-details');
+        expect(details.attributes('open')).toBeUndefined();
+        expect(details.get('summary').text()).toBe('Run details');
+        expect(details.find('[aria-label="Compared runs"]').exists()).toBe(true);
+        expect(details.find('[aria-label="All target counts"]').exists()).toBe(true);
+    });
+    it('keeps the full summary open when not compact', () => {
+        const data = report();
+        data.pair = { aRunId: 'run-a', bRunId: 'run-b' };
+        const summary = { counts: { unexplained: 0, explained: 0, match: 1, incomplete: 0, oracle: 0, unclassified: 0 } };
+        const wrapper = mount(RunSummary, { props: { report: data, summary } });
+        expect(wrapper.find('[aria-label="Target counts"]').exists()).toBe(false);
+        expect(wrapper.find('details.run-details').exists()).toBe(false);
+        expect(wrapper.find('[aria-label="Compared runs"]').exists()).toBe(true);
     });
     it('does not count healthy engine availability as an error', () => {
         const data = report();
