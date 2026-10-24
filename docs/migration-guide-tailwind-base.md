@@ -65,6 +65,21 @@ Steps:
    - With DDEV and Mutagen, the new `reports/<id>/` directory did not reach the web container after a publish. The site then served a web page for `report.json`, and the viewer said "the server returned a web page, not JSON". `ddev mutagen sync` fixed it. Run it after each publish.
    - The site sent long cache times for static files. A reload showed the old list of comparisons. Issue #209 changes the viewer to revalidate its JSON files. The viewer files `app.js` and `style.css` keep fixed names, so a browser can keep an old viewer after an upgrade. Reload without the cache once after an upgrade.
 
+   Serve the publish directory without a long cache (issue #217). The viewer keeps fixed file names (`index.html`, `app.js`, `style.css`, `index.json`). A long cache on any of them shows an old viewer or an old list after a publish or an upgrade. The package does not write a server file. The project configures its server. In `tailwind-base`, `static/.htaccess` sets a two-week `ExpiresDefault` for every file. A rule for the publish path turns it off:
+
+   ```apache
+   <If "%{REQUEST_URI} =~ m#^/styleguide/test-kit/#">
+     <IfModule mod_expires.c>
+     ExpiresActive Off
+     </IfModule>
+     <IfModule mod_headers.c>
+     Header set Cache-Control "no-cache"
+     </IfModule>
+   </If>
+   ```
+
+   Put it after the `mod_expires` block. Change the path when the project publishes to another directory. Verified on 2026-10-24 on the local DDEV site (Apache): `index.html`, `app.js`, `style.css`, `index.json` and a `report.json` sent `cache-control: no-cache`, and `dist/css` kept `max-age=1209600`. The viewer opened in Chromium with no script error. A project on nginx needs its own rule. That is not verified.
+
 ## Part 2: files that move into the package
 
 The plan is in specification section 13 (the "Scope over time" table) and in `docs/migration-audit.md`. It names these areas of `static/tests/`: `visual`, `behavior`, `lib`, `cross-engine`, `browser-support`, `eslint`, `stylelint`, `twig-cs-fixer`, `phpstan` (specification section 13, "Scope over time"). `visual` moves first. `behavior` moves as the engine, and project contracts stay. `lib` moves only for helpers that the moved areas use. `cross-engine` and `browser-support` move after `behavior`. `eslint` and `stylelint` move as entry points of this package (R13.40). `twig-cs-fixer` and `phpstan` go to `lint-kit`, not here.

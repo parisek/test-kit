@@ -115,6 +115,14 @@ try {
 			);
 			// DESIGN.md "Theme toggle": a text button, "Dark theme" or "Light theme", at every width.
 			assert.match(await page.locator('#theme').innerText(), /(Dark|Light) theme/, `${view} theme toggle text at ${width}`);
+			// R10.2: the header hides nothing. The target toggle and the local label keep their text at every width.
+			for (const [selector, text] of [['.target-toggle-label', /Targets/], ['.local-label', /\S/]]) {
+				for (const label of await page.locator(selector).all()) {
+					assert.ok(await label.isVisible(), `${view} ${selector} hidden at ${width}`);
+					assert.match(await label.innerText(), text, `${view} ${selector} text at ${width}`);
+				}
+			}
+			if (view === 'evidence') assert.equal(await page.locator('.target-toggle-label').count(), 1, `evidence has no target toggle label at ${width}`);
 		}
 
         assert.match(await page.locator('[aria-label="Compared runs"]').textContent(), /Before/);
