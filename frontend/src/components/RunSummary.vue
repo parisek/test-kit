@@ -18,7 +18,7 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
 <template>
     <!-- DESIGN.md "Layout" (#204): on the Evidence view the summary is one line, the verdict sentence and the counts, and "Run details" opens the full summary. -->
     <section class="run-overview" :class="{ 'run-overview-compact': compact }" aria-label="Comparison summary">
-        <p v-if="compact && summary" class="summary-line" aria-label="Target counts">
+        <div v-if="compact && summary" class="summary-line" role="group" aria-label="Target counts">
             <span class="summary-sentence">{{ verdictSentence(summary.counts) }}</span>
             <span v-for="name in ['match', 'explained', 'unexplained']" :key="name" class="summary-count" :data-status="name" :data-zero="summary.counts[name] === 0 || undefined"><strong>{{ summary.counts[name] }}</strong> {{ name }}</span>
             <span v-if="summary.counts.oracle" class="summary-count" data-status="oracle"><strong>{{ summary.counts.oracle }}</strong> oracle</span>
@@ -26,7 +26,7 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
             <span class="summary-count" data-status="incomplete" :data-zero="summary.counts.incomplete === 0 || undefined"><strong>{{ summary.counts.incomplete }}</strong> incomplete (state)</span>
             <span v-if="absent" class="summary-count" data-status="warning">{{ absent }} absent viewport measurements</span>
             <span v-if="availability" class="summary-count" data-status="warning">{{ availability }} availability problems</span>
-        </p>
+        </div>
         <component :is="compact ? 'details' : 'div'" class="run-details">
         <summary v-if="compact">Run details</summary>
         <div class="run-pair" aria-label="Compared runs">

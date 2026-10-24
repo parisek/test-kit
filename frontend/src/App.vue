@@ -9,6 +9,7 @@ import RunSummary from './components/RunSummary.vue';
 import ReportFilters from './components/ReportFilters.vue';
 import IndexView from './components/IndexView.vue';
 import TimelineView from './components/TimelineView.vue';
+import { formatRatio } from './state/format.js';
 import { anchorFor } from './state/index-list.js';
 import { localDateTime, reportNeighbors } from './state/report-nav.js';
 import { rowClass, verdictSentence } from './state/home-model.js';
@@ -99,7 +100,7 @@ const targetRatio = target => {
         }
         if (findings.some(finding => finding.artifact === 'html')) return 'HTML Δ';
     }
-    return maximum == null ? '—' : maximum > 0 && maximum < 0.01 ? '<0.01%' : maximum.toFixed(2) + '%';
+    return formatRatio(maximum) ?? '—';
 };
 const pill =
 	'inline-flex h-ui-control items-center justify-center gap-1.5 rounded-ui-pill border px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-focus';
