@@ -12,6 +12,10 @@ describe('pixel difference ratio', () => {
 		expect(formatRatio(0.004)).toBe('<0.01%');
 		expect(formatRatio(0.0001)).toBe('<0.01%');
 	});
+	it('uses one rule at every edge value', () => {
+		const cases = [[0, '0%'], [0.004, '<0.01%'], [0.007, '0.01%'], [0.38, '0.38%'], [99.994, '99.99%'], [99.996, '>99.99%'], [100, '100%']];
+		for (const [value, text] of cases) expect(formatRatio(value)).toBe(text);
+	});
 	it('gives null for a missing ratio', () => {
 		for (const value of [null, undefined, Number.NaN, '1']) expect(formatRatio(value)).toBeNull();
 	});
