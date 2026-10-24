@@ -12,6 +12,10 @@ const LOADED = ARTIFACTS.filter((kind) => kind !== 'screenshot');
 // R10.4: four report views. A report opens on Overview, whatever the pair kind (R10.5).
 export const VIEWS = Object.freeze(['overview', 'evidence', 'findings', 'info']);
 
+// A published report, index or evidence file keeps its URL across publishes.
+// 'no-cache' makes the browser check the server before it uses a cached copy.
+const REQUEST = Object.freeze({ redirect: 'error', cache: 'no-cache' });
+
 export function useViewer(options = {}) {
 	const browser = options.browser ?? globalThis.window;
 	const base = options.base ?? browser?.document?.baseURI ?? browser?.location?.href;
@@ -248,7 +252,7 @@ export function useViewer(options = {}) {
 		const id = ++evidenceRequest;
 		dispatch('artifact-result', { kind, loading: true });
 		try {
-			const response = await fetchReport(url, { redirect: 'error' });
+			const response = await fetchReport(url, REQUEST);
 			if (!response.ok) throw new Error('Evidence request fails.');
 			const reader = response.body.getReader();
 			const chunks = [];
@@ -377,7 +381,7 @@ export function useViewer(options = {}) {
 		const id = ++requestId;
 		dispatch('loading');
 		try {
-			const response = await fetchReport(url, { redirect: 'error' });
+			const response = await fetchReport(url, REQUEST);
 			if (!response.ok) {
 				const error = new Error(`HTTP ${response.status}`);
 				error.status = response.status;
@@ -443,7 +447,7 @@ export function useViewer(options = {}) {
 		}
 		dispatch('loading');
 		try {
-			const response = await fetchReport(url, { redirect: 'error' });
+			const response = await fetchReport(url, REQUEST);
 			if (!response.ok) {
 				const error = new Error(`HTTP ${response.status}`);
 				error.status = response.status;
