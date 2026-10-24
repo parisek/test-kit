@@ -113,6 +113,8 @@ try {
 				await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
 				`${view} overflows at ${width}`,
 			);
+			// DESIGN.md "Theme toggle": a text button, "Dark theme" or "Light theme", at every width.
+			assert.match(await page.locator('#theme').innerText(), /(Dark|Light) theme/, `${view} theme toggle text at ${width}`);
 		}
 
         assert.match(await page.locator('[aria-label="Compared runs"]').textContent(), /Before/);

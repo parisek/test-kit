@@ -195,6 +195,11 @@ describe('decision actions on a finding (viewer-workflow "Decision actions")', (
         // DESIGN.md "Button secondary": surface fill, control border, 2rem height, panel radius, 16px padding.
         expect(group.findAll('button').map((button) => button.attributes('aria-label'))).toEqual(['Fix: Copy link', 'Known difference: Copy command', 'Noise or unstable: Copy re-capture command', 'Pass on: Copy link']);
         for (const button of group.findAll('button')) expect(button.classes()).toEqual(expect.arrayContaining(['h-ui-control', 'rounded-ui-panel', 'border-ui-control-border', 'bg-ui-surface', 'px-4', 'text-ui-text']));
+        // A command stays on one line and scrolls in its own box, so monospace never breaks it mid-token.
+        for (const code of group.findAll('code')) {
+            expect(code.classes()).toEqual(expect.arrayContaining(['whitespace-pre', 'overflow-x-auto', 'max-w-full']));
+            expect(code.classes()).not.toContain('break-all');
+        }
     });
     it('copies on a click and says so, and falls back to selection when copy fails', async () => {
         const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'));
