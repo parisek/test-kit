@@ -87,9 +87,10 @@ describe('Evidence default target (#218)', () => {
 		const link = resolveDeepLink(parseDeepLink('#evidence/m1', { adjacent: true }), data);
 		expect(link.targetId).toBe('m1');
 	});
-	it('takes the worst target for a deep link without a target', () => {
-		const link = resolveDeepLink(parseDeepLink('#evidence', { adjacent: true }), mixed());
+	it('keeps the first target for a deep link without a target (R10.14)', () => {
+		const data = mixed();
+		const link = resolveDeepLink(parseDeepLink('#evidence', { adjacent: true }), data);
 		expect(link.view).toBe('evidence');
-		expect(link.targetId).toBe('un2');
+		expect(link.targetId).toBe(data.entries[0].id);
 	});
 });
