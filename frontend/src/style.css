@@ -183,12 +183,13 @@
     .run-overview { padding: 12px; }
     .summary-caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
     .summary-warning { margin-top: 6px; padding: 5px 7px; font-size: 0.75rem; }
-    .filter-panel { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
+    .filter-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 10px; }
     .filter-panel > div:first-child { flex: 1; }
     .filter-panel > div:first-child > button { padding: 6px 9px; font-size: 0.75rem; }
+    /* "More filters" opens a full-width row under the Filter group (DESIGN.md "Filter group"). */
+    .filter-panel .more-filters-panel { order: 3; flex-basis: 100%; margin-top: 0; }
     .filter-panel label { font-size: 0.75rem; gap: 5px; }
     .filter-panel select { font-size: 0.75rem; }
-    .filter-panel select[aria-label="Class filter"] { width: 110px; }
     .filter-panel select[aria-label="Measurement filter"] { width: 148px; }
     .filter-panel select[aria-label="Cause filter"] { width: 136px; }
     .filter-caption { margin-top: 0; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; font-size: 0.75rem; }
@@ -284,3 +285,5 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 }
 /* Below 1100px the filter caption sits under "Clear filters". The gap keeps both hit areas apart. */
 @media (pointer: coarse) and (max-width: 1099.98px) { .filter-caption { margin-top: 1.125rem; } }
+/* Segments sit edge to edge, so a short segment such as "All" cannot borrow width from its neighbour. */
+@media (pointer: coarse) { .filter-segment button { min-width: 2.75rem; } }
