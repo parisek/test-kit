@@ -2,6 +2,8 @@ import { findingIsExplained } from '../rules/classify.js';
 export { findingIsExplained } from '../rules/classify.js';
 // Shared pure classification for the viewer and queries (R4.4, R11.6).
 export const CLASSES = ['unexplained', 'explained', 'oracle', 'match'];
+// The order in which the Evidence view picks its first target: worst class first (#218).
+export const WORST_FIRST = ['unexplained', 'explained', 'oracle', 'unclassified', 'match'];
 
 export function findingsFor(report, targetId, { viewportId = null, artifact = null } = {}) {
 	return report.findings.filter((finding) => finding.targetId === targetId
@@ -74,6 +76,17 @@ export function targetClass(report, target) {
 	const value = CLASSES.find((value) => values.includes(value)) ?? null;
 	// R8.12: a target that is not complete never reads match (issue #182).
 	return value === 'match' && targetState(target) !== 'complete' ? null : value;
+}
+
+// The first target of the worst class, in list order inside a class. Null for no targets.
+export function worstTarget(report, targets = report?.entries ?? []) {
+	let best = null;
+	let bestRank = Infinity;
+	for (const target of targets) {
+		const rank = WORST_FIRST.indexOf(targetClass(report, target) ?? 'unclassified');
+		if (rank < bestRank) { best = target; bestRank = rank; }
+	}
+	return best;
 }
 
 export function summarize(report) {

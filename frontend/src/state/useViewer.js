@@ -1,7 +1,7 @@
 import { comparisonDetail } from '../../../src/artifacts/schema.js';
 import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
-import { summarize, targetClass, cellState } from '../../../src/report/classify.js';
+import { summarize, targetClass, cellState, worstTarget } from '../../../src/report/classify.js';
 import { sameOriginUrl } from '../../../src/report/safe.js';
 import { anchorFor, parseIndex, reportPath } from './index-list.js';
 import { ARTIFACTS, buildDeepLink, modeFromState, modeToState, parseDeepLink, resolveDeepLink } from './deep-link.js';
@@ -63,6 +63,8 @@ export function useViewer(options = {}) {
 	});
 	let requestId = 0;
 	let evidenceRequest = 0;
+	// True once a person or a link names a target. Until then Evidence opens on the worst one (#218).
+	let targetPicked = false;
 	const summary = computed(() => (state.report ? summarize(state.report) : null));
 	const filteredTargets = computed(() =>
 		state.report?.entries.filter((target) => {
@@ -148,6 +150,7 @@ export function useViewer(options = {}) {
 				|| target.viewports.some((row) => row.id === value.viewportId);
 			if (value.viewportId != null && !viewportExists) return;
 			invalidateEvidence();
+			targetPicked = true;
 			state.targetId = target.id;
 			// The first valid viewport: the target's first row, else the report's first declared one.
 			state.viewportId = value.viewportId ?? target.viewports[0]?.id ?? state.report.meta.viewports[0]?.id ?? null;
@@ -170,6 +173,17 @@ export function useViewer(options = {}) {
 			state.theme = state.theme === 'light' ? 'dark' : 'light';
 			persist('test-kit-theme', state.theme);
 		} else if (action === 'view' && VIEWS.includes(value)) {
+			// Evidence opens on the worst target that the active filter shows (#218). A named target stays.
+			if (value === 'evidence' && state.view !== 'evidence' && !targetPicked) {
+				const worst = worstTarget(state.report, filteredTargets.value);
+				if (worst && worst.id !== state.targetId) {
+					invalidateEvidence();
+					state.targetId = worst.id;
+					state.viewportId = worst.viewports[0]?.id ?? state.report.meta.viewports[0]?.id ?? null;
+					state.findingId = null;
+					selectArtifact();
+				}
+			}
 			state.view = value;
 			if (!state.artifactEvidence) loadSelectedEvidence();
 		}
@@ -177,6 +191,7 @@ export function useViewer(options = {}) {
 			const target = state.report?.entries.find((target) => target.id === value);
 			if (!target) return;
 			invalidateEvidence();
+			targetPicked = true;
 			state.targetId = target.id;
 			state.viewportId = target.viewports[0]?.id ?? state.report.meta.viewports[0]?.id ?? null;
 			state.findingId = null;
@@ -196,8 +211,10 @@ export function useViewer(options = {}) {
 			state.reportId = null;
 			state.findingId = null;
 			state.source = value.source;
-			state.targetId = value.report.entries[0]?.id ?? null;
-			state.viewportId = value.report.entries[0]?.viewports[0]?.id ?? null;
+			targetPicked = false;
+			const first = worstTarget(value.report);
+			state.targetId = first?.id ?? null;
+			state.viewportId = first?.viewports[0]?.id ?? null;
 			state.view = 'overview';
 			selectArtifact();
 			loadSelectedEvidence();
@@ -214,6 +231,7 @@ export function useViewer(options = {}) {
 			requestId++;
 			state.loading = false;
 			invalidateEvidence();
+			targetPicked = false;
 			state.report = null;
 			state.reportId = null;
 			state.source = null;

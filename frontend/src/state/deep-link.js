@@ -3,6 +3,7 @@
 // With an adjacent report.json the r-<report id> part is dropped. The hash is untrusted.
 // Target, viewport and finding ids are checked against the open report later, not here.
 import { validId } from './index-list.js';
+import { worstTarget } from '../../../src/report/classify.js';
 
 export const VIEWS = ['overview', 'evidence', 'findings', 'info'];
 // Evidence types of R10.4 by artifact id, in the order the viewer offers them.
@@ -153,7 +154,7 @@ export const modeFromState = (comparison) => Object.keys(MODE_NAMES).find((key) 
 // viewport or finding id only when the report holds it. A finding wins over the other
 // parts and gives a notice when they differ. An unknown part gives a notice and the
 // Overview. An omitted part takes the first valid value (left null here; the viewer
-// picks it). Pure: the report is plain data.
+// picks it). An omitted target takes the first target of the worst class (#218). Pure: the report is plain data.
 export function resolveDeepLink(parsed, report) {
 	const overview = (notice) => ({ view: 'overview', targetId: null, viewportId: null, artifact: null, findingId: null, mode: null, notice });
 	if (!parsed || !report) return overview(parsed?.notice ?? null);
@@ -178,7 +179,7 @@ export function resolveDeepLink(parsed, report) {
 		artifact = findingArtifact;
 		result.findingId = finding.id;
 	}
-	const target = targetId === null ? entries[0] : entries.find((item) => item?.id === targetId);
+	const target = targetId === null ? worstTarget({ ...report, findings: report.findings ?? [], causes: report.causes ?? [] }, entries.filter(Boolean)) : entries.find((item) => item?.id === targetId);
 	if (!target) {
 		if (targetId !== null) return overview('The link names a target that this report does not hold.');
 		// A report with no targets: Findings still opens; Evidence has nothing to show.
