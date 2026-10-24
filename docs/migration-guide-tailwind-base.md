@@ -6,9 +6,11 @@ One consumer project ran part of this guide once, on 2026-10-19, against a local
 
 A second run on 2026-10-23 used the same project and the same local site, with test-kit commit `5ecf7b1` (after `v1.0.0-rc.3`). It ran `before` and `after` with `--ddev`, `perf` with `--ddev`, the `packs` key with a pack ID, and the published viewer in Chromium. Results are in issue #136. Where a step says "Verified on 2026-10-23", it means that run and no other. Still not run: checklist item 9 and a remote side.
 
+A third run on 2026-10-24 used the tag `v1.0.0-rc.4` through the pilot pull request. It ran `before` and `after` with `--ddev` around one template change, then `history --publish`, and opened the viewer in Chromium. Results are in issue #106.
+
 The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its pin is `v0.2.1` (`docs/vision.md`, End state). The text uses `v0.2.1` as the worked example.
 
-Move once, onto a release candidate tag. The tags `v1.0.0-rc.1`, `v1.0.0-rc.2` and `v1.0.0-rc.3` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
+Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` to `v1.0.0-rc.4` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
 
 ## What the move covers
 
