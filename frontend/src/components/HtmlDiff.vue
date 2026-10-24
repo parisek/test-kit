@@ -18,9 +18,9 @@ const lines = computed(() => Array.isArray(window.value?.lines) ? window.value.l
         <p class="mb-3 text-xs text-ui-muted">Server response text. Markup is displayed as text. This is a bounded replacement window, not a DOM comparison.</p>
         <div v-if="lines.length" class="overflow-hidden rounded-ui-panel border border-ui-border font-mono text-xs">
             <div v-for="(line, index) in lines" :key="index" class="flex min-w-0 border-b border-ui-border last:border-b-0" :class="line.kind === 'added' ? 'bg-ui-surface text-ui-text' : 'bg-ui-toolbar text-ui-text'">
-                <span class="w-12 shrink-0 border-r border-ui-border px-2 py-2 text-right opacity-60">{{ line.line }}</span>
+                <span class="w-12 shrink-0 border-r border-ui-border px-2 py-2 text-right text-ui-muted">{{ line.line }}</span>
                 <span class="w-7 shrink-0 py-2 text-center font-semibold" :class="line.kind === 'added' ? 'text-[var(--verdict-match)]' : ''">{{ line.kind === 'added' ? '+' : '−' }}</span>
-                <code class="min-w-0 flex-1 whitespace-pre-wrap break-all py-2 pr-3">{{ line.text }}<span v-if="line.truncated" class="ml-2 font-sans italic opacity-60">[line truncated]</span></code>
+                <code class="min-w-0 flex-1 whitespace-pre-wrap break-all py-2 pr-3">{{ line.text }}<span v-if="line.truncated" class="ml-2 font-sans italic text-ui-muted">[line truncated]</span></code>
             </div>
         </div>
         <p v-else class="rounded-ui-panel border border-ui-border bg-ui-toolbar p-5 text-sm">{{ !window ? 'No comparison window is available.' : window.changed ? 'No changed lines are displayed in this window.' : 'No changed lines in this comparison.' }}</p>
