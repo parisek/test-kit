@@ -4,9 +4,9 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
-## [1.0.0-rc.4] - not tagged yet
+## [1.0.0-rc.4] - 2026-10-24
 
-Fourth release candidate for 1.0.0. It is not a stable release. It replaces the viewer with the redesign of issue #148: a Home page with the history of comparisons, a report page with four views, and a deep link. The owner sets the date when the tag exists.
+Fourth release candidate for 1.0.0. It is not a stable release. It replaces the viewer with the redesign of issue #148: a Home page with the history of comparisons, a report page with four views, and a deep link.
 
 ### Added
 
@@ -27,6 +27,9 @@ Fourth release candidate for 1.0.0. It is not a stable release. It replaces the 
 - The viewer shows the source form only when `report.json` and `index.json` are both missing (R10.10, #169).
 - Viewer accessibility and colors: every text size is at least 0.75rem (#185). Every control has a 2.75rem hit area on a coarse pointer (#187, #192). Badges and counts use the verdict colors of DESIGN.md (#186, #196). Red marks only unexplained, and an incomplete state is amber (#188, #191). The summary warning has a border, not a side stripe (#183).
 - Viewer findings of the acceptance critique: a 1040px report column with incomplete shown as a state (#199), a verdict sentence on the report (#200), local run times with the ISO time in a title (#201), no green dot on local labels (#202), less repeated noise in the matrix (#205), a "View" group with the "Evidence type" label (#207), and no filters on Run info (#208).
+- The viewer asks the server before it uses a cached `index.json`, `report.json` or evidence file, so a reload after a new publish shows the new data (#209, #210).
+- The Filter group shows each class once: All, Unexplained and Match, with "More filters" for the other classes, Measurement and Cause (#203, #214).
+- The Evidence view shows the run summary as one line with a "Run details" disclosure (#204, #215).
 
 ### Removed
 
@@ -38,6 +41,8 @@ Fourth release candidate for 1.0.0. It is not a stable release. It replaces the 
 - Measured findings of incomplete checks may set the target class (R8.12, #180).
 - Spec wording notes after the ADR 0004 alignment (#176).
 - DESIGN.md records the touch size rule (#195) and drops a stale badge color note (#190).
+- DESIGN.md records the Filter group rule and the Evidence summary rule (#203, #204, #213).
+- The migration guide records a second consumer run on 2026-10-23 (#136, #211).
 - The `summary` and `query` output is pinned on fixtures (#157).
 - README and `docs/rc-trial.md` put the static publish path first (#145).
 
