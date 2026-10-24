@@ -190,10 +190,35 @@ describe('comparison overview', () => {
         const wrapper = mount(ReportFilters, { props: { report: data, count: 1, filters: { classification: 'all', measurement: 'all', cause: 'all' } } });
         await wrapper.get('[aria-label="Cause filter"]').setValue('cause:known');
         expect(wrapper.emitted('action')[0]).toEqual(['filter', { key: 'cause', value: 'cause:known' }]);
-        await wrapper.get('button').trigger('click');
+        await wrapper.findAll('button').find(button => button.text() === 'Clear filters').trigger('click');
         expect(wrapper.emitted('action')[1]).toEqual(['clear-filters']);
         expect(wrapper.text()).toContain('1 of 2 targets');
         expect(wrapper.text()).toContain('Expected change · unexplained');
+    });
+    it('shows each class once: All, Unexplained and Match first, the other classes under More filters (DESIGN.md "Filter group", #203)', async () => {
+        const wrapper = mount(ReportFilters, { props: { report: report(), count: 2, filters: { classification: 'all', measurement: 'all', cause: 'all' } } });
+        const classButtons = wrapper.findAll('[aria-pressed]').map(button => button.text());
+        expect(classButtons).toEqual(['All', 'Unexplained', 'Match', 'Explained', 'Oracle', 'Unclassified']);
+        expect(wrapper.find('select[aria-label="Class filter"]').exists()).toBe(false);
+        expect(wrapper.get('[role="group"][aria-labelledby="filter-group-label"]').text()).toContain('Filter');
+        const more = wrapper.findAll('button').find(button => button.text() === 'More filters');
+        expect(more.attributes('aria-expanded')).toBe('false');
+        expect(wrapper.get('#more-filters').attributes('style') ?? '').toContain('display: none');
+        await more.trigger('click');
+        expect(more.attributes('aria-expanded')).toBe('true');
+        expect(wrapper.get('#more-filters').attributes('style') ?? '').not.toContain('display: none');
+        await wrapper.findAll('button').find(button => button.text() === 'Unexplained').trigger('click');
+        await wrapper.findAll('button').find(button => button.text() === 'Oracle').trigger('click');
+        expect(wrapper.emitted('action')).toEqual([['filter', { key: 'classification', value: 'unexplained' }], ['filter', { key: 'classification', value: 'oracle' }]]);
+    });
+    it('keeps More filters open while a filter inside it is active', () => {
+        for (const filters of [{ classification: 'explained', measurement: 'all', cause: 'all' }, { classification: 'all', measurement: 'failed', cause: 'all' }, { classification: 'all', measurement: 'all', cause: 'unknown' }]) {
+            const wrapper = mount(ReportFilters, { props: { report: report(), count: 1, filters } });
+            expect(wrapper.findAll('button').find(button => button.text() === 'More filters').attributes('aria-expanded')).toBe('true');
+            expect(wrapper.get('#more-filters').attributes('style') ?? '').not.toContain('display: none');
+        }
+        const selected = mount(ReportFilters, { props: { report: report(), count: 1, filters: { classification: 'explained', measurement: 'all', cause: 'all' } } });
+        expect(selected.findAll('[aria-pressed="true"]').map(button => button.text())).toEqual(['Explained']);
     });
 });
 
