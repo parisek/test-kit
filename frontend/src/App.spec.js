@@ -131,6 +131,11 @@ describe('App on a report from the index (R10.3)', () => {
 		await flushPromises();
 		expect(app.find('.report-verdict').exists()).toBe(false);
 		expect(app.find('.summary-line .summary-sentence').text()).toBe('Nothing changed');
+		// A paragraph cannot carry a name (#216). The line is a group, so the name reaches assistive tech.
+		const line = app.find('.summary-line');
+		expect(line.element.tagName).not.toBe('P');
+		expect(line.attributes('role')).toBe('group');
+		expect(line.attributes('aria-label')).toBe('Target counts');
 		await app.find('button[data-view="overview"]').trigger('click');
 		await flushPromises();
 		expect(app.find('.report-verdict').text()).toBe('Nothing changed');
