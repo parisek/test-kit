@@ -254,7 +254,7 @@ onUnmounted(() => {
                         <span class="record">{{ neighbors.position }} of {{ neighbors.total }}</span>
                         <a v-if="neighbors.newer" :href="anchorFor(neighbors.newer.id)" @click.prevent="open(neighbors.newer.id)">Newer</a><span v-else class="report-order-end">Newer</span>
                     </nav>
-                    <RunSummary :report="state.report" :summary="summary" />
+                    <RunSummary :report="state.report" :summary="summary" :compact="state.view === 'evidence'" />
                     <!-- Run info has no target list, so a filter there narrows nothing (DESIGN.md "View state and filters"). -->
                     <ReportFilters v-if="state.view !== 'info'" :report="state.report" :filters="state.filters" :count="filteredTargets.length" @action="dispatch" />
  <div role="tablist" aria-label="Report views" class="report-tabs" @keydown="tabKey">
