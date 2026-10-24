@@ -143,6 +143,8 @@ One system sans for text. One system mono for records: identifiers, times, paths
 
 A single content column, 1040px maximum, centered. The home and the report use the same header and the same column. There is no permanent side panel on the home. On a report, the page offers four views as tabs. The target list is a panel inside the Evidence view only.
 
+On the Evidence view the run summary is one line: the verdict sentence and the counts as text. A "Run details" disclosure opens the run cards, the counts and the warnings. The Overview keeps the full summary. The owner set this rule on 2026-10-24 (#204).
+
 Items in a row wrap by the width of their content. There is no breakpoint rule. Every flex or grid child that holds text has `min-width: 0`. The page never scrolls sideways. Wide tables scroll inside their own box.
 
 ## Elevation & Depth
@@ -161,6 +163,7 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 - **Link:** the text color with an underline on hover. In running text it is always underlined. A text action (such as "More filters") is an underlined link.
 - **Segmented control:** the selected segment uses the active surface.
 - **View state and filters:** viewport, evidence type and mode are view state. Show them in a group labelled "View". A filter narrows the list (All, Unexplained, Match, and "More filters"). Show it in a group labelled "Filter". A view has one filter set. The control for the artifact is labelled "Evidence type". The deep link keeps the part name `artifact`. Modes are Side by side, Overlay and Difference.
+- **Filter group:** a segmented control holds All, Unexplained and Match. "More filters" is an underlined link that opens Measurement, Cause and a second segmented row with Explained, Oracle and Unclassified. The two rows are one class filter. Each class shows once. The owner set this rule on 2026-10-24 (#203).
 - **Verdict count:** a number, a word and a color. Counts stay visible under every filter.
 - **Verdict wording:** a run has a sentence derived from the classes ("Nothing changed", "1 page differs"). A row, a cell and a finding use the class word (match, unexplained).
 - **Comparison row:** a verdict dot, a local time, a verdict word, a short detail, the change against the previous row, and a short identifier in mono, after the word "update" when the kind is shown. A whole row is a link. On hover it takes the toolbar tint. In dark, it also lightens its border from `#27272a` to the dark control border `#3f3f46` (the contract value). It does not underline and changes no opacity.
