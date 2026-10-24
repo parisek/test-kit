@@ -232,7 +232,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 ## 9. What this document did not check
 
-- The tags `v1.0.0-rc.1`, `v1.0.0-rc.2` and `v1.0.0-rc.3` exist now. This document was written before them.
+- The tags `v1.0.0-rc.1` to `v1.0.0-rc.4` exist now. This document was written before them.
 - One consumer project ran `v1.0.0-rc.2` once, on 2026-10-19, against a local site (see the migration guide). No other project ran against the package. Every other statement about a project is derived from this repository.
 - The viewer was not opened. The seam covers files, commands and the JSON that the code reads and writes.
 - The cap values in the pack API are chosen bounds, not measurements.

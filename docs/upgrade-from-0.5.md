@@ -29,7 +29,7 @@ The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). The optional `pa
 
 ## Steps
 
-1. Pin the new version with a candidate tag (R13.27): `npm install -D github:parisek/test-kit#v1.0.0-rc.3`. Replace the tag with the newest candidate. At the time of the 0.5.0 measurement only a commit form was possible. Not verified: this exact install from a commit in a project.
+1. Pin the new version with a candidate tag (R13.27): `npm install -D github:parisek/test-kit#v1.0.0-rc.4`. Replace the tag with the newest candidate. At the time of the 0.5.0 measurement only a commit form was possible. Not verified: this exact install from a commit in a project.
 
    One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
 2. Keep `test-kit.config.json` as it is. No key changes. Not verified in a project.
