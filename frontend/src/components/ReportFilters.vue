@@ -10,6 +10,8 @@ const opened = ref(false);
 // An active filter never hides behind a closed "More filters".
 const hiddenActive = computed(() => props.filters.measurement !== 'all' || props.filters.cause !== 'all' || secondary.some(([value]) => value === props.filters.classification));
 const expanded = computed(() => opened.value || hiddenActive.value);
+// "Clear filters" shows only when a filter is active, so it never sits there with no effect.
+const anyActive = computed(() => props.filters.classification !== 'all' || props.filters.measurement !== 'all' || props.filters.cause !== 'all');
 const choose = (value) => emit('action', 'filter', { key: 'classification', value });
 function clear() {
     opened.value = false;
@@ -24,7 +26,7 @@ function clear() {
                 <button v-for="[value, title] in primary" :key="value" type="button" :aria-pressed="filters.classification === value" :class="filters.classification === value ? 'bg-ui-active-surface text-ui-active-text' : 'text-ui-muted'" class="rounded-ui-pill px-3 py-1.5" @click="choose(value)">{{ title }}</button>
             </div>
             <button type="button" class="more-filters text-ui-text underline" aria-controls="more-filters" :aria-expanded="expanded" @click="opened = !opened">More filters</button>
-            <button type="button" class="rounded-ui-pill border border-ui-control-border px-3 py-2 focus-visible:outline-ui-focus" @click="clear">Clear filters</button>
+            <button v-if="anyActive" type="button" class="rounded-ui-pill border border-ui-control-border px-3 py-2 focus-visible:outline-ui-focus" @click="clear">Clear filters</button>
         </div>
         <div v-show="expanded" id="more-filters" class="more-filters-panel mt-3 flex flex-wrap items-end gap-3 text-xs">
             <div class="flex min-w-0 flex-col gap-1"><span id="more-class-label">Other classes</span>

@@ -220,6 +220,9 @@ describe('comparison overview', () => {
         const wrapper = mount(ReportFilters, { props: { report: data, count: 1, filters: { classification: 'all', measurement: 'all', cause: 'all' } } });
         await wrapper.get('[aria-label="Cause filter"]').setValue('cause:known');
         expect(wrapper.emitted('action')[0]).toEqual(['filter', { key: 'cause', value: 'cause:known' }]);
+        // No filter is active yet, so "Clear filters" does not show.
+        expect(wrapper.findAll('button').some(button => button.text() === 'Clear filters')).toBe(false);
+        await wrapper.setProps({ filters: { classification: 'all', measurement: 'all', cause: 'cause:known' } });
         await wrapper.findAll('button').find(button => button.text() === 'Clear filters').trigger('click');
         expect(wrapper.emitted('action')[1]).toEqual(['clear-filters']);
         expect(wrapper.text()).toContain('1 of 2 targets');
