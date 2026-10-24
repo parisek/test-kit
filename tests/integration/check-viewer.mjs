@@ -116,6 +116,7 @@ try {
 		}
 
         assert.match(await page.locator('[aria-label="Compared runs"]').textContent(), /Before/);
+        await page.getByRole('button', { name: 'More filters' }).click();
         await page.getByLabel('Measurement filter').selectOption('failed');
         assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);
         assert.match(await page.locator('[aria-label="All target counts"] [data-status="incomplete"]').textContent(), /2\s*Incomplete \(state\)/);
@@ -123,6 +124,7 @@ try {
         await page.getByLabel('Measurement filter').selectOption('missing');
         assert.match(await page.getByRole('region', { name: 'Report filters' }).textContent(), /1 of 2 targets/);
         await page.getByRole('button', { name: 'Clear filters' }).click();
+        await page.getByRole('button', { name: 'More filters' }).click();
         await page.getByLabel('Cause filter').selectOption('cause:cause');
         await page.getByRole('button', { name: 'Example page · mobile evidence' }).click();
         assert.equal(await page.locator('[aria-label="Viewport"]').getByRole('button', { name: 'mobile', exact: true }).getAttribute('aria-pressed'), 'true');
