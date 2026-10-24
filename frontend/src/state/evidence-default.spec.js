@@ -75,6 +75,20 @@ describe('Evidence default target (#218)', () => {
 		instance.dispatch('view', 'evidence');
 		expect(instance.state.targetId).toBe('ex1');
 	});
+	it('keeps the selection when the active filter shows no target', () => {
+		const instance = opened(mixed());
+		const before = instance.state.targetId;
+		instance.dispatch('filter', { key: 'measurement', value: 'incompatible' });
+		instance.dispatch('view', 'evidence');
+		expect(instance.state.targetId).toBe(before);
+	});
+	it('keeps a target that the evidence action named', () => {
+		const instance = opened(mixed());
+		instance.dispatch('evidence', { targetId: 'm1', viewportId: 'wide' });
+		instance.dispatch('view', 'overview');
+		instance.dispatch('view', 'evidence');
+		expect(instance.state.targetId).toBe('m1');
+	});
 	it('keeps the selection when a person chose a target', () => {
 		const instance = opened(mixed());
 		instance.dispatch('target', 'm1');
