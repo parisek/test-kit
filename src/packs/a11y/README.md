@@ -35,7 +35,7 @@ Limits of the runner:
 
 - Every step of `runAxe` that touches the page runs inside the timer, so a busy page cannot hang the caller.
 - `runAxe` claims the page with one atomic step and releases it only if it claimed it. Two runs at once on one page: one runs and the other returns `failed`.
-- After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed` with the message "An earlier axe run on this page did not finish. Use a new page."
+- After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed` with the message "An axe run is active on this page, or an earlier one did not finish. Use a new page."
 - Axe runs inside the page. A hostile page can lock or replace `window.axe` and fake a clean result. This is inherent to in-page injection. Run the pack on pages you control.
 
 ## Artifact
