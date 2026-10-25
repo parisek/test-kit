@@ -371,7 +371,7 @@ test('depth limit: at the limit passes, above it fails with a message, very deep
   const nest = depth => { const root = {}; let node = root; for (let i = 0; i < depth; i += 1) { node.n = {}; node = node.n; } return root; };
   const p = resolveChecks({ custom: [{ layer: 'project', check: mk('deep') }] });
   const run = value => runChecks(p, { artifact: 'content', value }, ctx);
-  // value is at depth 1 inside the wrapper, so the root object of nest(n) sits at depth 1 and its deepest node at depth n + 1.
+  // The wrapper { value, context } is not counted. nest(n) has height n + 1. A height of 256 passes and 257 fails.
   assert.equal(MAX_DEPTH, 256);
   assert.equal(run(nest(MAX_DEPTH - 1)).checks.deep.state, 'complete');
   const over = run(nest(MAX_DEPTH));
@@ -380,6 +380,20 @@ test('depth limit: at the limit passes, above it fails with a message, very deep
   const huge = run(nest(20000));
   assert.equal(huge.checks.deep.state, 'failed');
   assert.match(huge.checks.deep.diagnostic, /deeper than 256 levels/);
+});
+
+test('a Proxy that returns a fresh proxy at every level stops at the depth limit', () => {
+  let made = 0;
+  const hostile = () => new Proxy({}, {
+    ownKeys: () => ['n'],
+    getOwnPropertyDescriptor: () => ({ value: (made += 1, hostile()), enumerable: true, configurable: true, writable: true }),
+    get: () => undefined,
+  });
+  let result;
+  assert.doesNotThrow(() => { result = runChecks(resolveChecks({ custom: [{ layer: 'project', check: mk('hostile') }] }), { artifact: 'content', value: hostile() }, ctx); });
+  assert.equal(result.checks.hostile.state, 'failed');
+  assert.match(result.checks.hostile.diagnostic, /deeper than 256 levels/);
+  assert.ok(made <= MAX_DEPTH + 2, `the walk made ${made} proxies`);
 });
 
 test('the result of a check is read once: then, length and elements', () => {
