@@ -29,7 +29,7 @@ The owner authorizes autonomous merge and release through v0.1.0 on 2026-10-09.
 Later releases require owner approval. CI and independent review remain required.
 A failed release check requires repair; it does not authorize moving the tag.
 A correction after a stable tag uses a new patch version.
-A correction after a candidate tag uses the next candidate of the same base version, for example `v1.0.0-rc.4`.
+A correction after a candidate tag uses the next candidate of the same base version, for example `v1.0.0-rc.6`.
 
 ## Workflow contract
 

@@ -1,7 +1,7 @@
 # The project seam
 
-Status: proposal for the owner, with four decisions recorded (marked "decided"). It serves vision open decision 9 and issue #105. It cites R13.9, R13.25 to R13.27, R13.40, R13.41 and R13.43.
-The owner confirms the list when the owner approves the 1.0 release candidate. Until then the list is a proposal, except the decided points. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0 at that time; the candidate sets 1.0.0; `main` at 245611d). Rows that describe the `packs` key (R13.44) read `main` at dcea71a. The owner decided four points on 2026-10-19: `init` does not exist, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs. They are marked "decided" below.
+Status: confirmed by the owner on 2026-10-25 (issue #105). Four decisions are recorded (marked "decided"). It serves vision open decision 9 and issue #105. It cites R13.9, R13.25 to R13.27, R13.40, R13.41 and R13.43.
+The owner confirmed the list in chat on 2026-10-25. A marking below is the agent's reading of the code on 2026-10-19 (`package.json` version 0.5.0 at that time; the candidate sets 1.0.0; `main` at 245611d). Rows that describe the `packs` key (R13.44) read `main` at dcea71a. The owner decided four points on 2026-10-19: `init` does not exist, the axe `incomplete` rule (R8.14), `basis` waits for `schemaVersion` 3, and the freeze scope of the packs. They are marked "decided" below.
 
 The seam is everything a project touches: its configuration file, the commands it calls, the contract and pack API it imports, the data it stores, and the files it copies.
 
@@ -11,7 +11,7 @@ The seam is everything a project touches: its configuration file, the commands i
 - From the first release candidate tag, the freeze starts. A change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
 - The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The form of the release candidate tag is decided: `vMAJOR.MINOR.PATCH-rc.N` (R13.45, owner decision, 2026-10-19). Only the owner tags it.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
-- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.4` exist (2026-10-24).
+- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.5` exist (2026-10-25).
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
 
 ## Markings
@@ -232,7 +232,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 ## 9. What this document did not check
 
-- The tags `v1.0.0-rc.1` to `v1.0.0-rc.4` exist now. This document was written before them.
+- The tags `v1.0.0-rc.1` to `v1.0.0-rc.5` exist now. This document was written before them.
 - One consumer project ran `v1.0.0-rc.2` once, on 2026-10-19, against a local site (see the migration guide). No other project ran against the package. Every other statement about a project is derived from this repository.
 - The viewer was not opened. The seam covers files, commands and the JSON that the code reads and writes.
 - The cap values in the pack API are chosen bounds, not measurements.
