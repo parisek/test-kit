@@ -14,8 +14,8 @@ export const MARKER = '.test-kit-publish';
 export const MARKER_VALUE = Object.freeze({ tool: 'test-kit', kind: 'publish', schemaVersion: 1 });
 const SUFFIX = Object.freeze({ lock: '.test-kit-lock', stage: '.test-kit-new', backup: '.test-kit-old' });
 const NAME_MAX = 255;
-const VIEWER_FILES = ['index.html', 'app.js', 'style.css'];
-const OWNED = Object.freeze({ [MARKER]: 'file', 'index.json': 'file', 'index.html': 'file', 'app.js': 'file', 'style.css': 'file', runs: 'directory', reports: 'directory' });
+const VIEWER_FILES = ['index.html', 'app.js', 'style.css', 'favicon.svg'];
+const OWNED = Object.freeze({ [MARKER]: 'file', 'index.json': 'file', 'index.html': 'file', 'app.js': 'file', 'style.css': 'file', 'favicon.svg': 'file', runs: 'directory', reports: 'directory' });
 const MAX_RUN_BYTES = 20 * 1024 * 1024;
 
 const inside = (parent, child) => {

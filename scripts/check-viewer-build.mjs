@@ -35,7 +35,7 @@ try {
 	if (result.status !== 0) throw new Error('Viewer build failed.');
 	const expected = await tree(fileURLToPath(new URL('viewer/', root)));
 	const actual = await tree(temp);
-	const routes = ['app.js', 'index.html', 'style.css'];
+	const routes = ['app.js', 'favicon.svg', 'index.html', 'style.css'];
 	if (actual.size !== routes.length || routes.some((name) => !actual.has(name)))
 		throw new Error('The build must match the server asset allowlist.');
 	if (

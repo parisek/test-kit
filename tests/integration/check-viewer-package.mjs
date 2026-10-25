@@ -39,6 +39,7 @@ try {
 		'viewer/app.js',
 		'viewer/index.html',
 		'viewer/style.css',
+		'viewer/favicon.svg',
 		'THIRD_PARTY_NOTICES.txt',
 	]) {
 		assert.deepEqual(await readFile(join(installed, file)), await readFile(join(root, file)));

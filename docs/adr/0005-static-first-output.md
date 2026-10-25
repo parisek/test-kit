@@ -11,7 +11,7 @@ What the code does today (read on 2026-10-20):
 
 - `report --export DIR` and `history --export DIR` write static directories (`src/export/report.js`, `src/export/history.js`). They start no server. R10.11 says the viewer loads under any URL prefix.
 - Both commands refuse an existing output directory. They stage in a temporary directory and rename it.
-- Each report export copies the whole viewer (`index.html`, `app.js`, `style.css`) next to its data.
+- Each report export copies the whole viewer (`index.html`, `app.js`, `style.css`, `favicon.svg`) next to its data.
 - `history --export` links to one viewer copy for each report.
 - The viewer has a data-source switch inside the page (R10.10).
 - R10.1 says the local server serves the viewer. The vision never says how a report is read.

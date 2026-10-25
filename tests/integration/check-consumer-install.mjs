@@ -41,7 +41,7 @@ try {
     for (const peer of ['@playwright/test', 'lighthouse', 'chrome-launcher', 'puppeteer-core', 'vue', 'vite']) {
       await assert.rejects(access(join(directory, 'node_modules', peer)), `${cms} unexpectedly installs ${peer}`);
     }
-    for (const file of ['viewer/app.js', 'viewer/style.css', 'viewer/index.html', 'templates/test-kit.config.json']) {
+    for (const file of ['viewer/app.js', 'viewer/style.css', 'viewer/favicon.svg', 'viewer/index.html', 'templates/test-kit.config.json']) {
       assert.deepEqual(await readFile(join(installed, file)), await readFile(join(repository, file)));
     }
     const manifest = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));

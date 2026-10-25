@@ -104,7 +104,7 @@ test('first publish creates the directory with marker, viewer, index, runs and r
   assert.deepEqual(result.warnings, []);
   assert.deepEqual(await siblings(f.dir), none);
   const names = await tree(f.dir);
-  for (const name of [MARKER, 'index.json', 'index.html', 'app.js', 'style.css', 'runs/run-a/run.json', 'runs/run-b/run.json', 'reports/rep-1/report.json']) assert.ok(names.includes(name), name);
+  for (const name of [MARKER, 'index.json', 'index.html', 'app.js', 'style.css', 'favicon.svg', 'runs/run-a/run.json', 'runs/run-b/run.json', 'reports/rep-1/report.json']) assert.ok(names.includes(name), name);
   assert.deepEqual(await readJson(join(f.dir, MARKER)), MARKER_VALUE);
   assert.equal(await readFile(join(f.dir, 'runs/run-a/run.json'), 'utf8'), await readFile(join(f.local, 'runs/run-a/run.json'), 'utf8'));
   const report = await readJson(join(f.dir, 'reports/rep-1/report.json'));
@@ -245,6 +245,29 @@ test('a foreign entry in a marked directory is refused and named', async t => {
   await rm(join(f.dir, 'app.js'));
   await mkdir(join(f.dir, 'app.js'));
   await assert.rejects(publishHistory(f.base), error => error.message.includes(join(f.dir, 'app.js')));
+});
+
+test('a directory published before favicon.svg existed is refreshed in place and gets the icon', async t => {
+  const f = await fixture(t);
+  await publishHistory(f.base);
+  await rm(join(f.dir, 'favicon.svg'));
+  const result = await publishHistory(f.base);
+  assert.equal(result.messages.at(-1), SUCCESS(f.dir));
+  assert.deepEqual(await siblings(f.dir), none);
+  assert.equal(await readFile(join(f.dir, 'favicon.svg'), 'utf8'), await readFile(new URL('../../viewer/favicon.svg', import.meta.url), 'utf8'));
+});
+
+test('favicon.svg of the wrong type, or in an unmarked directory, is refused like another viewer file', async t => {
+  const f = await fixture(t);
+  await publishHistory(f.base);
+  await rm(join(f.dir, 'favicon.svg'));
+  await mkdir(join(f.dir, 'favicon.svg'));
+  await assert.rejects(publishHistory(f.base), error => error.message.includes(join(f.dir, 'favicon.svg')));
+  const g = await fixture(t);
+  await mkdir(g.dir, { recursive: true });
+  await writeFile(join(g.dir, 'favicon.svg'), '<svg/>');
+  await assert.rejects(publishHistory(g.base), /no valid \.test-kit-publish marker/);
+  assert.equal(await readFile(join(g.dir, 'favicon.svg'), 'utf8'), '<svg/>');
 });
 
 test('a symbolic link as an owned entry is refused', async t => {

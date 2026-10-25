@@ -63,7 +63,7 @@ export async function exportReport({ reportPath, outputDir }) {
 	let reserved = false;
 	try {
 		const { written, paths } = await writeReportEvidence({ reportPath, targetDir: stage, prepared });
-		for (const name of ['index.html', 'app.js', 'style.css']) {
+		for (const name of ['index.html', 'app.js', 'style.css', 'favicon.svg']) {
 			await writeFile(join(stage, name), await readReportFile(packageRoot, 'viewer/' + name), { flag: 'wx' });
 			written.push(name);
 		}

@@ -63,9 +63,9 @@ Steps:
    Note: Two problems showed in that run.
 
    - With DDEV and Mutagen, the new `reports/<id>/` directory did not reach the web container after a publish. The site then served a web page for `report.json`, and the viewer said "the server returned a web page, not JSON". `ddev mutagen sync` fixed it. Run it after each publish.
-   - The site sent long cache times for static files. A reload showed the old list of comparisons. Issue #209 changes the viewer to revalidate its JSON files. The viewer files `app.js` and `style.css` keep fixed names, so a browser can keep an old viewer after an upgrade. Reload without the cache once after an upgrade.
+   - The site sent long cache times for static files. A reload showed the old list of comparisons. Issue #209 changes the viewer to revalidate its JSON files. The viewer files `app.js`, `style.css` and `favicon.svg` keep fixed names, so a browser can keep an old viewer after an upgrade. Reload without the cache once after an upgrade.
 
-   Serve the publish directory without a long cache (issue #217). The viewer keeps fixed file names (`index.html`, `app.js`, `style.css`, `index.json`). A long cache on any of them shows an old viewer or an old list after a publish or an upgrade. The package does not write a server file. The project configures its server. In `tailwind-base`, `static/.htaccess` sets a two-week `ExpiresDefault` for every file. A rule for the publish path turns it off:
+   Serve the publish directory without a long cache (issue #217). The viewer keeps fixed file names (`index.html`, `app.js`, `style.css`, `favicon.svg`, `index.json`). A long cache on any of them shows an old viewer or an old list after a publish or an upgrade. The package does not write a server file. The project configures its server. In `tailwind-base`, `static/.htaccess` sets a two-week `ExpiresDefault` for every file. A rule for the publish path turns it off:
 
    ```apache
    <If "%{REQUEST_URI} =~ m#^/styleguide/test-kit/#">
