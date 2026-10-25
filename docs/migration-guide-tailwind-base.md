@@ -8,9 +8,11 @@ A second run on 2026-10-23 used the same project and the same local site, with t
 
 A third run on 2026-10-24 used the tag `v1.0.0-rc.4` through the pilot pull request. It ran `before` and `after` with `--ddev` around one template change, then `history --publish`, and opened the viewer in Chromium. Results are in issue #106.
 
-The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its default branch pins `v0.2.1` (`docs/vision.md`, End state). The pilot pull request pins `v1.0.0-rc.4` (2026-10-24). The text uses `v0.2.1` as the worked example.
+A fourth run on 2026-10-25 used the tag `v1.0.0-rc.5` in the same pull request. `npm ci` installed it. `before` and `after` with `--ddev` completed, `history --publish` wrote seven reports, and the viewer opened in Chromium with no script error. The pull request merged the same day (portadesign/tailwind-base#947).
 
-Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` to `v1.0.0-rc.4` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
+The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its default branch pins `v1.0.0-rc.5` since 2026-10-25 (portadesign/tailwind-base#947). Before that it pinned `v0.2.1`. The text uses `v0.2.1` as the worked example.
+
+Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` to `v1.0.0-rc.5` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
 
 ## What the move covers
 

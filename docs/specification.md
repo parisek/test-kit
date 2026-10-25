@@ -477,7 +477,7 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 | Install from a git tag and from a `semver:` range (section 13.2) | verified on a local copy |
 | Local Drupal screenshot pilot | two targets, two viewports; repeated A/A has no screenshot findings, 2026-10-09 |
 | `git` inside the DDEV container | git 2.47.3; pinned GitHub commit installation verified, 2026-10-09 |
-| The tag workflow (version check, GitHub Release) | verified: tags `v1.0.0-rc.1` to `v1.0.0-rc.4` each made a GitHub prerelease, 2026-10-19 to 2026-10-24 |
+| The tag workflow (version check, GitHub Release) | verified: tags `v1.0.0-rc.1` to `v1.0.0-rc.5` each made a GitHub prerelease, 2026-10-19 to 2026-10-25 |
 | CLI run of a selected pack, pack results in `report.json` | not built; milestone 1.1 (section 17, item 8) |
 | Agent `summary` size | measured 1310 bytes for the six-target synthetic browser report, 2026-10-09 |
 
