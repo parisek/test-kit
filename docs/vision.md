@@ -137,18 +137,20 @@ R13.42 (2026-10-18) puts the shared contracts in the package. It reverses the bo
 
 ## End state
 
-The package is complete when these are true. Today's values are measured on 2026-10-16.
+The package is complete when these are true. Today's values are measured on 2026-10-16, except where a row names a later date.
 
 | Measure | Today | Target |
 | --- | --- | --- |
 | Files of moved areas in `tailwind-base` `static/tests/` (visual 293 incl. baselines, behavior 44, lib 46 (the spec of 2026-10-07 counts 45), eslint 17, stylelint 14) | 414 | 0 in each moved area. Project and component contracts stay in the project as layers, not as copies of the engine |
-| `tailwind-base` pin of this package | v0.2.1 (latest tag is v0.5.0) | the latest tag |
+| `tailwind-base` pin of this package | `v1.0.0-rc.4` in an open pull request (portadesign/tailwind-base#947), 2026-10-25. The default branch still pins v0.2.1 | the latest tag |
 | Skeletons that pin the package and call it through thin aliases | `tailwind-base` only | `tailwind-base`, then the WordPress and Drupal skeletons |
 | Project update skills that call test-kit | not found in the skill folders (not verified by reading each skill) | the update workflow obtains scoped evidence (#28) |
 
-Measured here: `npm test` runs 161 unit tests (measured on 2026-10-18). The `summary` of the synthetic six-target report is 1310 bytes.
+Measured here: `npm test` runs 393 unit tests (measured on 2026-10-25). The `summary` of the synthetic six-target report is 1310 bytes.
 
 This review found no local checkouts of the WordPress and Drupal skeletons. Their pin state is not measured.
+
+Version 1.0 ships the packs as library entry points. The CLI pack run, the report `schemaVersion` 3 and the lint entry points come in 1.1 (owner decision of 2026-10-25, specification section 17, item 8).
 
 Lane order follows the owner's stated order (proposal: confirm):
 

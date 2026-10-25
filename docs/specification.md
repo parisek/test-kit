@@ -29,7 +29,7 @@ It must work for pages and for components with the same viewer. It must give a p
 - N2. No second browser engine. Chromium only.
 - N3. No hosted service, no account, no upload.
 - N4. No automatic fixing. The tool measures and reports.
-- N5. No package outside `tailwind-base` yet. A package like `parisek/styleguide` is a later goal.
+- N5. No consumer outside the PORTA DESIGN skeletons yet. `tailwind-base` is the first consumer (ADR 0001). A package like `parisek/styleguide` is a later goal.
 
 ---
 
@@ -464,7 +464,8 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 
 | Item | State |
 | --- | --- |
-| Viewer prototype with sample data | built, 62 unit tests pass |
+| Unit tests (`npm test`) | 393 pass, 2026-10-25 |
+| Vue viewer component tests (`frontend`, vitest) | 194 pass, 2026-10-25 |
 | Viewer in the artifact frame | checked by hand |
 | Adapter on a real `report.json` from `build-report.js` | not tested |
 | Runner that writes behaviour `steps[]` | verified with guarded local contracts and retained failures, 2026-10-09 |
@@ -476,7 +477,8 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 | Install from a git tag and from a `semver:` range (section 13.2) | verified on a local copy |
 | Local Drupal screenshot pilot | two targets, two viewports; repeated A/A has no screenshot findings, 2026-10-09 |
 | `git` inside the DDEV container | git 2.47.3; pinned GitHub commit installation verified, 2026-10-09 |
-| The tag workflow (version check, GitHub Release) | not run; the first real tag is the test |
+| The tag workflow (version check, GitHub Release) | verified: tags `v1.0.0-rc.1` to `v1.0.0-rc.4` each made a GitHub prerelease, 2026-10-19 to 2026-10-24 |
+| CLI run of a selected pack, pack results in `report.json` | not built; milestone 1.1 (section 17, item 8) |
 | Agent `summary` size | measured 1310 bytes for the six-target synthetic browser report, 2026-10-09 |
 
 ## 17. Open questions
@@ -488,3 +490,4 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 5. (deferred 2026-10-22) Which language-detection library, after the section R7.6 check? Not before 1.0 (issue #163).
 6. (decided 2026-10-18) Accessibility and component packs live in the package as opt-in named entry points. Project-owned contracts stay in the project (R13.42). This supersedes the decision of 2026-10-09.
 7. (decided 2026-10-22) The ESLint and Stylelint seam is an entry point with a thin import (R13.40, R13.43).
+8. (decided 2026-10-25) Scope of 1.0. Version 1.0 ships the packs as opt-in library entry points (`./packs/a11y`, `./packs/a11y/runner`, `./packs/lint`). A project calls a pack from its own script. These move to milestone 1.1: a CLI command that runs the packs selected by `packs` (R13.44, #231), the report `schemaVersion` 3 (R9.7 to R9.11, ADR 0004, #230), and the ESLint and Stylelint entry points (R13.40, #26). Until `schemaVersion` 3 ships, no pack result enters `report.json`, `summary` or the viewer. The owner decided in chat (issue #106).
