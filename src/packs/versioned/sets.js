@@ -25,7 +25,9 @@ export function defineContractSet(set) {
   }
   if (!facts || typeof facts !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(facts))) throw new Error(`Set ${library} ${major} needs facts as a plain object.`);
   // Same JSON-like walk as runChecks uses. It runs before the clone, so a Map, a class instance, a cycle or a deep graph fails with a clear message.
-  try { inspectJsonLike(facts); } catch (error) { throw new Error(`Set ${library} ${major} facts: ${error.message}`); }
+  // The clone is in the same try, so a Proxy that passes the walk but fails the clone also names the set.
+  let frozenFacts;
+  try { inspectJsonLike(facts); frozenFacts = deepFreeze(structuredClone(facts)); } catch (error) { throw new Error(`Set ${library} ${major} facts: ${error.message}`); }
   const listed = dense(rawContracts, `Set ${library} ${major} contracts`, 100);
   if (listed.length === 0) throw new Error(`Set ${library} ${major} needs 1 to 100 contracts.`);
   const contracts = [];
@@ -39,7 +41,7 @@ export function defineContractSet(set) {
   if (new Set(contracts.map(item => item.id)).size !== contracts.length) throw new Error(`Set ${library} ${major} has a duplicate contract id.`);
   return Object.freeze({
     library, major, owner, status, verifiedAgainst: status === 'verified' ? verifiedAgainst : null,
-    sources: Object.freeze(sources), facts: deepFreeze(structuredClone(facts)), contracts: Object.freeze(contracts),
+    sources: Object.freeze(sources), facts: frozenFacts, contracts: Object.freeze(contracts),
   });
 }
 

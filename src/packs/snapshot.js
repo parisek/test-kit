@@ -8,13 +8,15 @@ const typeName = value => {
   try { return Object.prototype.toString.call(value).slice(8, -1); } catch { return 'object'; }
 };
 
+const article = name => `${/^[AEIO]/.test(name) ? 'an' : 'a'} ${name}`; // 'a Map', 'an Object'
+
 const ON_PATH = -1;
 
 // Checks one object and lists its children. It throws an Error that names the path and the type.
 function children(node, path) {
   const proto = Object.getPrototypeOf(node);
   const isArray = Array.isArray(node);
-  if (!(isArray ? proto === Array.prototype : proto === Object.prototype || proto === null)) throw new Error(`${shown(path) || 'input'} is a ${typeName(node)}, which is not JSON-like data.`);
+  if (!(isArray ? proto === Array.prototype : proto === Object.prototype || proto === null)) throw new Error(`${shown(path) || 'input'} is ${article(typeName(node))}, which is not JSON-like data.`);
   const keys = Reflect.ownKeys(node);
   if (isArray) {
     const length = node.length;
@@ -35,7 +37,9 @@ function children(node, path) {
 
 // Iterative post-order walk. Each object gets a height (1 + the tallest child), computed once, so a
 // node that many paths reach is measured once and the walk is linear in nodes and edges. A node that is
-// reached again while it is still on the path is a cycle. The wrapper { value, context } is level 0.
+// reached again while it is still on the path is a cycle. The wrapper { value, context } is not counted:
+// a height of MAX_DEPTH (256) passes and a height of MAX_DEPTH + 1 (257) fails. The stack holds the wrapper
+// too, so it may hold MAX_DEPTH + 1 frames. A push beyond that throws, so a hostile source cannot grow the walk.
 function inspect(root) {
   const heights = new WeakMap(); // node -> height, or ON_PATH while the node is open
   const frames = [];
@@ -49,6 +53,7 @@ function inspect(root) {
       if (known === ON_PATH) throw new Error(`${shown(path)} is a cycle, which is not JSON-like data.`);
       return known;
     }
+    if (frames.length >= MAX_DEPTH + 1) throw new Error(`${shown(path)} is nested deeper than ${MAX_DEPTH} levels.`);
     heights.set(node, ON_PATH);
     frames.push({ node, path, list: children(node, path), index: 0, tallest: 0 });
     return null;
