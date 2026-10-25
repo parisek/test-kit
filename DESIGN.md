@@ -145,6 +145,8 @@ A single content column, 1040px maximum, centered. The home and the report use t
 
 On the Evidence view the run summary is one line: the verdict sentence and the counts as text. A "Run details" disclosure opens the run cards, the counts and the warnings. The Overview keeps the full summary. The owner set this rule on 2026-10-24 (#204).
 
+When the Evidence view opens without a target, it selects the first target of the worst class: unexplained, then explained, oracle, unclassified, match. Inside a class the list order holds. The active filter limits the candidates. When the filter shows no target, the selection stays. A deep link that names a target wins. A deep link without a target keeps the first target (R10.14). The owner set this rule on 2026-10-24 (#218).
+
 Items in a row wrap by the width of their content. There is no breakpoint rule. Every flex or grid child that holds text has `min-width: 0`. The page never scrolls sideways. Wide tables scroll inside their own box.
 
 ## Elevation & Depth
