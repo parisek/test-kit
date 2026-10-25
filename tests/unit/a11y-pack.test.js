@@ -140,7 +140,7 @@ test('a stored artifact is re-validated and fails closed', () => {
   const sv = (extra = {}) => ({ id: 'x', impact: 'minor', help: 'h', helpUrl: null, nodeCount: 1, omitted: 0, nodes: [node()], ...extra });
   const withRules = (violations, extra = {}) => ({ ...good, counts: { ...good.counts, violations: violations.length }, violations, omittedNodes: 0, ...extra });
   const bad = [
-    'text', [], { ...good, tool: 'other' }, { ...good, status: 'ok' }, { ...good, violations: 'x' }, { ...good, omittedNodes: -1 }, { ...good, omittedNodes: undefined },
+    'text', [], { ...good, tool: 'other' }, { ...good, status: 'ok' }, { ...good, violations: 'x' }, { ...good, omittedNodes: -1 }, { ...good, omittedNodes: -0 }, { ...good, counts: { ...good.counts, passes: -0 } }, withRules([sv({ nodeCount: 0, omitted: -0, nodes: [] })]), { ...good, omittedNodes: undefined },
     { ...good, version: undefined }, { ...good, counts: undefined }, { ...good, counts: { ...good.counts, passes: -1 } },
     { ...good, counts: { ...good.counts, passes: 1e9 + 1 } }, { ...good, counts: { ...good.counts, passes: 1.5 } },
     { ...good, counts: { ...good.counts, violations: good.counts.violations + 1 } },

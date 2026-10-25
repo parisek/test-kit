@@ -58,7 +58,7 @@ function cutEscaped(value, max, maxEscaped) {
   while (escapedLength(out) > maxEscaped) out = cut(out, Math.max(4, Math.floor(out.length * 0.8)));
   return out;
 }
-const safeCount = value => Number.isSafeInteger(value) && value >= 0 && value <= LIMITS.count;
+const safeCount = value => Number.isSafeInteger(value) && value >= 0 && !Object.is(value, -0) && value <= LIMITS.count;
 
 function reduceRules(rules, name, state, kind) {
   const all = list(rules, name);
