@@ -4,6 +4,25 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.5] - 2026-10-25
+
+Fifth release candidate for 1.0.0. It is not a stable release. It fixes viewer findings of the redesign acceptance (#148), hardens two pack checks, and documents the server cache rule for a publish directory (#217).
+
+### Fixed
+
+- Muted viewer text takes its color from the token, not from opacity, so it meets the contrast rule in both themes (#219).
+- The theme button shows its text at every width. "Clear filters" shows only when a filter is active. Decision commands stay on one line in a scroll box (#221).
+- The target toggle label shows at every width (R10.2, #222, #227).
+- The Evidence summary line is a named group, so its label reaches assistive technology (#216, #224).
+- The viewer uses one ratio format everywhere. A ratio below 100 that rounds to 100 reads ">99.99%" (#206, #223).
+- The pack snapshot walk stops at the depth limit when a frame is pushed, so a hostile Proxy cannot grow it without end. A failed copy of a contract set names the set (#115, #121, #233).
+- The axe pack rejects a count of -0 in a stored artifact. Its README quotes the busy-page message of the code (#120, #234).
+
+### Changed
+
+- The tailwind-base migration guide names a server rule that serves the publish directory without a long cache (#217, #225).
+- Seam, upgrade and migration documents name the existing tags and the pilot pin (#220, #228).
+
 ## [1.0.0-rc.4] - 2026-10-24
 
 Fourth release candidate for 1.0.0. It is not a stable release. It replaces the viewer with the redesign of issue #148: a Home page with the history of comparisons, a report page with four views, and a deep link.
