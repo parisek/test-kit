@@ -220,7 +220,7 @@ What blocks 1.0:
 - [ ] A frozen item in `docs/seam.md` that I would change before it freezes: ___
 - [ ] A step I could not do without help: ___
 - [ ] A run that was too slow or too large: ___
-- [ ] Running packs from the CLI must exist before 1.0: yes / no
+- [x] Running packs from the CLI must exist before 1.0: no. The owner decided on 2026-10-25 (specification section 17, item 8).
 - [ ] The browser step for DOM facts and library version (#104) must exist before 1.0: yes / no
 - [ ] Options for a pack must exist before 1.0: yes / no
 
