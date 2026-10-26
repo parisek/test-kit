@@ -54,3 +54,9 @@ export function requestPolicy({ url, method, topLevel, origin, remote }) {
   if (isOwnOrigin(url, origin)) return 'allow';
   return topLevel ? 'block' : 'drop';
 }
+
+// R3.4: a remote side may name itself. Like the certificate option, the User-Agent stays out of
+// the settings hash, and run.settings records it. Without the key, Playwright sends its default.
+export function userAgentOption(side) {
+  return side.remote === true && Object.hasOwn(side, 'userAgent') ? { userAgent: side.userAgent } : {};
+}

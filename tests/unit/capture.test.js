@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isLocalUrl, isOwnOrigin, requestPolicy, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
 
 test('navigation guards reject remote redirects and credentials', () => {
   for (const value of ['http://localhost/path', 'https://example-site.ddev.site/path', 'http://127.0.0.2/', 'http://[::1]/']) assert.equal(isLocalUrl(value), true);
@@ -56,4 +56,11 @@ test('a local side keeps blocking every request that leaves the local environmen
 test('own origin comparison rejects credentials, other ports and other schemes', () => {
   assert.equal(isOwnOrigin('https://example.com/a', 'https://example.com'), true);
   for (const value of ['https://user:x@example.com/', 'https://example.com:8443/', 'http://example.com/', 'https://example.com.evil.net/', 'not a URL', 'file:///tmp/x']) assert.equal(isOwnOrigin(value, 'https://example.com'), false);
+});
+
+test('only a remote side with userAgent changes the browser context (R3.4)', () => {
+  assert.deepEqual(userAgentOption({ origin: 'https://example.com', remote: true, userAgent: 'example test-kit/1.0' }), { userAgent: 'example test-kit/1.0' });
+  assert.deepEqual(userAgentOption({ origin: 'https://example.com', remote: true }), {});
+  assert.deepEqual(userAgentOption({ origin: 'http://localhost', userAgent: 'example test-kit/1.0' }), {});
+  assert.deepEqual(userAgentOption(Object.create({ remote: true, userAgent: 'inherited' })), {});
 });

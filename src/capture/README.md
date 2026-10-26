@@ -13,6 +13,8 @@ all frames and popups. A side with `remote: true` reads its own origin with GET 
 drops frames and subresources of other origins without failing, and blocks a top-level
 navigation, popup, redirect or non-read method that leaves it. It blocks requests that submit data. It checks redirect
 destinations before network access. It does not save cookies or credentials.
+A remote side with `userAgent` sends that User-Agent on every request (R3.4). The run
+settings record it. It is not part of the settings hash, like the certificate option.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
 WebSockets are blocked, including local sockets. Version 0.1 captures a static
 state. It does not permit socket traffic. This policy is part of the settings

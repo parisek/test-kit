@@ -12,8 +12,11 @@ import { tmpdir } from 'node:os';
 import { capture } from '../../src/capture/index.js';
 
 let submissions = 0;
+const agents = [];
 const server = createServer((request, response) => {
   if (request.method === 'POST') submissions++;
+  agents.push({ url: request.url, agent: request.headers['user-agent'] });
+  if (request.url === '/pixel.css') { response.setHeader('Content-Type', 'text/css'); response.end('h1{color:#123}'); return; }
   if (request.url === '/external-redirect') {
     response.writeHead(302, { Location: 'https://example.invalid/' }); response.end(); return;
   }
@@ -24,6 +27,7 @@ const server = createServer((request, response) => {
     '/frame': '<iframe src="https://example.invalid/"></iframe>',
     '/post': '<script>fetch("/submit",{method:"POST"}).catch(()=>{})</script>',
     '/popup': '<script>window.open("https://example.invalid/")</script>',
+    '/agent': '<link rel="stylesheet" href="/pixel.css">',
   };
   response.end(`<!doctype html><body><h1>Example site</h1>${bodies[request.url] ?? ''}</body>`);
 });
@@ -42,6 +46,23 @@ try {
   for (const id of ['post', 'beacon', 'external-redirect', 'popup']) assert.equal(state(id), 'failed', `${id}: ${JSON.stringify(remote.run.captures)}`);
   assert.equal(remote.run.settings.sides.production.remote, true);
   assert.equal(submissions, 0);
+
+  // R3.4: without userAgent the capture sends the Playwright default. With it, every request sends the value.
+  const named = 'Mozilla/5.0 (X11; Linux x86_64) example test-kit/1.0';
+  const agentBase = { ...base, targets: [{ id: 'agent', kind: 'page', title: 'agent', path: '/agent' }] };
+  agents.length = 0;
+  await writeFile(configPath, JSON.stringify({ ...agentBase, sides: { production: { origin, remote: true, settle: { waitMs: 100 } } } }));
+  const plain = await capture({ configPath, side: 'production' });
+  assert.equal(plain.run.captures[0].state, 'captured');
+  assert.ok(agents.length >= 2 && agents.every(row => /HeadlessChrome/.test(row.agent)), JSON.stringify(agents));
+  agents.length = 0;
+  await writeFile(configPath, JSON.stringify({ ...agentBase, sides: { production: { origin, remote: true, userAgent: named, settle: { waitMs: 100 } } } }));
+  const custom = await capture({ configPath, side: 'production' });
+  assert.equal(custom.run.captures[0].state, 'captured');
+  assert.deepEqual([...new Set(agents.map(row => row.url))].sort(), ['/agent', '/pixel.css']);
+  assert.ok(agents.every(row => row.agent === named), JSON.stringify(agents));
+  assert.equal(custom.run.settings.sides.production.userAgent, named);
+  assert.equal(custom.run.settingsHash, plain.run.settingsHash, 'the User-Agent must not enter the capture settings hash');
 
   // The same page on a local side still fails: a request that leaves the local environment blocks the capture.
   await writeFile(configPath, JSON.stringify({ ...base, sides: { local: { origin, settle: { waitMs: 100 } } } }));
@@ -68,7 +89,7 @@ try {
   } finally {
     await new Promise(resolve => { secure.close(resolve); secure.closeAllConnections(); });
   }
-  console.log('Remote side passes: own origin read, third party dropped, submission, off-origin write, redirect and popup blocked, local side unchanged, certificates verified.');
+  console.log('Remote side passes: own origin read, third party dropped, submission, off-origin write, redirect and popup blocked, User-Agent sent when set, local side unchanged, certificates verified.');
 } finally {
   await rm(directory, { recursive: true, force: true });
   await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });

@@ -53,6 +53,23 @@ test('a side without remote true stays local, and remote must be a boolean', () 
   assert.throws(() => normalizeConfig(source), /Invalid configuration/);
 });
 
+test('a remote side may set a printable User-Agent, and it stays out of the capture settings (R3.4)', () => {
+  const name = 'Mozilla/5.0 (X11; Linux x86_64) Chrome/156.0 Safari/537.36 test-kit/1.0';
+  const source = input(); source.sides.production = { origin: 'https://example.com', remote: true, userAgent: name };
+  const result = normalizeConfig(source);
+  assert.equal(result.sides.production.userAgent, name);
+  assert.equal(Object.hasOwn(result.sides.local, 'userAgent'), false);
+  const plain = input(); plain.sides.production = { origin: 'https://example.com', remote: true };
+  assert.equal(settingsHash(captureSettings(result, 'production')), settingsHash(captureSettings(normalizeConfig(plain), 'production')));
+  assert.equal(normalizeConfig({ ...source, sides: { ...source.sides, production: { ...source.sides.production, userAgent: 'x'.repeat(512) } } }).sides.production.userAgent.length, 512);
+  for (const value of ['', ' leading', 'trailing ', 'line\r\nX-Injected: 1', 'tab\there', 'café', 'x'.repeat(513), 1, null, ['a']]) {
+    const bad = input(); bad.sides.production = { origin: 'https://example.com', remote: true, userAgent: value };
+    assert.throws(() => normalizeConfig(bad), /Invalid configuration/, JSON.stringify(value));
+  }
+  const local = input(); local.sides.local.userAgent = name;
+  assert.throws(() => normalizeConfig(local), /userAgent requires remote true/);
+});
+
 test('per-side paths must cover every side and remain on the origin', () => {
   const source = input(); source.sides.other = { origin: 'http://localhost:8081' };
   source.targets[0] = { id: 'home', kind: 'page', paths: { local: '/', other: '/different?lang=en' } };

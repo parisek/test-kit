@@ -41,6 +41,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `sides` | object | none | yes | 1 to 20 entries. A key is a safe ID (`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`). |
 | `sides.<id>.origin` | string | none | yes | An HTTP origin with no path or credentials. Local unless `remote` is `true`. |
 | `sides.<id>.remote` | boolean | `false` | no | R3.3. Added in 0.5.0. |
+| `sides.<id>.userAgent` | string | the Playwright default | no | R3.4. Only with `remote: true`. 1 to 512 printable ASCII characters. Not in the capture settings hash. Unreleased. |
 | `sides.<id>.production` | boolean | `false` | no | R6.5. `perf` on this side waits for `--consent` for any number of targets. The side id does not decide. Added in 1.0.0-rc.4. |
 | `sides.<id>.settle` | object | see below | no | Settle recipe (R5.4). |
 | `targets` | list | none | yes | 1 to 1000 entries. |

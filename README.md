@@ -91,6 +91,20 @@ navigation to another origin, and on any method other than GET and HEAD, to any 
 cookies or credentials. A remote side verifies TLS certificates. A local side ignores certificate errors for self-signed DDEV certificates. `perf` and `--ddev` refuse a remote side. Use the same
 `settle` recipe on both sides, or the comparison reports incompatible settings.
 
+A site firewall can block the default User-Agent of headless Chromium, which
+contains `HeadlessChrome`. The capture then records a 403. A remote side may set
+`userAgent` to an honest name, for example a browser User-Agent that ends in
+`test-kit/1.0`. Do not use it to hide the tool. Every request of that side sends
+it. A local side refuses the key. The run settings record the value, but it does
+not enter the capture settings hash, so the pair stays comparable. A site can
+serve different markup for a different User-Agent. A migration pair then
+compares two User-Agents, so read a finding with that in mind.
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true,
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 test-kit/1.0"}
+```
+
 Aborted third-party requests are not recorded as evidence. A page that needs
 such a request to render differs from the same page with it, so read an
 `unexplained` finding with that in mind.
