@@ -176,6 +176,7 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 - **Settings hash line:** shown on a row only when the hash differs from the previous row.
 - **Placeholder frame:** a dashed 1px border for an image that is not loaded.
 - **Page background:** the toolbar color.
+- **Favicon:** the header mark "tk" as a same-origin SVG file, `favicon.svg`, next to `index.html`. It uses fixed colors that read on a light and on a dark browser tab. The server policy allows no inline icon. The owner asked for it on 2026-10-25.
 - **Theme toggle:** a text button at the right of the header: "Dark theme" or "Light theme".
 - **Breadcrumb:** the way back is always the first element in the content column.
 - **Tabs:** real buttons with `role="tab"`. The selected tab has a 3px bottom border in the active surface color and bold text. The tab never changes by itself. If the app opens a tab for the person, it says why.

@@ -61,7 +61,7 @@ export async function reportFiles(report, reportRoot) {
 	for (const src of assets) files.set(src, { type: 'image/png', maxBytes: MAX_BYTES });
 	for (const src of attachments) files.set(src, { type: 'application/zip', maxBytes: MAX_BYTES, attachment: true });
 	for (const [src, type] of sidecars) files.set(src, { type, maxBytes: rawPerformance.has(src) ? 20 * 1024 * 1024 : 2 * 1024 * 1024, attachment: rawPerformance.has(src) && src.endsWith('.html') });
-	for (const src of files.keys()) if (['index.html', 'app.js', 'style.css', 'report.json'].includes(src)) throw new Error('Evidence path conflicts with a viewer file.');
+	for (const src of files.keys()) if (['index.html', 'app.js', 'style.css', 'favicon.svg', 'report.json'].includes(src)) throw new Error('Evidence path conflicts with a viewer file.');
 	return files;
 }
 
