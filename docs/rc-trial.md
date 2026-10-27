@@ -1,6 +1,6 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: updated on 2026-10-24 for `v1.0.0-rc.5`, the current candidate.
+Status: updated on 2026-10-27 for `v1.0.0-rc.6`, the current candidate.
 The tag `v1.0.0-rc.1` is the first candidate. It stays as history.
 The owner tags the candidate on the squash commit of the merged pull request on `main`.
 The tag form `-rc.N` is defined by R13.45, and `release.yml` accepts rc tags.
@@ -36,7 +36,7 @@ Measured on 2026-10-19 with a packed copy of this branch in a clean project, bef
 The package is not on an npm registry (specification section 13.2). A project installs it from a git tag and pins it exactly (R13.27).
 
 ```sh
-npm install -D github:parisek/test-kit#v1.0.0-rc.5
+npm install -D github:parisek/test-kit#v1.0.0-rc.6
 npm install -D @playwright/test@1.64.1
 npx playwright install chromium
 ```
@@ -54,7 +54,7 @@ npx test-kit --version   # 1.0.0
 npx test-kit --help
 ```
 
-`--version` prints `1.0.0` for a candidate too. It reads `package.json`, and the candidate keeps the version `1.0.0`. So the output does not tell a candidate from a stable 1.0.0. To tell them apart, run `npm ls @parisek/test-kit`, which shows the git commit, and read the commit in `package-lock.json`. Compare it with the commit of the tag `v1.0.0-rc.5` (`git rev-parse v1.0.0-rc.5^{commit}` in a clone of this repository).
+`--version` prints `1.0.0` for a candidate too. It reads `package.json`, and the candidate keeps the version `1.0.0`. So the output does not tell a candidate from a stable 1.0.0. To tell them apart, run `npm ls @parisek/test-kit`, which shows the git commit, and read the commit in `package-lock.json`. Compare it with the commit of the tag `v1.0.0-rc.6` (`git rev-parse v1.0.0-rc.6^{commit}` in a clone of this repository).
 
 Notes:
 

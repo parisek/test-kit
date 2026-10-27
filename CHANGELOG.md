@@ -4,9 +4,19 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.6] - 2026-10-27
+
+Sixth release candidate for 1.0.0. It is not a stable release. A remote side can name itself with a User-Agent, Evidence opens on the worst target, and the viewer tab shows the tool mark.
+
 ### Added
 
 - A remote side may set `userAgent`, so a site firewall that blocks `HeadlessChrome` lets the capture through. A local side refuses the key. The value is not part of the capture settings hash (R3.4, #241).
+
+### Changed
+
+- Evidence opens on the first target of the worst class when no target is selected. A target in a deep link or a click wins (#226).
+- The viewer tab shows the tool mark as its icon. The icon is a same-origin file, so the `serve` CSP stays unchanged (R10.11, #237).
+- The seam document records the owner's confirmation of the seam list (#236).
 
 ## [1.0.0-rc.5] - 2026-10-25
 
