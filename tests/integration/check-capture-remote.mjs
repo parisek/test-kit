@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { capture } from '../../src/capture/index.js';
@@ -38,6 +38,7 @@ const server = createServer((request, response) => {
     '/popup': '<script>window.open("https://example.invalid/")</script>',
     '/asset-challenged': '<link rel="stylesheet" href="/challenged.css">',
     '/agent': '<link rel="stylesheet" href="/pixel.css">',
+    '/behavior-edge': '<button onclick="fetch(\'/challenged.css\').catch(()=>{})">Open</button>',
     '/challenge-redirect': '<script>fetch("/cdn-cgi/challenge-platform/h/b/redirect",{method:"POST",body:"x"}).catch(()=>{})</script>',
     '/challenge-encoded': '<script>fetch("/cdn-cgi/challenge-platform/..%2fsubmit",{method:"POST",body:"x"}).catch(()=>{})</script>',
     '/challenge-form': '<iframe name="f"></iframe><form target="f" method="post" action="/cdn-cgi/challenge-platform/h/b/form"></form><script>document.forms[0].submit()</script>',
@@ -109,6 +110,21 @@ try {
     assert.equal(halted.run.state, 'partial');
     assert.ok(!agents.some(item => item.url === '/agent' || item.url === '/pixel.css'), `${stop}: ${JSON.stringify(agents)}`);
   }
+
+  // R3.6: an edge response during behavior also stops the run.
+  agents.length = 0;
+  await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+  await writeFile(join(directory, 'package-lock.json'), '{"packages":{}}');
+  await mkdir(join(directory, 'contracts'), { recursive: true });
+  await writeFile(join(directory, 'contracts', 'edge.contract.js'), "export const name='edge';export async function detect(page){return page.locator('button').all();}export async function run(page,button){await Promise.all([page.waitForResponse(r=>r.url().endsWith('/challenged.css')),button.click()]);return {clicked:true};}");
+  const behaviorBase = { ...base, artifacts: ['screenshot', 'status', 'behavior'], behavior: { source: 'contracts', projects: { desktop: 'desktop-1280' } },
+    targets: ['behavior-edge', 'agent'].map(id => ({ id, kind: 'page', title: id, path: `/${id}` })) };
+  await writeFile(configPath, JSON.stringify({ ...behaviorBase, sides: { production: { origin, remote: true, settle: { waitMs: 100 } } } }));
+  const duringBehavior = await capture({ configPath, side: 'production' });
+  const behaviorRow = id => duringBehavior.run.captures.find(item => item.targetId === id);
+  assert.equal(behaviorRow('behavior-edge').error?.code, 'REMOTE_EDGE_STOP', JSON.stringify(behaviorRow('behavior-edge')));
+  assert.equal(behaviorRow('agent').error?.code, 'RUN_STOPPED');
+  assert.ok(!agents.some(item => item.url === '/agent'), JSON.stringify(agents));
 
   // The same page on a local side still fails: a request that leaves the local environment blocks the capture.
   await writeFile(configPath, JSON.stringify({ ...base, sides: { local: { origin, settle: { waitMs: 100 } } } }));

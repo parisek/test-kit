@@ -115,6 +115,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     page.setDefaultNavigationTimeout(config.screenshot.timeoutMs);
     await context.route('**/*', async route => {
       const request = route.request();
+      // R3.6: after an edge stop the capture sends no further request.
+      if (edge) { await route.abort('blockedbyclient'); return; }
       if ((recipe.reveal?.length || recipe.lazyImages) && phase !== 'navigation' && phase !== 'behavior'
         && request.isNavigationRequest()) {
         // A popup can request its first URL before Playwright creates its frame.
@@ -216,8 +218,9 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       } catch { artifacts.behavior = { kind: 'behavior', ...provenance.behavior, state: 'failed', error: { code: 'BEHAVIOR_CAPTURE_FAILED', message: 'Behavior evidence is unavailable or exceeds its limit.' } }; }
     };
     if (!config.artifacts.includes('screenshot')) {
-      if (blocked || expired || !allowedUrl(page.url())) throw new Error('Capture is unavailable.');
+      if (edge || blocked || expired || !allowedUrl(page.url())) throw new Error('Capture is unavailable.');
       await captureBehavior();
+      if (edge) throw new Error('Remote edge stop');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
     }
     phase = 'screenshot';
@@ -249,6 +252,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
     await captureBehavior();
+    // R3.6: a behavior step can also meet the edge.
+    if (edge) throw new Error('Remote edge stop');
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
       width, height, deviceScaleFactor: viewport.deviceScaleFactor, scopeHash: settingsHash(screenshotScope(target, side)), artifacts };
     })()]);
