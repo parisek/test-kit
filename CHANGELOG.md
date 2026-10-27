@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- A remote side may set `userAgent`, so a site firewall that blocks `HeadlessChrome` lets the capture through. A local side refuses the key. The value is not part of the capture settings hash (R3.4, #241).
+
 ## [1.0.0-rc.5] - 2026-10-25
 
 Fifth release candidate for 1.0.0. It is not a stable release. It fixes viewer findings of the redesign acceptance (#148), hardens two pack checks, and documents the server cache rule for a publish directory (#217).

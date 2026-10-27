@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, isOwnOrigin, requestPolicy, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -85,7 +85,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     return await Promise.race([deadline, (async () => {
     context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.deviceScaleFactor,
-      ignoreHTTPSErrors: ignoreHTTPSErrors(config, side), serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
+      ignoreHTTPSErrors: ignoreHTTPSErrors(config, side), ...userAgentOption(config.sides[side]), serviceWorkers: BROWSER_SETTINGS.serviceWorkers,
       reducedMotion: config.artifacts.includes('behavior') ? config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference') : recipe.disableMotion ? 'reduce' : 'no-preference',
       ...(config.artifacts.includes('behavior') && config.behavior.emulate.colorScheme ? { colorScheme: config.behavior.emulate.colorScheme } : {}),
     });
