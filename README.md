@@ -108,8 +108,9 @@ compares two User-Agents, so read a finding with that in mind.
 A CDN can run JavaScript bot detection on every page. Cloudflare sends a `POST`
 to `/cdn-cgi/challenge-platform/` on the site origin, and the capture fails on it.
 A remote side may set `"challenge": "cloudflare"`. The capture then lets that
-`POST` through, and only that one: a fetch, XHR or beacon to that path with plain path
-characters, never a navigation or a form. The CDN edge answers it, not the site. Every
+`POST` through, and only that kind: a fetch, XHR or beacon to a path below it with plain
+characters, never a navigation or a form. Set the key only for a site behind
+Cloudflare. The CDN edge answers it, not the site. Every
 other non-read request still fails the capture, and so does a redirect of the allowed `POST`. An interstitial challenge page,
 a 403 with `cf-mitigated: challenge`, still fails. A local side refuses the key.
 
