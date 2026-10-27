@@ -105,6 +105,13 @@ compares two User-Agents, so read a finding with that in mind.
   "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 test-kit/1.0"}
 ```
 
+A CDN can run JavaScript bot detection on every page. Cloudflare sends a `POST`
+to `/cdn-cgi/challenge-platform/` on the site origin, and the capture fails on it.
+A remote side may set `"challenge": "cloudflare"`. The capture then lets that
+`POST` through, and only that one. The CDN edge answers it, not the site. Every
+other non-read request still fails the capture. An interstitial challenge page,
+a 403 with `cf-mitigated: challenge`, still fails. A local side refuses the key.
+
 Aborted third-party requests are not recorded as evidence. A page that needs
 such a request to render differs from the same page with it, so read an
 `unexplained` finding with that in mind.

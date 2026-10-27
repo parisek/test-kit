@@ -15,6 +15,8 @@ navigation, popup, redirect or non-read method that leaves it. It blocks request
 destinations before network access. It does not save cookies or credentials.
 A remote side with `userAgent` sends that User-Agent on every request (R3.4). The run
 settings record it. It is not part of the settings hash, like the certificate option.
+A remote side with `challenge: "cloudflare"` also sends a POST from a frame or subresource to
+`/cdn-cgi/challenge-platform/` on its own origin (R3.5). Every other non-read request still fails.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
 WebSockets are blocked, including local sockets. Version 0.1 captures a static
 state. It does not permit socket traffic. This policy is part of the settings

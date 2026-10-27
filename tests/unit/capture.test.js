@@ -53,6 +53,20 @@ test('a local side keeps blocking every request that leaves the local environmen
   assert.equal(policy('http://127.0.0.1:8080/submit', 'POST'), 'block');
 });
 
+test('a remote side with challenge cloudflare allows only the challenge POST of its own origin (R3.5)', () => {
+  const side = { origin: 'https://example.com', remote: true, challenge: 'cloudflare' };
+  const policy = (url, method = 'POST', topLevel = false, options = side) => requestPolicy({ url, method, topLevel, ...options });
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/x'), 'allow');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/x', 'POST', true), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/x', 'PUT'), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platformx'), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/other/x'), 'block');
+  assert.equal(policy('https://example.com/submit'), 'block');
+  assert.equal(policy('https://other.example.net/cdn-cgi/challenge-platform/x'), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/x', 'POST', false, { origin: 'https://example.com', remote: true }), 'block');
+  assert.equal(policy('http://localhost/cdn-cgi/challenge-platform/x', 'POST', false, { origin: 'http://localhost', remote: false, challenge: 'cloudflare' }), 'block');
+});
+
 test('own origin comparison rejects credentials, other ports and other schemes', () => {
   assert.equal(isOwnOrigin('https://example.com/a', 'https://example.com'), true);
   for (const value of ['https://user:x@example.com/', 'https://example.com:8443/', 'http://example.com/', 'https://example.com.evil.net/', 'not a URL', 'file:///tmp/x']) assert.equal(isOwnOrigin(value, 'https://example.com'), false);

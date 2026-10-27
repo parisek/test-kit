@@ -13,7 +13,9 @@ import { capture } from '../../src/capture/index.js';
 
 let submissions = 0;
 const agents = [];
+const challenges = [];
 const server = createServer((request, response) => {
+  if (request.method === 'POST' && request.url.startsWith('/cdn-cgi/challenge-platform/')) { challenges.push(request.url); response.end('ok'); return; }
   if (request.method === 'POST') submissions++;
   agents.push({ url: request.url, agent: request.headers['user-agent'] });
   if (request.url === '/pixel.css') { response.setHeader('Content-Type', 'text/css'); response.end('h1{color:#123}'); return; }
@@ -28,6 +30,7 @@ const server = createServer((request, response) => {
     '/post': '<script>fetch("/submit",{method:"POST"}).catch(()=>{})</script>',
     '/popup': '<script>window.open("https://example.invalid/")</script>',
     '/agent': '<link rel="stylesheet" href="/pixel.css">',
+    '/challenge': '<script>fetch("/cdn-cgi/challenge-platform/h/b/jsd/oneshot/example",{method:"POST",body:"x"}).then(r=>r.text()).then(t=>{document.title=t}).catch(()=>{})</script>',
   };
   response.end(`<!doctype html><body><h1>Example site</h1>${bodies[request.url] ?? ''}</body>`);
 });
@@ -64,6 +67,22 @@ try {
   assert.equal(custom.run.settings.sides.production.userAgent, named);
   assert.equal(custom.run.settingsHash, plain.run.settingsHash, 'the User-Agent must not enter the capture settings hash');
 
+  // R3.5: without challenge the challenge POST fails the capture. With challenge cloudflare it passes,
+  // and every other POST still fails.
+  const challengeBase = { ...base, targets: ['challenge', 'post'].map(id => ({ id, kind: 'page', title: id, path: `/${id}` })) };
+  await writeFile(configPath, JSON.stringify({ ...challengeBase, sides: { production: { origin, remote: true, settle: { waitMs: 300 } } } }));
+  const strictChallenge = await capture({ configPath, side: 'production' });
+  assert.equal(strictChallenge.run.captures.find(row => row.targetId === 'challenge').state, 'failed');
+  assert.equal(challenges.length, 0);
+  await writeFile(configPath, JSON.stringify({ ...challengeBase, sides: { production: { origin, remote: true, challenge: 'cloudflare', settle: { waitMs: 300 } } } }));
+  const passed = await capture({ configPath, side: 'production' });
+  assert.equal(passed.run.captures.find(row => row.targetId === 'challenge').state, 'captured', JSON.stringify(passed.run.captures));
+  assert.equal(passed.run.captures.find(row => row.targetId === 'post').state, 'failed');
+  assert.deepEqual(challenges, ['/cdn-cgi/challenge-platform/h/b/jsd/oneshot/example']);
+  assert.equal(passed.run.settings.sides.production.challenge, 'cloudflare');
+  assert.equal(passed.run.settingsHash, strictChallenge.run.settingsHash, 'challenge must not enter the capture settings hash');
+  assert.equal(submissions, 0);
+
   // The same page on a local side still fails: a request that leaves the local environment blocks the capture.
   await writeFile(configPath, JSON.stringify({ ...base, sides: { local: { origin, settle: { waitMs: 100 } } } }));
   const local = await capture({ configPath, side: 'local' });
@@ -89,7 +108,7 @@ try {
   } finally {
     await new Promise(resolve => { secure.close(resolve); secure.closeAllConnections(); });
   }
-  console.log('Remote side passes: own origin read, third party dropped, submission, off-origin write, redirect and popup blocked, User-Agent sent when set, local side unchanged, certificates verified.');
+  console.log('Remote side passes: own origin read, third party dropped, submission, off-origin write, redirect and popup blocked, User-Agent sent when set, challenge POST passed only when set, local side unchanged, certificates verified.');
 } finally {
   await rm(directory, { recursive: true, force: true });
   await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });

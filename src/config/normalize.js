@@ -95,15 +95,19 @@ export function normalizeConfig(input) {
   if (!sideEntries.length || sideEntries.length > 20) fail('sides must have 1..20 entries');
   const sides = Object.fromEntries(sideEntries.map(([sideId, side]) => {
     id(sideId, 'side ID');
-    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent']);
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
     // R6.5: the flag, not the side id, marks a production side.
     if (Object.hasOwn(side, 'production') && typeof side.production !== 'boolean') fail(`sides.${sideId}.production must be a boolean`);
     const remote = side.remote === true;
     if (Object.hasOwn(side, 'userAgent') && !remote) fail(`sides.${sideId}.userAgent requires remote true`);
+    // R3.5: one known CDN challenge. A local side never meets one.
+    if (Object.hasOwn(side, 'challenge') && !remote) fail(`sides.${sideId}.challenge requires remote true`);
+    if (Object.hasOwn(side, 'challenge') && side.challenge !== 'cloudflare') fail(`sides.${sideId}.challenge must be "cloudflare"`);
     return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`, remote),
       ...(remote ? { remote: true } : {}),
       ...(Object.hasOwn(side, 'userAgent') ? { userAgent: userAgent(side.userAgent, `sides.${sideId}.userAgent`) } : {}),
+      ...(Object.hasOwn(side, 'challenge') ? { challenge: side.challenge } : {}),
       ...(side.production === true ? { production: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));

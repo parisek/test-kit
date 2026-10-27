@@ -70,6 +70,21 @@ test('a remote side may set a printable User-Agent, and it stays out of the capt
   assert.throws(() => normalizeConfig(local), /userAgent requires remote true/);
 });
 
+test('a remote side may set challenge cloudflare, and it stays out of the capture settings (R3.5)', () => {
+  const source = input(); source.sides.production = { origin: 'https://example.com', remote: true, challenge: 'cloudflare' };
+  const result = normalizeConfig(source);
+  assert.equal(result.sides.production.challenge, 'cloudflare');
+  const plain = input(); plain.sides.production = { origin: 'https://example.com', remote: true };
+  assert.equal(Object.hasOwn(normalizeConfig(plain).sides.production, 'challenge'), false);
+  assert.equal(settingsHash(captureSettings(result, 'production')), settingsHash(captureSettings(normalizeConfig(plain), 'production')));
+  for (const value of ['Cloudflare', 'akamai', '', true, null, ['cloudflare']]) {
+    const bad = input(); bad.sides.production = { origin: 'https://example.com', remote: true, challenge: value };
+    assert.throws(() => normalizeConfig(bad), /Invalid configuration/, JSON.stringify(value));
+  }
+  const local = input(); local.sides.local.challenge = 'cloudflare';
+  assert.throws(() => normalizeConfig(local), /challenge requires remote true/);
+});
+
 test('per-side paths must cover every side and remain on the origin', () => {
   const source = input(); source.sides.other = { origin: 'http://localhost:8081' };
   source.targets[0] = { id: 'home', kind: 'page', paths: { local: '/', other: '/different?lang=en' } };

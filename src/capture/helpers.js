@@ -47,12 +47,21 @@ export function isOwnOrigin(value, origin) {
 // attempted write is a finding, not noise. It allows GET and HEAD to its own
 // origin and drops a GET or HEAD to another origin (a frame or a subresource).
 // A top-level navigation to another origin fails the capture.
-export function requestPolicy({ url, method, topLevel, origin, remote }) {
+// R3.5: a remote side with `challenge: 'cloudflare'` also allows a subresource POST to
+// the challenge path of its own origin. The CDN edge answers it, not the site.
+export function requestPolicy({ url, method, topLevel, origin, remote, challenge }) {
   const read = ['GET', 'HEAD'].includes(method);
   if (!remote) return read && isLocalUrl(url) ? 'allow' : 'block';
-  if (!read) return 'block';
+  if (!read) return challenge === 'cloudflare' && isChallengeRequest({ url, method, topLevel, origin }) ? 'allow' : 'block';
   if (isOwnOrigin(url, origin)) return 'allow';
   return topLevel ? 'block' : 'drop';
+}
+
+// The challenge path of Cloudflare JavaScript detection and of its challenge pages.
+export const CLOUDFLARE_CHALLENGE_PATH = '/cdn-cgi/challenge-platform/';
+function isChallengeRequest({ url, method, topLevel, origin }) {
+  if (method !== 'POST' || topLevel || !isOwnOrigin(url, origin)) return false;
+  return new URL(url).pathname.startsWith(CLOUDFLARE_CHALLENGE_PATH);
 }
 
 // R3.4: a remote side may name itself. Like the certificate option, the User-Agent stays out of
