@@ -15,7 +15,11 @@ let submissions = 0;
 const agents = [];
 const challenges = [];
 const server = createServer((request, response) => {
-  if (request.method === 'POST' && request.url.startsWith('/cdn-cgi/challenge-platform/')) { challenges.push(request.url); response.end('ok'); return; }
+  if (request.method === 'POST' && request.url.startsWith('/cdn-cgi/challenge-platform/')) {
+    challenges.push(request.url);
+    if (request.url.endsWith('/redirect')) { response.writeHead(307, { Location: '/submit' }); response.end(); return; }
+    response.end('ok'); return;
+  }
   if (request.method === 'POST') submissions++;
   agents.push({ url: request.url, agent: request.headers['user-agent'] });
   if (request.url === '/pixel.css') { response.setHeader('Content-Type', 'text/css'); response.end('h1{color:#123}'); return; }
@@ -30,6 +34,9 @@ const server = createServer((request, response) => {
     '/post': '<script>fetch("/submit",{method:"POST"}).catch(()=>{})</script>',
     '/popup': '<script>window.open("https://example.invalid/")</script>',
     '/agent': '<link rel="stylesheet" href="/pixel.css">',
+    '/challenge-redirect': '<script>fetch("/cdn-cgi/challenge-platform/h/b/redirect",{method:"POST",body:"x"}).catch(()=>{})</script>',
+    '/challenge-encoded': '<script>fetch("/cdn-cgi/challenge-platform/..%2fsubmit",{method:"POST",body:"x"}).catch(()=>{})</script>',
+    '/challenge-form': '<iframe name="f"></iframe><form target="f" method="post" action="/cdn-cgi/challenge-platform/h/b/form"></form><script>document.forms[0].submit()</script>',
     '/challenge': '<script>fetch("/cdn-cgi/challenge-platform/h/b/jsd/oneshot/example",{method:"POST",body:"x"}).then(r=>r.text()).then(t=>{document.title=t}).catch(()=>{})</script>',
   };
   response.end(`<!doctype html><body><h1>Example site</h1>${bodies[request.url] ?? ''}</body>`);
@@ -69,7 +76,7 @@ try {
 
   // R3.5: without challenge the challenge POST fails the capture. With challenge cloudflare it passes,
   // and every other POST still fails.
-  const challengeBase = { ...base, targets: ['challenge', 'post'].map(id => ({ id, kind: 'page', title: id, path: `/${id}` })) };
+  const challengeBase = { ...base, targets: ['challenge', 'post', 'challenge-redirect', 'challenge-encoded', 'challenge-form'].map(id => ({ id, kind: 'page', title: id, path: `/${id}` })) };
   await writeFile(configPath, JSON.stringify({ ...challengeBase, sides: { production: { origin, remote: true, settle: { waitMs: 300 } } } }));
   const strictChallenge = await capture({ configPath, side: 'production' });
   assert.equal(strictChallenge.run.captures.find(row => row.targetId === 'challenge').state, 'failed');
@@ -77,8 +84,9 @@ try {
   await writeFile(configPath, JSON.stringify({ ...challengeBase, sides: { production: { origin, remote: true, challenge: 'cloudflare', settle: { waitMs: 300 } } } }));
   const passed = await capture({ configPath, side: 'production' });
   assert.equal(passed.run.captures.find(row => row.targetId === 'challenge').state, 'captured', JSON.stringify(passed.run.captures));
-  assert.equal(passed.run.captures.find(row => row.targetId === 'post').state, 'failed');
-  assert.deepEqual(challenges, ['/cdn-cgi/challenge-platform/h/b/jsd/oneshot/example']);
+  // A redirect of the allowed POST, an encoded separator and a form POST into a frame still fail.
+  for (const id of ['post', 'challenge-redirect', 'challenge-encoded', 'challenge-form']) assert.equal(passed.run.captures.find(row => row.targetId === id).state, 'failed', id);
+  assert.deepEqual(challenges, ['/cdn-cgi/challenge-platform/h/b/jsd/oneshot/example', '/cdn-cgi/challenge-platform/h/b/redirect']);
   assert.equal(passed.run.settings.sides.production.challenge, 'cloudflare');
   assert.equal(passed.run.settingsHash, strictChallenge.run.settingsHash, 'challenge must not enter the capture settings hash');
   assert.equal(submissions, 0);

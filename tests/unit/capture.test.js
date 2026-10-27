@@ -57,7 +57,10 @@ test('a remote side with challenge cloudflare allows only the challenge POST of 
   const side = { origin: 'https://example.com', remote: true, challenge: 'cloudflare' };
   const policy = (url, method = 'POST', topLevel = false, options = side) => requestPolicy({ url, method, topLevel, ...options });
   assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/x'), 'allow');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/d2d3316b729e/0.30357:1793088923:TGH'), 'allow');
   assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/x', 'POST', true), 'block');
+  assert.equal(requestPolicy({ url: 'https://example.com/cdn-cgi/challenge-platform/x', method: 'POST', topLevel: false, navigation: true, ...side }), 'block');
+  for (const path of ['..%2fsubmit', '%2e%2e/submit', 'x%5csubmit', 'x?y', 'x/', 'x//y', '', 'x/../../submit']) assert.equal(policy(`https://example.com/cdn-cgi/challenge-platform/${path}`), path === 'x?y' ? 'allow' : 'block', path);
   assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/x', 'PUT'), 'block');
   assert.equal(policy('https://example.com/cdn-cgi/challenge-platformx'), 'block');
   assert.equal(policy('https://example.com/cdn-cgi/other/x'), 'block');

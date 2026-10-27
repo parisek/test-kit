@@ -6,7 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
-- A remote side may set `challenge: "cloudflare"`. The capture then lets through a `POST` from a frame or subresource to `/cdn-cgi/challenge-platform/` on its own origin, so Cloudflare JavaScript detection no longer fails the capture. Every other non-read request still fails. A local side refuses the key (R3.5, #243).
+- A remote side may set `challenge: "cloudflare"`. The capture then lets through a `POST` that is not a navigation to `/cdn-cgi/challenge-platform/` on its own origin, with no percent escape in the path, so Cloudflare JavaScript detection no longer fails the capture. A redirect of that `POST` and every other non-read request still fail. A local side refuses the key (R3.5, #243).
 
 ## [1.0.0-rc.6] - 2026-10-27
 

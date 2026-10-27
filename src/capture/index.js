@@ -120,7 +120,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       }
       let topLevel = true;
       try { topLevel = !request.isNavigationRequest() ? false : request.frame().parentFrame() === null; } catch { /* A popup requests its first URL before its frame exists. Fail closed. */ }
-      const decision = requestPolicy({ url: request.url(), method: request.method(), topLevel, origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge });
+      const decision = requestPolicy({ url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge });
       if (decision !== 'allow') {
         if (decision === 'block') blocked = true;
         await route.abort('blockedbyclient');
@@ -130,8 +130,10 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         try {
           const response = await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
           const location = response.headers().location;
-          if (response.status() >= 300 && response.status() < 400 && location
-            && !allowedUrl(new URL(location, request.url()).href)) {
+          // R3.5: a redirect of an allowed write could repeat it on another path, so it fails the capture.
+          const write = !['GET', 'HEAD'].includes(request.method());
+          if (response.status() >= 300 && response.status() < 400 && (write || (location
+            && !allowedUrl(new URL(location, request.url()).href)))) {
             blocked = true;
             await route.abort('blockedbyclient');
           } else await route.fulfill({ response });
