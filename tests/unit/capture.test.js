@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isLocalUrl, isOwnOrigin, requestPolicy, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
 
 test('navigation guards reject remote redirects and credentials', () => {
   for (const value of ['http://localhost/path', 'https://example-site.ddev.site/path', 'http://127.0.0.2/', 'http://[::1]/']) assert.equal(isLocalUrl(value), true);
@@ -51,6 +51,34 @@ test('a local side keeps blocking every request that leaves the local environmen
   assert.equal(policy('http://127.0.0.1:8080/a.css'), 'allow');
   assert.equal(policy('https://example.com/a.js'), 'block');
   assert.equal(policy('http://127.0.0.1:8080/submit', 'POST'), 'block');
+});
+
+test('a remote side with challenge cloudflare allows only the challenge POST of its own origin (R3.5)', () => {
+  const side = { origin: 'https://example.com', remote: true, challenge: 'cloudflare' };
+  const policy = (url, method = 'POST', topLevel = false, options = side) => requestPolicy({ url, method, topLevel, ...options });
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/x'), 'allow');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/d2d3316b729e/0.30357:1793088923:TGH'), 'allow');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/h/b/jsd/oneshot/x', 'POST', true), 'block');
+  assert.equal(requestPolicy({ url: 'https://example.com/cdn-cgi/challenge-platform/x', method: 'POST', topLevel: false, navigation: true, ...side }), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/x?y'), 'allow');
+  for (const path of ['..%2fsubmit', '%2e%2e/submit', 'x%5csubmit', 'x/', 'x//y', '', 'x/../../submit', 'x y', 'x!']) assert.equal(policy(`https://example.com/cdn-cgi/challenge-platform/${path}`), 'block', path);
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/x', 'PUT'), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platformx'), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/other/x'), 'block');
+  assert.equal(policy('https://example.com/submit'), 'block');
+  assert.equal(policy('https://other.example.net/cdn-cgi/challenge-platform/x'), 'block');
+  assert.equal(policy('https://example.com/cdn-cgi/challenge-platform/x', 'POST', false, { origin: 'https://example.com', remote: true }), 'block');
+  assert.equal(policy('http://localhost/cdn-cgi/challenge-platform/x', 'POST', false, { origin: 'http://localhost', remote: false, challenge: 'cloudflare' }), 'block');
+});
+
+test('a challenge mark, or a 403 or 429 on the page, is an edge stop (R3.6)', () => {
+  assert.equal(edgeStop({ status: 403, headers: { 'cf-mitigated': 'challenge' }, main: true }), 'cf-mitigated: challenge');
+  assert.equal(edgeStop({ status: 200, headers: { 'cf-mitigated': 'challenge' }, main: false }), 'cf-mitigated: challenge');
+  assert.equal(edgeStop({ status: 403, headers: {}, main: true }), 'HTTP 403');
+  assert.equal(edgeStop({ status: 429, headers: {}, main: true }), 'HTTP 429');
+  for (const status of [200, 301, 404, 500, 503]) assert.equal(edgeStop({ status, headers: {}, main: true }), null, String(status));
+  assert.equal(edgeStop({ status: 403, headers: {}, main: false }), null);
+  assert.equal(edgeStop({ status: 429, headers: {}, main: false }), null);
 });
 
 test('own origin comparison rejects credentials, other ports and other schemes', () => {

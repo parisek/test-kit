@@ -47,12 +47,31 @@ export function isOwnOrigin(value, origin) {
 // attempted write is a finding, not noise. It allows GET and HEAD to its own
 // origin and drops a GET or HEAD to another origin (a frame or a subresource).
 // A top-level navigation to another origin fails the capture.
-export function requestPolicy({ url, method, topLevel, origin, remote }) {
+// R3.5: a remote side with `challenge: 'cloudflare'` also allows a POST that is not a
+// navigation (fetch, XHR, beacon) to the challenge path of its own origin.
+export function requestPolicy({ url, method, topLevel, navigation = topLevel, origin, remote, challenge }) {
   const read = ['GET', 'HEAD'].includes(method);
   if (!remote) return read && isLocalUrl(url) ? 'allow' : 'block';
-  if (!read) return 'block';
+  if (!read) return challenge === 'cloudflare' && isChallengeRequest({ url, method, navigation, origin }) ? 'allow' : 'block';
   if (isOwnOrigin(url, origin)) return 'allow';
   return topLevel ? 'block' : 'drop';
+}
+
+// The challenge path of Cloudflare JavaScript detection. Plain path characters only: no
+// percent escape, so no encoded separator can reach another route after decoding.
+const CLOUDFLARE_CHALLENGE = /^\/cdn-cgi\/challenge-platform\/[A-Za-z0-9._~:+=-]+(?:\/[A-Za-z0-9._~:+=-]+)*$/;
+function isChallengeRequest({ url, method, navigation, origin }) {
+  if (method !== 'POST' || navigation || !isOwnOrigin(url, origin)) return false;
+  return CLOUDFLARE_CHALLENGE.test(new URL(url).pathname);
+}
+
+// R3.6: a sign that the edge in front of a remote side challenges or limits the capture.
+// Cloudflare marks a challenge with `cf-mitigated`. A 403 or 429 on the page itself is a
+// firewall block or a rate limit. More requests could turn it into a longer ban.
+export function edgeStop({ status, headers, main }) {
+  if (headers && Object.hasOwn(headers, 'cf-mitigated')) return `cf-mitigated: ${String(headers['cf-mitigated']).slice(0, 40)}`;
+  if (main && (status === 403 || status === 429)) return `HTTP ${status}`;
+  return null;
 }
 
 // R3.4: a remote side may name itself. Like the certificate option, the User-Agent stays out of
