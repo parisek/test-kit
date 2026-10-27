@@ -114,6 +114,11 @@ Cloudflare. The CDN edge answers it, not the site. Every
 other non-read request still fails the capture, and so does a redirect of the allowed `POST`. An interstitial challenge page,
 a 403 with `cf-mitigated: challenge`, still fails. A local side refuses the key.
 
+A remote run stops at the first sign that the edge challenges or limits it: a
+`cf-mitigated` header on any response of the origin, or a 403 or 429 on the page.
+That capture fails with `REMOTE_EDGE_STOP`. The rest of the run fails with
+`RUN_STOPPED` and sends no request, so a challenge does not grow into a ban.
+
 Aborted third-party requests are not recorded as evidence. A page that needs
 such a request to render differs from the same page with it, so read an
 `unexplained` finding with that in mind.

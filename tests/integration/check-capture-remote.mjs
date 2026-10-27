@@ -22,6 +22,9 @@ const server = createServer((request, response) => {
   }
   if (request.method === 'POST') submissions++;
   agents.push({ url: request.url, agent: request.headers['user-agent'] });
+  if (request.url === '/challenged') { response.writeHead(403, { 'cf-mitigated': 'challenge', 'Content-Type': 'text/html' }); response.end('<h1>Just a moment</h1>'); return; }
+  if (request.url === '/limited') { response.writeHead(429); response.end(); return; }
+  if (request.url === '/challenged.css') { response.writeHead(403, { 'cf-mitigated': 'challenge' }); response.end(); return; }
   if (request.url === '/pixel.css') { response.setHeader('Content-Type', 'text/css'); response.end('h1{color:#123}'); return; }
   if (request.url === '/external-redirect') {
     response.writeHead(302, { Location: 'https://example.invalid/' }); response.end(); return;
@@ -33,6 +36,7 @@ const server = createServer((request, response) => {
     '/frame': '<iframe src="https://example.invalid/"></iframe>',
     '/post': '<script>fetch("/submit",{method:"POST"}).catch(()=>{})</script>',
     '/popup': '<script>window.open("https://example.invalid/")</script>',
+    '/asset-challenged': '<link rel="stylesheet" href="/challenged.css">',
     '/agent': '<link rel="stylesheet" href="/pixel.css">',
     '/challenge-redirect': '<script>fetch("/cdn-cgi/challenge-platform/h/b/redirect",{method:"POST",body:"x"}).catch(()=>{})</script>',
     '/challenge-encoded': '<script>fetch("/cdn-cgi/challenge-platform/..%2fsubmit",{method:"POST",body:"x"}).catch(()=>{})</script>',
@@ -91,6 +95,21 @@ try {
   assert.equal(passed.run.settingsHash, strictChallenge.run.settingsHash, 'challenge must not enter the capture settings hash');
   assert.equal(submissions, 0);
 
+  // R3.6: a challenge or a rate limit stops the run. No later target sends a request.
+  for (const [stop, reason] of [['challenged', /cf-mitigated: challenge/], ['limited', /HTTP 429/], ['asset-challenged', /cf-mitigated: challenge/]]) {
+    agents.length = 0;
+    const stopBase = { ...base, targets: ['home', stop, 'agent'].map(id => ({ id, kind: 'page', title: id, path: id === 'home' ? '/' : `/${id}` })) };
+    await writeFile(configPath, JSON.stringify({ ...stopBase, sides: { production: { origin, remote: true, settle: { waitMs: 100 } } } }));
+    const halted = await capture({ configPath, side: 'production' });
+    const row = id => halted.run.captures.find(item => item.targetId === id);
+    assert.equal(row('home').state, 'captured', stop);
+    assert.equal(row(stop).error?.code, 'REMOTE_EDGE_STOP', `${stop}: ${JSON.stringify(row(stop))}`);
+    assert.match(row(stop).error.message, reason);
+    assert.equal(row('agent').error?.code, 'RUN_STOPPED', stop);
+    assert.equal(halted.run.state, 'partial');
+    assert.ok(!agents.some(item => item.url === '/agent' || item.url === '/pixel.css'), `${stop}: ${JSON.stringify(agents)}`);
+  }
+
   // The same page on a local side still fails: a request that leaves the local environment blocks the capture.
   await writeFile(configPath, JSON.stringify({ ...base, sides: { local: { origin, settle: { waitMs: 100 } } } }));
   const local = await capture({ configPath, side: 'local' });
@@ -116,7 +135,7 @@ try {
   } finally {
     await new Promise(resolve => { secure.close(resolve); secure.closeAllConnections(); });
   }
-  console.log('Remote side passes: own origin read, third party dropped, submission, off-origin write, redirect and popup blocked, User-Agent sent when set, challenge POST passed only when set, local side unchanged, certificates verified.');
+  console.log('Remote side passes: own origin read, third party dropped, submission, off-origin write, redirect and popup blocked, User-Agent sent when set, challenge POST passed only when set, edge stop ends the run, local side unchanged, certificates verified.');
 } finally {
   await rm(directory, { recursive: true, force: true });
   await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });

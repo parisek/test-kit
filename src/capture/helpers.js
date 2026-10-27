@@ -65,6 +65,15 @@ function isChallengeRequest({ url, method, navigation, origin }) {
   return CLOUDFLARE_CHALLENGE.test(new URL(url).pathname);
 }
 
+// R3.6: a sign that the edge in front of a remote side challenges or limits the capture.
+// Cloudflare marks a challenge with `cf-mitigated`. A 403 or 429 on the page itself is a
+// firewall block or a rate limit. More requests could turn it into a longer ban.
+export function edgeStop({ status, headers, main }) {
+  if (headers && Object.hasOwn(headers, 'cf-mitigated')) return `cf-mitigated: ${String(headers['cf-mitigated']).slice(0, 40)}`;
+  if (main && (status === 403 || status === 429)) return `HTTP ${status}`;
+  return null;
+}
+
 // R3.4: a remote side may name itself. Like the certificate option, the User-Agent stays out of
 // the settings hash, and run.settings records it. Without the key, Playwright sends its default.
 export function userAgentOption(side) {
