@@ -193,8 +193,7 @@ You do not need to answer these. They are decided.
 - Freeze scope: the pack API and the a11y pack are frozen. The lint pack is not (`docs/seam.md`, section 5).
 - Process safeguards (#122): decided. The label `merge-halt` exists. The main-protection ruleset is NOT created yet.
 - 2026-10-19: no `init`; an undecidable axe result stays `complete` with a `warning` (R8.14); `basis` waits for `schemaVersion` 3; the pack API and the a11y pack are frozen, the lint pack is not (`docs/seam.md`, sections 5 and 8).
-
-Still open: options for a pack, running packs from the command line, and the browser step for DOM facts and library version (#104).
+- Running packs from the command line moves to 1.1 (specification section 17, item 8). Options for a pack and the browser step for DOM facts and library version (#104) are not built before 1.0 (specification section 17, item 9).
 
 ## 8. Feedback checklist
 
