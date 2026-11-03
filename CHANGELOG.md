@@ -4,6 +4,15 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- A remote side may set `challenge: "cloudflare"`. The capture then lets through a `POST` that is not a navigation to `/cdn-cgi/challenge-platform/` on its own origin, with plain characters in each path segment below it, so Cloudflare JavaScript detection no longer fails the capture. A redirect of that `POST` and every other non-read request still fail. A local side refuses the key (R3.5, #243).
+- A remote run stops at the first Cloudflare challenge mark (`cf-mitigated`) or at a 403 or 429 on the page. The rest of the run sends no request (R3.6, #243).
+
+### Changed
+
+- A remote side has no opt-out from R3.6. A remote page that answers 403 or 429 used to give a captured row. It now fails with `REMOTE_EDGE_STOP`, and every later row fails with `RUN_STOPPED`. A local side is unchanged (R3.6, #243).
+
 ## [1.0.0-rc.6] - 2026-10-27
 
 Sixth release candidate for 1.0.0. It is not a stable release. A remote side can name itself with a User-Agent, Evidence opens on the worst target, and the viewer tab shows the tool mark.
