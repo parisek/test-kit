@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0-rc.7] - 2026-11-03
+
+Seventh release candidate for 1.0.0. It is not a stable release. A remote side can pass Cloudflare JavaScript detection, and a remote run stops at the site edge.
+
 ### Added
 
 - A remote side may set `challenge: "cloudflare"`. The capture then lets through a `POST` that is not a navigation to `/cdn-cgi/challenge-platform/` on its own origin, with plain characters in each path segment below it, so Cloudflare JavaScript detection no longer fails the capture. A redirect of that `POST` and every other non-read request still fail. A local side refuses the key (R3.5, #243).
