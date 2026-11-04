@@ -27,7 +27,7 @@ One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
-Keep `tests/visual/runs/` and comparison output outside git.
+Runs go to `.test-kit/runs/` by default. Add `.test-kit/` to the project ignore file. Keep comparison output outside version control too. Set `runsRoot` to use another path.
 
 ```json
 {

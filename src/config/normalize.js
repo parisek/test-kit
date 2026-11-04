@@ -186,7 +186,7 @@ export function normalizeConfig(input) {
   behavior.emulate = { ...object(behaviorInput.emulate ?? {}, 'behavior.emulate', ['reducedMotion', 'colorScheme']) };
   if (behavior.emulate.reducedMotion !== undefined && !['reduce', 'no-preference'].includes(behavior.emulate.reducedMotion)) fail('unsupported behavior reducedMotion');
   if (behavior.emulate.colorScheme !== undefined && !['light', 'dark', 'no-preference'].includes(behavior.emulate.colorScheme)) fail('unsupported behavior colorScheme');
-  const runsRoot = text(input.runsRoot ?? 'tests/visual/runs', 'runsRoot', 500);
+  const runsRoot = text(input.runsRoot ?? '.test-kit/runs', 'runsRoot', 500);
   if (!/^[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)*$/.test(runsRoot) || runsRoot.split('/').some(segment => segment === '.' || segment === '..')) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
