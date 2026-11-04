@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-04
+
+First stable release. It holds `1.0.0-rc.7` and the two changes below. The seam in `docs/seam.md` is frozen for 1.x. To move from 0.5, read `docs/upgrade-from-0.5.md` and the Migration section of `[1.0.0-rc.1]`.
+
 ### Changed
 
 - Breaking: the default `runsRoot` is `.test-kit/runs`. It was `tests/visual/runs`, which sits outside the ignored store, so a first capture left captured pages as untracked files. An explicit `runsRoot` is unchanged. To keep the old place, set `"runsRoot": "tests/visual/runs"` (R12.1, #250).
