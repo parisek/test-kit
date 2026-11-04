@@ -168,7 +168,18 @@ function fakeProject(tools, dir = tmp()) {
   return dir;
 }
 const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
-const lintTmpDirs = () => readdirSync(tmpdir()).filter(name => name.startsWith('test-kit-lint-')).length;
+const lintTmpDirs = (root = tmpdir()) => readdirSync(root).filter(name => name.startsWith('test-kit-lint-'));
+// os.tmpdir() reads these variables on each call, so the runner creates its temp dir under the private root.
+function isolatedTmpdir(t) {
+  const root = mkdtempSync(path.join(tmpdir(), 'test-kit-lint-root-'));
+  const saved = { TMPDIR: process.env.TMPDIR, TMP: process.env.TMP, TEMP: process.env.TEMP };
+  for (const name of Object.keys(saved)) process.env[name] = root;
+  t.after(() => {
+    for (const [name, value] of Object.entries(saved)) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+    rmSync(root, { recursive: true, force: true });
+  });
+  return root;
+}
 
 test('the runner reads the project tool, treats exit 1 with findings as a run, stores only relative data', async t => {
   const dir = fakeProject({ eslint: { exit: 1, body: eslintText.replaceAll('/example-root/', '') }, stylelint: { exit: 78, body: '' } });
@@ -233,13 +244,14 @@ require('node:fs').writeFileSync(o, JSON.stringify([{ filePath: 'a.js', messages
 test('a tool that ignores SIGTERM is killed, the run fails, and the temp dir is removed', async t => {
   const dir = fakeProject({ eslint: { script: "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);" } });
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const before = lintTmpDirs();
+  // A private temp root: other test runs on the same machine also create test-kit-lint-* dirs.
+  const temp = isolatedTmpdir(t);
   const started = Date.now();
   const value = await runLint({ root: dir, tools: { eslint: { paths: ['src'] } }, timeoutMs: 300, killGraceMs: 200 });
   assert.equal(value.tools.eslint.status, 'failed');
   assert.match(value.tools.eslint.diagnostic, /TIMEOUT/);
   assert.ok(Date.now() - started < 5000);
-  assert.equal(lintTmpDirs(), before);
+  assert.deepEqual(lintTmpDirs(temp), []);
 });
 
 test('a timeout kills a grandchild in the process group', { skip: process.platform === 'win32' }, async t => {
