@@ -7,6 +7,7 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Changed
 
 - Breaking: the default `runsRoot` is `.test-kit/runs`. It was `tests/visual/runs`, which sits outside the ignored store, so a first capture left captured pages as untracked files. An explicit `runsRoot` is unchanged. To keep the old place, set `"runsRoot": "tests/visual/runs"` (R12.1, #250).
+- `LOCAL_NAVIGATION_REQUIRED` names the first blocked request: method, origin, resource type and kind (top-level navigation, frame navigation or subresource). It names no path, query or fragment. The code is unchanged (R3.7, #252).
 
 ## [1.0.0-rc.7] - 2026-11-04
 
