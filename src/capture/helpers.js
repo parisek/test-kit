@@ -57,7 +57,7 @@ export function requestPolicy({ url, method, topLevel, navigation = topLevel, or
   return topLevel ? 'block' : 'drop';
 }
 
-// R3.1: name the first request a local side blocks, so a person can find the cause.
+// R3.7: name the first request the capture blocks, so a person can find the cause.
 // Origin, method, resource type and kind only: no path, query string or fragment.
 // The values come from the page, so the helper strips control characters and bounds each part.
 // A subresource or a frame is not a navigation, and the text says which one it was.
