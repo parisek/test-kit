@@ -10,13 +10,22 @@ const typeName = value => {
 
 const article = name => `${/^[AEIO]/.test(name) ? 'an' : 'a'} ${name}`; // 'a Map', 'an Object'
 
+// Names the real kind. A class instance has the tag 'Object', so the tag alone says nothing. Use the class name when it is safe to read.
+const kindOf = (node, proto) => {
+  const tag = typeName(node);
+  if (tag !== 'Object' || proto === null) return article(tag);
+  let name;
+  try { name = Object.getOwnPropertyDescriptor(proto, 'constructor')?.value?.name; } catch { name = undefined; }
+  return typeof name === 'string' && /^[A-Za-z_$][\w$]{0,63}$/.test(name) && name !== 'Object' ? `an instance of class ${name}` : 'a class instance';
+};
+
 const ON_PATH = -1;
 
 // Checks one object and lists its children. It throws an Error that names the path and the type.
 function children(node, path) {
   const proto = Object.getPrototypeOf(node);
   const isArray = Array.isArray(node);
-  if (!(isArray ? proto === Array.prototype : proto === Object.prototype || proto === null)) throw new Error(`${shown(path) || 'input'} is ${article(typeName(node))}, which is not JSON-like data.`);
+  if (!(isArray ? proto === Array.prototype : proto === Object.prototype || proto === null)) throw new Error(`${shown(path) || 'input'} is ${kindOf(node, proto)}, which is not JSON-like data.`);
   const keys = Reflect.ownKeys(node);
   if (isArray) {
     const length = node.length;

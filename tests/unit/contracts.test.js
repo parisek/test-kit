@@ -211,7 +211,7 @@ test('set facts must be JSON-like data, checked before the clone', () => {
   let deep = {}; for (let i = 0; i < 3000; i += 1) deep = { d: deep };
   const cases = [
     [{ m: new Map() }, /Set example-lib 3 facts: m is a Map/], [{ s: new Set() }, /s is a Set/], [{ d: new Date() }, /d is a Date/], [{ t: new Uint8Array(2) }, /t is a Uint8Array/],
-    [{ b: new Box() }, /b is an Object, which is not JSON-like/], [{ f() {} }, /f is a function/], [cyc, /cycle/], [deep, /nested deeper than 256/],
+    [{ b: new Box() }, /b is an instance of class Box, which is not JSON-like/], [{ n: new (class {})() }, /n is a class instance, which/], [{ o: Object.create({ x: 1 }) }, /o is a class instance, which/], [{ f() {} }, /f is a function/], [cyc, /cycle/], [deep, /nested deeper than 256/],
   ];
   for (const [facts, message] of cases) assert.throws(() => defineContractSet({ ...base, facts }), error => error instanceof Error && !(error instanceof RangeError) && message.test(error.message), String(message));
   assert.ok(defineContractSet({ ...base, facts: { ok: [1, { a: 'b' }] } }));
