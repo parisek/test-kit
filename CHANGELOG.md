@@ -4,7 +4,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
-## [1.0.0-rc.7] - 2026-11-03
+## [1.0.0-rc.7] - 2026-11-04
 
 Seventh release candidate for 1.0.0. It is not a stable release. A remote side can pass Cloudflare JavaScript detection, and a remote run stops at the site edge.
 

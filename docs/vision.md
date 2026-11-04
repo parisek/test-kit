@@ -284,7 +284,7 @@ These need the owner. The agent does not decide them.
 4. (Decided, 2026-10-22) The default set of checks is empty (spec section 17, item 2).
 5. (Decided, 2026-10-22) Nothing removes snapshots automatically. A person removes them on request (spec section 17, item 4).
 6. (Decided, 2026-10-22) The ESLint and Stylelint seam is an entry point with a thin import (spec section 17, item 7).
-7. Version numbers. The last tag is v0.5.0. Does the first owner milestone start at 0.6 or at 1.0? (proposal: 1.0 is the first stable release, so milestones before it use 0.x.)
+7. (Decided) Version numbers. The first owner milestone is 1.0, the first stable release. Its candidates are tagged `v1.0.0-rc.N` (R13.45). The owner tagged `v1.0.0-rc.1` on 2026-10-19. The milestones after 1.0 are 1.1 and 1.2 (issue #5, Roadmap, 2026-11-03).
 
 8. (Decided, 2026-10-16) Milestone work merges into `main`. Dev tags come from `main` after a green cumulative run.
 9. (Decided, 2026-10-16) Freeze the project-facing seam only at the 1.0 release candidate. The seam holds the config file shape, the command aliases and the contract API. Before it, tailwind-base stays on its old pin. It migrates once, after the freeze. Until then breaking changes cost nothing.

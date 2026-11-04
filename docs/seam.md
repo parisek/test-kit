@@ -81,7 +81,7 @@ Items inside the configuration that stay open:
 | Item | Marking | Reason |
 | --- | --- | --- |
 | The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
-| Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. Options after 1.0 need a new decision. |
+| Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. |
 | The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, not built yet | Specification section 17, item 7, R13.40: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). |
 | The allowlist (`reason`, `owner`) | Not frozen, owner decision open | ADR 0004, open question 4. No config key exists. |
 | Selection of checks or contracts per target | Not frozen, owner decision open | ADR 0004, open question 2. |
