@@ -1,9 +1,7 @@
 import { readFile, writeFile, rm } from 'node:fs/promises';
 import { dirname, resolve, relative, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { ensureStore, loopbackOrigin } from './index.js';
+import { ensureStore, loopbackOrigin, describeDdev } from './index.js';
 import { selectConfig } from './selection.js';
 import { runPerfCommand } from '../cli/perf.js';
 
@@ -13,8 +11,7 @@ export async function runProjectPerformance(options, budgets) {
   const store = await ensureStore(options);
   const config = selectConfig(JSON.parse(await readFile(configPath, 'utf8')), { path: options.path, suite: 'visual' });
   if (options.ddev) {
-    const result = await promisify(execFile)('ddev', ['describe', '--json-output'], { cwd: directory, timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
-    config.sides[options.side].origin = loopbackOrigin(JSON.parse(result.stdout));
+    config.sides[options.side].origin = loopbackOrigin(await describeDdev(directory));
   }
   config.runsRoot = relative(directory, store).split('\\').join('/') + '/runs';
   const runtime = join(directory, `.test-kit.runtime-${randomUUID()}.json`);
