@@ -42,6 +42,17 @@ export async function ensureStore(options = {}) {
   }
   return await realpath(storePath);
 }
+// Inside the DDEV web container, `ddev` prints a notice instead of JSON.
+export function parseDdevDescription(stdout) {
+  try { return JSON.parse(stdout); }
+  catch { throw new Error('ddev describe returned no JSON. Run --ddev on the host, not inside the DDEV container.'); }
+}
+
+export async function describeDdev(cwd) {
+  const { stdout } = await execute('ddev', ['describe', '--json-output'], { cwd, timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
+  return parseDdevDescription(stdout);
+}
+
 export async function runWorkflow(command, options = {}, dependencies = {}) {
   if (!['run', 'before', 'after', 'report'].includes(command)) throw new Error('Unknown workflow command.');
   const configPath = resolve(options.config ?? 'test-kit.config.json');
@@ -79,7 +90,7 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
     if (!config.sides[side]) throw new Error('Unknown side.');
     if (options.ddev && config.sides[side].remote === true) throw new Error('A remote side has no DDEV origin. Remove --ddev.');
     if (options.ddev) {
-      const describe = dependencies.describe ?? (async () => JSON.parse((await execute('ddev', ['describe', '--json-output'], { cwd: configDir, timeout: 30000, maxBuffer: 2 * 1024 * 1024 })).stdout));
+      const describe = dependencies.describe ?? (() => describeDdev(configDir));
       config.sides[side].origin = loopbackOrigin(await describe());
     }
     config.runsRoot = `${offset.split('\\').join('/')}/runs`;

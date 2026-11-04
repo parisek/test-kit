@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile, readdir, rm, mkdir, symlink } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, readdir, rm, mkdir, symlink, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { runWorkflow, selectConfig, loopbackOrigin, resolveStore, ensureStore } from '../../src/workflow/index.js';
+import { join, delimiter } from 'node:path';
+import { runWorkflow, selectConfig, loopbackOrigin, resolveStore, ensureStore, parseDdevDescription } from '../../src/workflow/index.js';
 const config = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8000' } }, targets: [{ id: 'home', kind: 'page', path: '/' }, { id: 'contact', kind: 'page', path: '/contact' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }, { id: 'mobile', width: 390, height: 844 }], artifacts: ['screenshot'], checks: [] };
 async function fixture(t) {
  const dir = await mkdtemp(join(tmpdir(), 'test-kit-workflow-'));
@@ -64,6 +64,14 @@ test('DDEV is opt-in and runtime preserves relative source paths', async t => {
  const dependencies = { summarizeRunFeedback: async () => ({ state: 'complete' }), describe: async () => { discovered++; return { raw: { services: { web: { host_http_url: 'http://127.0.0.1:4567' } } } }; }, loadBehaviorSource: async input => { assert.equal(input.projectRoot, dir); assert.equal(input.directory, 'tests/contracts'); assert.deepEqual(input.enabled, ['menu']); return { fingerprint: 'source-1' }; }, capture: async ({ configPath }) => { assert.equal(join(dir, configPath.split('/').at(-1)), configPath); const loaded = JSON.parse(await readFile(configPath)); assert.equal(loaded.sides.local.origin, 'http://127.0.0.1:4567'); assert.equal(loaded.behavior.source, 'tests/contracts'); return { run: { id: 'single-1', state: 'complete' } }; } };
  await runWorkflow('run', { ...options, ddev: true, contracts: 'menu' }, dependencies);
  assert.equal(discovered, 1);
+});
+test('--ddev inside the DDEV container explains where to run it (#238)', { skip: process.platform === 'win32' }, async t => {
+ assert.throws(() => parseDdevDescription("You executed 'ddev describe' inside the container."), /Run --ddev on the host, not inside the DDEV container/);
+ const { dir, options } = await fixture(t);
+ const bin = join(dir, 'bin'); await mkdir(bin);
+ await writeFile(join(bin, 'ddev'), "#!/bin/sh\necho \"You executed 'ddev $*' inside the container. This is not possible.\"\n"); await chmod(join(bin, 'ddev'), 0o755);
+ const path = process.env.PATH; process.env.PATH = `${bin}${delimiter}${path}`; t.after(() => { process.env.PATH = path; });
+ await assert.rejects(runWorkflow('before', { ...options, ddev: true }, { capture: () => assert.fail('No capture without an origin') }), error => /Run --ddev on the host/.test(error.message) && !/Unexpected token/.test(error.message));
 });
 test('report does not start capture and rejects a path as a report ID', async t => {
  const { dir, options } = await fixture(t);
