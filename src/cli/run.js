@@ -8,7 +8,7 @@ Usage: test-kit <command> [options]
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
-  query REPORT --target ID --viewport ID --artifact html|status|content|behavior|lighthouse [--max-lines N]
+  query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|lighthouse|lint|a11y [--max-lines N]
   record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
@@ -51,7 +51,8 @@ export function parseCommand(argv) {
   if (options.throttling && !['simulated', 'devtools', 'provided'].includes(options.throttling)) throw new Error('Unknown performance throttling');
   if (command === 'capture' && !options.side) throw new Error('capture requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
-  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status', 'content', 'behavior', 'lighthouse'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status|content|behavior|lighthouse');
+  // An absolute result (lint, a11y) may sit at target scope, so --viewport is optional for it (R9.9).
+  if (command === 'query' && (!options.target || (!options.viewport && !['lint', 'a11y'].includes(options.artifact)) || !['html', 'status', 'content', 'behavior', 'lighthouse', 'lint', 'a11y'].includes(options.artifact))) throw new Error('query requires --target, --artifact html|status|content|behavior|lighthouse|lint|a11y, and --viewport (optional for lint and a11y)');
   if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
   if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) throw new Error('Unknown capture artifact');
   if (options.checks && !(options.checks === 'none' && ['run', 'before', 'after'].includes(command))) {

@@ -46,6 +46,7 @@ test-kit capture --side local --label after --artifacts screenshot,html,status
 test-kit diff <run-a> <run-b> --output tests/visual/report
 test-kit query tests/visual/report/report.json --target home --viewport desktop --artifact html --max-lines 40
 test-kit query tests/visual/report/report.json --target home --viewport desktop --artifact status
+test-kit query report.json --target @project --artifact lint   # an absolute result needs no viewport (R9.9)
 ```
 
 One navigation supplies all requested artifacts. HTML holds the server response,

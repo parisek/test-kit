@@ -9,7 +9,7 @@ export function compareBehavior(a, b) {
     const resultA = byA.get(id) ?? null, resultB = byB.get(id) ?? null;
     const failed = [resultA, resultB].some(result => result?.state === 'failed' || result?.state === 'incompatible');
     const same = resultA && resultB && resultA.state === resultB.state && JSON.stringify(resultA.result ?? null) === JSON.stringify(resultB.result ?? null);
-    return { id, title: resultB?.title ?? resultA?.title, state: failed ? 'failed' : same ? 'same' : 'changed', resultA, resultB };
+    return { id, title: resultB?.title ?? resultA?.title, contract: resultB?.contract ?? resultA?.contract ?? null, state: failed ? 'failed' : same ? 'same' : 'changed', resultA, resultB };
   }) };
 }
 
@@ -20,6 +20,7 @@ export function validateBehaviorComparison(value) {
   const ids = new Set();
   for (const step of value.steps) {
     if (!step || typeof step.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,100}$/.test(step.id) || typeof step.title !== 'string' || step.title.length > 2000 || !['same', 'changed', 'failed'].includes(step.state)) throw new Error('Invalid behavior comparison step.');
+    if (step.contract != null && (typeof step.contract !== 'string' || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(step.contract))) throw new Error('Invalid behavior contract.');
     if (ids.has(step.id)) throw new Error('Duplicate behavior step.');
     ids.add(step.id);
     if (step.state === 'same' && (!step.resultA || !step.resultB || step.resultA.state !== step.resultB.state || ['failed', 'incompatible'].includes(step.resultA.state) || JSON.stringify(step.resultA.result ?? null) !== JSON.stringify(step.resultB.result ?? null))) throw new Error('Invalid matching behavior step.');

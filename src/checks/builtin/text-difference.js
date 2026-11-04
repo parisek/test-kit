@@ -1,6 +1,7 @@
 import { snapshot, finding } from './shared.js';
 export const id = 'text-difference';
 export const title = 'Stored text difference';
+export const basis = 'relative';
 export const applies = { artifacts: ['content'] };
 export function check(value, ctx = {}) {
   const b = snapshot(value);

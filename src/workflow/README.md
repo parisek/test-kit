@@ -10,6 +10,8 @@ Projects provide a configuration file and contracts. They do not copy a runner.
 
 The default store is `.test-kit/` beside the configuration file. Add it to the project git ignore file. It contains `runs/`, `reports/`, and `state.json`. There is no automatic retention policy.
 
+The feedback summary names a behavior finding by the contract name (`contractId`) and by the report key (`checkId`: `behavior.<contract name>`). A stored version 1 snapshot keeps its step id.
+
 `--target`, `--path`, `--viewport`, and `--suite` select a scope.
 `--selector` supports the visual suite and one target only.
 `--checks` selects content check IDs. `--contracts` selects behavior contract names.

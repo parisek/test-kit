@@ -40,7 +40,9 @@ export function reportArgument(source, page = '') {
 	}
 }
 
-export function knownCommand(finding, { source = null, page = '' } = {}) {
+export function knownCommand(finding, { source = null, page = '', basis = 'relative' } = {}) {
+	// R7.3: a known difference applies to a relative check only. An absolute finding waits for the allowlist (#254).
+	if (basis === 'absolute') return null;
 	const target = plain(finding?.targetId);
 	const viewport = plain(finding?.viewportId);
 	if (!target || !viewport || !RECORDABLE.includes(finding?.artifact)) return null;
@@ -62,7 +64,9 @@ export function decisionActions(finding, options = {}) {
 	return [
 		{ id: 'fix', label: 'Fix', button: 'Copy link', text: link, reason: link ? null : 'This finding has no valid link.' },
 		{ id: 'known', label: 'Known difference', button: 'Copy command', text: known,
-			reason: known ? null : 'Only a screenshot, HTML or content finding with a target and a viewport can be recorded as known.' },
+			reason: known ? null : options.basis === 'absolute'
+				? 'A known difference applies to a relative check only. An absolute finding stays unexplained until the allowlist exists.'
+				: 'Only a screenshot, HTML or content finding with a target and a viewport can be recorded as known.' },
 		{ id: 'noise', label: 'Noise or unstable', button: 'Copy re-capture command', text: recapture,
 			reason: recapture ? null : 'A re-capture needs a target and a viewport.' },
 		{ id: 'pass', label: 'Pass on', button: 'Copy link', text: link, reason: link ? null : 'This finding has no valid link.' },

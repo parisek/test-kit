@@ -1,5 +1,5 @@
 import { validId } from '../history/valid-id.js';
-import { validateReport } from '../report/model.js';
+import { adaptV2, validateReport } from '../report/model.js';
 import { summarize } from '../report/classify.js';
 
 // Pure writer for the publish `index.json` (R10.13). No file system, no DOM (R4.4).
@@ -19,8 +19,10 @@ function hashOrNull(value) {
 }
 
 // Counts of the target classes (R10.13). Null for a legacy v1 report or one that fails validation.
-function summaryOrNull(value) {
-  if (value.schemaVersion !== 2 || validateReport(value).length) return null;
+function summaryOrNull(input) {
+  if (input.schemaVersion !== 2 && input.schemaVersion !== 3) return null;
+  const value = input.schemaVersion === 2 ? adaptV2(input) : input;
+  if (validateReport(value).length) return null;
   const { counts } = summarize(value);
   const { unexplained, explained, match, oracle, unclassified, incomplete } = counts;
   return { unexplained, explained, match, oracle, unclassified, incomplete };

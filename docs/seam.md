@@ -83,8 +83,8 @@ Items inside the configuration that stay open:
 | The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
 | Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. |
 | The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, not built yet | Specification section 17, item 7, R13.40: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). |
-| The allowlist (`reason`, `owner`) | Not frozen, owner decision open | ADR 0004, open question 4. No config key exists. |
-| Selection of checks or contracts per target | Not frozen, owner decision open | ADR 0004, open question 2. |
+| The allowlist (`reason`, `owner`) | Not frozen, owner decision open | Moved to #254 (ADR 0004, open question 4). No config key exists. |
+| Selection of checks or contracts per target | Not frozen, decided 2026-11-04 | `scope.checks` on each artifact index, derived from the run settings (ADR 0004, open question 2; R9.10). |
 | Artifact kinds `a11y` and `lint` in `artifacts` | Not frozen, change planned | Both are glossary artifacts (specification section 2). The code rejects both today. They come with `schemaVersion` 3 in 1.1 (specification section 17, item 8). |
 | `known_diffs` record contents | Frozen as a key, with a caveat | Each record binds `rawA`, `rawB`, `bindingHash` and `policyHash` (`src/rules/model.js`). A change to the comparator policy makes stored records stale with no schema change. A migration note must name any such change. |
 | `rules` operation kinds | Experimental | Only `literal-pair` exists (`src/rules/model.js`). |
@@ -135,7 +135,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 | Item | Marking | Reason |
 | --- | --- | --- |
 | The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
-| The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` joins the required set at `schemaVersion` 3 (specification section 7, first note). |
+| The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` is part of the shape since `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 
 ### Behavior contracts
@@ -148,8 +148,8 @@ Source of truth: `src/behavior/contracts.js`, `src/behavior/README.md`, R7.7, R1
 | Optional `runScoping`, `projects`, `emulate`, `eagerImages`, `library` (`package`, `majors`) | Frozen for the names. Behavior beyond them is experimental | `contractApplicability` reads them. A mismatch gives `skipped` or `incompatible`, never a pass. |
 | Contract files `*.contract.js` under `behavior.source` | Frozen | `loadProjectContracts`. |
 | The default projects `desktop-1280` and `mobile-390` | Frozen | `DEFAULT_PROJECTS` in `src/behavior/contracts.js`. |
-| The identity of a behavior finding (step ID against contract name) | Not frozen, owner decision open | ADR 0004, open question 1. |
-| The format of component allowlists | Not frozen, owner decision open | R13.41 puts the format in the package. ADR 0004, open question 4 leaves the allowlist unspecified. |
+| The identity of a behavior finding (step ID against contract name) | Not frozen, decided 2026-11-04 | Each step carries `contract`. The catalog key is `behavior.<contract name>`, and the registry records the origin (ADR 0004, open question 1; R9.8). |
+| The format of component allowlists | Not frozen, owner decision open | R13.41 puts the format in the package. The allowlist is unspecified and moved to #254. |
 | Shared contracts `picture`, `gsap`, `lightgallery`, `header-*`, `cookieconsent`, `hygiene`, `render-integrity` | Not in the package | R13.42 plans them as packs. Only `swiper` and the axe pack ship. |
 
 ## 5. Pack API
@@ -170,8 +170,8 @@ Source of truth: `src/packs/define.js`, `src/packs/layers.js`, `src/packs/run.js
 | States: check `complete`, `missing`, `failed`. Run state is the worst one | Experimental | R8.7 defines four states: `complete`, `missing`, `failed`, `incompatible` (ADR 0004, section 7, point 1 uses `incompatible` for absolute checks too). The pack code emits three. The set may gain `incompatible`. An open marker is exactly `evidence.state` of `incomplete` or `unknown`. |
 | The input contract: JSON-like data, one frozen snapshot, one read of each caller field, fail closed | Frozen | `src/packs/snapshot.js`. Nesting limit 256 is a chosen bound. |
 | The mapping of a pack finding to a `report.json` finding | Not frozen, change planned | The report finding has `id` and `causeId`. The pack finding has neither. No code maps one to the other. `schemaVersion` 3 (R9.8). |
-| Threshold overrides and allowlists | Not frozen, owner decision open | `src/packs/README.md` ("Not built yet"). ADR 0004, open question 4. |
-| Findings of completed checks in a mixed artifact | Not frozen, owner decision open | ADR 0004, open question 5. |
+| Threshold overrides and allowlists | Not frozen, owner decision open | `src/packs/README.md` ("Not built yet"). #254 (ADR 0004, open question 4). |
+| Findings of completed checks in a mixed artifact | Decided 2026-10-23 | ADR 0004, open question 5 (#178, R8.12). |
 
 Entry points in `package.json` `exports`. The list on `main` has nine entries. v0.5.0 had three. Nothing from v0.5.0 was removed (measured 2026-10-19).
 
@@ -196,11 +196,11 @@ Source of truth: the `schemaVersion` literals in `src/` (grep, 2026-10-19), `doc
 | --- | --- | --- | --- |
 | Config (`src/config/normalize.js`) | 1 | Frozen | See section 1. |
 | Stored run `run.json` (`src/capture/index.js`, `src/cli/perf.js`) | 2 | Frozen | `src/compare/runs.js` and `src/rules/evidence.js` read only version 2. |
-| Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 2 | Not frozen, change planned | R9.1 says version 3 is not additive: `pair` becomes optional. A reader of version 2 rejects version 3. The code still writes 2. |
+| Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 3 | Not frozen | The code writes version 3 (#230). Version 3 is not additive: `pair` becomes optional (R9.1, R9.7). A reader of version 2 rejects version 3. `adaptReport` reads versions 1, 2 and 3. |
 | Content snapshot (`src/content/snapshot.js`) and content comparison sidecar (`src/content/compare.js`) | 1 | Frozen | The extractor and check versions guard them (R7.4). |
 | Workflow state (`src/workflow/index.js`) | 1 | Experimental | It sits in the store. The store belongs to the experimental workflow commands. |
 
-What waits for `schemaVersion` 3 (R9.7 to R9.11, ADR 0004). None of it is frozen:
+What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is frozen:
 
 - `pair` or `subject` (exactly one), and `subject.key`.
 - The `checks` catalog, and `basis` on every check.
@@ -208,7 +208,8 @@ What waits for `schemaVersion` 3 (R9.7 to R9.11, ADR 0004). None of it is frozen
 - The `overrides` list.
 - The absolute artifact index with `result: { violations, checks }`.
 - The artifact kinds `a11y` and `lint`, and the reserved target `@project`.
-- Selection per target, the absolute fingerprint, and the allowlist (ADR 0004, open questions 2 to 4).
+- `scope.checks` on each artifact index, and the behavior key `behavior.<contract name>` (ADR 0004, open questions 1 and 2).
+- Not yet: the absolute fingerprint and the allowlist (#254, ADR 0004, open questions 3 and 4).
 
 Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1 (`adaptV1` in `src/report/model.js`).
 
@@ -216,11 +217,8 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 | Item | Pointer |
 | --- | --- |
-| The allowlist file, with `reason` and `owner` | ADR 0004, open question 4. |
-| Behavior identity | ADR 0004, open question 1. |
-| Selection per target | ADR 0004, open question 2. |
-| The absolute fingerprint | ADR 0004, open question 3. |
-| Findings of completed checks in a mixed artifact | ADR 0004, open question 5. |
+| The allowlist file, with `reason` and `owner` | #254 (ADR 0004, open question 4). |
+| The absolute fingerprint | #254 (ADR 0004, open question 3). |
 | Pack versioning (one tag or one for each pack) | Vision open decision 10. |
 | Version numbers before the release candidate | Vision open decision 7. |
 
@@ -228,7 +226,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 1. Decided by the owner, 2026-10-19: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
 2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
-3. The six built-in checks export no `basis`, although R7.2 requires it. Decided by the owner, 2026-10-19: deferred to `schemaVersion` 3. It is not an open question.
+3. (closed) The six built-in checks export `basis` since `schemaVersion` 3 (#230). `text-difference` is `relative`, the other five are `absolute`.
 4. Decided by the owner, 2026-10-19: the release candidate tag is `vMAJOR.MINOR.PATCH-rc.N` (R13.45). The freeze starts at `-rc.1`. Only the owner tags it.
 5. (closed) Question: does a change of the package version make an old run incompatible (R8.9)? Answer, read in the code on 2026-10-19: no. A run does not record the package version. `run.json` `tools` holds the Playwright and Chromium versions and one entry for each other artifact. A comparison needs equal `settingsHash` values and equal Playwright and Chromium entries (`src/compare/runs.js`). The hash covers the viewports, the `settle` recipe, the screenshot settings, the browser settings and the behavior contract fingerprint. It does not cover the `packs` key. A change of the Playwright or Chromium version, or of a capture setting, does make a run incompatible. One consumer project compared runs from `v0.2.1` and `v1.0.0-rc.2` with `incompatible: 0` (verified once, local site). See [migration-guide-tailwind-base.md](migration-guide-tailwind-base.md), Part 1, step 6.
 6. Decided by the owner, 2026-11-04 (issue #250): the default `runsRoot` moves from `tests/visual/runs` to `.test-kit/runs`, inside the ignored store, in `1.0.0`. It is a breaking change for a 0.x project that relies on the old default. It lands after `-rc.1`, so it is the last change of this default before 1.0. A project that sets `runsRoot` explicitly sees no change. A project that wants the old place sets `"runsRoot": "tests/visual/runs"`. See [upgrade-from-0.5.md](upgrade-from-0.5.md), "What breaks".
