@@ -57,6 +57,36 @@ export function requestPolicy({ url, method, topLevel, navigation = topLevel, or
   return topLevel ? 'block' : 'drop';
 }
 
+// R3.1: name the first request a local side blocks, so a person can find the cause.
+// Origin, method, resource type and kind only: no path, query string or fragment.
+// The values come from the page, so the helper strips control characters and bounds each part.
+// A subresource or a frame is not a navigation, and the text says which one it was.
+function clean(value, max) {
+  return String(value ?? '').replace(/[^\x20-\x7e]/g, '').trim().slice(0, max);
+}
+export function describeBlockedRequest({ url, method, resourceType, topLevel, navigation = topLevel, redirect = false }) {
+  let origin = 'unknown origin';
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== 'null') origin = parsed.origin;
+    else if (parsed.protocol) origin = parsed.protocol;
+  } catch { /* An unparsable URL stays unknown. */ }
+  const kind = navigation ? (topLevel ? 'top-level navigation' : 'frame navigation') : 'subresource';
+  return {
+    origin: clean(origin, 100) || 'unknown origin',
+    method: clean(method, 10).toUpperCase() || 'unknown',
+    resourceType: clean(resourceType, 20) || 'unknown',
+    kind, redirect: redirect === true,
+  };
+}
+
+export function blockedRequestMessage(blocked) {
+  const base = 'A request leaves the local environment or submits data.';
+  if (!blocked) return base;
+  const { origin, method, resourceType, kind, redirect } = blocked;
+  return `${base} First blocked request: ${method} ${origin}, ${resourceType}, ${kind}${redirect ? ', redirect target' : ''}.`;
+}
+
 // The challenge path of Cloudflare JavaScript detection. Plain path characters only: no
 // percent escape, so no encoded separator can reach another route after decoding.
 const CLOUDFLARE_CHALLENGE = /^\/cdn-cgi\/challenge-platform\/[A-Za-z0-9._~:+=-]+(?:\/[A-Za-z0-9._~:+=-]+)*$/;
