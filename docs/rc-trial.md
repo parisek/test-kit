@@ -1,6 +1,6 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: updated on 2026-10-27 for `v1.0.0-rc.6`, the current candidate.
+Status: updated on 2026-11-03 for `v1.0.0-rc.7`, the current candidate.
 The tag `v1.0.0-rc.1` is the first candidate. It stays as history.
 The owner tags the candidate on the squash commit of the merged pull request on `main`.
 The tag form `-rc.N` is defined by R13.45, and `release.yml` accepts rc tags.
@@ -36,7 +36,7 @@ Measured on 2026-10-19 with a packed copy of this branch in a clean project, bef
 The package is not on an npm registry (specification section 13.2). A project installs it from a git tag and pins it exactly (R13.27).
 
 ```sh
-npm install -D github:parisek/test-kit#v1.0.0-rc.6
+npm install -D github:parisek/test-kit#v1.0.0-rc.7
 npm install -D @playwright/test@1.64.1
 npx playwright install chromium
 ```
@@ -54,7 +54,7 @@ npx test-kit --version   # 1.0.0
 npx test-kit --help
 ```
 
-`--version` prints `1.0.0` for a candidate too. It reads `package.json`, and the candidate keeps the version `1.0.0`. So the output does not tell a candidate from a stable 1.0.0. To tell them apart, run `npm ls @parisek/test-kit`, which shows the git commit, and read the commit in `package-lock.json`. Compare it with the commit of the tag `v1.0.0-rc.6` (`git rev-parse v1.0.0-rc.6^{commit}` in a clone of this repository).
+`--version` prints `1.0.0` for a candidate too. It reads `package.json`, and the candidate keeps the version `1.0.0`. So the output does not tell a candidate from a stable 1.0.0. To tell them apart, run `npm ls @parisek/test-kit`, which shows the git commit, and read the commit in `package-lock.json`. Compare it with the commit of the tag `v1.0.0-rc.7` (`git rev-parse v1.0.0-rc.7^{commit}` in a clone of this repository).
 
 Notes:
 
@@ -170,13 +170,13 @@ From `docs/seam.md`, section 8, and the open issues, read with `gh` on 2026-10-1
 | No command runs a selected pack. No flag selects one. | `docs/seam.md` section 8, item 2 | You run packs from a script only. |
 | The six built-in checks export no `basis`. R7.2 requires it. Deferred to `schemaVersion` 3 (decided). | `docs/seam.md` section 8, item 3 | None in the report. |
 | No `init`. | `docs/seam.md` section 8, item 1 (decided) | Copy the template by hand. |
-| A browser step that collects DOM facts and detects the library version does not exist. The Swiper pack cannot run on a live page from the package. | [#104](https://github.com/parisek/test-kit/issues/104), [#121](https://github.com/parisek/test-kit/issues/121) | You supply the facts yourself, or skip the Swiper pack. |
+| A browser step that collects DOM facts and detects the library version does not exist. The Swiper pack cannot run on a live page from the package. | [#104](https://github.com/parisek/test-kit/issues/104), [#121](https://github.com/parisek/test-kit/issues/121) | You supply the facts yourself, or skip the Swiper pack. Not before 1.0 (specification section 17, item 9). |
 | Pack hardening: the snapshot walk stack is not bounded; the depth wording differs. Stored artifacts are JSON, so this is hardening only. | [#115](https://github.com/parisek/test-kit/issues/115) | None expected. |
 | Axe pack tidy: README wording, `-0` in a tampered artifact, a page stays claimed after a timeout. Frame injection, per-state runs and allowlists are not built. | [#120](https://github.com/parisek/test-kit/issues/120) | Use a new page for each `runAxe` run. |
 | Versioned contract sets: error wording, the Swiper walk stops at the first malformed instance. Loop mode, virtual slides and `swiper-element` are not covered. The Swiper 12 and 14 sets are identical. | [#121](https://github.com/parisek/test-kit/issues/121) | Swiper only. |
 | Process documents (#109) have wording nits and open questions marked unverified (bot `author_association`, event names, tree comparison). Owner actions are open: the `merge-halt` label now exists; the main-protection ruleset does NOT exist yet, because the owner has not allowed creating it; the tag ruleset for `v*` is not confirmed. | [#122](https://github.com/parisek/test-kit/issues/122) | None for the trial. It concerns the release process, not the product. Without the ruleset, nothing blocks a merge on failed checks. |
 | The report is `schemaVersion` 2. Version 3 (`pair` optional, single-run results) is planned. | `CHANGELOG.md`, `[1.0.0-rc.1]`, Migration | Pack findings do not reach the report. |
-| Open design questions: the allowlist file, selection per target, pack versioning, options for a pack (section 1). The default set of checks, retention and the lint seam were decided on 2026-10-22 (specification section 17). | `docs/seam.md` sections 1 and 7 | Tell us what you need. |
+| Open design questions: the allowlist file, selection per target, pack versioning (section 1). The default set of checks, retention and the lint seam were decided on 2026-10-22. Options for a pack are not built before 1.0, decided on 2026-11-03 (specification section 17, item 9). | `docs/seam.md` sections 1 and 7 | Tell us what you need. |
 
 ## 7. Decisions already closed
 
@@ -193,8 +193,7 @@ You do not need to answer these. They are decided.
 - Freeze scope: the pack API and the a11y pack are frozen. The lint pack is not (`docs/seam.md`, section 5).
 - Process safeguards (#122): decided. The label `merge-halt` exists. The main-protection ruleset is NOT created yet.
 - 2026-10-19: no `init`; an undecidable axe result stays `complete` with a `warning` (R8.14); `basis` waits for `schemaVersion` 3; the pack API and the a11y pack are frozen, the lint pack is not (`docs/seam.md`, sections 5 and 8).
-
-Still open: options for a pack, running packs from the command line, and the browser step for DOM facts and library version (#104).
+- Running packs from the command line moves to 1.1 (specification section 17, item 8). Options for a pack and the browser step for DOM facts and library version (#104) are not built before 1.0 (specification section 17, item 9).
 
 ## 8. Feedback checklist
 
@@ -221,7 +220,7 @@ What blocks 1.0:
 - [ ] A step I could not do without help: ___
 - [ ] A run that was too slow or too large: ___
 - [x] Running packs from the CLI must exist before 1.0: no. The owner decided on 2026-10-25 (specification section 17, item 8).
-- [ ] The browser step for DOM facts and library version (#104) must exist before 1.0: yes / no
-- [ ] Options for a pack must exist before 1.0: yes / no
+- [x] The browser step for DOM facts and library version (#104) must exist before 1.0: no. The owner decided on 2026-11-03 (specification section 17, item 9).
+- [x] Options for a pack must exist before 1.0: no. The owner decided on 2026-11-03 (specification section 17, item 9).
 
 Overall: does the candidate meet your expectations? yes / partly / no. What would change the answer?
