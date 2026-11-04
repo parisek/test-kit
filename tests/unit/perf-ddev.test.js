@@ -33,3 +33,15 @@ test('perf keeps going when the DDEV project runs', async () => {
     assert.match(await calls(), /mutagen sync/);
   });
 });
+
+test('capture stops on a stopped DDEV project before Playwright loads and before a run directory exists', { skip: process.platform === 'win32' }, async () => {
+  const { capture } = await import('../../src/capture/index.js');
+  await withFakeDdev('stopped', async (project, calls) => {
+    const config = { schemaVersion: 1, sides: { local: { origin: 'https://example-site.ddev.site' } }, targets: [{ id: 'home', kind: 'page', path: '/' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }], artifacts: ['screenshot'], checks: [], runsRoot: 'runs' };
+    const configPath = join(project, 'test-kit.config.json');
+    await writeFile(configPath, JSON.stringify(config));
+    await assert.rejects(capture({ configPath, side: 'local' }), /The DDEV project is not running \(status: stopped\)\. Run ddev start\./);
+    assert.equal((await calls()).includes('mutagen'), false);
+    await assert.rejects(readFile(join(project, 'runs')), { code: 'ENOENT' });
+  });
+});

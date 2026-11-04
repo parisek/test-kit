@@ -279,7 +279,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled }) : null;
-  const tool = await playwright();
+  // Verify DDEV before Playwright loads, so a stopped project starts no browser.
   if (new URL(config.sides[side].origin).hostname.endsWith('.ddev.site')) {
     const cwd = await projectRoot(loaded.configDir);
     let description;
@@ -294,6 +294,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     try { await execute('ddev', ['mutagen', 'sync'], { cwd, timeout: 60000 }); }
     catch { throw new Error('ddev mutagen sync fails. Fix DDEV synchronization before capture.'); }
   }
+  const tool = await playwright();
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const root = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;
