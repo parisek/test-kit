@@ -39,7 +39,7 @@ It must work for pages and for components with the same viewer. It must give a p
 | --- | --- |
 | side | A source of pages: `local`, `production`, `styleguide`, `reference`. It has an origin and a settle recipe. |
 | target | One thing to compare: a page path or a component. A path may differ per side. |
-| run | One capture of one side. It has an id and lives in `tests/visual/runs/<id>/`. |
+| run | One capture of one side. It has an id and lives in `.test-kit/runs/<id>/` by default. |
 | pair | Two runs, A and B, compared. It has a **kind**. |
 | subject | One run checked on its own, with no pair. |
 | artifact | A kind of evidence in a run: `screenshot`, `html`, `status`, `behavior`, `lighthouse`, `content`, `lint`, `a11y`. |
@@ -361,7 +361,7 @@ An agent must not read a whole report. It asks for the part it needs.
 
 ## 12. Storage and privacy
 
-- R12.1 Low-level captures keep `tests/visual/runs/<id>/`. The opt-in project workflow uses a configured relative store, with `.test-kit/` as its default. Its `runs/`, `reports/`, and baseline state stay in `.gitignore`. The run id grammar of `runs-store.js` stays. No automatic deletion runs (section 17, item 4).
+- R12.1 Low-level captures keep `.test-kit/runs/<id>/` by default, inside the store of the opt-in project workflow. The `runsRoot` key overrides the path. The default was `tests/visual/runs/<id>/` before 1.0.0-rc.8. The workflow uses a configured relative store, with `.test-kit/` as its default. Its `runs/`, `reports/`, and baseline state stay in `.gitignore`. The run id grammar of `runs-store.js` stays. No automatic deletion runs (section 17, item 4).
 - R12.2 Committed: viewport manifest, `sides`, target lists, `known_diffs`, the viewer shell. Not committed: captures, snapshots, raw tool output.
 - R12.3 Content snapshots store the body compressed so that a new check needs no new crawl. They stay local.
 - R12.4 Anything that reaches a public repository (issue, pull request, example data) must be anonymised: no client name, URL or screenshot.

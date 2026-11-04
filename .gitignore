@@ -2,7 +2,7 @@ node_modules/
 coverage/
 .DS_Store
 *.log
-# Captures and runs never belong in git. A project keeps them under tests/visual/runs/.
+# Captures and runs never belong in git. A project keeps them under .test-kit/runs/.
 runs/
 .test-kit/
 
