@@ -11,7 +11,7 @@ The seam is everything a project touches: its configuration file, the commands i
 - From the first release candidate tag, the freeze starts. A change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
 - The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The form of the release candidate tag is decided: `vMAJOR.MINOR.PATCH-rc.N` (R13.45, owner decision, 2026-10-19). Only the owner tags it.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
-- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.5` exist (2026-10-25).
+- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist (2026-11-04).
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
 
 ## Markings
@@ -42,7 +42,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `sides.<id>.origin` | string | none | yes | An HTTP origin with no path or credentials. Local unless `remote` is `true`. |
 | `sides.<id>.remote` | boolean | `false` | no | R3.3. Added in 0.5.0. |
 | `sides.<id>.userAgent` | string | the Playwright default | no | R3.4. Only with `remote: true`. 1 to 512 printable ASCII characters. Not in the capture settings hash. Added in 1.0.0-rc.6. |
-| `sides.<id>.challenge` | string | none | no | R3.5. Only with `remote: true`. The one value is `"cloudflare"`. Not in the capture settings hash. Unreleased. |
+| `sides.<id>.challenge` | string | none | no | R3.5. Only with `remote: true`. The one value is `"cloudflare"`. Not in the capture settings hash. Added in 1.0.0-rc.7. |
 | `sides.<id>.production` | boolean | `false` | no | R6.5. `perf` on this side waits for `--consent` for any number of targets. The side id does not decide. Added in 1.0.0-rc.4. |
 | `sides.<id>.settle` | object | see below | no | Settle recipe (R5.4). |
 | `targets` | list | none | yes | 1 to 1000 entries. |
@@ -81,7 +81,7 @@ Items inside the configuration that stay open:
 | Item | Marking | Reason |
 | --- | --- | --- |
 | The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
-| Options for a selected pack | Not frozen, owner decision open | The `packs` key takes IDs only (R13.44). The pack API has no options. A pack that needs options needs a new decision. |
+| Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. Options after 1.0 need a new decision. |
 | The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, not built yet | Specification section 17, item 7, R13.40: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). |
 | The allowlist (`reason`, `owner`) | Not frozen, owner decision open | ADR 0004, open question 4. No config key exists. |
 | Selection of checks or contracts per target | Not frozen, owner decision open | ADR 0004, open question 2. |
@@ -234,7 +234,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 ## 9. What this document did not check
 
-- The tags `v1.0.0-rc.1` to `v1.0.0-rc.5` exist now. This document was written before them.
+- The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist now. This document was written before them.
 - One consumer project ran `v1.0.0-rc.2` once, on 2026-10-19, against a local site (see the migration guide). No other project ran against the package. Every other statement about a project is derived from this repository.
 - The viewer was not opened. The seam covers files, commands and the JSON that the code reads and writes.
 - The cap values in the pack API are chosen bounds, not measurements.

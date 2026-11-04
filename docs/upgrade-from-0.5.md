@@ -1,7 +1,7 @@
 # Upgrade from v0.5.0 to `main`
 
 Status: measured on 2026-10-19. It serves issue #105 and R13.9.
-`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). At that time no tag newer than `v0.5.0` existed (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). This is history. The tags `v1.0.0-rc.1` to `v1.0.0-rc.5` exist now (2026-10-25). A project pins the newest candidate tag (see [rc-trial.md](rc-trial.md)).
+`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). At that time no tag newer than `v0.5.0` existed (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). This is history. The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist now (2026-11-04). A project pins the newest candidate tag (see [rc-trial.md](rc-trial.md)).
 
 ## Result
 
@@ -29,7 +29,7 @@ The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). The optional `pa
 
 ## Steps
 
-1. Pin the new version with a candidate tag (R13.27): `npm install -D github:parisek/test-kit#v1.0.0-rc.5`. Replace the tag with the newest candidate. At the time of the 0.5.0 measurement only a commit form was possible. Not verified: this exact install from a commit in a project.
+1. Pin the new version with a candidate tag (R13.27): `npm install -D github:parisek/test-kit#v1.0.0-rc.7`. Replace the tag with the newest candidate. At the time of the 0.5.0 measurement only a commit form was possible. Not verified: this exact install from a commit in a project.
 
    One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
 2. Keep `test-kit.config.json` as it is. No key changes. Not verified in a project.
@@ -40,7 +40,7 @@ The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). The optional `pa
 ## What breaks
 
 - Shipped: nothing.
-- Planned, not in the code: `report.json` goes to `schemaVersion` 3. `pair` becomes optional. A reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion` (R9.1, `CHANGELOG.md`, Unreleased, Migration). The code still writes version 2 on `main`. No project change is needed today.
+- Planned, not in the code: `report.json` goes to `schemaVersion` 3. `pair` becomes optional. A reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion` (R9.1, `CHANGELOG.md`, `[1.0.0-rc.1]`, Migration). The code still writes version 2 on `main`. No project change is needed today.
 - Stored `known_diffs` records bind a comparator policy hash. This change set does not alter the comparator, so existing records stay valid. Not verified on a real project.
 
 ## Verification

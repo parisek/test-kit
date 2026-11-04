@@ -12,7 +12,7 @@ A fourth run on 2026-10-25 used the tag `v1.0.0-rc.5` in the same pull request. 
 
 The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its default branch pins `v1.0.0-rc.5` since 2026-10-25 (portadesign/tailwind-base#947). Before that it pinned `v0.2.1`. The text uses `v0.2.1` as the worked example.
 
-Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` to `v1.0.0-rc.5` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
+Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
 
 ## What the move covers
 
