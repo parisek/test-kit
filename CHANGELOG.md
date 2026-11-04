@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Fixed
+
+- `capture` and `perf` stop on a DDEV project that is not running and name the fix: "The DDEV project is not running (status: stopped). Run ddev start." The check runs before Playwright loads, so no browser starts and no run directory exists (#255).
+
 ## [1.0.0] - 2026-11-04
 
 First stable release. It holds `1.0.0-rc.7` and the two changes below. The seam in `docs/seam.md` is frozen for 1.x. To move from 0.5, read `docs/upgrade-from-0.5.md` and the Migration section of `[1.0.0-rc.1]`.

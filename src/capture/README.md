@@ -28,9 +28,12 @@ The run records these fixed browser settings in its capture settings hash.
 It records the actual Chromium version as well as the Playwright version.
 
 DDEV origins require a nearest ancestor `.ddev` directory. Capture runs
-`ddev describe --json-output` verifies that the checkout serves the configured
-host. Capture runs `ddev mutagen sync` there once before browser work.
-A wrong checkout or sync failure stops capture.
+`ddev describe --json-output` before Playwright loads. The description must
+show a running project and the configured host. A stopped project stops
+capture with "The DDEV project is not running (status: stopped). Run ddev
+start." No browser starts and no run directory exists. Capture then runs
+`ddev mutagen sync` once before browser work. A wrong checkout or sync
+failure stops capture.
 
 The manifest starts as partial and updates atomically after each capture.
 The screenshot timeout bounds the complete target operation, including font
