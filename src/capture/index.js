@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, isOwnOrigin, requestPolicy, describeBlockedRequest, blockedRequestMessage, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, describeBlockedRequest, blockedRequestMessage, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -288,6 +288,9 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       description = JSON.parse(stdout);
     } catch { throw new Error('Cannot verify the DDEV project for the configured origin'); }
     if (!ddevMatchesOrigin(description, config.sides[side].origin)) throw new Error('The nearest DDEV checkout does not serve the configured origin');
+    // Stop before the first page when DDEV is stopped. This sits outside the describe try/catch.
+    const stopped = ddevStatusProblem(description);
+    if (stopped) throw new Error(stopped);
     try { await execute('ddev', ['mutagen', 'sync'], { cwd, timeout: 60000 }); }
     catch { throw new Error('ddev mutagen sync fails. Fix DDEV synchronization before capture.'); }
   }

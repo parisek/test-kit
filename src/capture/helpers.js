@@ -33,6 +33,16 @@ export function ddevMatchesOrigin(description, origin) {
   });
 }
 
+// Return null when DDEV reports the project as running.
+// Return a message for any other status. A stopped project still describes
+// its URLs, but the router answers 404 on every page.
+export function ddevStatusProblem(description) {
+  const status = description?.raw?.status;
+  if (status === 'running') return null;
+  const shown = typeof status === 'string' && /^[\w .-]{1,40}$/.test(status) ? ` (status: ${status})` : '';
+  return `The DDEV project is not running${shown}. Run ddev start.`;
+}
+
 export function isOwnOrigin(value, origin) {
   let url;
   try { url = new URL(value); } catch { return false; }
