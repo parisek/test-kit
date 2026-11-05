@@ -17,7 +17,8 @@
     "./packs/swiper": "./src/packs/versioned/swiper.js",
     "./packs/lint": "./src/packs/lint/index.js",
     "./packs/lint/runner": "./src/packs/lint/runner.js",
-    "./eslint": "./src/eslint/index.js"
+    "./eslint": "./src/eslint/index.js",
+    "./stylelint": "./src/stylelint/index.cjs"
   },
   "files": [
     "bin",
@@ -50,6 +51,8 @@
     "eslint-plugin-vue": "^10.11.0",
     "globals": "^17.12.0",
     "lighthouse": "^13.5.0",
+    "stylelint": "^17.15.0",
+    "stylelint-config-standard": "^40.0.0",
     "typescript-eslint": "^8.70.0",
     "vue-eslint-parser": "^10.4.1"
   },
@@ -78,6 +81,12 @@
     "lighthouse": {
       "optional": true
     },
+    "stylelint": {
+      "optional": true
+    },
+    "stylelint-config-standard": {
+      "optional": true
+    },
     "typescript-eslint": {
       "optional": true
     },
@@ -98,6 +107,8 @@
     "eslint-plugin-vue": "10.12.0",
     "globals": "17.14.0",
     "lighthouse": "13.5.0",
+    "stylelint": "17.16.0",
+    "stylelint-config-standard": "40.0.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.72.1",
     "vue-eslint-parser": "10.4.1"
