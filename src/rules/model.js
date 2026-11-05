@@ -13,8 +13,8 @@ export function normalizeScope(input) {
   return Object.fromEntries(Object.entries(value).map(([axis, values]) => {
     if (!Array.isArray(values) || values.length > 50 || new Set(values).size !== values.length || values.some(value => !text(value, 200))) fail();
     if (axis === 'pairs' && values.some(value => !isHash(value))) fail();
-    if (axis === 'artifacts' && values.some(value => !['screenshot', 'html', 'status', 'content'].includes(value))) fail();
-    if (axis === 'kinds' && values.some(value => !['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'].includes(value))) fail();
+    if (axis === 'artifacts' && values.some(value => !['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse', 'lint', 'a11y'].includes(value))) fail();
+    if (axis === 'kinds' && values.some(value => !['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc', 'single-run'].includes(value))) fail();
     if (axis === 'targets' && values.some(value => !ID.test(value))) fail();
     return [axis, [...values]];
   }));

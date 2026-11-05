@@ -17,7 +17,7 @@ The caller supplies the Playwright project name and installed library versions.
 `contractFingerprints` can bind each contract name to a SHA-256 module graph hash.
 Function source hashing alone does not bind imported helpers.
 
-Each detection, instance and isolation pass is a step.
+Each detection, instance and isolation pass is a step. Each step carries `contract`, the name of its contract, so a step id such as `menu-2` is never parsed back to a contract (ADR 0004, question 1). Each contract in the stored settings carries `origin` (`package`, `project` or `component`). A loader sets it, and every loader reads the project source today. The report key is `behavior.<contract name>`, and `-detect` and `-scoping` steps fold into it. The snapshot version is 2. A stored version 1 snapshot has no `contract`, and it does not compare with a version 2 snapshot (`incompatible`).
 Missing markers produce a skipped step. A detector error produces a failed step.
 Failures retain results and bounded console, response and dataLayer evidence.
 Screenshots and optional traces stay in the supplied local artifact directory.

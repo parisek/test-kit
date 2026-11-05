@@ -9,7 +9,9 @@ import { compareResponseArtifact } from '../artifacts/compare.js';
 import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';
 import { resolve, join, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
-import { validateReport } from '../report/model.js';
+import { SCHEMA_VERSION, validateReport } from '../report/model.js';
+import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
+import { builtinChecks } from '../checks/index.js';
 
 function performanceEnvironment(run) {
   try { const origin = new URL(run.settings.sides[run.side].origin); return origin.protocol === 'http:' && isLocalUrl(origin.href) ? `${run.side}|${origin.origin}` : null; } catch { return null; }
@@ -127,6 +129,8 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	let exitCode = 0;
 	const findings = [];
 	const entries = [];
+	// ADR 0004, section 1: one catalog entry for each selected check (R9.8). A viewer never invents one.
+	const checks = {};
 	for (const target of targets.values()) {
 		const rows = [];
 		for (const viewport of viewports.values()) {
@@ -172,7 +176,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				await writeFile(join(output, src), PNG.sync.write(diff));
 				row.ratio = ratio;
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
-				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
+				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
 			} else row.diagnostic ??= row.state === 'incompatible' ? 'Capture settings or tool versions differ.' : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
 			row.artifacts.screenshot.state = row.state;
@@ -180,23 +184,33 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {
 				row.artifacts[artifact] = await compareResponseArtifact({ kind: artifact, a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, rules, context: { pairKey: key, kind, targetId: target.id } });
 				if (artifact === 'html' && row.artifacts.html.state === 'complete' && (row.artifacts.html.diff?.rawChanged ?? row.artifacts.html.diff?.changed)) {
-					findings.push({ id: 'html-' + target.id + '-' + viewport.id, targetId: target.id, viewportId: viewport.id, artifact: 'html', message: 'HTML response bytes differ.' });
+					findings.push({ id: 'html-' + target.id + '-' + viewport.id, targetId: target.id, viewportId: viewport.id, artifact: 'html', layer: 'package', message: 'HTML response bytes differ.' });
 				}
 			}
 			if (requested.has('content')) {
 				const content = await compareContentArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, contentChecks, contentExpectedLanguage });
 				row.artifacts.content = content.artifact;
-				content.findings.forEach((finding, index) => findings.push({ targetId: finding.targetId, viewportId: finding.viewportId, artifact: 'content', checkId: finding.checkId, severity: finding.severity, message: finding.message, id: `content-${target.id}-${viewport.id}-${finding.checkId}-${index}` }));
+				for (const id of content.artifact.scope.checks) if (!Object.hasOwn(builtinChecks, id)) throw new Error('Unknown content check.'); else checks[id] ??= { basis: builtinChecks[id].basis, layer: 'package', title: builtinChecks[id].title };
+				// An absolute finding names the run it is about. Only side B enters the list today (ADR 0004, "Open points", 1).
+				content.findings.forEach((finding, index) => findings.push({ targetId: finding.targetId, viewportId: finding.viewportId, artifact: 'content', checkId: finding.checkId, layer: 'package', ...(builtinChecks[finding.checkId].basis === 'absolute' ? { runId: b.id } : {}), severity: finding.severity, message: finding.message, id: `content-${target.id}-${viewport.id}-${finding.checkId}-${index}` }));
 			}
 			if (requested.has('behavior')) {
 				const behavior = await compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
-				row.artifacts.behavior = behavior.artifact; findings.push(...behavior.findings);
+				row.artifacts.behavior = behavior.artifact; findings.push(...behavior.findings); Object.assign(checks, { ...behavior.catalog, ...checks });
 			}
 			if (requested.has('lighthouse')) {
-				const speed = await comparePerformanceArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, environmentA: performanceEnvironment(a), environmentB: performanceEnvironment(b), budgets: b.performance?.budgets ?? {}, failOnBudget });
-				row.artifacts.lighthouse = speed.artifact;
+				const budgets = b.performance?.budgets ?? {};
+				const speed = await comparePerformanceArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, environmentA: performanceEnvironment(a), environmentB: performanceEnvironment(b), budgets, failOnBudget });
+				// The selection comes from the run settings: the change check always, the budget check when the run has budgets.
+				const selected = ['lighthouse-change', ...(Object.keys(budgets).length ? ['lighthouse-budget'] : [])];
+				row.artifacts.lighthouse = { ...speed.artifact, scope: { checks: selected } };
+				for (const id of selected) checks[id] ??= { ...LIGHTHOUSE_CHECKS[id] };
 				exitCode ||= speed.exitCode;
-				speed.findings.forEach((finding, index) => findings.push({ ...finding, id: `lighthouse-${target.id}-${viewport.id}-${index}` }));
+				speed.findings.forEach((finding, index) => {
+					const checkId = LIGHTHOUSE_CAUSE_CHECK[finding.cause];
+					checks[checkId] ??= { ...LIGHTHOUSE_CHECKS[checkId] };
+					findings.push({ ...finding, checkId, layer: LIGHTHOUSE_CHECKS[checkId].layer, ...(LIGHTHOUSE_CHECKS[checkId].basis === 'absolute' ? { runId: b.id } : {}), id: `lighthouse-${target.id}-${viewport.id}-${index}` });
+				});
 			}
 			const comparable = ['screenshot', 'html', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
 			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
@@ -209,10 +223,10 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });
 	}
-	const report = { schemaVersion: 2, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
+	const report = { schemaVersion: SCHEMA_VERSION, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
     targets: run.settings.targets.filter(target => target.settle !== undefined || target.settleBySide?.[run.side] !== undefined).map(target => ({ id: target.id,
       ...(target.settle !== undefined ? { settle: target.settle } : {}),
-      ...(target.settleBySide?.[run.side] !== undefined ? { settleBySide: { [run.side]: target.settleBySide[run.side] } } : {}) })) }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, entries, causes: [], findings, rules: {} };
+      ...(target.settleBySide?.[run.side] !== undefined ? { settleBySide: { [run.side]: target.settleBySide[run.side] } } : {}) })) }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, checks, entries, causes: [], findings, rules: {} };
 	const responseTools = new Map();
 	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse']) {
 		const index = row.artifacts[kind]?.diff;
@@ -227,6 +241,8 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	report.meta.comparisonPolicyHash = policyHash(rules);
 	for (const finding of findings) {
 		if (!['screenshot', 'html', 'content'].includes(finding.artifact)) continue;
+		// Known differences and fingerprints bind a difference between A and B. An absolute finding has no cause until the allowlist ships (#254).
+		if (finding.runId !== undefined) continue;
 		const entry = entries.find(entry => entry.id === finding.targetId);
 		const row = entry.viewports.find(row => row.id === finding.viewportId);
 		const binding = await evidenceBinding({ runsRoot, aRunId: aId, bRunId: bId,

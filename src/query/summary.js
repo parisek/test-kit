@@ -1,5 +1,6 @@
 import { adaptReport } from '../report/model.js';
 import { summarize, targetClass, targetState } from '../report/classify.js';
+import { isHash } from '../rules/model.js';
 
 // Bounded detail lists with counts over the full report (R11.1–R11.6).
 export function summarizeReport(input, { maxTargets = 20, filter = 'all', target } = {}) {
@@ -8,12 +9,13 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	if (!allowed.includes(filter)) throw new Error('Unknown summary filter.');
 	const report = adaptReport(input);
 	if (target != null && !report.entries.some((entry) => entry.id === target)) throw new Error('Unknown target.');
-	const rows = report.entries.map((entry) => ({ id: entry.id, class: targetClass(report, entry), state: targetState(entry), availability: entry.viewports.flatMap((row) => ['a', 'b'].map(side => [side, row.availability?.[side] ?? 'unknown']).filter(([, state]) => state !== 'ok').map(([side, state]) => ({ viewport: row.id, side, state }))) }));
+	const rows = report.entries.map((entry) => ({ id: entry.id, class: targetClass(report, entry), state: targetState(entry), availability: !report.pair ? [] : entry.viewports.flatMap((row) => ['a', 'b'].map(side => [side, row.availability?.[side] ?? 'unknown']).filter(([, state]) => state !== 'ok').map(([side, state]) => ({ viewport: row.id, side, state }))) }));
 	const problems = rows.filter((row) => row.availability.length);
 	const selected = rows.filter((row) => (target == null || row.id === target) && (filter === 'all' || filter === row.class || filter === 'incomplete' && row.state !== 'complete' || filter === 'availability' && row.availability.length));
 	const aggregate = summarize(report);
 	return {
-		pair: report.pair,
+		pair: report.pair ?? null,
+		subject: report.subject ? { kind: report.subject.kind, runId: String(report.subject.runId).slice(0, 200), ...(isHash(report.subject.key) ? { key: report.subject.key } : {}) } : null,
 		verdict: aggregate.counts.incomplete ? 'incomplete' : problems.length ? 'availability-problems' : aggregate.counts.unexplained ? 'unexplained' : aggregate.counts.oracle ? 'oracle-review' : aggregate.counts.explained ? 'explained' : aggregate.counts.unclassified ? 'no-comparable-evidence' : 'match',
 		counts: aggregate.counts, states: aggregate.states,
 		availabilityCount: problems.length,

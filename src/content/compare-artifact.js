@@ -12,8 +12,9 @@ import { CHECK_VERSION } from '../checks/index.js';
 
 export async function compareContentArtifact({ a, b, ac, bc, runsRoot, output, targetId, viewportId, contentChecks, contentExpectedLanguage }) {
   const indexes = [ac?.artifacts?.content, bc?.artifacts?.content];
-  const result = { kind: 'content', state: artifactState(...indexes), a: null, b: null, diff: null };
   const policy = run => ({ checks: contentChecks ?? run.settings.checks ?? [], expectedLanguage: contentExpectedLanguage ?? run.settings.content?.expectedLanguage ?? null });
+  // The selected checks come from the settings of run B, never from the viewer (owner decision 2, R8.7).
+  const result = { kind: 'content', state: artifactState(...indexes), scope: { checks: [...policy(b).checks] }, a: null, b: null, diff: null };
   const viewport = run => run.settings.viewports.find(item => item.id === viewportId);
   if (result.state === 'complete' && (settingsHash(policy(a)) !== settingsHash(policy(b))
     || settingsHash(viewport(a)) !== settingsHash(viewport(b))

@@ -3,23 +3,39 @@ import { comparisonDetail } from '../artifacts/schema.js';
 import { dirname, basename, resolve } from 'node:path';
 import { adaptReport } from '../report/model.js';
 import { readSidecar } from '../artifacts/compare.js';
+import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
+
+const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 export async function queryArtifact(reportPath, { target, viewport, artifact, maxLines = 40 }) {
-  if (!['html', 'status', 'content', 'behavior', 'lighthouse'].includes(artifact)) throw new Error('Artifact must be html, status, content, behavior, or lighthouse.');
+  const absolute = ABSOLUTE_ARTIFACTS.includes(artifact);
+  if (!['html', 'status', 'content', 'behavior', 'lighthouse', ...ABSOLUTE_ARTIFACTS].includes(artifact)) throw new Error('Artifact must be html, status, content, behavior, lighthouse, lint, or a11y.');
+  if (viewport == null && !absolute) throw new Error('Artifact needs a viewport.');
   if (!Number.isInteger(maxLines) || maxLines < 1 || maxLines > 100) throw new Error('maxLines must be 1..100.');
   const path = resolve(reportPath), root = dirname(path);
   const report = adaptReport(JSON.parse(await readSidecar(root, basename(path), 16_000_000)));
   const entry = report.entries.find(entry => entry.id === target);
   if (!entry) throw new Error('Unknown target.');
-  const row = entry.viewports.find(row => row.id === viewport);
-  if (!row) throw new Error('Unknown target viewport.');
-  const index = row.artifacts?.[artifact];
+  // An absolute result sits at viewport scope or at target scope (R9.9).
+  const row = viewport == null ? null : entry.viewports.find(row => row.id === viewport);
+  if (viewport != null && !row) throw new Error('Unknown target viewport.');
+  const index = (row ? row.artifacts : entry.artifacts)?.[artifact];
   if (!index) throw new Error('Artifact is not requested.');
+  const pairContext = { pairKey: report.pair?.key, kind: report.pair?.kind ?? 'single-run', targetId: target, artifact };
   const result = { target, viewport, artifact, state: index.state, diagnostic: typeof index.diagnostic === 'string' ? index.diagnostic.slice(0, 500) : null,
-    pairKey: isHash(report.pair.key) ? report.pair.key : null,
-    rules: Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, { pairKey: report.pair.key, kind: report.pair.kind, targetId: target, artifact })).slice(0, 50).map(([id, rule]) => ({ id: id.slice(0, 64), text: typeof rule.text === 'string' ? rule.text.slice(0, 500) : '', evidence: rule.evidence.slice(0, 1000) })),
-    rulesOmitted: Math.max(0, Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, { pairKey: report.pair.key, kind: report.pair.kind, targetId: target, artifact })).length - 50),
+    pairKey: isHash(report.pair?.key) ? report.pair.key : null,
+    rules: Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).slice(0, 50).map(([id, rule]) => ({ id: id.slice(0, 64), text: typeof rule.text === 'string' ? rule.text.slice(0, 500) : '', evidence: rule.evidence.slice(0, 1000) })),
+    rulesOmitted: Math.max(0, Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).length - 50),
     evidence: { a: index.a?.src ?? null, b: index.b?.src ?? null, normalizedA: index.normalizedA?.src ?? null, normalizedB: index.normalizedB?.src ?? null }, next: 'Open the same target and viewport in the viewer.' };
+  if (absolute || report.subject) {
+    // An absolute index has one piece of evidence and a bounded result. The sidecar format belongs to the pack that wrote it.
+    result.evidence = { run: index.evidence?.src ?? null };
+    // Copy the documented fields only. The validator checks these two and ignores other keys (untrusted data, R11.2).
+    result.result = isPlain(index.result) ? { violations: index.result.violations === true, checks: Number.isSafeInteger(index.result.checks) ? index.result.checks : 0 } : null;
+    result.scope = Array.isArray(index.scope?.checks) ? { checks: index.scope.checks.filter(id => typeof id === 'string').slice(0, 500).map(id => id.slice(0, 128)) } : null;
+    result.next = 'Open the same target in the viewer.';
+    return result;
+  }
   if ((index.state === 'complete' || artifact === 'content' || artifact === 'behavior' || artifact === 'lighthouse') && index.diff?.src) {
     const detail = comparisonDetail(artifact, JSON.parse(await readSidecar(root, index.diff.src)));
     if (artifact === 'html') {

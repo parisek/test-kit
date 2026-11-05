@@ -4,6 +4,7 @@
     "aRunId": "a",
     "bRunId": "b"
   },
+  "subject": null,
   "verdict": "incomplete",
   "counts": {
     "match": 2,

@@ -6,6 +6,7 @@ import { validateContentSnapshot } from '../content/snapshot.js';
 import { storedResponses } from '../content/responses.js';
 import { runContentChecks } from '../checks/index.js';
 import { validateBehaviorSnapshot } from '../behavior/snapshot.js';
+import { behaviorCheckId } from '../report/catalog.js';
 
 // A single run has check feedback. It does not have an A/B verdict.
 export async function summarizeRunFeedback(run, runsRoot, { maxFindings = 20, persist = true } = {}) {
@@ -57,7 +58,9 @@ export async function summarizeRunFeedback(run, runsRoot, { maxFindings = 20, pe
           if (step.id.endsWith('-detect') && step.state === 'complete') continue;
           const state = step.state === 'complete' ? 'passed' : step.state;
           result.behavior[state]++;
-          if (state !== 'passed') { result.state = 'incomplete'; add({ ...scope, artifact: 'behavior', contractId: step.id, state, message: step.error ?? step.reason ?? step.title }); }
+          if (state !== 'passed') { result.state = 'incomplete'; // The same identity as the report: the contract name, and the catalog key `behavior.<contract>` (ADR 0004, question 1).
+          // A stored version 1 snapshot has no `contract`. Its steps keep the step id.
+          add({ ...scope, artifact: 'behavior', ...(step.contract ? { checkId: behaviorCheckId(step.contract) } : {}), contractId: step.contract ?? step.id, state, message: step.error ?? step.reason ?? step.title }); }
         }
         if (snapshot.state !== 'complete') result.state = 'incomplete';
         if (!snapshot.steps.some(step => !step.id.endsWith('-detect') && step.state === 'complete')) {

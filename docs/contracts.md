@@ -83,8 +83,9 @@ site. A navigation exception is a failed capture.
 
 ## Screenshot report
 
-A report has `schemaVersion: 2`, `meta`, `runs`, `pair`, `entries`, `causes`,
-`findings`, and `rules`. A class is derived, never serialized. `meta.matchBelow`
+A report has `schemaVersion: 3`, `meta`, `runs`, exactly one of `pair` and `subject`,
+`checks`, `entries`, `causes`, `findings`, and `rules` (specification section 9). A
+reader adapts versions 1 and 2. A class is derived, never serialized. `meta.matchBelow`
 is 3 by default, in percent. `meta.noiseFloor` is `null` until measured.
 `meta.tools` lists tool name, version, and capture settings hash.
 Each entry has one row per viewport in the union of requested captures.

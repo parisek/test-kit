@@ -30,7 +30,7 @@ function data(artifacts) {
     artifacts[kind] = { ...artifacts[kind], a: { ...index, src: kind === 'html' ? 'a.txt' : 'a.json' },
       b: { ...index, src: kind === 'html' ? 'b.txt' : 'b.json' }, diff: { ...index, src: 'diff.json', changed: false } };
   }
-  return { schemaVersion: 2, meta: { matchBelow: 3, viewports: [{ id: 'wide' }] },
+  return { schemaVersion: 3, checks: {}, meta: { matchBelow: 3, viewports: [{ id: 'wide' }] },
     runs: [{ id: 'a' }, { id: 'b' }], pair: { kind: 'update', aRunId: 'a', bRunId: 'b' },
     entries: [{ id: 'home', viewports: [{ id: 'wide', state: 'complete', ratio: 0, availability: { a: 'ok', b: 'ok' }, artifacts }] }],
     findings: [], causes: [], rules: {} };
