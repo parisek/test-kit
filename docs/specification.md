@@ -212,7 +212,7 @@ The code writes version 3 (ADR 0004, #230). R9.7 to R9.11 describe it.
 - R9.3 `meta.tools` must list every tool with name, version and settings hash.
 
 ```
-meta       project, title, generated, matchBelow, primaryViewport, viewports[], groups?, tools[], sample?
+meta       project?, title, generated, matchBelow, primaryViewport, viewports[], groups?, tools[], sample?
 runs[]     id, side, label, at, captures
 pair       kind, aRunId, bRunId          (exactly one of pair and subject)
 subject    kind: 'single-run', runId, key?
