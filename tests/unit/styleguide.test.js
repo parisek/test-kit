@@ -177,6 +177,8 @@ test('parseComponents: a bad variant list or a repeated or long target ID stops 
   fails([{ id: 'a', variants: Array.from({ length: 101 }, (_, index) => ({ id: `v${index}` })) }], /not a list/);
   fails([{ id: 'a'.repeat(63), variants: [{ id: 'x' }] }], /longer than 64/);
   fails([{ id: 'a', variants: [{ id: 'b' }] }, { id: 'a--b' }], /repeated or longer/);
+  // A target ID that equals a no-fixture ID (a component `page--x` and a page `x` without fixture) stops the read.
+  assert.throws(() => parseComponents([{ id: 'page--x' }], { pages: [{ id: 'x', has_styleguide: false }] }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && /repeated or longer/.test(error.message));
   // A bad variant list in a catalogue that does not ask for variants is not read.
   assert.doesNotThrow(() => parseComponents([{ id: 'a', variants: 'x' }]));
 });
