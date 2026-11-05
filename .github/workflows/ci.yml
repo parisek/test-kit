@@ -28,7 +28,10 @@ jobs:
 
       - run: npm ci
 
+      # With the peers installed, a skipped lint test is an error (tests/helpers/lint-peers.js).
       - run: npm test
+        env:
+          TEST_KIT_REQUIRE_LINT_PEERS: '1'
 
       - name: The command line starts
         run: node bin/cli.js --help

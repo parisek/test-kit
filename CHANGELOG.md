@@ -7,6 +7,7 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Added
 
 - Entry point `@parisek/test-kit/stylelint`: the shared config object and the five `portadesign` rules (`no-duplicate-import`, `no-undefined-tailwind-prose`, `prefer-utility-over-apply`, `import-order`, `no-length-division`). The entry is a CommonJS file, so `require` and `import` both load it. Rule IDs and the namespace stay as in the first consumer project. The config holds no project pseudo-classes and no ignore paths: a project adds them after the object. `stylelint` and `stylelint-config-standard` are optional peers. A missing one throws `LINT_PEER_MISSING`. Loading the entry loads no browser package (R13.40, R13.46 to R13.49, #26).
+- Entry point `@parisek/test-kit/eslint`: the shared flat config and the four `portadesign` rules (`no-top-level-heavy-lib-import`, `no-deprecated-dependency`, `no-top-level-throw`, `require-reduced-motion-guard`). Rule IDs and the namespace stay as in the first consumer project. The config holds no vendor globals and no ignore paths: a project adds them after the array. `eslint`, `@eslint/js`, `eslint-plugin-import`, `eslint-plugin-vue`, `vue-eslint-parser`, `globals` and `typescript-eslint` are optional peers. A missing `@eslint/js` or `eslint-plugin-import` throws `LINT_PEER_MISSING`. A missing enhancement drops its config block and prints one warning (`globals` also turns `no-undef` off). "Optional" in `peerDependenciesMeta` is a package-manager flag: the two required peers still fail at import. Rule messages carry no project links, and the `messageIds` stay. Importing the entry loads no browser package. The lint tests skip with a message when the peers are absent, so `npm test` needs no dependency (R13.40, R13.46 to R13.50, #26).
 
 ### Fixed
 
@@ -35,7 +36,6 @@ First release candidate for 1.1.0. It is not a stable release. `package.json` sa
 - A remote capture records the requests it aborts per resource type and origin (no path or query) as `dropped` in `run.json`. `diff` copies it into the report. `summary` and the viewer warn when a `font` or `stylesheet` request was aborted, so a page that renders in a fallback font is visible. The verdict does not change (R3.8, #251).
 
 - A difference in the final status code, the final path or the redirect chain between side A and side B is a finding of the `status` artifact, for every pair kind. It counts in the class of the target and in `summary`. Asset counts never make a finding. The viewer names the differing fields. `record-known` accepts `--artifact status`, so a known difference can explain an intended redirect. The report schema is unchanged: a `status` finding has no `checkId`, like a screenshot or HTML finding (R6.13, #278).
->>>>>>> o/main
 
 ### Changed
 
