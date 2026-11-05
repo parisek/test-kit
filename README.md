@@ -140,6 +140,16 @@ with a list on one side only is incompatible, and the diagnostic names `allowOri
 Other aborted requests are not evidence. A page that needs such a request to render
 differs from the same page with it, so read an `unexplained` finding with that in mind.
 
+## Lazy images and reveal
+
+An image with `loading="lazy"` below the first screen stays grey in a full-page capture, because the page never scrolls to it. Set `settle.lazyImages` to `true`. The capture then scrolls the page once, loads every lazy image and scrolls back. `settle.reveal` clicks, hovers or focuses named elements before the capture. Both keys are off by default.
+
+Set the same `settle` on both sides. The recipe enters the settings hash. A pair where one side has `lazyImages` and the other has not is `incompatible`, and the other side needs a new capture. The row diagnostic names the setting and both values, for example `settle.lazyImages (A: false, B: true)`. `templates/test-kit.config.json` shows two sides with one `settle` recipe.
+
+```json
+"settle": {"waitMs": 0, "selectors": [], "disableMotion": true, "masks": [], "lazyImages": true}
+```
+
 ## Scoped project workflow
 
 The package owns command routing, selections, baselines, and local history.
