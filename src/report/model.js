@@ -154,6 +154,14 @@ export function validateReport(report) {
 	for (const field of ['runs', 'entries', 'causes', 'findings']) if (!array(report[field])) problems.push(`${field} must be an array.`);
 	if (!array(report.meta?.viewports)) problems.push('meta.viewports must be an array.');
 	if (!Number.isFinite(report.meta?.matchBelow) || report.meta.matchBelow < 0 || report.meta.matchBelow > 100) problems.push('matchBelow must be a percentage from 0 to 100.');
+	// R4.5: an optional record of the compared scope. It claims nothing about a report that has none.
+	if (report.meta?.skipped !== undefined && (!Number.isSafeInteger(report.meta.skipped) || report.meta.skipped < 0)) problems.push('meta.skipped must be a non-negative integer.');
+	if (report.meta?.scope !== undefined) {
+		const scope = report.meta.scope;
+		const selection = (value) => value === null || (isPlain(value) && Object.keys(value).every((axis) => ['targets', 'viewports'].includes(axis)
+			&& array(value[axis]) && value[axis].length <= 1000 && value[axis].every((id) => typeof id === 'string')));
+		if (!isPlain(scope) || !['a', 'b', 'filter'].every((key) => selection(scope[key])) || Object.keys(scope).length !== 3) problems.push('Invalid meta.scope.');
+	}
 	// R9.7: exactly one of pair and subject.
 	const hasPair = report.pair !== undefined, hasSubject = report.subject !== undefined;
 	const subject = hasSubject && !hasPair;

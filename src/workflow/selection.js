@@ -2,11 +2,8 @@ import { validateContractSelection } from '../behavior/contracts.js';
 import { builtinChecks } from '../checks/index.js';
 import { DEFAULT_ARTIFACTS } from '../config/normalize.js';
 
-function ids(value, name) {
-  const values = value.split(',');
-  if (!values.length || new Set(values).size !== values.length || values.some(id => !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(id))) throw new Error(`Invalid ${name} selection.`);
-  return values;
-}
+import { parseIdList as ids } from '../capture/selection.js';
+
 export function selectConfig(input, options = {}) {
   const config = structuredClone(input);
   const suite = options.suite ?? (options.selector ? 'visual' : 'all');
