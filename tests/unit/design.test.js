@@ -95,7 +95,7 @@ test('png: the size comes from the header, and a non-PNG or an oversize image fa
   assert.throws(() => readPngSize(huge), /limit/);
 });
 
-test('size check: the width is the viewport width times the device scale, and both sizes are named (R8.16)', () => {
+test('size check: the width is the viewport width times the device scale, and both sizes are named (R8.15)', () => {
   assert.equal(expectedWidth({ width: 1280 }), 1280);
   assert.equal(expectedWidth({ width: 390, deviceScaleFactor: 2 }), 780);
   assert.equal(widthProblem({ id: 'd', width: 1280, deviceScaleFactor: 1 }, 1280), null);
@@ -113,7 +113,7 @@ test('provenance: provider, source, time, hash and size (R8.15)', () => {
   assert.notEqual(sha256(png(3, 2, [9, 9, 8])), entry.sha256);
 });
 
-test('design pair: only the viewport and the image width decide, not the browser settings (R8.15, R8.16)', () => {
+test('design pair: only the viewport and the image width decide, not the browser settings (R8.15)', () => {
   const viewports = [{ id: 'desktop', width: 40, height: 30, deviceScaleFactor: 1 }];
   const designRun = { side: 'design', settings: { sides: { design: { kind: 'design', provider: 'files', root: 'r' } }, viewports }, settingsHash: 'sha256:a', tools: [{ name: 'test-kit-design', version: '1', settingsHash: 'sha256:a' }] };
   const browserRun = { side: 'local', settings: { sides: { local: { origin: 'http://localhost' } }, viewports }, settingsHash: 'sha256:b', tools: [{ name: 'playwright', version: '1', settingsHash: 'sha256:b' }] };
@@ -216,7 +216,7 @@ async function fakeCapture(dir, config, images) {
   return id;
 }
 
-test('diff: match, changed, missing viewport and wrong size read as set (R8.7, R8.15, R8.16)', async () => {
+test('diff: match, changed, missing viewport and wrong size read as set (R8.7, R8.15)', async () => {
   const dir = await project();
   try {
     const configPath = join(dir, 'config.json');

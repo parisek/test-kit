@@ -1,5 +1,5 @@
 // Explicit browser integration check. npm test does not discover this file.
-// R8.15 and R8.16: import supplied images as a design side, then diff against a captured run of the
+// R4.6 and R8.15: import supplied images as a design side, then diff against a captured run of the
 // synthetic example site. It covers a matching image, a changed component, a missing viewport and a wrong size.
 // The images are the captured pages themselves (so one matches exactly), changed or resized with pngjs.
 import assert from 'node:assert/strict';
