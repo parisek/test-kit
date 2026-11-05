@@ -1,4 +1,5 @@
 import { adaptReport } from '../report/model.js';
+import { droppedWarnings, droppedNotListed } from '../report/dropped.js';
 import { summarize, targetClass, targetState } from '../report/classify.js';
 import { isHash } from '../rules/model.js';
 
@@ -13,6 +14,9 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	const problems = rows.filter((row) => row.availability.length);
 	const selected = rows.filter((row) => (target == null || row.id === target) && (filter === 'all' || filter === row.class || filter === 'incomplete' && row.state !== 'complete' || filter === 'availability' && row.availability.length));
 	const aggregate = summarize(report);
+	const warnings = droppedWarnings(report).filter((item) => target == null || item.id === target);
+	const requests = warnings.reduce((sum, item) => sum + item.count, 0);
+	const notListed = target == null ? droppedNotListed(report) : droppedNotListed({ entries: report.entries.filter((entry) => entry.id === target) });
 	return {
 		pair: report.pair ?? null,
 		subject: report.subject ? { kind: report.subject.kind, runId: String(report.subject.runId).slice(0, 200), ...(isHash(report.subject.key) ? { key: report.subject.key } : {}) } : null,
@@ -24,6 +28,12 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		unexplainedOmitted: Math.max(0, rows.filter((row) => row.class === 'unexplained' && (target == null || row.id === target)).length - maxTargets),
 		availabilityProblems: problems.filter((row) => target == null || row.id === target).slice(0, maxTargets).map((row) => ({ id: row.id })),
 		availabilityOmitted: Math.max(0, problems.filter((row) => target == null || row.id === target).length - maxTargets),
+		// R3.8: a font or a stylesheet request aborted on a side. The verdict stays as it is.
+		// droppedRequestCount is the number of aborted font and stylesheet requests: the sum of the
+		// counts, the same number the viewer shows. droppedWarnings lists the groups (side, type, origin).
+		// droppedNotListed counts aborted requests that the capture cut from its 50-entry list.
+		// The keys appear only when one of them is above zero, so the pinned output stays the same.
+		...(warnings.length || notListed ? { droppedRequestCount: requests, droppedWarnings: warnings.slice(0, maxTargets), droppedWarningsOmitted: Math.max(0, warnings.length - maxTargets), droppedNotListed: notListed } : {}),
 		next: ['Open the report with test-kit serve.', 'Use summary --filter unexplained or --filter incomplete for scoped evidence.'],
 	};
 }

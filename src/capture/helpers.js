@@ -67,6 +67,14 @@ export function requestPolicy({ url, method, topLevel, navigation = topLevel, or
   return topLevel ? 'block' : 'drop';
 }
 
+// R3.8: the one entry of the request handler. It decides with requestPolicy and counts an
+// aborted request that keeps the capture ('drop') in the log, so the two cannot drift apart.
+export function decideRequest(log, args) {
+  const decision = requestPolicy(args);
+  if (decision === 'drop') recordDropped(log, { url: args.url, resourceType: args.resourceType });
+  return decision;
+}
+
 // R3.7: name the first request the capture blocks, so a person can find the cause.
 // Origin, method, resource type and kind only: no path, query string or fragment.
 // The values come from the page, so the helper strips control characters and bounds each part.
@@ -118,4 +126,26 @@ export function edgeStop({ status, headers, main }) {
 // the settings hash, and run.settings records it. Without the key, Playwright sends its default.
 export function userAgentOption(side) {
   return side.remote === true && Object.hasOwn(side, 'userAgent') ? { userAgent: side.userAgent } : {};
+}
+
+// R3.8: count the requests a remote side aborts, per resource type and origin.
+// The record keeps no path, query string or fragment. The page supplies the values,
+// so the helpers strip control characters and bound each part and the list.
+export const DROPPED_LIMIT = 50;
+export function createDroppedLog() { return { counts: new Map(), omitted: 0 }; }
+export function recordDropped(log, { url, resourceType }) {
+  const { origin, resourceType: type } = describeBlockedRequest({ url, method: 'GET', resourceType });
+  const key = `${type}\n${origin}`;
+  if (log.counts.has(key)) log.counts.set(key, log.counts.get(key) + 1);
+  else if (log.counts.size < DROPPED_LIMIT) log.counts.set(key, 1);
+  else log.omitted += 1;
+}
+// Return the fields to spread into a capture result. An empty log adds nothing.
+export function droppedFields(log) {
+  if (!log.counts.size && !log.omitted) return {};
+  const dropped = [...log.counts].map(([key, count]) => {
+    const [resourceType, origin] = key.split('\n');
+    return { resourceType, origin, count };
+  }).sort((a, b) => a.resourceType.localeCompare(b.resourceType) || a.origin.localeCompare(b.origin));
+  return { dropped, ...(log.omitted ? { droppedOmitted: log.omitted } : {}) };
 }
