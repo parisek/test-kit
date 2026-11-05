@@ -49,6 +49,12 @@ test('a report with a bad meta.scope or meta.skipped fails validation', async ()
   for (const bad of [scope({ b: {} }), scope({ b: { targets: [] } }), scope({ b: { targets: ['x', 'x'] } }), scope({ b: { targets: ['bad id'] } }), scope({ filter: { viewports: ['x'.repeat(65)] } }),
     scope({ filter: { other: ['x'] } }), scope({ a: [] }), scope({ b: 'x' }), { a: null, b: null }, [], 'x']) assert.deepEqual(check({ scope: bad }).length > 0, true, JSON.stringify(bad));
   for (const bad of [-1, 1.5, '2', null]) assert.equal(check({ skipped: bad }).length > 0, true, String(bad));
+  assert.equal(check({ scope: undefined }).length > 0, true, 'a count without a scope');
+  assert.equal(check({ skipped: undefined }).length > 0, true, 'a scope without a count');
+  assert.equal(check({ scope: scope({}) }).length > 0, true, 'a scope that selects nothing');
+  const plain = { ...report, meta: { ...report.meta } };
+  delete plain.meta.scope; delete plain.meta.skipped;
+  assert.deepEqual(validateReport(plain), [], 'a full report has neither key');
 }));
 
 test('cellSelected treats no selection as every cell', () => {

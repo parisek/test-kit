@@ -160,8 +160,11 @@ export function validateReport(report) {
 	if (report.meta?.scope !== undefined) {
 		const scope = report.meta.scope;
 		const selection = (value) => value === null || selectionShapeValid(value);
-		if (!isPlain(scope) || !['a', 'b', 'filter'].every((key) => selection(scope[key])) || Object.keys(scope).length !== 3) problems.push('Invalid meta.scope.');
+		if (!isPlain(scope) || !['a', 'b', 'filter'].every((key) => selection(scope[key])) || Object.keys(scope).length !== 3
+			|| ['a', 'b', 'filter'].every((key) => scope[key] === null)) problems.push('Invalid meta.scope.');
 	}
+	// The two keys come together: a scope without a count, or a count without a scope, is malformed.
+	if ((report.meta?.scope === undefined) !== (report.meta?.skipped === undefined)) problems.push('meta.scope and meta.skipped come together.');
 	// R9.7: exactly one of pair and subject.
 	const hasPair = report.pair !== undefined, hasSubject = report.subject !== undefined;
 	const subject = hasSubject && !hasPair;
