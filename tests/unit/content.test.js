@@ -41,7 +41,7 @@ test('internal links only use own stored final responses and never turn unknown 
 test('text difference refuses incomplete evidence and bounds displayed text', () => {
   assert.deepEqual(builtinChecks['text-difference'].check(doc(), { before: doc() }), []);
   const result = builtinChecks['text-difference'].check(doc({ text: 'b'.repeat(3000) }), { before: doc() });
-  assert.equal(result[0].evidence.after.length, 2000); assert.equal(result[0].evidence.omitted, true);
+  assert.equal(result[0].evidence.onlyInB[0].length, 200); assert.equal(result[0].evidence.onlyInBCount, 1);
   assert.equal(builtinChecks['text-difference'].check(doc())[0].evidence.state, 'unknown');
   assert.equal(builtinChecks['text-difference'].check(doc({ omitted: { headings: 0, images: 0, links: 0, text: true } }), { before: doc() })[0].evidence.state, 'incomplete');
 });

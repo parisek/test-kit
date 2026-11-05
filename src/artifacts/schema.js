@@ -14,6 +14,15 @@ export function statusDetail(value) {
   return { statusCode: value.statusCode, finalPath: value.finalPath, redirects: [...value.redirects],
     assets: { requests: value.assets.requests, failed: value.assets.failed, httpErrors: value.assets.httpErrors } };
 }
+// The fields of a status pair that make a finding: the final status, the final path and the redirect chain.
+// Asset counts differ from load to load, so they never make a finding.
+export function statusDifference(before, after) {
+  const fields = [];
+  if (before.statusCode !== after.statusCode) fields.push('statusCode');
+  if (before.finalPath !== after.finalPath) fields.push('finalPath');
+  if (JSON.stringify(before.redirects) !== JSON.stringify(after.redirects)) fields.push('redirects');
+  return fields;
+}
 export function comparisonDetail(kind, value, nested = false) {
   if (kind === 'behavior') return validateBehaviorComparison(value);
   if (kind === 'lighthouse') return validatePerformanceComparison(value);

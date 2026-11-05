@@ -278,6 +278,15 @@ a.comparison-row:hover { background: var(--ui-toolbar); }
 .breadcrumb li + li::before { content: "/"; margin-right: 6px; }
 .breadcrumb a { color: var(--ui-text); text-decoration: underline; }
 .report-time { font-size: 0.9375rem; color: var(--ui-muted); margin-top: 4px; }
+/* DESIGN.md "Scope line" (#287): one muted line under the report time. Its lists sit in "Run details". */
+.report-scope { font-size: 0.8125rem; font-weight: 500; line-height: 1.4; color: var(--ui-muted); margin-top: 4px; overflow-wrap: anywhere; min-width: 0; }
+.scope-details { margin-top: 16px; border-top: 1px solid var(--ui-border); padding-top: 12px; min-width: 0; }
+.scope-heading { font-size: 0.8125rem; font-weight: 500; line-height: 1.4; color: var(--ui-muted); }
+details.scope-details > summary { cursor: pointer; }
+.scope-list { margin: 6px 0 0; display: grid; gap: 6px; min-width: 0; }
+.scope-list dt { font-size: 0.8125rem; font-weight: 500; color: var(--ui-text); }
+.scope-list dd { margin: 0; color: var(--ui-muted); overflow-wrap: anywhere; min-width: 0; }
+.scope-list .record { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; line-height: 1.4; letter-spacing: 0.02em; }
 .report-order { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; font-size: 0.8125rem; }
 .report-order a { color: var(--ui-text); text-decoration: underline; }
 .report-order-end { color: var(--ui-muted); }

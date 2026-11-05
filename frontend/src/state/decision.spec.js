@@ -27,10 +27,13 @@ describe('decision actions (viewer-workflow "Decision actions")', () => {
 		expect(reportArgument('report.json', '')).toBe('REPORT');
 	});
 	it('offers no known-difference command for an artifact that record-known does not take', () => {
-		for (const artifact of ['status', 'behavior', 'lighthouse', 'a11y']) expect(knownCommand({ ...finding, artifact })).toBeNull();
-		const action = decisionActions({ ...finding, artifact: 'status' }, { reportId: 'example-a' })[1];
+		for (const artifact of ['behavior', 'lighthouse', 'a11y']) expect(knownCommand({ ...finding, artifact })).toBeNull();
+		const action = decisionActions({ ...finding, artifact: 'lighthouse' }, { reportId: 'example-a' })[1];
 		expect(action.text).toBeNull();
-		expect(action.reason).toMatch(/screenshot, HTML or content/);
+		expect(action.reason).toMatch(/screenshot, HTML, status or content/);
+	});
+	it('offers the known-difference command for a status finding (R6.13)', () => {
+		expect(knownCommand({ ...finding, artifact: 'status' })).toContain('--artifact status ');
 	});
 	it('never puts an unsafe id into a command', () => {
 		for (const targetId of ['home; rm -rf ~', '$(id)', 'a b', '`x`', "it's", '-rf', '']) {
