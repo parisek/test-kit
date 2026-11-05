@@ -383,6 +383,25 @@ test('the static table of built-in checks matches the check modules', () => {
 	assert.deepEqual(Object.entries(builtinChecks).filter(([, plugin]) => plugin.basis === 'relative').map(([id]) => id), ['text-difference']);
 });
 
+test('query copies only the documented fields of an absolute result and bounds the output (R11.2)', async () => {
+	const dir = await mkdtemp(join(tmpdir(), 'report-v3-'));
+	try {
+		const report = subjectReport();
+		report.subject.extra = 'x'.repeat(200_000);
+		const lint = report.entries[1].artifacts.lint;
+		lint.result = { violations: true, checks: 1, payload: 'x'.repeat(200_000), nested: { list: Array(1000).fill('x') } };
+		lint.scope.extra = 'x'.repeat(200_000);
+		await writeFile(join(dir, 'report.json'), JSON.stringify(report));
+		const out = await queryArtifact(join(dir, 'report.json'), { target: '@project', artifact: 'lint' });
+		assert.deepEqual(out.result, { violations: true, checks: 1 });
+		assert.deepEqual(out.scope, { checks: ['eslint-no-console'] });
+		assert.ok(JSON.stringify(out).length < 5000);
+		const summary = summarizeReport(report);
+		assert.deepEqual(summary.subject, { kind: 'single-run', runId: 'run-1' });
+		assert.ok(JSON.stringify(summary).length < 20000);
+	} finally { await rm(dir, { recursive: true }); }
+});
+
 test('query reads an absolute artifact at target scope and at viewport scope, and reads no pair', async () => {
 	const dir = await mkdtemp(join(tmpdir(), 'report-v3-'));
 	try {

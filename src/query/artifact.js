@@ -5,6 +5,8 @@ import { adaptReport } from '../report/model.js';
 import { readSidecar } from '../artifacts/compare.js';
 import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
 
+const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+
 export async function queryArtifact(reportPath, { target, viewport, artifact, maxLines = 40 }) {
   const absolute = ABSOLUTE_ARTIFACTS.includes(artifact);
   if (!['html', 'status', 'content', 'behavior', 'lighthouse', ...ABSOLUTE_ARTIFACTS].includes(artifact)) throw new Error('Artifact must be html, status, content, behavior, lighthouse, lint, or a11y.');
@@ -28,8 +30,9 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
   if (absolute || report.subject) {
     // An absolute index has one piece of evidence and a bounded result. The sidecar format belongs to the pack that wrote it.
     result.evidence = { run: index.evidence?.src ?? null };
-    result.result = index.result ?? null;
-    result.scope = index.scope ?? null;
+    // Copy the documented fields only. The validator checks these two and ignores other keys (untrusted data, R11.2).
+    result.result = isPlain(index.result) ? { violations: index.result.violations === true, checks: Number.isSafeInteger(index.result.checks) ? index.result.checks : 0 } : null;
+    result.scope = Array.isArray(index.scope?.checks) ? { checks: index.scope.checks.filter(id => typeof id === 'string').slice(0, 500).map(id => id.slice(0, 128)) } : null;
     result.next = 'Open the same target in the viewer.';
     return result;
   }

@@ -1,5 +1,6 @@
 import { adaptReport } from '../report/model.js';
 import { summarize, targetClass, targetState } from '../report/classify.js';
+import { isHash } from '../rules/model.js';
 
 // Bounded detail lists with counts over the full report (R11.1–R11.6).
 export function summarizeReport(input, { maxTargets = 20, filter = 'all', target } = {}) {
@@ -14,7 +15,7 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	const aggregate = summarize(report);
 	return {
 		pair: report.pair ?? null,
-		subject: report.subject ?? null,
+		subject: report.subject ? { kind: report.subject.kind, runId: String(report.subject.runId).slice(0, 200), ...(isHash(report.subject.key) ? { key: report.subject.key } : {}) } : null,
 		verdict: aggregate.counts.incomplete ? 'incomplete' : problems.length ? 'availability-problems' : aggregate.counts.unexplained ? 'unexplained' : aggregate.counts.oracle ? 'oracle-review' : aggregate.counts.explained ? 'explained' : aggregate.counts.unclassified ? 'no-comparable-evidence' : 'match',
 		counts: aggregate.counts, states: aggregate.states,
 		availabilityCount: problems.length,
