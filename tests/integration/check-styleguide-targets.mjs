@@ -4,7 +4,7 @@
 // and a component with no fixture (skipped, listed, no request).
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { capture } from '../../src/capture/index.js';
@@ -81,6 +81,19 @@ try {
   // A subset is captured as named.
   await writeFile(configPath, config({ include: ['card'] }));
   assert.deepEqual((await capture({ configPath, side: 'styleguide' })).run.settings.targets.map(target => target.id), ['card']);
+  // R4.5: --target selects among the catalogue components. The check runs after the catalogue read.
+  colorOf = { ...colors };
+  catalogue = [entry('card'), entry('button'), entry('banner')];
+  await writeFile(configPath, config());
+  const picked = await capture({ configPath, side: 'styleguide', targets: ['card'] });
+  assert.deepEqual(picked.run.selection, { targets: ['card'] });
+  assert.deepEqual([...new Set(picked.run.captures.map(row => row.targetId))], ['card'], 'Only the selected component is captured.');
+  assert.equal(picked.run.captures.length, 2);
+  assert.deepEqual(picked.run.settings.targets.map(target => target.id), ['banner', 'button', 'card'], 'The run keeps the full target list.');
+  const before = (await readdir(runsRoot)).length;
+  await assert.rejects(capture({ configPath, side: 'styleguide', targets: ['gone'] }), /Unknown target/);
+  assert.equal((await readdir(runsRoot)).length, before, 'An unknown target leaves no run directory.');
+
   // A wrong mount and a catalogue with a bad ID stop the capture with a named error.
   await writeFile(configPath, config({ mount: '/other' }));
   await assert.rejects(capture({ configPath, side: 'styleguide' }), /HTTP 404/);
