@@ -8,6 +8,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 - The viewer names the components a `targetSource: styleguide` run skipped as no fixture: one sentence in the header line ("Not compared: 3 components have no fixture."), and the list in "Run details". A report without `noFixture` shows nothing new. The count equals the `noFixture` count of `summary` (#290).
 
+### Fixed
+
+- `summary` and `query` keep every answer under 60000 bytes, the limit of the behavior query. This implements the size limit of R11.2. `summary` copies only `kind`, `aRunId`, `bRunId` and `key` of `pair`. It cuts a run id of `pair` or `subject` to 200 characters, ends it with `…` and sets `aRunIdTruncated`, `bRunIdTruncated` or `runIdTruncated`. It cuts a target id to 200 characters, ends it with `…` and sets `idTruncated: true`, so `--target` with that id does not match. Both queries halve their longest list until the answer fits and add the omitted count (`checksOmitted`, `rulesOmitted`, `redirectsOmitted`, `omitted`). A normal answer does not change (R11.2, #272).
+
 ## [1.1.0-rc.1] - 2026-11-05
 
 First release candidate for 1.1.0. It is not a stable release. `package.json` says `1.1.0`, so `--version` prints `1.1.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The report is `schemaVersion` 3: a stored version 2 report reads as version 3. The behavior version is 2: a stored version 1 behavior run reads `incompatible` against a new run (R8.9).
@@ -25,6 +29,7 @@ First release candidate for 1.1.0. It is not a stable release. `package.json` sa
 - A rule scope (`applies`) and the scope of an override accept the artifacts `behavior`, `lighthouse`, `lint` and `a11y`, and the kind `single-run`. Before, only `screenshot`, `html`, `status` and `content` were valid. A rule or override can now limit these results on the same axes (R8.5, R9.7, #230).
 - `query` copies only `violations` and `checks` from an absolute result, and the check names of `scope`. `summary` copies only `kind`, `runId` and `key` of `subject`. Other keys in a report file never reach the agent (R11.2).
 - The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
+- Design record for the ESLint and Stylelint entry points: optional peers with set ranges, a clear error for a missing required peer, project values as project input, and disable comments and overrides as the "baselines" (R13.46 to R13.50, ADR 0006, #26). The owner approved the four details on 2026-11-05. No code changes.
 - `text-difference` lists the lines that exist on one side only. Its finding evidence carries `onlyInA`, `onlyInB`, `onlyInACount`, `onlyInBCount`, `sideA` and `sideB`. The lines are whitespace-normalised and counted as multisets. The lists hold the first 20 lines, each cut at 200 characters. The counts are exact. A change of whitespace only gives no finding. The same lines in another order give a finding with `orderChanged: true`. `query --artifact content` prints these lines first as `diff.oneSided`, with the name of each side, and removes them from the findings. `summary` adds `lineGapTargets`, the number of targets with a gap, when it is above zero. The check version is `1.1.0`. Comparison sidecars of version `1.0.0` still load, and their finding keeps `before` and `after`. The evidence of a built-in check is Experimental (`docs/seam.md`) (#281).
 - A remote capture records the requests it aborts per resource type and origin (no path or query) as `dropped` in `run.json`. `diff` copies it into the report. `summary` and the viewer warn when a `font` or `stylesheet` request was aborted, so a page that renders in a fallback font is visible. The verdict does not change (R3.8, #251).
 
@@ -42,6 +47,7 @@ First release candidate for 1.1.0. It is not a stable release. `package.json` sa
 - Migration note, cost 3: `record-known` refuses an absolute finding with the error "A known difference applies to a relative check only (R7.3)". Existing `known_diffs` records stay in the config, and they still explain a relative finding.
 - Migration note, cost 4: a stored version 2 report reads as version 3 and sorts its absolute findings again. A finding that the old report showed as `explained` now reads `unexplained`. Run `diff` again to write a version 3 file.
 - Migration note: a reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion`. Update the viewer and the package together. A version 2 behavior finding gets the catalog key `behavior`, because it names a step id and not a contract.
+
 
 ### Fixed
 
@@ -91,6 +97,7 @@ Sixth release candidate for 1.0.0. It is not a stable release. A remote side can
 
 Fifth release candidate for 1.0.0. It is not a stable release. It fixes viewer findings of the redesign acceptance (#148), hardens two pack checks, and documents the server cache rule for a publish directory (#217).
 
+
 ### Fixed
 
 - Muted viewer text takes its color from the token, not from opacity, so it meets the contrast rule in both themes (#219).
@@ -120,6 +127,7 @@ Fourth release candidate for 1.0.0. It is not a stable release. It replaces the 
 - A side can carry `production: true`. `perf` against such a side needs `--consent` (#177).
 - The review skill `vision-check` and the record checker `scripts/milestone/check-record.js` (#159).
 - The design files `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md`. They bind viewer work (#150, #151, #154).
+
 
 ### Fixed
 
@@ -215,6 +223,7 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Set `package.json` and `package-lock.json` to version `1.0.0` for the tag `v1.0.0-rc.1`.
 - Note: the code still writes `schemaVersion` 2 and the built-in checks still export no `basis`. Both wait for `schemaVersion` 3.
 
+
 ### Fixed
 
 - Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1, #128). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
@@ -238,6 +247,7 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Export report viewers and local history as portable static directories.
 - Share the server evidence allowlist with export and give untrusted HTML inert names.
 
+
 ### Fixed
 
 - Resolve viewer report and artifact URLs within their mounted directory prefix.
@@ -252,6 +262,7 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Keep one complete baseline per selection and retain all local runs without automatic deletion.
 
 ## [0.2.1] - 2026-10-10
+
 
 ### Fixed
 
