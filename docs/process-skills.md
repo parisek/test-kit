@@ -32,7 +32,7 @@ A skill is a short instruction that calls a script. An invariant that can fail a
 
 - Claude Code reads `.claude/skills/<name>/SKILL.md`.
 - Codex reads `AGENTS.md`. Each skill also has a plain file at `docs/skills/<name>.md`. `AGENTS.md` links to it, so Codex can load it. The follow-up pull request confirms the Codex skill path before it builds anything.
-- The script lives at `scripts/milestone/` and is plain Node (`NODE_REQUIRES: ">=20"`). Both agents call the same script.
+- The script lives at `scripts/milestone/` and is plain Node (`NODE_REQUIRES: ">=20.19"`). Both agents call the same script.
 - The follow-up pull request that builds the skills also edits `AGENTS.md` and `docs/development-loop.md` so that they name the skills, the review record, the `review-gate` check and the merge command.
 
 ## Merge rule map

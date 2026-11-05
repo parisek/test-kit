@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Changed
+
+- `engines.node` is now `>=20.19` (it was `>=20`). Stylelint 17 needs Node 20.19, and the ESLint and Stylelint entry points (R13.46 to R13.48, ADR 0006) need it. The owner approved the narrowing on issue #26 on 2026-11-05. CI runs the Node 20 job on 20.19. Migration: a project on Node 20.0 to 20.18 updates Node to 20.19 or newer (22 works) before it updates its pin. `npm install` warns on an older Node, and `npm install` with `engine-strict` fails (`docs/seam.md`, "Runtime requirement", #26).
+
 ### Fixed
 
 - `summary` and `query` keep every answer under 60000 bytes, the limit of the behavior query. This implements the size limit of R11.2. `summary` copies only `kind`, `aRunId`, `bRunId` and `key` of `pair`. It cuts a run id of `pair` or `subject` to 200 characters, ends it with `…` and sets `aRunIdTruncated`, `bRunIdTruncated` or `runIdTruncated`. It cuts a target id to 200 characters, ends it with `…` and sets `idTruncated: true`, so `--target` with that id does not match. Both queries halve their longest list until the answer fits and add the omitted count (`checksOmitted`, `rulesOmitted`, `redirectsOmitted`, `omitted`). A normal answer does not change (R11.2, #272).

@@ -218,6 +218,12 @@ What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is froze
 
 Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1 (`adaptV1` in `src/report/model.js`).
 
+## Runtime requirement
+
+| Item | Marking | Reason |
+| --- | --- | --- |
+| `engines.node` in `package.json` | Frozen, narrowed to `>=20.19` (decided) | The owner approved the narrowing on issue #26 on 2026-11-05, because Stylelint 17 needs Node 20.19 (R13.48, ADR 0006). The value was `>=20`. This is a narrowing of a frozen item, so a project on Node 20.0 to 20.18 must update Node before it updates the pin. Migration: run `node --version`, and install Node 20.19 or newer (22 works too). Capture, compare and report need nothing else. `CHANGELOG.md` records the change. |
+
 ## 7. Not frozen, owner decision open
 
 | Item | Pointer |
