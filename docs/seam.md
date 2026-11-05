@@ -44,6 +44,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `sides.<id>.remote` | boolean | `false` | no | R3.3. Added in 0.5.0. |
 | `sides.<id>.userAgent` | string | the Playwright default | no | R3.4. Only with `remote: true`. 1 to 512 printable ASCII characters. Not in the capture settings hash. Added in 1.0.0-rc.6. |
 | `sides.<id>.challenge` | string | none | no | R3.5. Only with `remote: true`. The one value is `"cloudflare"`. Not in the capture settings hash. Added in 1.0.0-rc.7. |
+| `sides.<id>.allowOrigins` | array | none | no | R3.9. Local or remote side. 1 to 20 entries `{origin, types}`: an HTTPS origin (no path, credentials or wildcard) and 1 or 2 of `stylesheet`, `font`. GET and HEAD only, never a navigation. In the capture settings hash when it is not empty. Added in 1.1. |
 | `sides.<id>.production` | boolean | `false` | no | R6.5. `perf` on this side waits for `--consent` for any number of targets. The side id does not decide. Added in 1.0.0-rc.4. |
 | `sides.<id>.settle` | object | see below | no | Settle recipe (R5.4). |
 | `targets` | list | none | yes | 1 to 1000 entries. |

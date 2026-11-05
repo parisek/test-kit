@@ -15,7 +15,11 @@ export function settingsHash(value) {
 
 export function captureSettings(config, sideId) {
   if (!Object.hasOwn(config.sides, sideId)) throw new Error(`Unknown side: ${sideId}`);
-  return { viewports: config.viewports, settle: config.sides[sideId].settle, screenshot: config.screenshot };
+  const allow = config.sides[sideId].allowOrigins;
+  // R3.9: the list changes what the page loads, so it enters the hash. Order does not matter.
+  // A side without the key keeps its hash.
+  return { viewports: config.viewports, settle: config.sides[sideId].settle, screenshot: config.screenshot,
+    ...(allow?.length ? { allowOrigins: allow.map(entry => ({ origin: entry.origin, types: [...entry.types].sort() })).sort((a, b) => a.origin < b.origin ? -1 : 1) } : {}) };
 }
 
 // Response artifacts do not depend on screenshot settlement or image settings.

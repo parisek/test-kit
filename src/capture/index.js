@@ -15,7 +15,7 @@ import { promisify } from 'node:util';
 import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
 import { recordSelection, cellSelected } from './selection.js';
-import { isLocalUrl, isOwnOrigin, decideRequest, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, allowedOriginStatusFailure, decideRequest, redirectPermitted, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -74,6 +74,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   let finalPath;
   let unexpectedNavigation = false;
   let context;
+  let verifier;
   let blocked = false;
   // The first blocked request, for the error text. Later ones do not replace it.
   let firstBlocked = null;
@@ -97,7 +98,9 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       reducedMotion: config.artifacts.includes('behavior') ? config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference') : recipe.disableMotion ? 'reduce' : 'no-preference',
       ...(config.artifacts.includes('behavior') && config.behavior.emulate.colorScheme ? { colorScheme: config.behavior.emulate.colorScheme } : {}),
     });
-    if (expired) { await context.close(); throw new Error('Capture deadline exceeded'); }
+    // R3.9: a local context ignores certificate errors, so an allowed origin gets a verifying context.
+    if (config.sides[side].allowOrigins?.length && ignoreHTTPSErrors(config, side)) verifier = await browser.newContext({ ignoreHTTPSErrors: false });
+    if (expired) { await context.close(); await verifier?.close().catch(() => {}); throw new Error('Capture deadline exceeded'); }
     if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
     await context.routeWebSocket('**/*', socket => socket.close());
     const page = await context.newPage();
@@ -136,7 +139,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       }
       let topLevel = true;
       try { topLevel = !request.isNavigationRequest() ? false : request.frame().parentFrame() === null; } catch { /* A popup requests its first URL before its frame exists. Fail closed. */ }
-      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), resourceType: request.resourceType(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge });
+      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge, resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
       if (decision !== 'allow') {
         if (decision === 'block') {
           blocked = true;
@@ -147,19 +150,34 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         // Fetch one response without following redirects. Check Location before
         // the browser can issue a request to its destination.
         try {
-          const response = await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
+          // R3.9: a local context ignores certificate errors. A request to an allowed origin goes through
+          // a context that verifies them, so a bad certificate of a third party fails the request.
+          const viaVerifier = verifier && isAllowedOriginRequest({ url: request.url(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
+          const response = viaVerifier
+            ? await verifier.request.fetch(request.url(), { method: request.method(), headers: request.headers(), maxRedirects: 0, timeout: config.screenshot.timeoutMs })
+            : await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
           const location = response.headers().location;
           // R3.5: a redirect of an allowed write could repeat it on another path, so it fails the capture.
           const write = !['GET', 'HEAD'].includes(request.method());
+          // R3.9: a subresource may also redirect to an allowed origin, for its own resource type.
+          // A redirect from an allowed origin may lead only to an allowed origin.
+          const permitted = href => redirectPermitted({ from: request.url(), to: href, ownTarget: allowedUrl(href), navigation: request.isNavigationRequest(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
           if (response.status() >= 300 && response.status() < 400 && (write || (location
-            && !allowedUrl(new URL(location, request.url()).href)))) {
+            && !permitted(new URL(location, request.url()).href)))) {
             blocked = true;
             let target = request.url();
             try { if (location) target = new URL(location, request.url()).href; } catch { /* Keep the request URL. */ }
             firstBlocked ??= describeBlockedRequest({ url: target, method: request.method(), resourceType: request.resourceType(), topLevel, navigation: request.isNavigationRequest(), redirect: true });
             await route.abort('blockedbyclient');
-          } else await route.fulfill({ response });
-        } catch {
+          } else {
+            // R3.9: an HTTP error answer of an allowed origin fails the capture, so a missing font does not pass in silence.
+            const httpFailure = allowedOriginStatusFailure({ url: request.url(), method: request.method(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins, status: response.status() });
+            if (httpFailure) { blocked = true; firstBlocked ??= httpFailure; await route.abort('blockedbyclient'); } else await route.fulfill({ response });
+          }
+        } catch (error) {
+          // R3.9: any failed fetch of an allowed origin fails the capture, so no page renders in silence without its font.
+          const failed = allowedOriginFailure({ url: request.url(), method: request.method(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins, error });
+          if (failed) { blocked = true; firstBlocked ??= failed; }
           await route.abort('failed').catch(() => {});
         }
       }
@@ -271,10 +289,11 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});
+    if (verifier) await verifier.close().catch(() => {});
     await unlink(file).catch(() => {});
     return { ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
       message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : `The ${phase} step fails. Check the local page and capture recipe.` } };
-  } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
+  } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
 
 // R13.3: one GET to the side origin for the component list. Same certificate policy as the capture contexts.
