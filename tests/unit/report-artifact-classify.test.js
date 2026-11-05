@@ -51,9 +51,10 @@ test('a status finding counts only while the status artifact is complete (R8.7)'
   for (const state of ['failed', 'missing', 'incompatible']) {
     const { target, report } = fixture({ screenshot: { state: 'complete' }, status: { state } });
     report.findings.push(finding);
-    assert.equal(cellClass(report, target, 'desktop'), 'match');
-    // The screenshot decides the class, as before: the stored status finding adds nothing.
-    assert.equal(targetClass(report, target), 'match', `status ${state}`);
+    // The incomplete status artifact makes the cell incomplete (R8.7, #295): the stored finding adds nothing and no class is given.
+    assert.equal(cellState(target, 'desktop'), state);
+    assert.equal(cellClass(report, target, 'desktop'), null);
+    assert.equal(targetClass(report, target), null, `status ${state}`);
     const only = fixture({ status: { state } });
     only.report.findings.push(finding);
     assert.equal(targetClass(only.report, only.target), null);
@@ -162,4 +163,27 @@ test('a target with an incomplete viewport never reads match (R8.12, issue #182)
   report.findings.length = 0;
   target.judge = 'oracle';
   assert.equal(targetClass(report, target), 'oracle');
+});
+
+test('an incomplete status artifact blocks a match, also with a complete screenshot (R8.7, #295)', () => {
+  for (const state of ['failed', 'missing', 'incompatible']) {
+    const { target, report } = fixture({ screenshot: { state: 'complete' }, html: { state: 'complete' }, status: { state } });
+    assert.equal(cellState(target, 'desktop'), state);
+    assert.equal(targetState(target), state);
+    assert.equal(cellClass(report, target, 'desktop'), null);
+    assert.equal(targetClass(report, target), null);
+    assert.equal(artifactState(target, 'desktop', 'screenshot'), 'complete');
+    assert.equal(artifactClass(report, target, 'desktop', 'screenshot'), 'match');
+    const summary = summarize(report);
+    assert.equal(summary.counts.match, 0);
+    assert.equal(summary.counts.incomplete, 1);
+  }
+});
+
+test('a report without a status artifact reads as before (R8.7, #295)', () => {
+  const { target, report } = fixture({ screenshot: { state: 'complete' } });
+  assert.equal(cellState(target, 'desktop'), 'complete');
+  assert.equal(cellClass(report, target, 'desktop'), 'match');
+  const withStatus = fixture({ screenshot: { state: 'complete' }, status: { state: 'complete' } });
+  assert.equal(cellClass(withStatus.report, withStatus.target, 'desktop'), 'match');
 });

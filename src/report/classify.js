@@ -28,9 +28,8 @@ export function causeIsKnown(report, causeId) {
 export function cellState(target, viewportId) {
 	const cell = target.viewports.find((row) => row.id === viewportId);
 	const stored = cell?.state ?? (cell?.error ? 'failed' : cell ? 'complete' : 'missing');
-	const kinds = Object.keys(cell?.artifacts ?? {}).filter(kind => kind !== 'status');
-	const states = [stored, ...kinds.map(kind => cell.artifacts[kind]?.state)].filter(Boolean);
-	if (cell?.artifacts?.status && !kinds.length) states.push(cell.artifacts.status.state);
+	// R8.7: every selected artifact counts, status included (#295).
+	const states = [stored, ...Object.keys(cell?.artifacts ?? {}).map(kind => cell.artifacts[kind]?.state)].filter(Boolean);
 	return ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? stored;
 }
 

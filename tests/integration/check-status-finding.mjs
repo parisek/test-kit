@@ -74,6 +74,21 @@ try {
   const row = diff.report.entries[0].viewports[0];
   assert.equal(row.artifacts.status.diff.changed, true);
 
+  // 2b. R8.7, #295: a complete screenshot with an incomplete status artifact is incomplete, never match.
+  mode = 'plain';
+  const shotOnlyA = await capture({ configPath, side: 'local', artifacts: ['screenshot'] });
+  const shotOnlyB = await capture({ configPath, side: 'local', artifacts: ['screenshot'] });
+  const withoutStatus = await compare('without-status', shotOnlyA, shotOnlyB);
+  assert.equal(withoutStatus.report.entries[0].viewports[0].state, 'complete', 'A run without the status artifact selected is unchanged.');
+  assert.equal(summarizeReport(withoutStatus.report).counts.match, 1);
+  const mixed = await compare('status-missing', plainA, shotOnlyB);
+  const mixedRow = mixed.report.entries[0].viewports[0];
+  assert.equal(mixedRow.artifacts.screenshot.state, 'complete');
+  assert.notEqual(mixedRow.artifacts.status.state, 'complete');
+  assert.notEqual(mixedRow.state, 'complete');
+  const mixedSummary = summarizeReport(mixed.report);
+  assert.equal(mixedSummary.counts.match, 0); assert.equal(mixedSummary.counts.incomplete, 1);
+
   // 3. record-known --artifact status records the intended redirect, and the next diff reads it as explained.
   const before = await readFile(diff.reportPath);
   const run = await promisify(execFile)(process.execPath, [cli, 'record-known', diff.reportPath, '--config', configPath, '--target', 'home', '--viewport', 'wide',
