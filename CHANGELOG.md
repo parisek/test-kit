@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.1.0-rc.1] - 2026-11-05
+
+First release candidate for 1.1.0. It is not a stable release. `package.json` says `1.1.0`, so `--version` prints `1.1.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The report is `schemaVersion` 3: a stored version 2 report reads as version 3. The behavior version is 2: a stored version 1 behavior run reads `incompatible` against a new run (R8.9).
+
 ### Added
 
 - The optional config key `targetSource` reads component targets from a styleguide side: `{ "source": "styleguide", "side": "styleguide" }`, with optional `mount` (default `/styleguide`) and `include`. Capture reads `<mount>/api/components` and makes one `component` target for each entry, rendered at `<mount>/render/component/<id>?canvas`. A component with `has_styleguide: false` is skipped: it sends no request, it is no target, and the run manifest, the report and `summary` list it as "no fixture". A bad catalogue, a wrong mount or an unknown name in `include` stops the capture before a run exists. A removed component reads `missing` in a `self-baseline` pair. `perf` refuses these targets (R13.3, R8.7, #94). The key is absent by default and changes no existing config or settings hash (R5.1).
