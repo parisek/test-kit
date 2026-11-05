@@ -123,7 +123,7 @@ export function parseComponents(payload, { mount = DEFAULT_MOUNT, include, varia
   const clash = new Set();
   const ids = new Set();
   for (const id of noFixture) if (!ID.test(id)) clash.add(id);
-  for (const target of all) { if (ids.has(target.id) || !ID.test(target.id)) clash.add(target.id); ids.add(target.id); }
+  for (const target of all) { if (ids.has(target.id) || noFixture.has(target.id) || !ID.test(target.id)) clash.add(target.id); ids.add(target.id); }
   if (clash.size) throw new StyleguideError('STYLEGUIDE_CATALOGUE_INVALID', `The styleguide makes ${clash.size} target ID(s) that are repeated or longer than 64 characters: ${[...clash].slice(0, 5).map(shown).join(', ')}${clash.size > 5 ? ', ...' : ''}.`);
   if (include !== undefined) {
     const unknown = include.filter(id => !known.has(id));
