@@ -7,6 +7,27 @@ import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
+// One list for the answer: every line that exists on one side only, with the name of its side.
+// The list holds at most maxLines lines, 200 characters each. It counts the lines it leaves out.
+// A caller that bounds the answer by bytes halves `lines` and adds to `omittedLines`.
+function oneSidedLines(detail, maxLines) {
+  const all = [];
+  let total = 0, names = null;
+  for (const item of detail.findings) {
+    const e = item.evidence;
+    if (item.checkId !== 'text-difference' || !e || !Array.isArray(e.onlyInA)) continue;
+    names ??= { a: e.sideA ?? null, b: e.sideB ?? null };
+    for (const side of ['a', 'b']) {
+      const list = e[side === 'a' ? 'onlyInA' : 'onlyInB'], count = e[side === 'a' ? 'onlyInACount' : 'onlyInBCount'];
+      total += Number.isSafeInteger(count) ? count : list.length;
+      for (const text of list) if (typeof text === 'string') all.push({ side, ...(names[side] ? { name: names[side] } : {}), text: text.slice(0, 200) });
+    }
+  }
+  if (!names) return null;
+  const lines = all.slice(0, maxLines);
+  return { sides: names, lines, omittedLines: Math.max(0, total - lines.length) };
+}
+
 export async function queryArtifact(reportPath, { target, viewport, artifact, maxLines = 40 }) {
   const absolute = ABSOLUTE_ARTIFACTS.includes(artifact);
   if (!['html', 'status', 'content', 'behavior', 'lighthouse', ...ABSOLUTE_ARTIFACTS].includes(artifact)) throw new Error('Artifact must be html, status, content, behavior, lighthouse, lint, or a11y.');
@@ -60,7 +81,11 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
     } else if (artifact === 'content') {
       let remaining = maxLines;
       const boundedSide = side => { const findings = side.findings.slice(0, remaining); remaining -= findings.length; return { ...side, findings, omitted: side.omitted + side.findings.length - findings.length }; };
-      result.diff = { ...detail, checks: detail.checks.map(check => ({ ...check, a: boundedSide(check.a), b: boundedSide(check.b) })), findings: detail.findings.slice(0, maxLines), findingsOmitted: Math.max(0, detail.findings.length - maxLines) };
+      // Lines that exist on one side only come first (#281). They leave the findings, so no line prints twice.
+      const oneSided = oneSidedLines(detail, maxLines);
+      const lean = item => item.checkId === 'text-difference' && Array.isArray(item.evidence?.onlyInA) ? { ...item, evidence: Object.fromEntries(Object.entries(item.evidence).filter(([key]) => key !== 'onlyInA' && key !== 'onlyInB')) } : item;
+      const leanSide = side => ({ ...side, findings: side.findings.map(lean) });
+      result.diff = { ...(oneSided ? { oneSided } : {}), ...detail, checks: detail.checks.map(check => ({ ...check, a: leanSide(boundedSide(check.a)), b: leanSide(boundedSide(check.b)) })), findings: detail.findings.slice(0, maxLines).map(lean), findingsOmitted: Math.max(0, detail.findings.length - maxLines) };
     } else result.diff = detail;
   }
   return result;

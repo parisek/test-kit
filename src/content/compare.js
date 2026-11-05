@@ -1,4 +1,4 @@
-import { builtinChecks, CHECK_VERSION, runContentChecks } from '../checks/index.js';
+import { builtinChecks, CHECK_VERSION, READABLE_CHECK_VERSIONS, runContentChecks } from '../checks/index.js';
 import { validateContentSnapshot } from './snapshot.js';
 const MAX_FINDINGS = 50;
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -12,7 +12,7 @@ export function compareContentSnapshots(before, after, options = {}) {
   const a = validateContentSnapshot(before), b = validateContentSnapshot(after);
   const ids = options.checks ?? [];
   runContentChecks(a, ids, options);
-  const context = { targetId: options.targetId, viewportId: options.viewportId, expectedLanguage: options.expectedLanguage };
+  const context = { targetId: options.targetId, viewportId: options.viewportId, expectedLanguage: options.expectedLanguage, sideA: options.sideA, sideB: options.sideB };
   const checks = ids.map(id => ({ id, title: builtinChecks[id].title,
     a: side(id === 'text-difference' ? [] : builtinChecks[id].check(a, { ...context, responses: options.responsesA })),
     b: side(builtinChecks[id].check(b, { ...context, responses: options.responsesB, before: a })) }));
@@ -32,7 +32,7 @@ export function compareContentSnapshots(before, after, options = {}) {
 }
 export function validateContentComparison(value) {
   const fail = () => { throw new Error('Invalid content comparison.'); };
-  if (!value || value.schemaVersion !== 1 || value.checkVersion !== CHECK_VERSION || typeof value.changed !== 'boolean'
+  if (!value || value.schemaVersion !== 1 || !READABLE_CHECK_VERSIONS.includes(value.checkVersion) || typeof value.changed !== 'boolean'
     || typeof value.incomplete !== 'boolean' || !Array.isArray(value.checks) || value.checks.length > 50
     || !Array.isArray(value.findings) || value.findings.length > 2500) fail();
   const finding = item => {
@@ -66,7 +66,7 @@ export function validateContentComparison(value) {
   const expected = checks.flatMap(check => check.b.findings.filter(item => !['unknown', 'incomplete'].includes(item.evidence.state)));
   if (JSON.stringify(findings) !== JSON.stringify(expected) || value.changed !== (findings.length > 0)
     || value.incomplete !== checks.some(check => check.a.state === 'incomplete' || check.b.state === 'incomplete')) fail();
-  const result = { schemaVersion: 1, checkVersion: CHECK_VERSION, changed: value.changed, incomplete: value.incomplete, checks, findings };
+  const result = { schemaVersion: 1, checkVersion: value.checkVersion, changed: value.changed, incomplete: value.incomplete, checks, findings };
   if (new TextEncoder().encode(JSON.stringify(result)).length > MAX_BYTES) fail();
   return result;
 }
