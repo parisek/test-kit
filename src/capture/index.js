@@ -18,6 +18,7 @@ import { recordSelection, cellSelected } from './selection.js';
 import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, allowedOriginStatusFailure, decideRequest, redirectPermitted, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 import { planPackRun } from '../packs/select.js';
 import { runPagePacks } from './packs.js';
+import { gitSha } from './git.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -42,15 +43,6 @@ async function projectRoot(directory) {
     if (parent === current) throw new Error('A DDEV origin requires a project with a .ddev directory');
     current = parent;
   }
-}
-
-async function gitSha(directory) {
-  try {
-    const { stdout } = await execute('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: directory, timeout: 10000 });
-    const sha = stdout.trim();
-    if (/^[a-f0-9]{7,40}$/.test(sha)) return sha;
-  } catch { /* A configuration can live outside a Git repository. */ }
-  return '0000000';
 }
 
 async function playwright() {
@@ -330,6 +322,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   const loaded = await loadConfig(configPath);
   let config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
+  if (config.sides[side].kind === 'design') throw new Error(`Side ${side} is a design side. Use import, not capture.`);
   // R13.51: --packs needs a packs key. Without the flag nothing here runs (R5.1).
   const packPlan = runPacks ? planPackRun(config.packs, { remote: config.sides[side].remote === true }) : null;
   // R4.5: the selection is checked against the full lists before any run directory or browser exists.

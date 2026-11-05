@@ -52,6 +52,31 @@ records `selection` in `run.json`. `diff` compares the cells that every recorded
 rest in `meta.skipped`. A selected cell without a capture stays `missing`. A run made before this option has no
 `selection`, and `diff` treats it as a full run. `diff --target` and `--viewport` narrow the pair again.
 
+## Compare with supplied design images
+
+A side of kind `design` holds PNG files that a person or a design tool supplies (R5.5). The files stay local. No network is used.
+
+```json
+"sides": {
+  "design": { "kind": "design", "provider": "files", "root": "design-refs" },
+  "local": { "origin": "https://example-site.ddev.site" }
+},
+"targets": [
+  { "id": "hero", "kind": "component", "path": "/styleguide/render/component/hero?canvas",
+    "design": { "desktop-1280": "hero/desktop-1280.png", "mobile-390": "hero/mobile-390.png" } }
+]
+```
+
+A path in `design` is relative to `root`: this example reads `design-refs/hero/desktop-1280.png`.
+
+```sh
+test-kit capture --side local --label after --artifacts screenshot
+test-kit import --side design --label refs
+test-kit diff <design-run> <local-run> --output tests/visual/report
+```
+
+`import` writes a run with the sha256, size, source path and import time of each image (R4.6). A new import after a design change is a new run. `diff` reads the pair as `convergence`. A viewport with no mapped file is `missing`, never `match`. An image whose width is not the viewport width times the device scale is `incompatible`, and the report names both sizes. The tool never crops or resizes an image (R8.15). Read `diff.regions` first: a design tool and a browser draw text in different ways, so the ratio is a compass.
+
 ## Response evidence
 
 Screenshots remain the default. Enable HTML or HTTP metadata explicitly:

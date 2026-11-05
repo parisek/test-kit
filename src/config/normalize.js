@@ -4,6 +4,7 @@ import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { BUILTIN_PACK_IDS } from '../packs/ids.js';
 import { DEFAULT_MOUNT, MAX_COMPONENTS, validMount } from '../styleguide/index.js';
 import { ALLOW_ORIGIN_TYPES } from '../capture/helpers.js';
+import { designPathProblem, designRootProblem } from '../design/paths.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 function fail(message) { throw new Error(`Invalid configuration: ${message}`); }
@@ -108,6 +109,30 @@ function freeze(value) {
   return value;
 }
 
+// R5.5: a side of kind `design` holds supplied images. It has no origin and opens no browser or network.
+// Only the provider `files` exists. `root` is a plain relative directory, resolved from the configuration directory.
+function normalizeDesignSide(side, name) {
+  object(side, name, ['kind', 'provider', 'root']);
+  if (side.kind !== 'design') fail(`${name}.kind must be "design"`);
+  if (side.provider !== 'files') fail(`${name}.provider must be "files"`);
+  const problem = designRootProblem(side.root);
+  if (problem) fail(`${name}.root ${problem}`);
+  return { kind: 'design', provider: 'files', root: side.root };
+}
+
+// R5.5: the map from viewport ID to a PNG path under the `root` of a design side. Viewport IDs are checked later.
+function normalizeDesignMap(value) {
+  object(value, 'target.design');
+  const entries = Object.entries(value);
+  if (!entries.length || entries.length > 20) fail('target.design must have 1..20 entries');
+  return Object.fromEntries(entries.map(([viewportId, path]) => {
+    id(viewportId, 'target.design viewport ID');
+    const problem = designPathProblem(path);
+    if (problem) fail(`target.design.${viewportId} ${problem}`);
+    return [viewportId, path];
+  }));
+}
+
 // R13.3: `targetSource` reads component targets from the styleguide catalogue of one side.
 // Validation is pure: it reads no network and imports no styleguide code (R4.4, R13.4).
 function normalizeTargetSource(value, sides) {
@@ -115,7 +140,7 @@ function normalizeTargetSource(value, sides) {
   if (value.source !== 'styleguide') fail('targetSource.source must be "styleguide"');
   const side = id(value.side, 'targetSource.side');
   if (!Object.hasOwn(sides, side)) fail(`targetSource.side has unknown side ${side}`);
-  if (sides[side].remote === true) fail('targetSource.side must be a local side');
+  if (sides[side].remote === true || sides[side].kind === 'design') fail('targetSource.side must be a local side');
   const mount = value.mount === undefined ? DEFAULT_MOUNT : value.mount;
   if (!validMount(mount)) fail('targetSource.mount must be an origin-relative path');
   const result = { source: 'styleguide', side, mount };
@@ -143,6 +168,8 @@ export function normalizeConfig(input) {
   if (!sideEntries.length || sideEntries.length > 20) fail('sides must have 1..20 entries');
   const sides = Object.fromEntries(sideEntries.map(([sideId, side]) => {
     id(sideId, 'side ID');
+    // R5.5: a side with a `kind` key is a design side. A side without it is a browser side, as before.
+    if (side && typeof side === 'object' && !Array.isArray(side) && Object.hasOwn(side, 'kind')) return [sideId, normalizeDesignSide(side, `sides.${sideId}`)];
     object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
     // R6.5: the flag, not the side id, marks a production side.
@@ -164,7 +191,7 @@ export function normalizeConfig(input) {
   const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
   if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');
   const targets = list(targetSource ? [] : input.targets, 'targets', 1000, targetSource ? 0 : 1).map(target => {
-    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide']);
+    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
     const result = { id: targetId, kind: target.kind, title: text(target.title ?? targetId, 'target.title') };
@@ -193,7 +220,12 @@ export function normalizeConfig(input) {
         return [sideId, targetPath(path, 'target.paths')];
       }));
     }
-    for (const sideId of Object.keys(sides)) if (!result.path && !(result.paths && Object.hasOwn(result.paths, sideId))) fail(`target ${targetId} has no path for ${sideId}`);
+    // A design side holds images, not pages, so it needs no path.
+    for (const [sideId, side] of Object.entries(sides)) if (side.kind !== 'design' && !result.path && !(result.paths && Object.hasOwn(result.paths, sideId))) fail(`target ${targetId} has no path for ${sideId}`);
+    if (target.design !== undefined) {
+      if (!Object.values(sides).some(side => side.kind === 'design')) fail('target.design needs a side of kind "design"');
+      result.design = normalizeDesignMap(target.design);
+    }
     return result;
   });
   unique(targets.map(target => target.id), 'target');
@@ -204,6 +236,7 @@ export function normalizeConfig(input) {
     return result;
   });
   unique(viewports.map(viewport => viewport.id), 'viewport');
+  for (const target of targets) for (const viewportId of Object.keys(target.design ?? {})) if (!viewports.some(viewport => viewport.id === viewportId)) fail(`target ${target.id} design has unknown viewport ${viewportId}`);
   const artifacts = list(input.artifacts ?? DEFAULT_ARTIFACTS, 'artifacts', 5, 1);
   if (artifacts.some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) fail('unsupported artifact');
   unique(artifacts, 'artifact');

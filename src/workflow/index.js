@@ -88,6 +88,7 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
     let config = selectConfig(await json(configPath), options);
     const side = options.side ?? 'local';
     if (!config.sides[side]) throw new Error('Unknown side.');
+    if (config.sides[side].kind === 'design') throw new Error('A design side holds images. Use import for it.');
     if (options.ddev && config.sides[side].remote === true) throw new Error('A remote side has no DDEV origin. Remove --ddev.');
     if (options.ddev) {
       const describe = dependencies.describe ?? (() => describeDdev(configDir));

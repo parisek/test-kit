@@ -16,6 +16,8 @@ import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
 import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
+import { isDesignRun, designPairProblem } from '../design/compare.js';
+import { sha256 } from '../design/png.js';
 
 // The text of a status finding: each differing field with both values, bounded in size.
 // A path is cut around the first character where A and B differ. A chain shows the steps around its first differing step.
@@ -131,7 +133,12 @@ function available(capture) {
 }
 
 // R3.9: a pair whose sides list different origins names the key, so a person finds the cause.
-export function incompatibleDiagnostic(runA, runB) {
+export function incompatibleDiagnostic(runA, runB, a, b) {
+  // R8.15: a pair with a design run names the size or viewport problem.
+  if (a && b && (isDesignRun(runA) || isDesignRun(runB))) {
+    const problem = designPairProblem(runA, runB, a, b);
+    if (problem) return problem;
+  }
   const list = run => JSON.stringify(run?.captureSettings?.allowOrigins ?? null);
   return list(runA) !== list(runB) ? 'Capture settings differ: allowOrigins is not the same on both sides.' : 'Capture settings or tool versions differ.';
 }
@@ -139,6 +146,8 @@ export function incompatibleDiagnostic(runA, runB) {
 export function comparisonState(a, b, runA, runB) {
 	if (!a || !b) return 'missing';
 	if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
+	// R8.15: a design run has no browser, so the browser settings, tools and scope do not apply. The viewport and the image width do (R8.15).
+	if (isDesignRun(runA) || isDesignRun(runB)) return designPairProblem(runA, runB, a, b) ? 'incompatible' : 'complete';
 	if (runA.settingsHash !== runB.settingsHash || JSON.stringify(runA.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot')) !== JSON.stringify(runB.tools.filter(tool => !tool.artifact || tool.artifact === 'screenshot'))) return 'incompatible';
 	if (effectiveSettings(runA) !== effectiveSettings(runB)) return 'incompatible';
 	const scope = (capture, run) => screenshotScope(run.settings?.targets?.find(target => target.id === capture.targetId), run.side);
@@ -156,11 +165,13 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind: kindInput, rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
 	const b = await readRun(runsRoot, bId);
+	// R8.15: a pair with a design run reads as a convergence pair unless the caller names a kind.
+	const kind = kindInput ?? (isDesignRun(a) || isDesignRun(b) ? 'convergence' : 'update');
 	const { PNG } = await import('pngjs');
 	const { default: pixelmatch } = await import('pixelmatch');
 	const { extractRegions } = await import('./regions.js');
@@ -206,6 +217,8 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				try {
 					const source = await contained(join(runsRoot, run.id), capture.path);
 					const bytes = await readPng(source);
+					// R8.15: a design run is immutable. The image must still have the hash recorded at import.
+					if (isDesignRun(run) && sha256(bytes) !== capture.design?.sha256) throw new Error('Design image changed after import.');
 					if (bytes.length < 24 || bytes.readUInt32BE(16) * bytes.readUInt32BE(20) > 40_000_000) throw new Error('PNG exceeds the pixel limit.');
 					const image = PNG.sync.read(bytes);
 					const src = `runs/${run.id}/${capture.path}`;
@@ -236,7 +249,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
-			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
+			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b, ac, bc) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
 			row.artifacts.screenshot.state = row.state;
 			} else { delete row.artifacts.screenshot; row.state = 'complete'; }
 			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {
