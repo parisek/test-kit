@@ -98,4 +98,8 @@ Consequence, as R8.14 states: these warnings have no `evidence.state`. A consume
 
 ## Not built yet
 
-Component-level axe contracts, per-state runs (ADR 0004, accessibility per component state), frame injection, and the command that writes pack results into a report (#231). The report `schemaVersion` 3 fields exist (#230).
+Component-level axe contracts, per-state runs (ADR 0004, accessibility per component state) and frame injection.
+
+## Command line
+
+`test-kit capture --side ID --packs` runs this pack on the page that capture already has open, when the `packs` key lists `a11y` (R13.46). It stores the artifact in the run, and `diff` writes it into the report as an absolute result. The command takes no pack option, so `runAxe` runs with its defaults and the capture timeout.

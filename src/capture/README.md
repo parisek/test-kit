@@ -2,7 +2,7 @@
 
 Captures one side into a run. One page load feeds every artifact the run asks for. Spec section 4 (R4.2) and section 6.
 
-`capture({configPath, side, label, runsRoot, artifacts})` returns the run, run directory and
+`capture({configPath, side, label, runsRoot, artifacts, packs})` returns the run, run directory and
 manifest path. It loads and freezes project configuration. It starts Chromium
 on the host. Install `@playwright/test` and its Chromium browser first.
 
@@ -85,3 +85,10 @@ inherited array. The report timeline shows the global recipe and target
 overrides (R5.4). Screenshot, content, and behavior comparison bind the
 effective recipe. A changed recipe is incompatible for that target.
 Defaults retain their previous capture hashes.
+
+## Packs (`--packs`, R13.46)
+
+`capture --packs` runs the packs of the `packs` key that have a page step. Today this is `a11y`. The step runs on the page that capture already has open, after settlement and content, before the behavior steps. It adds no navigation and no request, and the request policy and the timeouts stay as they are. `src/packs/select.js` plans the run and `packs.js` runs it.
+Each result is a sidecar `<pack>/<target>/<viewport>.json` and an index `captures[].artifacts.<pack>`. A pack that is missing (axe-core is not installed) or broken stores the reason and makes the run `partial`.
+`run.packs` records `selected` and `skipped` (a pack with no page step). It exists only when the flag is set. The selection is not in the settings hash or in the comparable tools. Without the flag nothing here runs (R5.1).
+`--packs` with no `packs` key fails before a run directory exists.

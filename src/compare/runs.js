@@ -12,6 +12,7 @@ import { relativePath } from '../report/safe.js';
 import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
+import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 
 function performanceEnvironment(run) {
   try { const origin = new URL(run.settings.sides[run.side].origin); return origin.protocol === 'http:' && isLocalUrl(origin.href) ? `${run.side}|${origin.origin}` : null; } catch { return null; }
@@ -212,8 +213,14 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 					findings.push({ ...finding, checkId, layer: LIGHTHOUSE_CHECKS[checkId].layer, ...(LIGHTHOUSE_CHECKS[checkId].basis === 'absolute' ? { runId: b.id } : {}), id: `lighthouse-${target.id}-${viewport.id}-${index}` });
 				});
 			}
+			// R13.46: a pack result that `capture --packs` stored in run B. A run with none adds nothing (R5.1).
+			for (const kind of PACK_ARTIFACT_KINDS) {
+				const pack = await comparePackArtifact({ kind, b, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
+				if (!pack) continue;
+				row.artifacts[kind] = pack.artifact; findings.push(...pack.findings); Object.assign(checks, { ...pack.catalog, ...checks });
+			}
 			const comparable = ['screenshot', 'html', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
-			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
+			const states = [...(comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing']), ...PACK_ARTIFACT_KINDS.filter(kind => row.artifacts[kind]).map(kind => row.artifacts[kind].state)];
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {
 				row.state = 'failed';

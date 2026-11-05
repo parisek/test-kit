@@ -5,7 +5,7 @@ Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
-  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
+  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--packs]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
   query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|lighthouse|lint|a11y [--max-lines N]
@@ -15,7 +15,7 @@ Usage: test-kit <command> [options]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
+const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts', 'packs'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
@@ -35,7 +35,7 @@ export function parseCommand(argv) {
     const name = argument.slice(2);
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
-    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev'].includes(name)) { options[name] = true; continue; }
+    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs'].includes(name)) { options[name] = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
@@ -108,8 +108,10 @@ async function dispatch({ command, positions, options }) {
   }
   if (command === 'capture') {
     const { capture } = await import('../capture/index.js');
-    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(',') });
-    return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath }, exitCode: result.run.state === 'complete' ? 0 : 1 };
+    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), packs: options.packs === true });
+    // R13.46: the output names a pack that did not run. A skipped pack is never reported as run.
+    const packs = result.run.packs ? { packs: result.run.packs } : {};
+    return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 };
   }
   if (command === 'diff') {
     const { loadConfig } = await import('../config/index.js');
