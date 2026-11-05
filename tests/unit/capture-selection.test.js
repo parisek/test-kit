@@ -200,6 +200,14 @@ test('diff --target and --viewport filter the pair and the report records the fi
   await assert.rejects(diff(root, 'full', 'again', { filter: { viewports: ['nope'] } }), /Unknown viewport/);
 }));
 
+test('a diff filter checks the ids against the stored settings of both runs', async () => fixture(async root => {
+  await writeRun(root, 'full', { side: 'a' });
+  await writeRun(root, 'small', { side: 'b', targetList: settings.targets.slice(0, 1) });
+  const { report } = await diff(root, 'full', 'small', { filter: { targets: ['blog'] } });
+  assert.deepEqual(cells(report), ['blog/mobile', 'blog/desktop']);
+  assert.ok(report.entries[0].viewports.every(row => row.state === 'missing'));
+}));
+
 test('a filter stacks on a recorded selection', async () => fixture(async root => {
   await writeRun(root, 'full', { side: 'a' });
   await writeRun(root, 'part', { side: 'b', selection: { targets: ['home', 'about'] } });
