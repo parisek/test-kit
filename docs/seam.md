@@ -13,6 +13,7 @@ The seam is everything a project touches: its configuration file, the commands i
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
 - Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7`, the stable tag `v1.0.0` (2026-11-04) and the tag `v1.1.0-rc.1` (2026-11-05) exist.
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
+- One exception exists. The owner allowed the narrowing of `engines.node` to `>=20.19` in the minor release 1.1.0, with a migration note, on 2026-11-06 (#298). See "Runtime requirement". It sets no precedent for another frozen item.
 
 ## Markings
 
@@ -218,6 +219,12 @@ What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is froze
 - Not yet: the absolute fingerprint and the allowlist (#254, ADR 0004, open questions 3 and 4).
 
 Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1 (`adaptV1` in `src/report/model.js`).
+
+## Runtime requirement
+
+| Item | Marking | Reason |
+| --- | --- | --- |
+| `engines.node` in `package.json` | Frozen (decided) | Narrowed to `>=20.19`. The owner approved the narrowing on issue #26 on 2026-11-05, because Stylelint 17 needs Node 20.19 (R13.48, ADR 0006). The value was `>=20`. This is a narrowing of a frozen item. The owner allowed it in the minor release 1.1.0 as a one-time exception to the freeze rule on 2026-11-06 (#298). A project on Node 20.0 to 20.18 must update Node before it updates the pin. Migration: run `node --version`, and install Node 20.19 or newer (22 works too). Capture, compare and report need nothing else. `CHANGELOG.md` records the change. |
 
 ## 7. Not frozen, owner decision open
 

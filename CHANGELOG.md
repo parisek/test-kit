@@ -15,6 +15,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- `engines.node` is now `>=20.19` (it was `>=20`). Stylelint 17 needs Node 20.19, and the ESLint and Stylelint entry points (R13.46 to R13.48, ADR 0006) need it. The owner approved the narrowing on issue #26 on 2026-11-05, and on 2026-11-06 allowed it in this minor release as a one-time exception to the freeze rule (`docs/seam.md`, #298). CI runs the Node 20 job on 20.19. Migration: a project on Node 20.0 to 20.18 updates Node to 20.19 or newer (22 works) before it updates its pin. `npm install` warns on an older Node, and `npm install` with `engine-strict` fails (`docs/seam.md`, "Runtime requirement", #26).
 - Docs only: the tag lists name `v1.1.0-rc.1`. R11.2 names the 60000-byte bound and the cut marks. R4.5 records the scope line of the viewer. DESIGN.md names `noFixture` in the scope line rule.
 
 ### Fixed
