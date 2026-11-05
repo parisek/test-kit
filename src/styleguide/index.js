@@ -127,6 +127,7 @@ export function parseComponents(payload, { mount = DEFAULT_MOUNT, include, varia
   }
   const selected = target => include === undefined || include.includes(target.id) || include.includes(target.owner ?? '');
   const targets = all.filter(selected).map(({ owner, ...target }) => target).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  if (targets.length > MAX_COMPONENTS) throw new StyleguideError('STYLEGUIDE_CATALOGUE_INVALID', `The styleguide makes ${targets.length} targets. The limit is ${MAX_COMPONENTS}. Narrow the run with include.`);
   const skipped = [...noFixture].filter(id => include === undefined || include.includes(id)).sort();
   if (!targets.length) throw new StyleguideError('STYLEGUIDE_CATALOGUE_INVALID', 'No selected component or page has a fixture. Every one has has_styleguide false.');
   return { targets, noFixture: skipped };

@@ -228,3 +228,11 @@ test('config: targetSource variants and pages are optional booleans (R13.52)', (
   assert.deepEqual(normalizeConfig(JSON.parse(JSON.stringify(normalized))), normalized);
   assert.deepEqual(selectConfig(normalized, { target: 'hero--dark-bg,page--home' }).targetSource.include, ['hero--dark-bg', 'page--home']);
 });
+
+test('parseComponents: the expanded target list has the same 1000 limit as the config (R13.52)', () => {
+  const big = Array.from({ length: 11 }, (_, index) => ({ id: `c${index}`, variants: Array.from({ length: 100 }, (__, v) => ({ id: `v${v}` })) }));
+  assert.throws(() => parseComponents(big, { variants: true }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && /makes 1100 targets/.test(error.message));
+  assert.equal(parseComponents(big, { variants: true, include: ['c0', 'c1'] }).targets.length, 202, 'include narrows below the limit.');
+  assert.equal(parseComponents(big).targets.length, 11, 'Without variants the list is not expanded.');
+  assert.throws(() => parseComponents([{ id: 'a' }], { pages: Array.from({ length: 1000 }, (_, index) => ({ id: `p${index}` })) }), /makes 1001 targets/);
+});
