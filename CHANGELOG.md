@@ -4,9 +4,24 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- The report writes `schemaVersion` 3. A report has exactly one of `pair` and `subject`, a `checks` catalog with `basis`, `layer` and `title`, and an `overrides` list. A finding may carry `checkId`, `runId`, `layer` and `location`. An absolute result has an artifact index with `evidence` and `result`, at viewport or target scope. The reserved target `@project` holds lint findings with no component. `validateReport` rejects a mismatch of each rule (R9.7 to R9.11, #230).
+- Each artifact index lists the selected checks in `scope.checks`. The producer derives the list from the run settings (ADR 0004, question 2).
+- The behavior runner writes `contract` on each step. The catalog key is `behavior.<contract name>`, and a `-detect` or `-scoping` step folds into its contract. The registry records the origin of each contract. The feedback summary names the contract by its name and gives the same key (ADR 0004, question 1).
+- The six built-in content checks export `basis`: `text-difference` is `relative`, the other five are `absolute` (R7.2).
+- `summary` returns `subject` (`null` for a pair report) and `pair: null` for a subject report. `queryArtifact` reads `lint` and `a11y` artifacts at target scope.
+- The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
+
 ### Changed
 
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
+- The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, R13.9, #230).
+- Migration note, cost 1: the behavior version is 2 (it was 1). A stored version 1 behavior run no longer compares with a new run. The pair reads `incompatible` (R8.9). Capture the older side again.
+- Migration note, cost 2: `known_diffs` no longer explains an absolute content finding. A known difference applies to a relative check only (R7.3). The five content checks other than `text-difference`, and `lighthouse-budget`, are absolute. Their findings stay `unexplained` until the allowlist ships (#254).
+- Migration note, cost 3: `record-known` refuses an absolute finding with the error "A known difference applies to a relative check only (R7.3)". Existing `known_diffs` records stay in the config, and they still explain a relative finding.
+- Migration note, cost 4: a stored version 2 report reads as version 3 and sorts its absolute findings again. A finding that the old report showed as `explained` now reads `unexplained`. Run `diff` again to write a version 3 file.
+- Migration note: a reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion`. Update the viewer and the package together. A version 2 behavior finding gets the catalog key `behavior`, because it names a step id and not a contract.
 
 ### Fixed
 
