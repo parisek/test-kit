@@ -82,4 +82,5 @@ The owner decided these on 2026-10-22:
 - Content and Speed are evidence types of the Evidence view (R10.4, issue #155).
 - Behavior is an evidence type of the Evidence view too (R10.4). Decided on 2026-10-22.
 - A report with `meta.scope` shows one scope line in the report header, on every view: "Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped." The full lists sit in "Run details". A skipped cell is not a target. A report without `meta.scope` shows no line (owner decision of 2026-11-05, #287, option C).
+- A report whose runs list `noFixture` components adds one sentence to the same header line: "Not compared: 3 components have no fixture." The list sits in "Run details" (in the closed "Scope details" disclosure on the other views). A report without `noFixture` shows nothing new. The count equals `summary` (owner decision of 2026-11-05, #290).
 - Any future change to the adopted view set or the deep link grammar needs a new owner decision and a specification change.
