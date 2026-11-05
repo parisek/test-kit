@@ -75,7 +75,7 @@ if (process.env.ALLOW_ORIGINS_CHILD) {
     } else {
       assert.equal(hits.length, 0, `the capture verifies the certificate, so no request completes: ${hits}`);
       assert.equal(row('font').state, 'failed', 'a certificate failure of an allowed origin fails the capture');
-      assert.match(row('font').error.message, /certificate of an allowed origin/);
+      assert.match(row('font').error.message, /allowed origin \(allowOrigins\) failed \(certificate\)/);
       assert.ok(row('font').error.message.includes(fontOrigin) && row('font').error.message.includes('stylesheet'), row('font').error.message);
     }
     console.log(`Local side with allowOrigins (${process.env.ALLOW_ORIGINS_CHILD} certificate) passes.`);

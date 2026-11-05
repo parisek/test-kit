@@ -15,7 +15,7 @@ import { promisify } from 'node:util';
 import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
 import { recordSelection, cellSelected } from './selection.js';
-import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, isCertificateError, decideRequest, redirectPermitted, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, decideRequest, redirectPermitted, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -171,11 +171,9 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
             await route.abort('blockedbyclient');
           } else await route.fulfill({ response });
         } catch (error) {
-          // R3.9: a certificate failure of an allowed origin fails the capture, so no page renders in silence without its font.
-          if (isCertificateError(error) && isAllowedOriginRequest({ url: request.url(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins })) {
-            blocked = true;
-            firstBlocked ??= describeBlockedRequest({ url: request.url(), method: request.method(), resourceType: request.resourceType(), topLevel: false, navigation: false, certificate: true });
-          }
+          // R3.9: any failed fetch of an allowed origin fails the capture, so no page renders in silence without its font.
+          const failed = allowedOriginFailure({ url: request.url(), method: request.method(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins, error });
+          if (failed) { blocked = true; firstBlocked ??= failed; }
           await route.abort('failed').catch(() => {});
         }
       }
