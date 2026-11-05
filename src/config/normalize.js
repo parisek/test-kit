@@ -2,6 +2,7 @@ import { builtinChecks } from '../checks/index.js';
 import { validateContractSelection } from '../behavior/contracts.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { BUILTIN_PACK_IDS } from '../packs/ids.js';
+import { DEFAULT_MOUNT, MAX_COMPONENTS, validMount } from '../styleguide/index.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 function fail(message) { throw new Error(`Invalid configuration: ${message}`); }
@@ -85,10 +86,29 @@ function freeze(value) {
   return value;
 }
 
+// R13.3: `targetSource` reads component targets from the styleguide catalogue of one side.
+// Validation is pure: it reads no network and imports no styleguide code (R4.4, R13.4).
+function normalizeTargetSource(value, sides) {
+  object(value, 'targetSource', ['source', 'side', 'mount', 'include']);
+  if (value.source !== 'styleguide') fail('targetSource.source must be "styleguide"');
+  const side = id(value.side, 'targetSource.side');
+  if (!Object.hasOwn(sides, side)) fail(`targetSource.side has unknown side ${side}`);
+  if (sides[side].remote === true) fail('targetSource.side must be a local side');
+  const mount = value.mount === undefined ? DEFAULT_MOUNT : value.mount;
+  if (!validMount(mount)) fail('targetSource.mount must be an origin-relative path');
+  const result = { source: 'styleguide', side, mount };
+  if (value.include !== undefined) {
+    const include = dense(list(value.include, 'targetSource.include', MAX_COMPONENTS, 1), 'targetSource.include').map(item => id(item, 'targetSource.include ID'));
+    unique(include, 'targetSource.include');
+    result.include = include;
+  }
+  return result;
+}
+
 export const DEFAULT_ARTIFACTS = Object.freeze(['screenshot']);
 
 export function normalizeConfig(input) {
-  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior', 'packs']);
+  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior', 'packs', 'targetSource']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');
   object(input.sides, 'sides');
   const sideEntries = Object.entries(input.sides);
@@ -111,7 +131,10 @@ export function normalizeConfig(input) {
       ...(side.production === true ? { production: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
-  const targets = list(input.targets, 'targets', 1000, 1).map(target => {
+  // R13.3: components from the styleguide are an opt-in target source. It replaces the list.
+  const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
+  if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');
+  const targets = list(targetSource ? [] : input.targets, 'targets', 1000, targetSource ? 0 : 1).map(target => {
     object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
@@ -190,5 +213,5 @@ export function normalizeConfig(input) {
   if (!/^[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)*$/.test(runsRoot) || runsRoot.split('/').some(segment => segment === '.' || segment === '..')) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
-  return freeze({ schemaVersion: 1, sides, targets, viewports, artifacts: [...artifacts], checks, packs, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
+  return freeze({ schemaVersion: 1, sides, targets, ...(targetSource ? { targetSource } : {}), viewports, artifacts: [...artifacts], checks, packs, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
 }

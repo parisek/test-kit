@@ -36,6 +36,10 @@ start." No browser starts and no run directory exists. Capture then runs
 `ddev mutagen sync` once before browser work. A wrong checkout or sync
 failure stops capture.
 
+`capture({..., targets, viewports})` takes lists of IDs. The run captures only the selected cells and records
+`selection` in `run.json`. `settings` keeps the full lists, so no settings hash changes (R4.5). `selection.js`
+holds the pure logic. `run.state` is `complete` when every selected cell is captured.
+
 The manifest starts as partial and updates atomically after each capture.
 The screenshot timeout bounds the complete target operation, including font
 settlement. A timeout closes its browser context before the next target starts.
@@ -86,3 +90,12 @@ inherited array. The report timeline shows the global recipe and target
 overrides (R5.4). Screenshot, content, and behavior comparison bind the
 effective recipe. A changed recipe is incompatible for that target.
 Defaults retain their previous capture hashes.
+
+## Styleguide targets
+
+With `targetSource` in the configuration, `capture` first reads `<mount>/api/components` of the named side (one GET, no redirect).
+It makes one `component` target for each entry and stores the list in the run settings.
+The run manifest holds `targetSource` with the count and the IDs that have no fixture.
+It reads before any run directory exists, so a bad catalogue leaves no run. `--side` must be the side of the source.
+A component with `has_styleguide: false` makes no target and sends no request. The manifest lists it under `targetSource.noFixture`, and the report and `summary` list it as "no fixture".
+See `src/styleguide/README.md`.
