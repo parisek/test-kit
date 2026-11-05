@@ -12,6 +12,7 @@ import { resolve, dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
 import { recordSelection, cellSelected } from './selection.js';
 import { isLocalUrl, isOwnOrigin, decideRequest, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
@@ -55,7 +56,7 @@ async function playwright() {
     const module = await import('@playwright/test');
     const path = require.resolve('@playwright/test/package.json');
     const { version } = JSON.parse(await readFile(path, 'utf8'));
-    return { chromium: module.chromium, version };
+    return { chromium: module.chromium, request: module.request, version };
   } catch {
     throw new Error('Install @playwright/test in the test-kit runtime and run npx playwright install chromium');
   }
@@ -276,12 +277,32 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
 }
 
+// R13.3: one GET to the side origin for the component list. Same certificate policy as the capture contexts.
+async function readStyleguideTargets(tool, config, side) {
+  const source = config.targetSource;
+  if (source.side !== side) throw new Error(`targetSource reads the styleguide of side ${source.side}. Capture that side.`);
+  const origin = config.sides[side].origin;
+  const context = await tool.request.newContext({ baseURL: origin, ignoreHTTPSErrors: true });
+  try {
+    const { targets, noFixture } = await readComponents({ origin, mount: source.mount, include: source.include, get: async url => {
+      const response = await context.get(url, { headers: { accept: 'application/json' }, timeout: 30000, maxRedirects: 0 });
+      return { status: response.status(), body: (await response.body()).toString('utf8') };
+    } });
+    // The stored settings read as a plain target list, so every reader of a run keeps working.
+    // The source and what it found go in the run manifest, next to the settings.
+    const { targetSource, ...rest } = config;
+    return { config: { ...rest, targets }, found: { ...source, resolved: targets.length, ...(noFixture.length ? { noFixture } : {}) } };
+  } finally { await context.dispose().catch(() => {}); }
+}
+
 export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports }) {
   const loaded = await loadConfig(configPath);
-  const config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
+  let config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   // R4.5: the selection is checked against the full lists before any run directory or browser exists.
-  const selection = recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
+  // With targetSource the target list is unknown until the catalogue is read, so the check runs after that read.
+  const fromCatalogue = Boolean(config.targetSource);
+  let selection = fromCatalogue ? null : recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled }) : null;
   // Verify DDEV before Playwright loads, so a stopped project starts no browser.
@@ -300,6 +321,10 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     catch { throw new Error('ddev mutagen sync fails. Fix DDEV synchronization before capture.'); }
   }
   const tool = await playwright();
+  // The catalogue is read before any run directory exists, so a bad catalogue leaves no partial run.
+  let found;
+  if (config.targetSource) ({ config, found } = await readStyleguideTargets(tool, config, side));
+  if (fromCatalogue) selection = recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const root = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;
@@ -309,7 +334,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   const manifestPath = join(runDir, 'run.json');
   const effectiveSettings = { ...captureSettings(config, side), browser: BROWSER_SETTINGS, ...(behaviorSource ? { behavior: { ...config.behavior, fingerprint: behaviorSource.fingerprint } } : {}) };
   const hash = settingsHash(effectiveSettings);
-  const run = { schemaVersion: 2, id, side, label, at: at.toISOString(), state: 'partial', settings: config,
+  const run = { schemaVersion: 2, id, side, label, at: at.toISOString(), state: 'partial', settings: config, ...(found ? { targetSource: found } : {}),
     captureSettings: effectiveSettings, settingsHash: hash, ...(selection ? { selection } : {}), tools: [{ name: 'playwright', version: tool.version, settingsHash: hash }], captures: [] };
   await writeManifest(manifestPath, run);
   let browser;
