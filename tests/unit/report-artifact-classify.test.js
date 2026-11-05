@@ -31,6 +31,47 @@ test('unavailable artifacts never receive a passing class', () => {
   assert.equal(artifactState(target, 'mobile', 'html'), 'missing');
 });
 
+test('a status difference is a finding that counts in the class (R6.13)', () => {
+  const { target, report } = fixture({ screenshot: { state: 'complete' }, status: { state: 'complete' } });
+  // Equal status evidence adds no class of its own.
+  assert.equal(artifactClass(report, target, 'desktop', 'status'), null);
+  assert.equal(cellClass(report, target, 'desktop'), 'match');
+  assert.equal(targetClass(report, target), 'match');
+  report.findings.push({ id: 'status-home-desktop', targetId: 'home', viewportId: 'desktop', artifact: 'status', message: 'HTTP response differs.' });
+  assert.equal(artifactClass(report, target, 'desktop', 'status'), 'unexplained');
+  assert.equal(artifactClass(report, target, 'desktop', 'screenshot'), 'match');
+  assert.equal(cellClass(report, target, 'desktop'), 'unexplained');
+  assert.equal(targetClass(report, target), 'unexplained');
+  assert.equal(summarize(report).counts.unexplained, 1);
+  assert.equal(summarize(report).counts.match, 0);
+});
+
+test('a status finding counts only while the status artifact is complete (R8.7)', () => {
+  const finding = { id: 'status-home-desktop', targetId: 'home', viewportId: 'desktop', artifact: 'status', message: 'HTTP response differs.' };
+  for (const state of ['failed', 'missing', 'incompatible']) {
+    const { target, report } = fixture({ screenshot: { state: 'complete' }, status: { state } });
+    report.findings.push(finding);
+    assert.equal(cellClass(report, target, 'desktop'), 'match');
+    // The screenshot decides the class, as before: the stored status finding adds nothing.
+    assert.equal(targetClass(report, target), 'match', `status ${state}`);
+    const only = fixture({ status: { state } });
+    only.report.findings.push(finding);
+    assert.equal(targetClass(only.report, only.target), null);
+  }
+  const { target, report } = fixture({ screenshot: { state: 'complete' }, status: { state: 'complete' } });
+  report.findings.push(finding);
+  assert.equal(targetClass(report, target), 'unexplained');
+});
+
+test('a status-only cell is unclassified until a status finding exists', () => {
+  const { target, report } = fixture({ status: { state: 'complete' } });
+  assert.equal(cellClass(report, target, 'desktop'), null);
+  assert.equal(targetClass(report, target), null);
+  report.findings.push({ id: 'status-home-desktop', targetId: 'home', viewportId: 'desktop', artifact: 'status' });
+  assert.equal(cellClass(report, target, 'desktop'), 'unexplained');
+  assert.equal(targetClass(report, target), 'unexplained');
+});
+
 test('status is unclassified and content needs selected checks before oracle or match', () => {
   const { target, report } = fixture({ status: { state: 'complete' }, content: { state: 'complete', diff: { checks: 0 } } });
   assert.equal(artifactClass(report, target, 'desktop', 'status'), null);

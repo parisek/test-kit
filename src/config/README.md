@@ -25,3 +25,10 @@ An unknown ID, a duplicate or a non-ID entry fails validation.
 The check reads the static list in `src/packs/ids.js` and imports no pack.
 The selection does not enter the capture settings hash.
 `src/packs/builtin.js` maps the IDs to pack objects for `resolveChecks`.
+
+`targetSource` is an optional object that reads component targets from a styleguide (R13.3).
+It holds `source` (`"styleguide"` only), `side` (a local side), `mount` (an origin-relative path, default `/styleguide`) and `include` (a list of component IDs).
+When it is set, `targets` must be absent or empty.
+Validation is pure: it reads no network and imports no styleguide code (R4.4, R13.4).
+Capture reads the catalogue and writes the resolved list into the run settings (`src/styleguide/README.md`).
+An absent key changes nothing, and the key does not enter the capture settings hash.

@@ -7,6 +7,17 @@ import { relativePath } from '../report/safe.js';
 import { validateBehaviorSnapshot } from './snapshot.js';
 import { compareBehavior } from './compare.js';
 import { BEHAVIOR_VERSION } from './index.js';
+import { DEFAULT_PROJECTS } from './contracts.js';
+import { LEGACY_BEHAVIOR_CHECK, LEGACY_BEHAVIOR_ID, behaviorCheckId } from '../report/catalog.js';
+
+// The contracts selected for one viewport, read from the settings of the stored snapshot (owner decision 2).
+// A contract is selected when it applies to the project name of the viewport. An unmet library version
+// or media setting is an outcome (`incompatible`), not a different selection.
+function selectedContracts(snapshot) {
+  const settings = snapshot?.settings;
+  if (!settings || !Array.isArray(settings.contracts) || snapshot.version === '1') return null;
+  return settings.contracts.filter(contract => (contract.projects ?? DEFAULT_PROJECTS).includes(settings.projectName));
+}
 
 export async function compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, targetId, viewportId }) {
   for (const id of [targetId, viewportId, a.id, b.id]) if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Unsafe behavior scope.');
@@ -54,7 +65,7 @@ export async function compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, 
   }
   let detail;
   if (snapshots.every(Boolean)) detail = compareBehavior(...snapshots);
-  else detail = { state: artifact.state, steps: (snapshots[0]?.steps ?? snapshots[1]?.steps ?? []).map(step => ({ id: step.id, title: step.title, state: 'failed', resultA: snapshots[0] ? step : null, resultB: snapshots[1] ? step : null })) };
+  else detail = { state: artifact.state, steps: (snapshots[0]?.steps ?? snapshots[1]?.steps ?? []).map(step => ({ id: step.id, title: step.title, state: 'failed', contract: step.contract ?? null, resultA: snapshots[0] ? step : null, resultB: snapshots[1] ? step : null })) };
   if (incompatible) artifact.state = 'incompatible';
   if (artifact.state === 'incompatible') detail = { ...detail, state: 'incompatible' };
   else if (detail.state !== 'complete') artifact.state = detail.state;
@@ -65,6 +76,18 @@ export async function compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, 
   await mkdir(dirname(join(output, src)), { recursive: true }); await writeFile(join(output, src), JSON.stringify({ ...detail, changed }));
   artifact.diff = { kind: 'behavior', src, tool: 'test-kit-behavior-compare', version: BEHAVIOR_VERSION, settingsHash: indexes[1]?.settingsHash ?? indexes[0]?.settingsHash ?? '', changed, steps: detail.steps.length };
   if (artifact.state !== 'complete') artifact.diagnostic ??= 'Behavior evidence is missing, failed, or incompatible.';
-  const findings = artifact.state === 'incompatible' ? [] : detail.steps.filter(step => step.state !== 'same').map(step => ({ id: `behavior-${targetId}-${viewportId}-${step.id}`, targetId, viewportId, artifact: 'behavior', causeId: null, message: `${step.title}: ${step.state}`, severity: step.state === 'failed' ? 'error' : 'warning' }));
-  return { artifact, findings };
+  // One catalog entry for each selected contract. A `-detect` or `-scoping` step folds into its contract (ADR 0004, question 1).
+  const catalog = {};
+  const selected = selectedContracts(snapshots[1] ?? snapshots[0]);
+  for (const contract of selected ?? []) catalog[behaviorCheckId(contract.name)] = { basis: 'relative', layer: contract.origin, title: contract.name };
+  if (selected) artifact.scope = { checks: selected.map(contract => behaviorCheckId(contract.name)) };
+  const origins = new Map(snapshots.flatMap(snapshot => (snapshot?.settings?.contracts ?? []).map(contract => [contract.name, contract.origin])));
+  const identity = step => {
+    if (!step.contract) { catalog[LEGACY_BEHAVIOR_ID] ??= { ...LEGACY_BEHAVIOR_CHECK }; return { checkId: LEGACY_BEHAVIOR_ID, layer: LEGACY_BEHAVIOR_CHECK.layer }; }
+    const checkId = behaviorCheckId(step.contract);
+    catalog[checkId] ??= { basis: 'relative', layer: origins.get(step.contract) ?? 'project', title: step.contract };
+    return { checkId, layer: catalog[checkId].layer };
+  };
+  const findings = artifact.state === 'incompatible' ? [] : detail.steps.filter(step => step.state !== 'same').map(step => ({ id: `behavior-${targetId}-${viewportId}-${step.id}`, targetId, viewportId, artifact: 'behavior', ...identity(step), causeId: null, message: `${step.title}: ${step.state}`, severity: step.state === 'failed' ? 'error' : 'warning' }));
+  return { artifact, findings, catalog };
 }

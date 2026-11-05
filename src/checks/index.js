@@ -4,7 +4,9 @@ import * as emptyAlt from './builtin/empty-alt.js';
 import * as emptyTitle from './builtin/empty-title.js';
 import * as internalLinks from './builtin/internal-links.js';
 import * as textDifference from './builtin/text-difference.js';
-export const CHECK_VERSION = '1.0.0';
+export const CHECK_VERSION = '1.1.0';
+// Comparison sidecars of these versions still load. Add a version here when CHECK_VERSION moves on.
+export const READABLE_CHECK_VERSIONS = Object.freeze(['1.0.0', CHECK_VERSION]);
 export const builtinChecks = Object.freeze(Object.fromEntries([headingOutline, lang, emptyAlt, emptyTitle, internalLinks, textDifference].map(plugin => [plugin.id, plugin])));
 export function runContentChecks(snapshot, ids, context = {}) {
   if (!Array.isArray(ids) || ids.length > 50 || new Set(ids).size !== ids.length) throw new Error('Invalid content check selection.');

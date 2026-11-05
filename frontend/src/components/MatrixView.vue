@@ -2,10 +2,10 @@
 import { targetClass, targetState, cellClass, cellState } from '../../../src/report/classify.js';
 import Badge from './Badge.vue';
 import { formatRatio } from '../state/format.js';
-defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array });
+const props = defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array });
 const emit = defineEmits(['action']);
 function ratio(row) {
-	if (row.artifacts && !row.artifacts.screenshot && (row.artifacts.html || row.artifacts.status)) return 'Screenshot not requested';
+	if (row.artifacts && !row.artifacts.screenshot && (row.artifacts.html || row.artifacts.status || row.artifacts.a11y)) return 'Screenshot not requested';
 	const value = row.ratio ?? row.artifacts?.screenshot?.diff?.ratio;
 	return Number.isFinite(value) ? formatRatio(value) : 'No ratio';
 }
@@ -15,6 +15,8 @@ const rowFor = (target, id) => target.viewports.find((row) => row.id === id);
 // When neither side was measured, one badge says so instead of two.
 const availability = (row) => ['a', 'b'].map((side) => [side, row?.availability?.[side] ?? 'unknown']).filter(([, value]) => value !== 'ok');
 const availabilityBadges = (row) => {
+	// Sides A and B exist in a pair report only. A subject report has one run.
+	if (props.report.subject) return [];
 	const sides = availability(row);
 	if (sides.length === 2 && sides.every(([, value]) => value === 'unknown')) return ['Availability not measured'];
 	return sides.map(([side, value]) => `${side.toUpperCase()}: ${value}`);
@@ -48,28 +50,35 @@ const availabilityBadges = (row) => {
 							/>
 						</div>
 					</th>
-					<td
-						v-for="viewport in report.meta.viewports"
-						:key="viewport.id"
-						class="min-w-48 p-4 align-top"
-					>
-						<button class="matrix-evidence mb-2 focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id, viewportId: viewport.id })" :disabled="!rowFor(target, viewport.id)">Open {{ viewport.id }} evidence</button>
-						<div class="flex flex-wrap gap-1">
-							<Badge :text="cellClass(report, target, viewport.id) ?? 'unclassified'" /><Badge
-								v-if="cellState(target, viewport.id) !== 'complete'"
-								:text="cellState(target, viewport.id)"
-							/>
-						</div>
-						<template v-if="rowFor(target, viewport.id)"
-							><p class="matrix-ratio my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
-							<div v-if="availabilityBadges(rowFor(target, viewport.id)).length" class="flex flex-wrap gap-1">
-								<Badge
-									v-for="text in availabilityBadges(rowFor(target, viewport.id))"
-									:key="text"
-									:text="text"
-								/></div
-						></template>
+					<!-- R9.11: the project entry has no viewport. Its results sit at target scope. -->
+					<td v-if="target.kind === 'project'" :colspan="Math.max(1, report.meta.viewports.length)" class="min-w-48 p-4 align-top">
+						<button class="matrix-evidence mb-2 focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id })">Open project evidence</button>
+						<p class="text-ui-muted">Project-level results have no viewport.</p>
 					</td>
+					<template v-else>
+					<td
+							v-for="viewport in report.meta.viewports"
+							:key="viewport.id"
+							class="min-w-48 p-4 align-top"
+						>
+							<button class="matrix-evidence mb-2 focus-visible:outline-ui-focus" @click="emit('action', 'evidence', { targetId: target.id, viewportId: viewport.id })" :disabled="!rowFor(target, viewport.id)">Open {{ viewport.id }} evidence</button>
+							<div class="flex flex-wrap gap-1">
+								<Badge :text="cellClass(report, target, viewport.id) ?? 'unclassified'" /><Badge
+									v-if="cellState(target, viewport.id) !== 'complete'"
+									:text="cellState(target, viewport.id)"
+								/>
+							</div>
+							<template v-if="rowFor(target, viewport.id)"
+								><p class="matrix-ratio my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
+								<div v-if="availabilityBadges(rowFor(target, viewport.id)).length" class="flex flex-wrap gap-1">
+									<Badge
+										v-for="text in availabilityBadges(rowFor(target, viewport.id))"
+										:key="text"
+										:text="text"
+									/></div
+							></template>
+						</td>
+						</template>
 				</tr>
 			</tbody>
 		</table>

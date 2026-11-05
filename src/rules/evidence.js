@@ -15,7 +15,7 @@ export function comparatorIndex(artifact, rules = {}, contentPolicy = {}) {
     ? byteHash(Buffer.from(JSON.stringify(descriptor.settings))) : settingsHash(descriptor.settings) };
 }
 export async function evidenceBinding({ runsRoot, aRunId, bRunId, targetId, viewportId, artifact, rules, runs, contentPolicy }) {
-  if (!['screenshot', 'html', 'content'].includes(artifact)) throw new Error('Evidence artifact is not comparable.');
+  if (!['screenshot', 'html', 'status', 'content'].includes(artifact)) throw new Error('Evidence artifact is not comparable.');
   const values = [];
   const contentPolicies = [];
   for (const [position, id] of [aRunId, bRunId].entries()) {

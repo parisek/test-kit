@@ -1,15 +1,16 @@
 import { builtinChecks } from '../checks/index.js';
+import { parseIdList } from '../capture/selection.js';
 export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'perf', 'run', 'before', 'after', 'report', 'history'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
-  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
-  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
+  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID]
+  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
-  query REPORT --target ID --viewport ID --artifact html|status|content|behavior|lighthouse [--max-lines N]
-  record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT
+  query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|lighthouse|lint|a11y [--max-lines N]
+  record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|status|content --cause ID --reason TEXT
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
   -h, --help     Show this help.
@@ -18,6 +19,8 @@ Usage: test-kit <command> [options]
 const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
+// R4.5: a separate line, so the FLAGS literal above stays easy to merge.
+for (const name of ['capture', 'diff']) FLAGS[name] = [...FLAGS[name], 'target', 'viewport'];
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
 FLAGS.history = ['config', 'store', 'port', 'export', 'publish'];
 function integer(value, name, min, max) {
@@ -51,8 +54,11 @@ export function parseCommand(argv) {
   if (options.throttling && !['simulated', 'devtools', 'provided'].includes(options.throttling)) throw new Error('Unknown performance throttling');
   if (command === 'capture' && !options.side) throw new Error('capture requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
-  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status', 'content', 'behavior', 'lighthouse'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status|content|behavior|lighthouse');
-  if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
+  // An absolute result (lint, a11y) may sit at target scope, so --viewport is optional for it (R9.9).
+  if (command === 'query' && (!options.target || (!options.viewport && !['lint', 'a11y'].includes(options.artifact)) || !['html', 'status', 'content', 'behavior', 'lighthouse', 'lint', 'a11y'].includes(options.artifact))) throw new Error('query requires --target, --artifact html|status|content|behavior|lighthouse|lint|a11y, and --viewport (optional for lint and a11y)');
+  if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'status', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
+  // R4.5: `capture` and `diff` take lists of ids. The same parser as the workflow commands checks them.
+  if (['capture', 'diff'].includes(command)) for (const name of ['target', 'viewport']) if (options[name]) parseIdList(options[name], name);
   if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) throw new Error('Unknown capture artifact');
   if (options.checks && !(options.checks === 'none' && ['run', 'before', 'after'].includes(command))) {
     const ids = options.checks.split(',');
@@ -107,7 +113,7 @@ async function dispatch({ command, positions, options }) {
   }
   if (command === 'capture') {
     const { capture } = await import('../capture/index.js');
-    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(',') });
+    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(',') });
     return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath }, exitCode: result.run.state === 'complete' ? 0 : 1 };
   }
   if (command === 'diff') {
@@ -115,7 +121,7 @@ async function dispatch({ command, positions, options }) {
     const { compareRuns } = await import('../compare/runs.js');
     const { resolve } = await import('node:path');
     const loaded = await loadConfig(options.config ?? 'test-kit.config.json');
-    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind ?? 'update', rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage, failOnBudget: options['fail-on-budget'] ?? false });
+    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind ?? 'update', rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage, failOnBudget: options['fail-on-budget'] ?? false, filter: options.target || options.viewport ? { targets: options.target?.split(','), viewports: options.viewport?.split(',') } : undefined });
     return { output: { reportPath: result.reportPath }, exitCode: result.exitCode ?? 0 };
   }
   if (command === 'summary') {

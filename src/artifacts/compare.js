@@ -1,7 +1,7 @@
 import { normalizeHtml } from '../rules/normalize.js';
 import { byteHash, policyHash, comparatorIndex } from '../rules/evidence.js';
 import { artifactState } from './state.js';
-import { statusDetail } from './schema.js';
+import { statusDetail, statusDifference } from './schema.js';
 import { open, realpath, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
@@ -91,7 +91,8 @@ export async function compareResponseArtifact({ kind, a, b, ac, bc, runsRoot, ou
       }
     } else {
       const before = statusDetail(JSON.parse(bytes[0])), after = statusDetail(JSON.parse(bytes[1]));
-      detail = { changed: JSON.stringify(before) !== JSON.stringify(after), a: before, b: after };
+      // R6.13: only the final status, the final path and the redirect chain count. Asset counts change between loads.
+      detail = { changed: statusDifference(before, after).length > 0, a: before, b: after };
     }
     if (kind === 'html') boundedDifference(detail);
     const changed = detail.changed;
