@@ -104,7 +104,11 @@ describe('scope of a report (#287)', () => {
 		expect(lists.attributes('open')).toBeUndefined();
 		expect(lists.get('summary').text()).toBe('Scope details');
 		expect(lists.text()).toContain('Filter of this comparison');
-		expect(wrapper.get('.summary-caption').text()).toContain('2 compared targets · 1 compared viewports');
+		expect(wrapper.get('.summary-caption').text()).toContain('2 compared targets · 1 compared viewport.');
+		const one = scoped();
+		one.entries.length = 1;
+		one.meta.viewports = viewports.slice(0, 2);
+		expect(mount(RunSummary, { props: { report: one } }).get('.summary-caption').text()).toContain('1 compared target · 2 compared viewports.');
 		expect(wrapper.get('.summary-caption').text()).not.toMatch(/\bAll\b|declared/);
 		expect(mount(RunSummary, { props: { report: full() } }).get('.summary-caption').text()).toContain('All 2 targets · 1 declared viewports');
 	});
