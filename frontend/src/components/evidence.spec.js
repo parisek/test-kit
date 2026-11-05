@@ -161,6 +161,19 @@ describe('readable response evidence', () => {
         expect(wrapper.text()).toContain('Requests');
         expect(wrapper.findAll('pre')).toHaveLength(0);
     });
+    it('names the differing fields and shows both values when a redirect differs (R6.13)', () => {
+        const side = (finalPath, redirects) => ({ statusCode: 200, finalPath, redirects, assets: { requests: 4, failed: 0, httpErrors: 0 } });
+        const wrapper = mount(StatusComparison, { props: { data: { a: side('/page', []), b: side('/page/', ['/page']) } } });
+        expect(wrapper.get('[data-testid="status-differs"]').text()).toBe('A and B differ in final path, redirect chain.');
+        expect(wrapper.text()).toContain('/page/');
+        expect(wrapper.text()).toContain('1 redirects');
+    });
+    it('says the fields are equal when only the request counts differ', () => {
+        const side = requests => ({ statusCode: 200, finalPath: '/page', redirects: [], assets: { requests, failed: 0, httpErrors: 0 } });
+        const wrapper = mount(StatusComparison, { props: { data: { a: side(4), b: side(9) } } });
+        expect(wrapper.find('[data-testid="status-differs"]').exists()).toBe(false);
+        expect(wrapper.text()).toContain('Status code, final path and redirect chain are equal');
+    });
     it('makes loading and retry states explicit with central actions', async () => {
         const wrapper = mount(ArtifactEvidence, { props: { kind: 'status', source, row: { artifacts: { status: { state: 'complete', diff: { src: 'status.json' } } } }, evidence: { kind: 'status', loading: true } } });
         expect(wrapper.text()).toContain('Loading evidence');
