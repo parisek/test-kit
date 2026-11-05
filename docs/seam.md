@@ -11,8 +11,9 @@ The seam is everything a project touches: its configuration file, the commands i
 - From the first release candidate tag, the freeze starts. A change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
 - The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The form of the release candidate tag is decided: `vMAJOR.MINOR.PATCH-rc.N` (R13.45, owner decision, 2026-10-19). Only the owner tags it.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
-- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` and the stable tag `v1.0.0` exist (2026-11-04).
+- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7`, the stable tag `v1.0.0` (2026-11-04) and the tag `v1.1.0-rc.1` (2026-11-05) exist.
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
+- One exception exists. The owner allowed the narrowing of `engines.node` to `>=20.19` in the minor release 1.1.0, with a migration note, on 2026-11-06 (#298). See "Runtime requirement". It sets no precedent for another frozen item.
 
 ## Markings
 
@@ -43,6 +44,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `sides.<id>.remote` | boolean | `false` | no | R3.3. Added in 0.5.0. |
 | `sides.<id>.userAgent` | string | the Playwright default | no | R3.4. Only with `remote: true`. 1 to 512 printable ASCII characters. Not in the capture settings hash. Added in 1.0.0-rc.6. |
 | `sides.<id>.challenge` | string | none | no | R3.5. Only with `remote: true`. The one value is `"cloudflare"`. Not in the capture settings hash. Added in 1.0.0-rc.7. |
+| `sides.<id>.allowOrigins` | array | none | no | R3.9. Local or remote side. 1 to 20 entries `{origin, types}`: an HTTPS origin (no path, credentials or wildcard) and 1 or 2 of `stylesheet`, `font`. GET and HEAD only, never a navigation. In the capture settings hash when it is not empty. Added in 1.1. |
 | `sides.<id>.production` | boolean | `false` | no | R6.5. `perf` on this side waits for `--consent` for any number of targets. The side id does not decide. Added in 1.0.0-rc.4. |
 | `sides.<id>.settle` | object | see below | no | Settle recipe (R5.4). |
 | `targets` | list | none | yes | 1 to 1000 entries. |
@@ -83,7 +85,7 @@ Items inside the configuration that stay open:
 | --- | --- | --- |
 | The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
 | Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. |
-| The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, 2026-11-04 and 2026-11-05, not built yet | Specification section 17, items 7 and 10, R13.40, R13.46 to R13.50: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). The design is ADR 0006. The build is #26, milestone 1.1. |
+| The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, 2026-11-04 and 2026-11-05; the ESLint entry is built, the Stylelint entry is not built yet | Specification section 17, items 7 and 10, R13.40, R13.46 to R13.50: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). The design is ADR 0006. The build is #26, milestone 1.1. |
 | The allowlist (`reason`, `owner`) | Not frozen, owner decision open | Moved to #254 (ADR 0004, open question 4). No config key exists. |
 | Selection of checks or contracts per target | Not frozen, decided 2026-11-04 | `scope.checks` on each artifact index, derived from the run settings (ADR 0004, open question 2; R9.10). |
 | Artifact kinds `a11y` and `lint` in `artifacts` | Not frozen, change planned | Both are glossary artifacts (specification section 2). The code rejects both today. They come with `schemaVersion` 3 in 1.1 (specification section 17, item 8). |
@@ -108,7 +110,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 
 | Command | Required input | Marking | Reason |
 | --- | --- | --- | --- |
-| `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. |
+| `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`, `--packs`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. `--packs` is an addition in 1.1 (R13.51, owner decision of 2026-11-04, #231). It is a flag without a value. It runs the packs of the `packs` key on the open page. It is refused on a remote side. Without it nothing changes. |
 | `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. `--target` and `--viewport` are additions (R4.5): they filter the pair and the report records them in `meta.scope`. |
 | `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). Addition in 1.1: `droppedRequestCount`, `droppedWarnings`, `droppedWarningsOmitted` and `droppedNotListed`, present only when a `font` or `stylesheet` request was aborted or a list was cut (R3.8). Addition: `skipped`, present only when the report skipped a cell (R4.5). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
@@ -123,7 +125,7 @@ Other command facts:
 
 - The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
 - The default store directory `.test-kit` is stable (R12.1). Its content layout is not part of the seam.
-- `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today.
+- `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today. Packs run with `--packs`, not with `--artifacts` (R13.51).
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
 - `COMMANDS` and `run` are also exported from the package root (`src/index.js`). No README documents a project import of them. Experimental.
 
@@ -187,7 +189,7 @@ Entry points in `package.json` `exports`. The list on `main` has nine entries. v
 | `./packs/a11y/runner` | Frozen (decided) | Decided by the owner, 2026-10-19. `runAxe(page, options)` and its options. It needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
 | `./packs/swiper` | Experimental | The browser step that collects DOM facts and the version is not built (`src/packs/versioned/README.md`). |
 | `./packs/lint`, `./packs/lint/runner` | Not frozen (decided) | Decided by the owner, 2026-10-19. The pack may change in minor releases. The ESLint and Stylelint seam is decided as entry points with a thin import (specification section 17, item 7; R13.40). It is not built yet. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
-| `./eslint` | Addition planned for 1.1 (decided) | Decided by the owner, 2026-10-22 and 2026-11-04 (issue #26). An ES module that default-exports a flat-config array, with the `portadesign` plugin. The rule IDs, the namespace and the rule options are frozen from the release that ships them (R13.40). Peers are optional (R13.46). A missing required peer throws `LINT_PEER_MISSING`. A missing enhancement peer drops its block with a warning (R13.47). Rule messages carry no project links, and `messageIds` stay (R13.50). Lint needs Node 20.19. A separate change raises `engines`. The config holds no project values (R13.48). Not built yet. |
+| `./eslint` | Addition for 1.1, built (decided) | Decided by the owner, 2026-10-22 and 2026-11-04 (issue #26). An ES module that default-exports a flat-config array, with the `portadesign` plugin. The rule IDs, the namespace and the rule options are frozen from the release that ships them (R13.40). Peers are optional (R13.46). A missing required peer throws `LINT_PEER_MISSING`. A missing enhancement peer drops its block with a warning (R13.47). Rule messages carry no project links, and `messageIds` stay (R13.50). Lint needs Node 20.19. A separate change raises `engines`. The config holds no project values (R13.48). Built in #270 (R13.46 to R13.50, ADR 0006). |
 | `./stylelint` | Addition planned for 1.1 (decided) | Same decision, with the 2026-11-05 details. A CommonJS file that exports a config object, so `require` and `import` both load it (R13.48). The `portadesign` rule IDs and options are frozen from the release that ships them. Not built yet. |
 
 A new pack that a project selects, a new contract set for a new library major, and a new entry point are additions (vision layers rules 6 to 9). Pack identity lives in stable contract IDs.
@@ -222,7 +224,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| `engines.node` in `package.json` | Frozen, narrowed to `>=20.19` (decided) | The owner approved the narrowing on issue #26 on 2026-11-05, because Stylelint 17 needs Node 20.19 (R13.48, ADR 0006). The value was `>=20`. This is a narrowing of a frozen item, so a project on Node 20.0 to 20.18 must update Node before it updates the pin. Migration: run `node --version`, and install Node 20.19 or newer (22 works too). Capture, compare and report need nothing else. `CHANGELOG.md` records the change. |
+| `engines.node` in `package.json` | Frozen (decided) | Narrowed to `>=20.19`. The owner approved the narrowing on issue #26 on 2026-11-05, because Stylelint 17 needs Node 20.19 (R13.48, ADR 0006). The value was `>=20`. This is a narrowing of a frozen item. The owner allowed it in the minor release 1.1.0 as a one-time exception to the freeze rule on 2026-11-06 (#298). A project on Node 20.0 to 20.18 must update Node before it updates the pin. Migration: run `node --version`, and install Node 20.19 or newer (22 works too). Capture, compare and report need nothing else. `CHANGELOG.md` records the change. |
 
 ## 7. Not frozen, owner decision open
 
@@ -236,7 +238,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 ## 8. Gaps found while writing this
 
 1. Decided by the owner, 2026-10-19: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
-2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
+2. (closed) The `packs` configuration key selects packs (R13.44). The selection stays in the key. Since 1.1, `capture --packs` runs the selected packs that have a page step (R13.51, #231). Without the flag no command runs a pack.
 3. (closed) The six built-in checks export `basis` since `schemaVersion` 3 (#230). `text-difference` is `relative`, the other five are `absolute`.
 4. Decided by the owner, 2026-10-19: the release candidate tag is `vMAJOR.MINOR.PATCH-rc.N` (R13.45). The freeze starts at `-rc.1`. Only the owner tags it.
 5. (closed) Question: does a change of the package version make an old run incompatible (R8.9)? Answer, read in the code on 2026-10-19: no. A run does not record the package version. `run.json` `tools` holds the Playwright and Chromium versions and one entry for each other artifact. A comparison needs equal `settingsHash` values and equal Playwright and Chromium entries (`src/compare/runs.js`). The hash covers the viewports, the `settle` recipe, the screenshot settings, the browser settings and the behavior contract fingerprint. It does not cover the `packs` key. A change of the Playwright or Chromium version, or of a capture setting, does make a run incompatible. One consumer project compared runs from `v0.2.1` and `v1.0.0-rc.2` with `incompatible: 0` (verified once, local site). See [migration-guide-tailwind-base.md](migration-guide-tailwind-base.md), Part 1, step 6.
@@ -244,7 +246,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 ## 9. What this document did not check
 
-- The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` and `v1.0.0` exist now. This document was written before them.
+- The tags `v1.0.0-rc.1` to `v1.0.0-rc.7`, `v1.0.0` and `v1.1.0-rc.1` exist now. This document was written before them.
 - One consumer project ran `v1.0.0-rc.2` once, on 2026-10-19, against a local site (see the migration guide). No other project ran against the package. Every other statement about a project is derived from this repository.
 - The viewer was not opened. The seam covers files, commands and the JSON that the code reads and writes.
 - The cap values in the pack API are chosen bounds, not measurements.

@@ -10,7 +10,7 @@
  *   1. Create `rules/<rule-name>.js`.
  *   2. Add `import` + `rules` entry below.
  *   3. Enable it in `../config.js`.
- *   4. Add a test in `tests/unit/eslint-rules.test.js`.
+ *   4. Add a test in `tests/lint-cases/eslint-rules.mjs`.
  */
 
 import noTopLevelHeavyLibImport from "./no-top-level-heavy-lib-import.js";
