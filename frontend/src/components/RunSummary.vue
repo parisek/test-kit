@@ -54,7 +54,7 @@ const aborted = computed(() => droppedRenderRequests(props.report));
             <div v-if="summary.counts.unclassified" class="summary-metric" data-status="unclassified"><strong>{{ summary.counts.unclassified }}</strong><span>unclassified</span></div>
             <div class="summary-metric summary-state" data-status="incomplete" :data-zero="summary.counts.incomplete === 0 || undefined"><strong>{{ summary.counts.incomplete }}</strong><span>Incomplete (state)</span></div>
         </div>
-        <ScopeDetails :report="report" />
+        <ScopeDetails :report="report" :collapsible="!compact" />
         <p v-if="scoped" class="summary-caption">{{ report.entries.length }} compared targets · {{ report.meta.viewports.length }} compared viewports. Counts remain visible under filters.</p>
         <p v-else class="summary-caption">All {{ report.entries.length }} targets · {{ report.meta.viewports.length }} declared viewports. Counts remain visible under filters.</p>
         <p v-if="absent" class="summary-warning" role="status">Absent declared viewport measurements: {{ absent }}. Stored target counts do not include absent rows. Use the missing viewport measurement filter to find these targets.</p>

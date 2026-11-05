@@ -97,10 +97,13 @@ describe('scope of a report (#287)', () => {
 		expect(app.findAll('.scope-details')).toHaveLength(1);
 		app.unmount();
 	});
-	it('keeps the lists with the run cards on the other views', () => {
+	it('keeps the lists in a closed "Scope details" disclosure on the other views', () => {
 		const wrapper = mount(RunSummary, { props: { report: scoped() } });
 		expect(wrapper.find('details.run-details').exists()).toBe(false);
-		expect(wrapper.get('.scope-details').text()).toContain('Filter of this comparison');
+		const lists = wrapper.get('details.scope-details');
+		expect(lists.attributes('open')).toBeUndefined();
+		expect(lists.get('summary').text()).toBe('Scope details');
+		expect(lists.text()).toContain('Filter of this comparison');
 		expect(wrapper.get('.summary-caption').text()).toContain('2 compared targets · 1 compared viewports');
 		expect(wrapper.get('.summary-caption').text()).not.toMatch(/\bAll\b|declared/);
 		expect(mount(RunSummary, { props: { report: full() } }).get('.summary-caption').text()).toContain('All 2 targets · 1 declared viewports');
