@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, isOwnOrigin, decideRequest, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, decideRequest, redirectToAllowedOrigin, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -134,7 +134,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       }
       let topLevel = true;
       try { topLevel = !request.isNavigationRequest() ? false : request.frame().parentFrame() === null; } catch { /* A popup requests its first URL before its frame exists. Fail closed. */ }
-      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), resourceType: request.resourceType(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge });
+      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge, resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
       if (decision !== 'allow') {
         if (decision === 'block') {
           blocked = true;
@@ -149,8 +149,10 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
           const location = response.headers().location;
           // R3.5: a redirect of an allowed write could repeat it on another path, so it fails the capture.
           const write = !['GET', 'HEAD'].includes(request.method());
+          // R3.9: a subresource may also redirect to an allowed origin, for its own resource type.
+          const permitted = href => allowedUrl(href) || redirectToAllowedOrigin({ url: href, navigation: request.isNavigationRequest(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
           if (response.status() >= 300 && response.status() < 400 && (write || (location
-            && !allowedUrl(new URL(location, request.url()).href)))) {
+            && !permitted(new URL(location, request.url()).href)))) {
             blocked = true;
             let target = request.url();
             try { if (location) target = new URL(location, request.url()).href; } catch { /* Keep the request URL. */ }

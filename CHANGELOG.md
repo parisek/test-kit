@@ -15,6 +15,7 @@ Versions follow semver. Each release uses an immutable git tag.
 - `query` copies only `violations` and `checks` from an absolute result, and the check names of `scope`. `summary` copies only `kind`, `runId` and `key` of `subject`. Other keys in a report file never reach the agent (R11.2).
 - The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
 - A remote capture records the requests it aborts per resource type and origin (no path or query) as `dropped` in `run.json`. `diff` copies it into the report. `summary` and the viewer warn when a `font` or `stylesheet` request was aborted, so a page that renders in a fallback font is visible. The verdict does not change (R3.8, #251).
+- A remote side may set `allowOrigins`, for example `[{"origin": "https://use.example-site.net", "types": ["stylesheet", "font"]}]`. The capture then reads those origins with GET and HEAD for the named resource types, so a web font from a font host loads. Everything else stays aborted. The list is part of the capture settings hash, so a pair with different lists is incompatible. A local side refuses the key (R3.9, #251).
 
 ### Changed
 

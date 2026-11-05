@@ -2,6 +2,7 @@ import { builtinChecks } from '../checks/index.js';
 import { validateContractSelection } from '../behavior/contracts.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { BUILTIN_PACK_IDS } from '../packs/ids.js';
+import { ALLOW_ORIGIN_TYPES } from '../capture/helpers.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 function fail(message) { throw new Error(`Invalid configuration: ${message}`); }
@@ -51,6 +52,26 @@ function userAgent(value, name) {
   if (typeof value !== 'string' || !/^[\x21-\x7e](?:[\x20-\x7e]{0,510}[\x21-\x7e])?$/.test(value)) fail(`${name} must be 1..512 printable ASCII characters without leading or trailing space`);
   return value;
 }
+// R3.9: extra origins a remote side may read. Each entry names one HTTPS origin and the
+// resource types it may load. GET and HEAD only is a rule of the request policy, not a key.
+const ALLOW_ORIGINS_MAX = 20;
+function allowOrigins(value, name) {
+  const items = dense(list(value, name, ALLOW_ORIGINS_MAX, 1), name);
+  const result = items.map((entry, index) => {
+    const label = `${name}[${index}]`;
+    object(entry, label, ['origin', 'types']);
+    text(entry.origin, `${label}.origin`, 300);
+    let url;
+    try { url = new URL(entry.origin); } catch { fail(`${label}.origin must be a URL`); }
+    if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) fail(`${label}.origin must be an HTTPS origin without credentials, path, query or fragment`);
+    const types = dense(list(entry.types, `${label}.types`, ALLOW_ORIGIN_TYPES.length, 1), `${label}.types`);
+    for (const type of types) if (typeof type !== 'string' || !ALLOW_ORIGIN_TYPES.includes(type)) fail(`${label}.types must be from: ${ALLOW_ORIGIN_TYPES.join(', ')}`);
+    unique(types, `${label}.types`);
+    return { origin: url.origin, types: [...types] };
+  });
+  unique(result.map(entry => entry.origin), `${name} origin`);
+  return result;
+}
 function targetPath(value, name) {
   text(value, name, 2000);
   if (!value.startsWith('/') || value.startsWith('//') || /[\\\s]/.test(value)) fail(`${name} must be origin-relative`);
@@ -95,7 +116,7 @@ export function normalizeConfig(input) {
   if (!sideEntries.length || sideEntries.length > 20) fail('sides must have 1..20 entries');
   const sides = Object.fromEntries(sideEntries.map(([sideId, side]) => {
     id(sideId, 'side ID');
-    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge']);
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
     // R6.5: the flag, not the side id, marks a production side.
     if (Object.hasOwn(side, 'production') && typeof side.production !== 'boolean') fail(`sides.${sideId}.production must be a boolean`);
@@ -103,11 +124,14 @@ export function normalizeConfig(input) {
     if (Object.hasOwn(side, 'userAgent') && !remote) fail(`sides.${sideId}.userAgent requires remote true`);
     // R3.5: one known CDN challenge. A local side never meets one.
     if (Object.hasOwn(side, 'challenge') && !remote) fail(`sides.${sideId}.challenge requires remote true`);
+    // R3.9: extra readable origins. A local side stays local.
+    if (Object.hasOwn(side, 'allowOrigins') && !remote) fail(`sides.${sideId}.allowOrigins requires remote true`);
     if (Object.hasOwn(side, 'challenge') && side.challenge !== 'cloudflare') fail(`sides.${sideId}.challenge must be "cloudflare"`);
     return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`, remote),
       ...(remote ? { remote: true } : {}),
       ...(Object.hasOwn(side, 'userAgent') ? { userAgent: userAgent(side.userAgent, `sides.${sideId}.userAgent`) } : {}),
       ...(Object.hasOwn(side, 'challenge') ? { challenge: side.challenge } : {}),
+      ...(Object.hasOwn(side, 'allowOrigins') ? { allowOrigins: allowOrigins(side.allowOrigins, `sides.${sideId}.allowOrigins`) } : {}),
       ...(side.production === true ? { production: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));

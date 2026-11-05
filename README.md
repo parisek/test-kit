@@ -119,9 +119,24 @@ A remote run stops at the first sign that the edge challenges or limits it: a
 That capture fails with `REMOTE_EDGE_STOP`. The rest of the run fails with
 `RUN_STOPPED` and sends no request, so a challenge does not grow into a ban.
 
-Aborted third-party requests are not recorded as evidence. A page that needs
-such a request to render differs from the same page with it, so read an
-`unexplained` finding with that in mind.
+A remote side aborts a request to another origin. A web font from a font host is such a
+request, and the page then renders in the fallback font. `run.json` records the aborted
+requests per resource type and origin (no path or query), and `summary` and the viewer
+warn when a `font` or `stylesheet` request was aborted. To load the font, name its origin:
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true,
+  "allowOrigins": [{"origin": "https://use.example-site.net", "types": ["stylesheet", "font"]}]}
+```
+
+The capture then reads that exact HTTPS origin with GET and HEAD for the named types
+(`script`, `stylesheet`, `font`, `image`, `media`). It never uses the list for a
+navigation, and a redirect to an origin that is not named still fails. Name only an
+origin you trust: a script from it runs in the page. The list is part of the capture
+settings hash, so a pair with different lists is incompatible. A local side refuses the key.
+
+Other aborted requests are not evidence. A page that needs such a request to render
+differs from the same page with it, so read an `unexplained` finding with that in mind.
 
 ## Scoped project workflow
 

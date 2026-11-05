@@ -59,11 +59,14 @@ export function isOwnOrigin(value, origin) {
 // A top-level navigation to another origin fails the capture.
 // R3.5: a remote side with `challenge: 'cloudflare'` also allows a POST that is not a
 // navigation (fetch, XHR, beacon) to the challenge path of its own origin.
-export function requestPolicy({ url, method, topLevel, navigation = topLevel, origin, remote, challenge }) {
+// R3.9: a remote side with `allowOrigins` also allows a GET or HEAD subresource of a named
+// origin, when the resource type is in the list of that origin. A navigation never qualifies.
+export function requestPolicy({ url, method, topLevel, navigation = topLevel, resourceType, origin, remote, challenge, allowOrigins }) {
   const read = ['GET', 'HEAD'].includes(method);
   if (!remote) return read && isLocalUrl(url) ? 'allow' : 'block';
   if (!read) return challenge === 'cloudflare' && isChallengeRequest({ url, method, navigation, origin }) ? 'allow' : 'block';
   if (isOwnOrigin(url, origin)) return 'allow';
+  if (!navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins })) return 'allow';
   return topLevel ? 'block' : 'drop';
 }
 
@@ -73,6 +76,21 @@ export function decideRequest(log, args) {
   const decision = requestPolicy(args);
   if (decision === 'drop') recordDropped(log, { url: args.url, resourceType: args.resourceType });
   return decision;
+}
+
+// R3.9: the origin must match exactly, with the URL rules of the own origin (isOwnOrigin):
+// HTTP or HTTPS, no credentials. The resource type must be in the list of that entry.
+export const ALLOW_ORIGIN_TYPES = Object.freeze(['script', 'stylesheet', 'font', 'image', 'media']);
+export function isAllowedOriginRequest({ url, resourceType, allowOrigins }) {
+  if (!Array.isArray(allowOrigins) || typeof resourceType !== 'string') return false;
+  return allowOrigins.some(entry => entry && typeof entry.origin === 'string' && Array.isArray(entry.types)
+    && entry.types.includes(resourceType) && isOwnOrigin(url, entry.origin));
+}
+
+// R3.9: a redirect of a subresource may lead to an allowed origin, for the same resource type.
+// A redirect of a navigation never does: a navigation stays on the own origin.
+export function redirectToAllowedOrigin({ url, navigation, resourceType, allowOrigins }) {
+  return !navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins });
 }
 
 // R3.7: name the first request the capture blocks, so a person can find the cause.
