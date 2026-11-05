@@ -36,6 +36,10 @@ start." No browser starts and no run directory exists. Capture then runs
 `ddev mutagen sync` once before browser work. A wrong checkout or sync
 failure stops capture.
 
+`capture({..., targets, viewports})` takes lists of IDs. The run captures only the selected cells and records
+`selection` in `run.json`. `settings` keeps the full lists, so no settings hash changes (R4.5). `selection.js`
+holds the pure logic. `run.state` is `complete` when every selected cell is captured.
+
 The manifest starts as partial and updates atomically after each capture.
 The screenshot timeout bounds the complete target operation, including font
 settlement. A timeout closes its browser context before the next target starts.
