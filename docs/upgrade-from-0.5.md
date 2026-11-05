@@ -1,7 +1,7 @@
 # Upgrade from v0.5.0 to `main`
 
 Status: measured on 2026-10-19. It serves issue #105 and R13.9.
-`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). At that time no tag newer than `v0.5.0` existed (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). This is history. The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` and the stable tag `v1.0.0` exist now (2026-11-04). A project pins `v1.0.0` or a later stable tag (see [rc-trial.md](rc-trial.md)).
+`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). At that time no tag newer than `v0.5.0` existed (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). This is history. The tags `v1.0.0-rc.1` to `v1.0.0-rc.7`, the stable tag `v1.0.0` (2026-11-04) and the tag `v1.1.0-rc.1` (2026-11-05) exist now. A project pins `v1.0.0` or a later stable tag (see [rc-trial.md](rc-trial.md)).
 
 ## Result
 

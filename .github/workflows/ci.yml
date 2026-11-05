@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ matrix.node == '20' && '20.19' || matrix.node }}
 
       - name: package.json is valid JSON
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
@@ -55,11 +55,13 @@ jobs:
       - run: node tests/integration/check-example-site.mjs
       - run: node tests/integration/check-capture-guards.mjs
       - run: node tests/integration/check-capture-remote.mjs
+      - run: node tests/integration/check-capture-allow-origins.mjs
       - run: node tests/integration/check-capture-scopes.mjs
       - run: node tests/integration/check-styleguide-targets.mjs
       - run: node tests/integration/check-capture-selection.mjs
       - run: node tests/integration/check-compare-selection.mjs
       - run: node tests/integration/check-a11y-runner.mjs
+      - run: node tests/integration/check-capture-packs.mjs
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-history.mjs
       - run: node tests/integration/check-export-guards.mjs

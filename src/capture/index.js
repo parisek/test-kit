@@ -15,7 +15,9 @@ import { promisify } from 'node:util';
 import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
 import { recordSelection, cellSelected } from './selection.js';
-import { isLocalUrl, isOwnOrigin, decideRequest, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, allowedOriginStatusFailure, decideRequest, redirectPermitted, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { planPackRun } from '../packs/select.js';
+import { runPagePacks } from './packs.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -62,7 +64,7 @@ async function playwright() {
   }
 }
 
-async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource) {
+async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun = null) {
   const recipe = settleRecipe(config, side, target);
   const identity = { targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(recipe) };
   const remote = config.sides[side].remote === true;
@@ -74,6 +76,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   let finalPath;
   let unexpectedNavigation = false;
   let context;
+  let verifier;
   let blocked = false;
   // The first blocked request, for the error text. Later ones do not replace it.
   let firstBlocked = null;
@@ -97,7 +100,9 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       reducedMotion: config.artifacts.includes('behavior') ? config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference') : recipe.disableMotion ? 'reduce' : 'no-preference',
       ...(config.artifacts.includes('behavior') && config.behavior.emulate.colorScheme ? { colorScheme: config.behavior.emulate.colorScheme } : {}),
     });
-    if (expired) { await context.close(); throw new Error('Capture deadline exceeded'); }
+    // R3.9: a local context ignores certificate errors, so an allowed origin gets a verifying context.
+    if (config.sides[side].allowOrigins?.length && ignoreHTTPSErrors(config, side)) verifier = await browser.newContext({ ignoreHTTPSErrors: false });
+    if (expired) { await context.close(); await verifier?.close().catch(() => {}); throw new Error('Capture deadline exceeded'); }
     if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
     await context.routeWebSocket('**/*', socket => socket.close());
     const page = await context.newPage();
@@ -136,7 +141,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       }
       let topLevel = true;
       try { topLevel = !request.isNavigationRequest() ? false : request.frame().parentFrame() === null; } catch { /* A popup requests its first URL before its frame exists. Fail closed. */ }
-      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), resourceType: request.resourceType(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge });
+      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge, resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
       if (decision !== 'allow') {
         if (decision === 'block') {
           blocked = true;
@@ -147,19 +152,34 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         // Fetch one response without following redirects. Check Location before
         // the browser can issue a request to its destination.
         try {
-          const response = await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
+          // R3.9: a local context ignores certificate errors. A request to an allowed origin goes through
+          // a context that verifies them, so a bad certificate of a third party fails the request.
+          const viaVerifier = verifier && isAllowedOriginRequest({ url: request.url(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
+          const response = viaVerifier
+            ? await verifier.request.fetch(request.url(), { method: request.method(), headers: request.headers(), maxRedirects: 0, timeout: config.screenshot.timeoutMs })
+            : await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
           const location = response.headers().location;
           // R3.5: a redirect of an allowed write could repeat it on another path, so it fails the capture.
           const write = !['GET', 'HEAD'].includes(request.method());
+          // R3.9: a subresource may also redirect to an allowed origin, for its own resource type.
+          // A redirect from an allowed origin may lead only to an allowed origin.
+          const permitted = href => redirectPermitted({ from: request.url(), to: href, ownTarget: allowedUrl(href), navigation: request.isNavigationRequest(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
           if (response.status() >= 300 && response.status() < 400 && (write || (location
-            && !allowedUrl(new URL(location, request.url()).href)))) {
+            && !permitted(new URL(location, request.url()).href)))) {
             blocked = true;
             let target = request.url();
             try { if (location) target = new URL(location, request.url()).href; } catch { /* Keep the request URL. */ }
             firstBlocked ??= describeBlockedRequest({ url: target, method: request.method(), resourceType: request.resourceType(), topLevel, navigation: request.isNavigationRequest(), redirect: true });
             await route.abort('blockedbyclient');
-          } else await route.fulfill({ response });
-        } catch {
+          } else {
+            // R3.9: an HTTP error answer of an allowed origin fails the capture, so a missing font does not pass in silence.
+            const httpFailure = allowedOriginStatusFailure({ url: request.url(), method: request.method(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins, status: response.status() });
+            if (httpFailure) { blocked = true; firstBlocked ??= httpFailure; await route.abort('blockedbyclient'); } else await route.fulfill({ response });
+          }
+        } catch (error) {
+          // R3.9: any failed fetch of an allowed origin fails the capture, so no page renders in silence without its font.
+          const failed = allowedOriginFailure({ url: request.url(), method: request.method(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins, error });
+          if (failed) { blocked = true; firstBlocked ??= failed; }
           await route.abort('failed').catch(() => {});
         }
       }
@@ -173,7 +193,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     if (remote) edge ??= edgeStop({ status: statusCode, headers: response.headers(), main: true });
     if (edge) throw new Error('Remote edge stop');
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
-    if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior')) {
+    if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior') && !packRun?.ids.length) {
       if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts, ...droppedFields(droppedLog) };
     }
@@ -214,6 +234,14 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         artifacts.content = { ...index, state: 'failed', error: { code: 'CONTENT_CAPTURE_FAILED', message: target.selector ? 'Component content scope is not supported. Select a page target.' : 'Content snapshot is unavailable or exceeds its limit.' } };
       }
     }
+    // R13.51: the selected page packs run on this page. With a screenshot they run after it, so they cannot change its pixels.
+    const runPackStep = async () => {
+      if (!packRun?.ids.length) return;
+      phase = 'packs';
+      Object.assign(artifacts, await runPagePacks({ page, ids: packRun.ids, runDir, targetId: target.id, viewportId: viewport.id,
+        timeoutMs: config.screenshot.timeoutMs, settingsHash: packRun.settingsHash, browserVersion: packRun.browserVersion }));
+      if (expired || edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
+    };
     const captureBehavior = async () => {
       if (!config.artifacts.includes('behavior')) return;
       phase = 'behavior';
@@ -231,6 +259,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     };
     if (!config.artifacts.includes('screenshot')) {
       if (edge || blocked || expired || !allowedUrl(page.url())) throw new Error('Capture is unavailable.');
+      await runPackStep();
       await captureBehavior();
       if (edge) throw new Error('Remote edge stop');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts, ...droppedFields(droppedLog) };
@@ -263,6 +292,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     assertImageBounds(width, height);
     if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
+    await runPackStep();
     await captureBehavior();
     // R3.6: a behavior step can also meet the edge.
     if (edge) throw new Error('Remote edge stop');
@@ -271,10 +301,11 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});
+    if (verifier) await verifier.close().catch(() => {});
     await unlink(file).catch(() => {});
     return { ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
       message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : `The ${phase} step fails. Check the local page and capture recipe.` } };
-  } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
+  } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
 
 // R13.3: one GET to the side origin for the component list. Same certificate policy as the capture contexts.
@@ -295,10 +326,12 @@ async function readStyleguideTargets(tool, config, side) {
   } finally { await context.dispose().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports }) {
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false }) {
   const loaded = await loadConfig(configPath);
   let config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
+  // R13.51: --packs needs a packs key. Without the flag nothing here runs (R5.1).
+  const packPlan = runPacks ? planPackRun(config.packs, { remote: config.sides[side].remote === true }) : null;
   // R4.5: the selection is checked against the full lists before any run directory or browser exists.
   // With targetSource the target list is unknown until the catalogue is read, so the check runs after that read.
   const fromCatalogue = Boolean(config.targetSource);
@@ -354,6 +387,10 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       settingsHash: settingsHash({ ...(kind === 'content' ? contentSettings(config, side) : responseSettings(config, kind)), browser: BROWSER_SETTINGS }),
     }]));
     for (const [artifact, index] of Object.entries(provenance)) run.tools.push({ name: index.tool, version: index.version, settingsHash: index.settingsHash, artifact });
+    // The pack selection is not a capture setting. It stays out of the settings hash and out of the comparable tools (R13.44).
+    const packRun = packPlan?.page.length ? { ids: packPlan.page, browserVersion: browser.version(),
+      settingsHash: settingsHash({ pack: 'a11y', options: {}, browser: BROWSER_SETTINGS }) } : null;
+    if (packPlan) run.packs = { selected: packPlan.selected, skipped: packPlan.skipped };
     await writeManifest(manifestPath, run);
     let stopped = false;
     for (const target of config.targets) for (const viewport of config.viewports) {
@@ -364,14 +401,18 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
           error: { code: 'RUN_STOPPED', message: 'An earlier capture met a remote edge stop. This capture did not run.' } });
         continue;
       }
-      run.captures.push(await captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource));
+      run.captures.push(await captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun));
       stopped = run.captures.at(-1).error?.code === 'REMOTE_EDGE_STOP';
       const behaviorIndex = run.captures.at(-1).artifacts?.behavior;
       if (behaviorIndex?.path && !run.tools.some(item => item.settingsHash === behaviorIndex.settingsHash)) run.tools.push({ name: behaviorIndex.tool, version: behaviorIndex.version, settingsHash: behaviorIndex.settingsHash, artifact: 'behavior' });
+      for (const [kind, index] of Object.entries(run.captures.at(-1).artifacts ?? {})) {
+        if (packRun?.ids.includes(kind) && index.path && index.version !== 'unknown' && !run.tools.some(item => item.artifact === kind)) run.tools.push({ name: index.tool, version: index.version, settingsHash: index.settingsHash, artifact: kind });
+      }
       await writeManifest(manifestPath, run);
     }
     // With a selection, `complete` means every selected cell is captured. `run.selection` tells the reader (R4.5).
-    if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot').every(kind => result.artifacts?.[kind]?.state === 'captured'))) run.state = 'complete';
+    if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot').every(kind => result.artifacts?.[kind]?.state === 'captured')
+      && (packRun?.ids ?? []).every(kind => result.artifacts?.[kind]?.state === 'captured'))) run.state = 'complete';
     await writeManifest(manifestPath, run);
   } catch (error) {
     if (error.code === 'PLAYWRIGHT_VERSION_UNSUPPORTED') throw error;
