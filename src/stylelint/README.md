@@ -62,7 +62,7 @@ The rule files keep the source style of the project they came from (tabs and dou
 
 ## What is not here
 
-- No custom pseudo-classes beyond `root`, `deep` and `global`, and no `ignoreFiles` (R13.48). The project adds them.
+- No custom pseudo-classes and no `ignoreFiles` (R13.48). The shared list holds only the standard `root`. A project adds framework pseudo-classes such as Vue `deep` or CSS Modules `global`, and its own state classes, by restating the rule as shown above.
 - No baseline file (R13.49). The package writes nothing.
 - No change to the `packs/lint` pack. That pack runs the project's linters and reads their output (`src/packs/lint/README.md`).
 

@@ -47,7 +47,8 @@ test('the config enables the five portadesign rules at fixed levels', () => {
 
 test('the config holds no project value: only generic pseudo-classes and no ignore paths (R13.48)', async () => {
   assert.equal('ignoreFiles' in viaRequire, false);
-  assert.deepEqual(viaRequire.rules['selector-pseudo-class-no-unknown'][1].ignorePseudoClasses, ['root', 'deep', 'global']);
+  assert.deepEqual(viaRequire.rules['selector-pseudo-class-no-unknown'][1].ignorePseudoClasses, ['root']);
+  assert.deepEqual(await lint('.card :deep(a) { color: red; }\n'), ['selector-pseudo-class-no-unknown']);
   assert.deepEqual(await lint('a:is-scrolled { color: red; }\n'), ['selector-pseudo-class-no-unknown']);
 });
 

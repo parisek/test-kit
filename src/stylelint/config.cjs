@@ -21,9 +21,10 @@ module.exports = {
     // `@container (((broken` prelude is still reported.
     'at-rule-prelude-no-invalid': [true, { ignoreAtRules: TAILWIND_AT_RULES }],
     'at-rule-no-unknown': [true, { ignoreAtRules: TAILWIND_AT_RULES }],
-    // Generic pseudo-classes only. A project adds its own state classes by restating this rule
-    // with the full list, because Stylelint replaces an option and does not merge it.
-    'selector-pseudo-class-no-unknown': [true, { ignorePseudoClasses: ['root', 'deep', 'global'] }],
+    // No custom pseudo-classes (R13.48). A project adds framework ones (`deep`, `global`) and its
+    // own state classes by restating this rule with the full list, because Stylelint replaces an
+    // option and does not merge it.
+    'selector-pseudo-class-no-unknown': [true, { ignorePseudoClasses: ['root'] }],
 
     // `@custom-variant` bodies use a bare `&` scoping selector. It is not standard CSS nesting,
     // so stylelint-config-standard 40 misreads it as an orphaned nesting selector.
