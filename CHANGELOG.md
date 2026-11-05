@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Changed
+
+- The viewer build uses vite 8.3.5 (was 8.3.4), with the rebuilt `viewer/app.js`. This supersedes the Dependabot update #239.
+
 ### Added
 
 - The viewer names the components a `targetSource: styleguide` run skipped as no fixture: one sentence in the header line ("Not compared: 3 components have no fixture."), and the list in "Run details". A report without `noFixture` shows nothing new. The count equals the `noFixture` count of `summary` (#290).
