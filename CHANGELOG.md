@@ -14,6 +14,7 @@ Versions follow semver. Each release uses an immutable git tag.
 - A rule scope (`applies`) and the scope of an override accept the artifacts `behavior`, `lighthouse`, `lint` and `a11y`, and the kind `single-run`. Before, only `screenshot`, `html`, `status` and `content` were valid. A rule or override can now limit these results on the same axes (R8.5, R9.7, #230).
 - `query` copies only `violations` and `checks` from an absolute result, and the check names of `scope`. `summary` copies only `kind`, `runId` and `key` of `subject`. Other keys in a report file never reach the agent (R11.2).
 - The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
+- Design record for the ESLint and Stylelint entry points: optional peers with set ranges, a clear error for a missing required peer, project values as project input, and disable comments and overrides as the "baselines" (R13.46 to R13.50, ADR 0006, #26). No code changes.
 
 ### Changed
 
