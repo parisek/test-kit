@@ -25,3 +25,4 @@ Context, Decision, Consequences. One file for each decision: `NNNN-kebab-title.m
 | 0003 | Foundations of the vision |
 | 0004 | One result model for pair, single-run and lint results |
 | 0005 | Static data first, viewer without a server |
+| 0006 | ESLint and Stylelint entry points |

@@ -29,7 +29,7 @@ The bootstrap infrastructure issue #3 also belongs to 0.1.0.
 | TK-13 | feat(rules): add evidenced normalization and pair-scoped known differences | TK-01, TK-12 | A rule outside scope cannot hide a difference. Evidence is mandatory. Original data stays available. R5.2–R5.3, R8.2–R8.6. |
 | TK-14 | feat(checks): run starter checks over stored content | TK-12, defaults and retention decisions | A new check runs without a crawl. Version mismatch is explicit. Distinguish decorative empty alt from missing alternatives. Define link coverage. R7.1–R7.6. |
 | TK-15 | feat(behavior): move the runner while retaining project contracts | TK-02, TK-11, contract ownership decision | Existing project discovery and allowlists work. Failed steps retain results and evidence. R6.2–R6.3, R13.41–R13.43. |
-| TK-16 | feat(lint): export compatible ESLint and Stylelint entry points | TK-02, TK-11, entry-point design | Existing rule IDs, namespace, overrides, disable comments, and baselines work. Browser capture dependencies are not required for lint use. R13.40, R13.43. |
+| TK-16 | feat(lint): export compatible ESLint and Stylelint entry points | TK-02, entry-point design (ADR 0006, done). The project switch waits for TK-11 | Existing rule IDs, namespace, overrides and disable comments work. The package writes no baseline file (R13.49). Browser capture dependencies are not required for lint use. R13.40, R13.43, R13.46–R13.50. |
 | TK-17 | feat(perf): measure repeated Lighthouse runs with comparability guards | TK-09, performance decisions | Warm-up, load guard, median, spread, incompatible settings, and budget exit behavior are measured. R6.5–R6.12. |
 | TK-18 | feat(workflow): integrate agent queries with the update workflow | TK-11, TK-13, TK-14, TK-15, TK-17 | An update obtains scoped evidence and reports unresolved changes. The workflow does not accept a difference without evidence. R5.3, R11.5. |
 
@@ -46,8 +46,8 @@ Do not merge removal before the pinned package release exists.
 | 0.1.0 | TK-01–TK-10 | Local screenshot capture, compare, viewer, summary, and verified package installation. |
 | 0.2.0 | TK-11–TK-13 | Project adoption, HTML/status evidence, and explained differences. |
 | 0.3.0 | TK-14–TK-15 | Stored content checks and behavior evidence. |
-| 0.4.0 | TK-16 | Compatible lint entry points. |
 | 0.5.0 | TK-17–TK-18 | Speed evidence and the agent update workflow. |
+| 1.1.0 | TK-16 | Compatible lint entry points (moved from 0.4.0 by the owner, specification section 17, item 8). |
 
 Merge follows the one merge rule in `docs/development-loop.md`. Only the owner tags a stable release.
 Milestones are a plan, not a schedule. Use PATCH releases for fixes between them.
