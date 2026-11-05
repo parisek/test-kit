@@ -20,6 +20,7 @@ A remote side with `challenge: "cloudflare"` also sends a POST that is not a nav
 that POST fails the capture. Every other non-read request still fails.
 A remote run stops at a `cf-mitigated` header on an own-origin response, or a 403 or 429 on the page
 (R3.6). That capture fails with `REMOTE_EDGE_STOP`; the later ones fail with `RUN_STOPPED` and send nothing.
+A remote capture records each request it aborts and keeps, per resource type and origin, as `dropped` (R3.8). The record has no path or query. It holds at most 50 entries.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
 WebSockets are blocked, including local sockets. Version 0.1 captures a static
 state. It does not permit socket traffic. This policy is part of the settings

@@ -15,12 +15,13 @@ Versions follow semver. Each release uses an immutable git tag.
 - A rule scope (`applies`) and the scope of an override accept the artifacts `behavior`, `lighthouse`, `lint` and `a11y`, and the kind `single-run`. Before, only `screenshot`, `html`, `status` and `content` were valid. A rule or override can now limit these results on the same axes (R8.5, R9.7, #230).
 - `query` copies only `violations` and `checks` from an absolute result, and the check names of `scope`. `summary` copies only `kind`, `runId` and `key` of `subject`. Other keys in a report file never reach the agent (R11.2).
 - The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
+- A remote capture records the requests it aborts per resource type and origin (no path or query) as `dropped` in `run.json`. `diff` copies it into the report. `summary` and the viewer warn when a `font` or `stylesheet` request was aborted, so a page that renders in a fallback font is visible. The verdict does not change (R3.8, #251).
 
 ### Changed
 
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
-- The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, R13.9, #230).
-- Migration note, cost 1: the behavior version is 2 (it was 1). A stored version 1 behavior run no longer compares with a new run. The pair reads `incompatible` (R8.9). Capture the older side again.
+- The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, #230). `docs/seam.md` marks `report.json` "Not frozen" (`docs/seam.md`, versions table, row "Report `report.json`"), and the owner decided the break on #230. The alpha clause of R13.9 ended with the stable release and does not cover it.
+- Migration note, cost 1: the behavior version is 2 (it was 1). `docs/seam.md` lists the bump, with the identity of a behavior finding ("Not frozen, decided 2026-11-04"). A stored version 1 behavior run no longer compares with a new run. The pair reads `incompatible` (R8.9). Capture the older side again.
 - Migration note, cost 2: `known_diffs` no longer explains an absolute content finding. A known difference applies to a relative check only (R7.3). The five content checks other than `text-difference`, and `lighthouse-budget`, are absolute. Their findings stay `unexplained` until the allowlist ships (#254).
 - Migration note, cost 3: `record-known` refuses an absolute finding with the error "A known difference applies to a relative check only (R7.3)". Existing `known_diffs` records stay in the config, and they still explain a relative finding.
 - Migration note, cost 4: a stored version 2 report reads as version 3 and sorts its absolute findings again. A finding that the old report showed as `explained` now reads `unexplained`. Run `diff` again to write a version 3 file.
@@ -28,6 +29,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
+- A remote capture no longer records `data:`, `blob:` or other non-http(s) requests in `dropped`. They used list slots and could push real origins out. The viewer copy says "stylesheet" everywhere (R3.8, #251).
 - `capture` and `perf` stop on a DDEV project that is not running and name the fix: "The DDEV project is not running (status: stopped). Run ddev start." The check runs before Playwright loads, so no browser starts and no run directory exists (#255).
 
 ## [1.0.0] - 2026-11-04

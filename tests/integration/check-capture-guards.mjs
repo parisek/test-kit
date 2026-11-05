@@ -38,6 +38,15 @@ try {
   for (const id of ['asset', 'frame', 'popup', 'post', 'external-redirect', 'timeout']) {
     assert.equal(result.run.captures.find(row => row.targetId === id).state, 'failed', `${id}: ${JSON.stringify(result.run.captures)}`);
   }
+  // R3.7: the error names the first blocked request, and says which kind it was.
+  const error = id => result.run.captures.find(row => row.targetId === id).error;
+  for (const id of ['asset', 'frame', 'popup', 'post', 'external-redirect']) assert.equal(error(id).code, 'LOCAL_NAVIGATION_REQUIRED', id);
+  assert.match(error('asset').message, /First blocked request: GET https:\/\/example\.invalid, image, subresource\.$/);
+  assert.match(error('frame').message, /First blocked request: GET https:\/\/example\.invalid, document, frame navigation\.$/);
+  assert.match(error('popup').message, /First blocked request: GET https:\/\/example\.invalid, document, top-level navigation\.$/);
+  assert.match(error('post').message, /First blocked request: POST http:\/\/127\.0\.0\.1:\d+, (?:fetch|xhr), subresource\.$/);
+  assert.match(error('external-redirect').message, /First blocked request: GET https:\/\/example\.invalid, document, top-level navigation, redirect target\.$/);
+  for (const id of ['asset', 'frame', 'popup', 'post', 'external-redirect']) assert.doesNotMatch(error(id).message, /\/submit|\/a\.png/, `${id}: the message names no path`);
   assert.equal(result.run.captures.find(row => row.targetId === 'socket').state, 'captured');
   assert.equal(submissions, 0);
   assert.equal(sockets, 0);

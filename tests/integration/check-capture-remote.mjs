@@ -59,6 +59,12 @@ try {
   const state = id => remote.run.captures.find(row => row.targetId === id).state;
   for (const id of ['home', 'script', 'frame']) assert.equal(state(id), 'captured', `${id}: ${JSON.stringify(remote.run.captures)}`);
   for (const id of ['post', 'beacon', 'external-redirect', 'popup']) assert.equal(state(id), 'failed', `${id}: ${JSON.stringify(remote.run.captures)}`);
+  // R3.8: the capture records the requests it aborts and keeps, per type and origin, and nothing for a clean page.
+  const row = id => remote.run.captures.find(item => item.targetId === id);
+  assert.deepEqual(row('script').dropped, [{ resourceType: 'script', origin: 'https://example.invalid', count: 1 }], JSON.stringify(row('script')));
+  assert.deepEqual(row('frame').dropped, [{ resourceType: 'document', origin: 'https://example.invalid', count: 1 }], JSON.stringify(row('frame')));
+  assert.equal(Object.hasOwn(row('home'), 'dropped'), false);
+  assert.doesNotMatch(JSON.stringify(row('script')), /tag\.js/);
   assert.equal(remote.run.settings.sides.production.remote, true);
   assert.equal(submissions, 0);
 
