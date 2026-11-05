@@ -15,7 +15,11 @@ export function reportScope(report) {
 	const declared = new Set((report.runs ?? []).flatMap((run) => (run.settings?.viewports ?? []).map((viewport) => viewport.id)));
 	const ofViewports = declared.size >= viewportIds.length && declared.size > 0 ? declared.size : null;
 	const allCells = cells + meta.skipped;
-	const ofTargets = ofViewports !== null && allCells % ofViewports === 0 && allCells / ofViewports >= entries.length ? allCells / ofViewports : null;
+	// The total is shown only when it is provably right: every compared target has one row for each compared viewport
+	// (so the compared cells are a full grid), and the cells divide by the declared viewports with no rest.
+	const grid = entries.every((entry) => entry.viewports?.length === viewportIds.length
+		&& entry.viewports.every((row) => viewportIds.includes(row.id)));
+	const ofTargets = grid && ofViewports !== null && allCells % ofViewports === 0 && allCells / ofViewports >= entries.length ? allCells / ofViewports : null;
 	return {
 		targets: entries.length, ofTargets,
 		viewports: viewportIds.length, ofViewports,

@@ -4,8 +4,10 @@ import { computed } from 'vue';
 import { verdictSentence } from '../state/home-model.js';
 import { droppedRenderRequests } from '../state/dropped.js';
 import ScopeDetails from './ScopeDetails.vue';
+import { reportScope } from '../../../src/report/scope.js';
 const props = defineProps({ report: Object, summary: Object, compact: Boolean });
-const scoped = computed(() => props.report.meta?.scope !== undefined);
+// The caption counts targets as the scope line does: the reserved @project entry is not a target.
+const scope = computed(() => reportScope(props.report));
 // A pair report has two runs. A subject report has one (R9.7).
 const sides = computed(() => {
     const pair = props.report.pair;
@@ -55,7 +57,7 @@ const aborted = computed(() => droppedRenderRequests(props.report));
             <div class="summary-metric summary-state" data-status="incomplete" :data-zero="summary.counts.incomplete === 0 || undefined"><strong>{{ summary.counts.incomplete }}</strong><span>Incomplete (state)</span></div>
         </div>
         <ScopeDetails :report="report" :collapsible="!compact" />
-        <p v-if="scoped" class="summary-caption">{{ report.entries.length }} compared {{ report.entries.length === 1 ? 'target' : 'targets' }} · {{ report.meta.viewports.length }} compared {{ report.meta.viewports.length === 1 ? 'viewport' : 'viewports' }}. Counts remain visible under filters.</p>
+        <p v-if="scope" class="summary-caption">{{ scope.targets }} compared {{ scope.targets === 1 ? 'target' : 'targets' }} · {{ scope.viewports }} compared {{ scope.viewports === 1 ? 'viewport' : 'viewports' }}. Counts remain visible under filters.</p>
         <p v-else class="summary-caption">All {{ report.entries.length }} targets · {{ report.meta.viewports.length }} declared viewports. Counts remain visible under filters.</p>
         <p v-if="absent" class="summary-warning" role="status">Absent declared viewport measurements: {{ absent }}. Stored target counts do not include absent rows. Use the missing viewport measurement filter to find these targets.</p>
         <p v-if="availability" class="summary-warning" role="status">Availability problems: {{ availability }} viewport measurements across all targets. Availability is separate from screenshot class.</p>

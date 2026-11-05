@@ -42,6 +42,29 @@ describe('scope of a report (#287)', () => {
 		expect(scope).toMatchObject({ targets: 2, ofTargets: 63, viewports: 1, ofViewports: 4, skipped: 250 });
 		expect(scopeLine(scope)).toBe('Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped.');
 	});
+	it('gives no total when the compared cells are not a full grid, even when the division is exact', () => {
+		const report = scoped();
+		report.meta.viewports = viewports.slice(0, 2);
+		report.entries[0].viewports = [{ id: 'phone', state: 'complete', ratio: 0 }, { id: 'tablet', state: 'complete', ratio: 0 }];
+		// 3 cells + 5 skipped = 8 = 2 targets x 4 viewports: exact by chance, but the rows are not a grid.
+		report.meta.skipped = 5;
+		const scope = reportScope(report);
+		expect(scope.ofTargets).toBeNull();
+		expect(scopeLine(scope)).toBe('Scope: 2 targets, 2 viewports compared. 5 cells skipped.');
+	});
+	it('does not count the reserved @project entry as a target: the line, the caption and the target list agree', async () => {
+		const report = scoped();
+		report.entries.push({ id: '@project', kind: 'project', title: 'Project', viewports: [], artifacts: {} });
+		const scope = reportScope(report);
+		expect(scope).toMatchObject({ targets: 2, ofTargets: 63, targetIds: ['home', 'about'] });
+		expect(mount(RunSummary, { props: { report } }).get('.summary-caption').text()).toContain('2 compared targets · 1 compared viewport.');
+		const app = await open(report);
+		await view(app, 'evidence');
+		expect(app.get('[data-testid="scope-line"]').text()).toBe('Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped.');
+		expect(app.get('details.run-details .summary-caption').text()).toContain('2 compared targets');
+		expect(app.findAll('.target-row').map((row) => row.get('.target-title').text()).filter((title) => title !== 'Project')).toEqual(['home', 'about']);
+		app.unmount();
+	});
 	it('names no total it cannot derive, and says so plainly', () => {
 		const report = scoped();
 		report.runs = [{ id: 'a' }, { id: 'b' }];
