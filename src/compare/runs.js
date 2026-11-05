@@ -16,12 +16,23 @@ import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
 
-// The text of a status finding: each differing field with both values. A path is cut at 120 characters.
-function statusMessage({ a, b }) {
-	const cut = path => path.length > 120 ? path.slice(0, 120) + '…' : path;
-	const chain = list => list.length ? list.slice(0, 5).map(cut).join(' > ') + (list.length > 5 ? ` > … (${list.length} steps)` : '') : 'none';
-	const parts = { statusCode: () => `status A ${a.statusCode}, B ${b.statusCode}`, finalPath: () => `final path A ${cut(a.finalPath)}, B ${cut(b.finalPath)}`,
-		redirects: () => `redirects A ${chain(a.redirects)}, B ${chain(b.redirects)}` };
+// The text of a status finding: each differing field with both values, bounded in size.
+// A path is cut around the first character where A and B differ. A chain shows the steps around its first differing step.
+export function statusMessage({ a, b }) {
+	const common = (x, y) => { let n = 0; while (n < x.length && n < y.length && x[n] === y[n]) n++; return n; };
+	const path = (value, other) => {
+		const start = Math.max(0, common(value, other) - 30);
+		const text = value.slice(start, start + 120);
+		return (start ? '…' : '') + text + (start + 120 < value.length ? '…' : '');
+	};
+	const chain = (list, other) => {
+		if (!list.length) return 'none';
+		let first = 0; while (first < list.length && first < other.length && list[first] === other[first]) first++;
+		const start = Math.max(0, Math.min(first, list.length - 1) - 1), end = Math.min(list.length, start + 4);
+		return (start ? `(${start} before) ` : '') + list.slice(start, end).map((step, k) => path(step, other[start + k] ?? '')).join(' > ') + (end < list.length ? ` > (${list.length - end} more)` : '');
+	};
+	const parts = { statusCode: () => `status A ${a.statusCode}, B ${b.statusCode}`, finalPath: () => `final path A ${path(a.finalPath, b.finalPath)}, B ${path(b.finalPath, a.finalPath)}`,
+		redirects: () => `redirects A ${chain(a.redirects, b.redirects)}, B ${chain(b.redirects, a.redirects)}` };
 	const fields = statusDifference(a, b);
 	return fields.length ? `HTTP response differs: ${fields.map(field => parts[field]()).join('; ')}.` : null;
 }
