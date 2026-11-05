@@ -21,6 +21,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- The `changed` flag of a stored `status` diff is true only when the final status, the final path or the redirect chain differs. Before, a change in the asset counts alone also set it. `query` and the viewer now agree with the finding. A report written earlier keeps `changed: true` for such a pair. Run `diff` again to refresh it (R6.13, #278).
 - Migration note: a pair that captured `status` and had a redirect or status difference read `match` before. It now reads `unexplained` until a known difference explains it. A pair with equal status, path and chain is unchanged. A status-only cell stays unclassified. R6.1 now says so (#278).
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
 - The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, #230). `docs/seam.md` marks `report.json` "Not frozen" (`docs/seam.md`, versions table, row "Report `report.json`"), and the owner decided the break on #230. The alpha clause of R13.9 ended with the stable release and does not cover it.

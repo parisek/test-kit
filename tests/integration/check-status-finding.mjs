@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { capture } from '../../src/capture/index.js';
 import { compareRuns } from '../../src/compare/runs.js';
 import { loadConfig } from '../../src/config/index.js';
+import { queryArtifact } from '../../src/query/artifact.js';
 import { summarizeReport } from '../../src/query/summary.js';
 
 const directory = await mkdtemp(join(tmpdir(), 'test-kit-status-'));
@@ -19,8 +20,9 @@ let mode = 'plain';
 const page = '<!doctype html><html><body><h1>Same visible page</h1></body></html>';
 const site = createServer((request, response) => {
   if (mode === 'redirect' && request.url === '/page') { response.writeHead(301, { Location: '/page/' }); response.end(); return; }
+  if (request.url === '/extra.css') { response.writeHead(200, { 'Content-Type': 'text/css' }); response.end('body{}'); return; }
   response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  response.end(page);
+  response.end(mode === 'assets' ? page.replace('<body>', '<head><link rel="stylesheet" href="/extra.css"></head><body>') : page);
 });
 await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
 const origin = 'http://127.0.0.1:' + site.address().port;
@@ -33,6 +35,8 @@ try {
   const compare = (name, runA, runB, policy = {}) => compareRuns({ runsRoot, runA: runA.run.id, runB: runB.run.id, outputDir: join(directory, name), known_diffs: policy.known_diffs });
   const plainA = await capture({ configPath, side: 'local' });
   const plainB = await capture({ configPath, side: 'local' });
+  mode = 'assets';
+  const assetsOnly = await capture({ configPath, side: 'local' });
   mode = 'redirect';
   // The requested path is the same on both runs. The second run ends on /page/ after one redirect.
   const redirected = await capture({ configPath, side: 'local' });
@@ -44,6 +48,15 @@ try {
   assert.equal(equal.report.entries[0].viewports[0].artifacts.status.diff.changed, false);
   // The report shape does not change: the status index keeps the same keys, and no finding exists.
   assert.deepEqual(Object.keys(equal.report.entries[0].viewports[0].artifacts.status.diff), ['kind', 'src', 'tool', 'version', 'settingsHash', 'changed']);
+
+  // 1b. Only the asset counts differ: no finding, the stored diff says changed false, and query agrees (R6.13).
+  const assetBody = JSON.parse(await readFile(join(assetsOnly.runDir, assetsOnly.run.captures[0].artifacts.status.path)));
+  assert.notEqual(assetBody.assets.requests, JSON.parse(await readFile(join(plainA.runDir, plainA.run.captures[0].artifacts.status.path))).assets.requests);
+  const assets = await compare('assets', plainA, assetsOnly);
+  assert.deepEqual(assets.report.findings, []);
+  assert.equal(assets.report.entries[0].viewports[0].artifacts.status.diff.changed, false);
+  assert.equal((await queryArtifact(assets.reportPath, { target: 'home', viewport: 'wide', artifact: 'status' })).diff.changed, false);
+  assert.equal(summarizeReport(assets.report).counts.match, 1);
 
   // 2. A redirect on side B: both sides end with status 200, the path and the chain differ.
   const body = JSON.parse(await readFile(join(redirected.runDir, redirected.run.captures[0].artifacts.status.path)));
