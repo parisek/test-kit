@@ -52,6 +52,7 @@ jobs:
       - run: node tests/integration/check-capture-remote.mjs
       - run: node tests/integration/check-capture-scopes.mjs
       - run: node tests/integration/check-capture-selection.mjs
+      - run: node tests/integration/check-compare-selection.mjs
       - run: node tests/integration/check-a11y-runner.mjs
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-history.mjs
