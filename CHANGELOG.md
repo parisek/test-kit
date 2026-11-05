@@ -4,10 +4,18 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Changed
+
+- The viewer build uses vite 8.3.5 (was 8.3.4), with the rebuilt `viewer/app.js`. This supersedes the Dependabot update #239.
+
 ### Added
 
 - `capture --packs` runs the packs of the `packs` key that have a page step on the page that capture already has open (R13.51, #231). Only `a11y` has one today. `lint` and `swiper` are listed in the output as skipped. `diff` writes the stored result into the report as an absolute result, and the viewer and `summary` show it. A missing `axe-core` gives `missing` and a broken run gives `failed`; both make the run `partial`. Without the flag nothing runs. The flag is an addition to the frozen `capture` command (`docs/seam.md`).
 - The viewer names the components a `targetSource: styleguide` run skipped as no fixture: one sentence in the header line ("Not compared: 3 components have no fixture."), and the list in "Run details". A report without `noFixture` shows nothing new. The count equals the `noFixture` count of `summary` (#290).
+
+### Changed
+
+- Docs only: the tag lists name `v1.1.0-rc.1`. R11.2 names the 60000-byte bound and the cut marks. R4.5 records the scope line of the viewer. DESIGN.md names `noFixture` in the scope line rule.
 
 ### Fixed
 
@@ -49,7 +57,6 @@ First release candidate for 1.1.0. It is not a stable release. `package.json` sa
 - Migration note, cost 3: `record-known` refuses an absolute finding with the error "A known difference applies to a relative check only (R7.3)". Existing `known_diffs` records stay in the config, and they still explain a relative finding.
 - Migration note, cost 4: a stored version 2 report reads as version 3 and sorts its absolute findings again. A finding that the old report showed as `explained` now reads `unexplained`. Run `diff` again to write a version 3 file.
 - Migration note: a reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion`. Update the viewer and the package together. A version 2 behavior finding gets the catalog key `behavior`, because it names a step id and not a contract.
-
 
 ### Fixed
 
@@ -99,7 +106,6 @@ Sixth release candidate for 1.0.0. It is not a stable release. A remote side can
 
 Fifth release candidate for 1.0.0. It is not a stable release. It fixes viewer findings of the redesign acceptance (#148), hardens two pack checks, and documents the server cache rule for a publish directory (#217).
 
-
 ### Fixed
 
 - Muted viewer text takes its color from the token, not from opacity, so it meets the contrast rule in both themes (#219).
@@ -129,7 +135,6 @@ Fourth release candidate for 1.0.0. It is not a stable release. It replaces the 
 - A side can carry `production: true`. `perf` against such a side needs `--consent` (#177).
 - The review skill `vision-check` and the record checker `scripts/milestone/check-record.js` (#159).
 - The design files `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md`. They bind viewer work (#150, #151, #154).
-
 
 ### Fixed
 
@@ -225,7 +230,6 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Set `package.json` and `package-lock.json` to version `1.0.0` for the tag `v1.0.0-rc.1`.
 - Note: the code still writes `schemaVersion` 2 and the built-in checks still export no `basis`. Both wait for `schemaVersion` 3.
 
-
 ### Fixed
 
 - Fix `run`, `before` and `after` for a config without an `artifacts` key (R5.1, #128). Suite `all` now uses the same default as config validation (`screenshot`). Before, they stopped with "Unknown suite". No report change.
@@ -249,7 +253,6 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Export report viewers and local history as portable static directories.
 - Share the server evidence allowlist with export and give untrusted HTML inert names.
 
-
 ### Fixed
 
 - Resolve viewer report and artifact URLs within their mounted directory prefix.
@@ -264,7 +267,6 @@ First release candidate for 1.0.0. The owner tags it. It is not a stable release
 - Keep one complete baseline per selection and retain all local runs without automatic deletion.
 
 ## [0.2.1] - 2026-10-10
-
 
 ### Fixed
 
