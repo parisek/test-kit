@@ -81,14 +81,15 @@ function variantsOf(entry, owner) {
 
 // One entry gives its default target and, with `variants`, one target for each variant.
 // The target ID is `<id>` and `<id>--<variant>`. A page uses `page--<id>` and `page--<id>--<variant>`, so a page never collides with a component.
-// With `variants` set, a default target exists only when the entry has a default fixture (`has_default_variant`), because the grid shows no default tile otherwise.
+// With `variants` set, a default target exists only when the entry has a default fixture (`has_default_variant` is not `false`), because the grid shows no default tile otherwise.
+// An entry that then has no target at all is listed as no fixture by the caller.
 function entryTargets(entry, { kind, mount, variants }) {
   const prefix = kind === 'page' ? 'page--' : '';
   const path = kind === 'page' ? pagePath : componentPath;
   const name = boundedTitle(entry.name, entry.id);
   const found = variants ? variantsOf(entry, entry.id) : [];
   const targets = [];
-  if (!found.length || entry.has_default_variant !== false) targets.push({ id: `${prefix}${entry.id}`, kind, title: name, path: path(entry.id, mount) });
+  if (!variants || entry.has_default_variant !== false) targets.push({ id: `${prefix}${entry.id}`, kind, title: name, path: path(entry.id, mount) });
   for (const variant of found) {
     const title = `${name} / ${boundedTitle(variant.title, variant.id)}`;
     targets.push({ id: `${prefix}${entry.id}--${variant.id}`, kind, title: title.length <= 200 ? title : `${prefix}${entry.id}--${variant.id}`, path: path(entry.id, mount, variant.id), owner: `${prefix}${entry.id}` });
@@ -112,7 +113,9 @@ export function parseComponents(payload, { mount = DEFAULT_MOUNT, include, varia
       const prefix = kind === 'page' ? 'page--' : '';
       known.add(`${prefix}${entry.id}`);
       if (entry.has_styleguide === false) { noFixture.add(`${prefix}${entry.id}`); continue; }
-      for (const target of entryTargets(entry, { kind, mount, variants })) { known.add(target.id); all.push(target); }
+      const made = entryTargets(entry, { kind, mount, variants });
+      if (!made.length) { noFixture.add(`${prefix}${entry.id}`); continue; }
+      for (const target of made) { known.add(target.id); all.push(target); }
     }
   };
   add(components, 'component');

@@ -153,14 +153,19 @@ test('parseComponents: variants are off by default and an old catalogue reads th
 
 test('parseComponents: variants add one target for each variant, with the variant in the path (R13.52)', () => {
   const { targets, noFixture } = parseComponents(withVariants(), { variants: true });
-  assert.deepEqual(targets.map(target => target.id), ['banner--wide', 'card', 'hero', 'hero--dark-bg', 'hero--secondary']);
+  assert.deepEqual(targets.map(target => target.id), ['banner--wide', 'hero', 'hero--dark-bg', 'hero--secondary']);
   const dark = targets.find(target => target.id === 'hero--dark-bg');
   assert.deepEqual(dark, { id: 'hero--dark-bg', kind: 'component', title: 'Hero / Dark background', path: '/styleguide/render/component/hero?canvas&variant=dark-bg' });
   assert.equal(targets.find(target => target.id === 'hero--secondary').title, 'Hero / secondary', 'An empty variant title falls back to the variant ID.');
   // No default fixture, so no default tile: the grid shows none and the default render would fall back to the bare template.
   assert.equal(targets.some(target => target.id === 'banner'), false);
-  assert.equal(targets.find(target => target.id === 'card').path, '/styleguide/render/component/card?canvas', 'No variants: the default target stays.');
-  assert.deepEqual(noFixture, ['hero--x']);
+  // No default fixture and no variant: nothing to render. The entry is listed as no fixture, not dropped silently.
+  assert.equal(targets.some(target => target.id === 'card'), false);
+  assert.deepEqual(noFixture, ['card', 'hero--x']);
+  // An older styleguide that omits has_default_variant keeps its default target.
+  assert.deepEqual(parseComponents([{ id: 'old', has_styleguide: true }], { variants: true }).targets.map(target => target.id), ['old']);
+  // Without the option nothing changes: the entry keeps its default target.
+  assert.ok(parseComponents(withVariants()).targets.some(target => target.id === 'card'));
 });
 
 test('parseComponents: a bad variant list or a repeated or long target ID stops the read (R13.52)', () => {
@@ -196,13 +201,13 @@ test('parseComponents: include names targets, a component also selects its varia
   assert.deepEqual(ids(['hero']), ['hero', 'hero--dark-bg', 'hero--secondary']);
   assert.deepEqual(ids(['hero--dark-bg']), ['hero--dark-bg']);
   assert.deepEqual(ids(['page--home']), ['page--home', 'page--home--empty']);
-  assert.deepEqual(ids(['page--home--empty', 'card']), ['card', 'page--home--empty']);
+  assert.deepEqual(ids(['page--home--empty', 'banner']), ['banner--wide', 'page--home--empty']);
   assert.throws(() => parseComponents(withVariants(), { ...options, include: ['hero--gone'] }), error => error.code === 'STYLEGUIDE_COMPONENT_UNKNOWN');
   // A variant or page ID is unknown while its option is off.
   assert.throws(() => parseComponents(withVariants(), { include: ['hero--dark-bg'] }), error => error.code === 'STYLEGUIDE_COMPONENT_UNKNOWN');
   assert.throws(() => parseComponents(withVariants(), { include: ['page--home'] }), error => error.code === 'STYLEGUIDE_COMPONENT_UNKNOWN');
   // A page with no fixture named in include is skipped and listed, not unknown.
-  assert.deepEqual(parseComponents(withVariants(), { ...options, include: ['card', 'page--blog'] }).noFixture, ['page--blog']);
+  assert.deepEqual(parseComponents(withVariants(), { ...options, include: ['card', 'hero', 'page--blog'] }).noFixture, ['card', 'page--blog']);
 });
 
 test('readComponents: pages and variants add one GET for the page list only (R13.52)', async () => {
