@@ -30,6 +30,7 @@ test('R7.3: an absolute finding carries runId and no evidence fingerprint, and a
 		await writeRun(runs, 'run-b', snapshot('', 'After text'));
 		const absolute = await compareRuns({ runsRoot: runs, runA: 'run-a', runB: 'run-b', outputDir: join(dir, 'absolute'), contentChecks: ['empty-title'] });
 		assert.equal(absolute.report.findings.length, 1);
+		assert.equal('project' in absolute.report.meta, false, 'A report names no project when the config sets none (#282).');
 		const [empty] = absolute.report.findings;
 		assert.equal(empty.checkId, 'empty-title');
 		assert.equal(empty.runId, 'run-b');
