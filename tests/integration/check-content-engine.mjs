@@ -53,8 +53,14 @@ try {
   // R7.3: an absolute finding carries its run and stays unexplained, so record-known refuses it (#254).
   const absolute = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'absolute'), contentChecks: ['empty-title'] });
   assert.equal(absolute.report.schemaVersion, 3);
-  assert.equal(absolute.report.findings.length, 1); assert.equal(absolute.report.findings[0].checkId, 'empty-title');
-  assert.equal(absolute.report.findings[0].runId, b.run.id);
+  // The 'linked' target answers 200 on A and 404 on B, so the pair also holds one status finding (R6.13, #278).
+  const contentFindings = absolute.report.findings.filter(finding => finding.artifact === 'content');
+  assert.equal(contentFindings.length, 1); assert.equal(contentFindings[0].checkId, 'empty-title');
+  assert.equal(contentFindings[0].runId, b.run.id);
+  const statusFindings = absolute.report.findings.filter(finding => finding.artifact === 'status');
+  assert.equal(statusFindings.length, 1); assert.equal(statusFindings[0].targetId, 'linked');
+  assert.match(statusFindings[0].message, /status A 200, B 404/);
+  assert.equal(absolute.report.findings.length, 2);
   assert.deepEqual(absolute.report.checks, { 'empty-title': { basis: 'absolute', layer: 'package', title: 'Page title' } });
   assert.deepEqual(absolute.report.entries[0].viewports[0].artifacts.content.scope, { checks: ['empty-title'] });
   assert.equal(targetClass(absolute.report, absolute.report.entries[0]), 'unexplained');
@@ -63,8 +69,9 @@ try {
   await assert.rejects(recordKnown({ reportPath: absolute.reportPath, configPath, target: 'home', viewport: 'wide', artifact: 'content', cause: 'planned-title-change', reason: 'The anonymous fixture intentionally changes its title.' }), /relative check only/);
   const rerun = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'rerun'), contentChecks: ['text-difference'] });
   assert.equal(rerun.report.entries[0].viewports[0].artifacts.content.state, 'complete');
-  assert.equal(rerun.report.findings.length, 1); assert.equal(rerun.report.findings[0].checkId, 'text-difference');
-  assert.equal(rerun.report.findings[0].runId, undefined);
+  const rerunContent = rerun.report.findings.filter(finding => finding.artifact === 'content');
+  assert.equal(rerunContent.length, 1); assert.equal(rerunContent[0].checkId, 'text-difference');
+  assert.equal(rerunContent[0].runId, undefined);
   config.checks = ['text-difference'];
   await writeFile(configPath, JSON.stringify(config));
   await recordKnown({ reportPath: rerun.reportPath, configPath, target: 'home', viewport: 'wide', artifact: 'content', cause: 'planned-title-change', reason: 'The anonymous fixture intentionally changes its title.' });

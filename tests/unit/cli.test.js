@@ -68,7 +68,8 @@ test('record-known requires exact selectors and explicit evidence text', () => {
   const args = ['record-known', 'report.json', '--config', 'config.json', '--target', 'home', '--viewport', 'wide', '--artifact', 'html', '--cause', 'expected', '--reason', 'Observed difference'];
   assert.equal(parseCommand(args).command, 'record-known');
   assert.throws(() => parseCommand(args.slice(0, -2)), /requires/);
-  assert.throws(() => parseCommand(args.map(value => value === 'html' ? 'status' : value)), /requires/);
+  assert.equal(parseCommand(args.map(value => value === 'html' ? 'status' : value)).options.artifact, 'status');
+  assert.throws(() => parseCommand(args.map(value => value === 'html' ? 'lighthouse' : value)), /requires/);
 });
 
 test('performance selection and budget flags are explicit and scoped', () => {
