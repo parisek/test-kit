@@ -103,6 +103,9 @@ test('the incompatible diagnostic names the differing setting and both values (R
   assert.match(incompatibleDiagnostic(run(base), run({ ...base, viewports: [{ id: 'desktop', width: 1440, height: 800 }] })), /viewports \(A: /);
   assert.match(incompatibleDiagnostic(run(base), run({ ...base, screenshot: { fullPage: false } })), /screenshot \(A: .*true.*, B: .*false/);
   assert.match(incompatibleDiagnostic(run(base), run(base, '2')), /tool versions \(A: .*1.*, B: .*2.*\)/);
+  const listed = { ...base, allowOrigins: [{ origin: 'https://use.example-site.net', types: ['font'] }] };
+  assert.match(incompatibleDiagnostic(run(base), run(listed)), /allowOrigins \(A: unset, B: \[/);
+  assert.match(incompatibleDiagnostic(run(listed), run(base)), /allowOrigins \(A: \[.*\], B: unset\)/);
   const long = incompatibleDiagnostic(run(base), run({ ...base, settle: { ...base.settle, selectors: ['x'.repeat(500)] } }));
   assert.ok(long.length < 200 && !/\n/.test(long));
   assert.equal(incompatibleDiagnostic(run(base), run(base)), 'Capture settings or tool versions differ.');

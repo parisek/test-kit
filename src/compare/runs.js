@@ -157,7 +157,7 @@ function settingDiffs(runA, runB, captureA, captureB) {
     for (const key of keys) add(`settle.${key}`, a.settle?.[key], b.settle?.[key]);
   } else add('settle', a.settle, b.settle);
   add('screenshot', a.screenshot, b.screenshot);
-  add('allowOrigins', a.allowOrigins ?? null, b.allowOrigins ?? null);
+  add('allowOrigins', a.allowOrigins, b.allowOrigins);
   const tool = run => (run?.tools ?? []).filter(item => !item.artifact || item.artifact === 'screenshot').map(item => [item.name, item.version]);
   add('tool versions', tool(runA), tool(runB));
   return diffs;
