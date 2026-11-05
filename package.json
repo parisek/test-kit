@@ -16,7 +16,8 @@
     "./packs/a11y/runner": "./src/packs/a11y/runner.js",
     "./packs/swiper": "./src/packs/versioned/swiper.js",
     "./packs/lint": "./src/packs/lint/index.js",
-    "./packs/lint/runner": "./src/packs/lint/runner.js"
+    "./packs/lint/runner": "./src/packs/lint/runner.js",
+    "./eslint": "./src/eslint/index.js"
   },
   "files": [
     "bin",
@@ -41,18 +42,46 @@
     "demo:perf": "node scripts/demo-perf.mjs"
   },
   "peerDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": ">=1.49",
     "axe-core": "^4.10.0",
-    "lighthouse": "^13.5.0"
+    "eslint": "^9.39.5",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "globals": "^17.12.0",
+    "lighthouse": "^13.5.0",
+    "typescript-eslint": "^8.70.0",
+    "vue-eslint-parser": "^10.4.1"
   },
   "peerDependenciesMeta": {
-    "axe-core": {
+    "@eslint/js": {
       "optional": true
     },
     "@playwright/test": {
       "optional": true
     },
+    "axe-core": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    },
+    "eslint-plugin-import": {
+      "optional": true
+    },
+    "eslint-plugin-vue": {
+      "optional": true
+    },
+    "globals": {
+      "optional": true
+    },
     "lighthouse": {
+      "optional": true
+    },
+    "typescript-eslint": {
+      "optional": true
+    },
+    "vue-eslint-parser": {
       "optional": true
     }
   },
@@ -61,9 +90,17 @@
     "pngjs": "7.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.5",
     "@playwright/test": "1.64.1",
     "axe-core": "4.14.0",
-    "lighthouse": "13.5.0"
+    "eslint": "9.39.5",
+    "eslint-plugin-import": "2.32.0",
+    "eslint-plugin-vue": "10.12.0",
+    "globals": "17.14.0",
+    "lighthouse": "13.5.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vue-eslint-parser": "10.4.1"
   },
   "license": "MIT"
 }

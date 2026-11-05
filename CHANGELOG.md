@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- Entry point `@parisek/test-kit/eslint`: the shared flat config and the four `portadesign` rules (`no-top-level-heavy-lib-import`, `no-deprecated-dependency`, `no-top-level-throw`, `require-reduced-motion-guard`). Rule IDs and the namespace stay as in the first consumer project. The config holds no vendor globals and no ignore paths: a project adds them after the array. `eslint`, `@eslint/js`, `eslint-plugin-import`, `eslint-plugin-vue`, `vue-eslint-parser`, `globals` and `typescript-eslint` are optional peers. A missing `@eslint/js` or `eslint-plugin-import` throws `LINT_PEER_MISSING`. A missing enhancement prints one warning. Importing the entry loads no browser package (R13.40, R13.46 to R13.49, #26).
+
 ### Changed
 
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
