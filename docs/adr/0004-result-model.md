@@ -531,6 +531,178 @@ The record cannot prove the answers below from the code. Each one states the que
 4. The allowlist file and its reason and owner fields (section 7, point 5).
 5. Completed checks in a non-complete artifact. A mixed `content` artifact is non-complete when one selected check throws. Findings of a non-complete artifact do not count toward a class ("A check that throws or cannot run"). So real findings of its completed checks drop out of class aggregation, and the scope reports the incomplete state instead of a class. It is never `match`. Should findings of completed checks keep counting? The spec states only the current rule. Decided by the owner on 2026-10-23 (issue #178): at target scope they keep counting. At cell and artifact scope the class stays `null`. R8.12 holds the rule.
 
+## Proposal for open questions 3 and 4 (issue #254)
+
+**Proposed, not decided.** The owner decided on 2026-11-04 that the agent writes this proposal and the owner decides later. Nothing here binds. No code, no specification text and no other section of this record changes. When the owner accepts a part, a later pull request moves it into section 7 and into the specification (see "Edits on acceptance").
+
+The proposal fits the data model of schemaVersion 3 as it stands in the open pull request #262: a `subject` report, `checks` catalog, `runId` and `layer` on a finding, `findingIsExplained` with a relative branch only, a validator that rejects `known_diffs` in a `subject` report, and `record-known` that refuses an absolute finding. Today's code on `main` has none of these. The proposal was checked against `src/rules/evidence.js`, `src/rules/classify.js`, `src/rules/record.js`, `src/config/settings.js` and `src/checks/builtin/` on `main`, and against the #262 diff. It was not run.
+
+### Question 3: the absolute fingerprint (Proposed, not decided)
+
+**Rule.** The producer sets `evidenceFingerprint` on every absolute finding. It is the same field the relative findings use. Its value is `settingsHash(descriptor)`. That function exists in `src/config/settings.js`: SHA-256 over canonical JSON, written as `sha256:` and 64 lowercase hex digits. The existing `isHash` check accepts it. No new dependency and no new hash format.
+
+**The descriptor.** An object with these keys, and no others:
+
+| Key | Value |
+| --- | --- |
+| `v` | `1`. The version of this descriptor. A change of the descriptor raises it, and old entries go stale. |
+| `kind` | `"absolute-finding"`. A fixed tag. It keeps the hash apart from a relative fingerprint, which hashes a different object. |
+| `checkId` | The check that made the finding. |
+| `targetId` | The target. |
+| `viewportId` | The viewport, or `null` when the finding has none (a `lint` finding). |
+| `artifact` | The artifact kind of the finding. |
+| `message` | The finding message. |
+| `evidence` | The `evidence` object the check wrote for this finding, after the rules below. `{}` when there is none. |
+| `occurrence` | A 1-based number. Findings with the same descriptor, in check output order, get 1, 2, 3. Normally it is 1. |
+
+**Canonical form.** The input of the hash is the UTF-8 bytes of `JSON.stringify` over the descriptor after this normalization:
+
+1. Object keys sort in ascending UTF-16 code unit order, at every depth. `canonical()` in `src/config/settings.js` already does this.
+2. Arrays keep their order. A check that returns a set must sort it before it writes it.
+3. A string value is normalized to Unicode NFC. A line ending `\r\n` or `\r` becomes `\n`. The producer does not trim and does not collapse whitespace.
+4. A number must be finite. The text is the `JSON.stringify` form: integers without a fraction or an exponent below 1e21, other numbers in the shortest form that reads back to the same value. `-0` is `0`. This is the number form of RFC 8785 (JCS), so another implementation can reproduce the hash.
+5. `NaN`, `Infinity`, `undefined`, a function, a `bigint`, a symbol, a cycle, a depth over 8 or more than 64 KB of canonical JSON make the producer skip the fingerprint for that finding. The finding then has no `evidenceFingerprint`. It stays `unexplained` and carries a diagnostic. This fails closed. Today's `canonical()` does not check these cases, so the follow-up adds a guard around it.
+
+**Included.** The fields in the table. The message is included on purpose: two findings of one check with empty evidence must not share a fingerprint.
+
+**Excluded.** The finding `id`. `runId`. `layer`. `severity`. Any timestamp. Any path of the run store, any `src` or sidecar path. The run manifest, the tool version and the settings hash of the run. The raw bytes of the artifact. The `location` of a finding (a selector moves with a layout change, and a file line moves with an edit above it). Nothing in the descriptor comes from the run, so two runs of an unchanged page give the same value.
+
+**Rule for check authors.** The `evidence` object of an absolute finding must hold only values read from the checked page or file. It must not hold a time, a run id, a path of the run store, a count that depends on capture order or a random value. The follow-up adds a unit test per builtin check: the same stored snapshot in two run directories gives the same fingerprint.
+
+**Worked example 1: a missing heading.** Check `heading-outline` finds no `h1`, on target `home`, viewport `desktop`.
+
+```json
+{"v":1,"kind":"absolute-finding","checkId":"heading-outline","targetId":"home","viewportId":"desktop","artifact":"content","message":"The page must have one h1 heading.","evidence":{"count":0},"occurrence":1}
+```
+
+The canonical text sorts the keys, so it begins `{"artifact":"content","checkId":"heading-outline","evidence":{"count":0},...`. Its hash is:
+
+```
+sha256:9a98d2d0b8540446556a080a24b8de1f0e8b9efcb597ae3aeac0157ebfa28d5d
+```
+
+If the page later gets two `h1` elements, the evidence is `{"count":2}` and the hash is `sha256:9501b8db43a237cdbcd953720c03d44ab8586fd689bbd2875a98afe857887745`. An allowlist entry for the first value does not cover the second.
+
+**Worked example 2: a skipped level, with a non-ASCII text.** The same check reports a jump from level 2 to level 4 at heading index 3. The heading text is `Příliš žluťoučký kůň`.
+
+```json
+{"v":1,"kind":"absolute-finding","checkId":"heading-outline","targetId":"home","viewportId":"desktop","artifact":"content","message":"The heading outline skips a level.","evidence":{"index":3,"previous":2,"level":4,"text":"Příliš žluťoučký kůň"},"occurrence":1}
+```
+
+Hash: `sha256:f9c3a0facc89b8253370791af21cfa9ddb1965f319d623c0bea228e31c4a0c7e`. A page that stores the same text in decomposed form (NFD) gives the same hash, because the producer applies NFC first. A jump to level 5 instead of 4 gives `sha256:f1839de1251cb3318146c29e8c0a7c56fc498be8188391da850047757bede644`.
+
+The four hashes above were computed with the current `settingsHash` on the descriptors shown. A throwaway script ran them. It is not committed. The NFC step in the script ran in the script, not in a producer, because no producer exists yet.
+
+**Alternatives rejected.**
+
+- *Hash the raw bytes of the artifact, as the relative fingerprint does.* Any edit to the page, such as a date or a news item, would change the bytes and kill every entry on that page. An allowlist would be stale after the next deploy. The relative fingerprint can afford this because it also needs a pair of runs, and a human re-records it anyway. Rejected.
+- *Hash `checkId`, `targetId` and `message` only.* Two different findings of one check with the same message, for example two skipped levels in one page, would share one entry. A new and worse instance would inherit the allowance. This fails open. Rejected.
+- *Bind to the `location` (selector or line).* The location moves when the layout or an earlier line changes, so entries go stale for no reason. It also does not distinguish two defects at one place. Rejected.
+- *Add the run id, as `evidenceBinding` does.* Run ids change on each run. ADR section 7 point 5 already rules this out. Rejected.
+- *A shorter hash (for example 16 hex digits).* The saving is a few bytes in a committed file. A short hash makes an accidental or crafted collision cheaper, and the allowlist is a trust boundary. Rejected. The full 64 digits stay, as in every other hash of this package.
+
+**Known cost.** A package release that rewords a message, or a check that changes its evidence, makes old entries stale. This is deliberate and fails closed: the finding returns to `unexplained`, and the stale entry says so (see question 4). Descriptor version `v` makes such a break explicit.
+
+### Question 4: the allowlist file (Proposed, not decided)
+
+**Name and place.** A file `test-kit.allowlist.json` in the directory of the config file. There is no config key and no change to `normalizeConfig`. A missing file is an empty allowlist. A flag `--allowlist FILE` on the commands that write a report overrides the path. The file is committed (R12.2). Reason for a separate file: `known_diffs` lives inside the config, and `record-known` rewrites the whole config. The allowlist has no pair, can grow large and changes more often than the config. A separate file keeps its reviews short and keeps a writer from touching the rest of the config.
+
+**Shape.**
+
+```json
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "checkId": "heading-outline",
+      "targetId": "home",
+      "fingerprint": "sha256:9a98d2d0b8540446556a080a24b8de1f0e8b9efcb597ae3aeac0157ebfa28d5d",
+      "reason": "The home page shows a logo, not a text heading. Design accepted this on 2026-11-05.",
+      "owner": "example-team",
+      "expires": "2027-03-31",
+      "message": "The page must have one h1 heading."
+    }
+  ]
+}
+```
+
+| Field | Rule |
+| --- | --- |
+| `schemaVersion` | `1`. |
+| `checkId` | Required. A string that matches the id syntax of a check. |
+| `targetId` | Required. A target id or `@project`. |
+| `fingerprint` | Required. A value that passes `isHash`. |
+| `reason` | Required. 1 to 1000 characters, no control character, as in `record-known`. |
+| `owner` | Required. 1 to 200 characters, no control character. A person or a team. It is text, not a login. |
+| `expires` | Optional. A date `YYYY-MM-DD`. An entry is active up to the end of that day in UTC. |
+| `message` | Optional. Up to 300 characters. The command copies the message of the finding so a reviewer can read the file. Matching ignores it. |
+
+The reader rejects an unknown key, a duplicate triple, a file over 1 MB and more than 500 entries. A rejected file fails the run before any report is written. It does not fall back to an empty list, because that would silently turn `explained` into `unexplained` and hide the cause.
+
+**Binding.** An entry applies to a finding when the finding has the same `checkId`, the same `targetId` and `evidenceFingerprint` equal to the entry `fingerprint`, and the check has basis `absolute` in the catalog of the report. The `viewportId` is inside the fingerprint, so an entry covers one viewport. A person who wants two viewports writes two entries. An entry never binds to a run id, a pair key or a layer (section 7 point 5).
+
+**Where the pure logic reads it.** The classifier must stay pure and cannot read the file or the clock (R4.4). So the producer reads the file, decides the status of each entry once, and writes the result into the report:
+
+```json
+"allowlist": [
+  { "checkId": "heading-outline", "targetId": "home", "fingerprint": "sha256:9a98...", "reason": "...", "owner": "example-team", "expires": "2027-03-31", "status": "active" }
+]
+```
+
+The producer copies only entries whose `checkId` is in the catalog and whose `targetId` is in the report, at most 100 per report. `findingIsExplained` gets one more branch. For a finding whose check is absolute, it returns `true` exactly when `report.allowlist` holds an entry with `status: "active"` and the same `checkId`, `targetId` and fingerprint. The relative branch is unchanged. A finding with no `evidenceFingerprint` returns `false`.
+
+**Status of an entry.** The producer computes it with the clock of the run (`now`, passed in so a test can fix it):
+
+| Status | Meaning | Effect on class |
+| --- | --- | --- |
+| `active` | A finding matches and the date has not passed. | The finding is `explained`. |
+| `expired` | The date has passed. | None. The finding is `unexplained` again. |
+| `stale` | The check ran to a complete state on that target and no finding has the fingerprint. | None. The entry hides nothing. |
+| `unchecked` | The check has no complete outcome on that target (`missing`, `failed`, `incompatible`) or the check is not in the catalog. | None. A disabled or failed check proves nothing (R7.7, R8.7). |
+| `wrong-basis` | The check is relative. | None. A relative finding uses `known_diffs`. |
+
+A stale entry never changes a class. An expired entry never deletes itself. Nothing removes an entry automatically. A person removes it, as with snapshots (section 17, item 4).
+
+**How a stale entry is reported.** Each non-`active` entry stays in `report.allowlist` with its status. For `stale` and `expired` the producer adds a diagnostic: for `stale`, the fingerprints (at most 5) of the unexplained findings of the same `checkId` and `targetId`, so a reviewer sees "changed" against "fixed". The summary and the query interface count the entries by status. The viewer lists them beside the overrides in the "Checks" list, with reason and owner (section 7 point 3). The command does not fail on a stale entry and the exit code does not change. Whether a stale or expired entry should fail a strict run is an owner choice (see "Choices for the owner").
+
+**Writing an entry.** A new command, `record-allowed REPORT --target ID --check ID [--viewport ID] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--allowlist FILE]`. It is the counterpart of `record-known` and follows R5.3: it is a command, not a viewer action. It reads the report, finds exactly one absolute finding for the triple, requires a non-empty `evidenceFingerprint`, refuses an oracle target, a relative finding and an artifact that is not `complete`, refuses a duplicate, and writes the file with the same temporary-file and rename step as `commitConfig`. It adds the entry, never edits one. `record-known` keeps refusing an absolute finding (R7.3).
+
+**Interaction with `known_diffs`.** The two do not overlap.
+
+| | `known_diffs` | Allowlist |
+| --- | --- | --- |
+| Applies to | relative findings | absolute findings |
+| Lives in | the config, under a pair key | `test-kit.allowlist.json` |
+| Binds to | pair key, target, viewport, artifact, a fingerprint of two runs | `checkId`, `targetId`, a fingerprint of one finding |
+| Written by | `record-known` | `record-allowed` |
+| In a `subject` report | forbidden (R9.7) | allowed |
+| Outlives a run | no, needs the same two runs | yes |
+
+A finding has one basis, so only one list is consulted. In a mixed `content` artifact each finding uses its own list (R9.10). An entry for a relative check is `wrong-basis`. A `known_diffs` record never explains an absolute finding.
+
+**Alternatives rejected.**
+
+- *A key `allowlist` inside the config.* It would reuse `commitConfig`. It would also grow the config with entries that change often, make `record-allowed` rewrite the whole config and widen the `normalizeConfig` key list, which is a public contract. Rejected for the first release. The owner may still prefer it; the entry shape does not change.
+- *Reuse `known_diffs` with a `subject` key.* R9.7 forbids `known_diffs` in a `subject` report on purpose, and `known_diffs` binds to two run ids. Rejected.
+- *A comment or inline marker in the checked file or page.* It puts the allowance in the evidence that it judges. It also needs no owner and no reason. Rejected.
+- *Enforce expiry in the classifier by reading the clock.* This breaks R4.4 and makes a report depend on the day it is read. The producer decides once, and the report records the decision. Rejected.
+
+### Choices for the owner
+
+1. Name and place: `test-kit.allowlist.json` beside the config with no config key (proposed), or a config key.
+2. Should a `stale` or `expired` entry fail a run under a strict flag? Proposed: report only, and no flag in this release.
+3. Is a missing `expires` allowed? Proposed: yes, because the owner decision of 2026-10-22 keeps data until a person removes it. A project policy may require a date later.
+4. Is the message part of the fingerprint? Proposed: yes (fails closed, costs a stale entry on a reword).
+
+### Edits on acceptance
+
+Each follows the pull request pattern used for this record: the specification changes after the owner accepts, not before. Proposed text goes in a later pull request with the code or ahead of it.
+
+- Section 7 points 5 and 6 of this record: replace "open" with the accepted rules.
+- `docs/specification.md`: R9.8 (the `evidenceFingerprint` of an absolute finding and the `allowlist` key), R9.7 (the `allowlist` key is allowed in a `subject` report), a new requirement for the allowlist file and its fields, R12.2 (the file is committed), R13.41 (the format of the allowlists).
+- `docs/contracts.md` and `docs/seam.md`: the rows that mark the allowlist as "not frozen".
+- This record: a closing note on questions 3 and 4, in the same way as for question 5.
+
 ## Open points
 
 1. Side A in a pair report. If an absolute rule runs on both sides, the report can show a violation that exists on both sides. It cannot yet say "introduced by B". This record keeps today's behavior: a pair report lists the findings of side B. It stores `runId` so a later change can add side A without a new schema. A regression rule for absolute checks needs its own record.
