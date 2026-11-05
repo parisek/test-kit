@@ -14,6 +14,7 @@ import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
+import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
 
 // The text of a status finding: each differing field with both values, bounded in size.
@@ -274,8 +275,15 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 					findings.push({ ...finding, checkId, layer: LIGHTHOUSE_CHECKS[checkId].layer, ...(LIGHTHOUSE_CHECKS[checkId].basis === 'absolute' ? { runId: b.id } : {}), id: `lighthouse-${target.id}-${viewport.id}-${index}` });
 				});
 			}
+			// R13.51: a pack result that `capture --packs` stored in run B. A run with none adds nothing (R5.1).
+			for (const kind of PACK_ARTIFACT_KINDS) {
+				const pack = await comparePackArtifact({ kind, b, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
+				if (!pack) continue;
+				row.artifacts[kind] = pack.artifact; findings.push(...pack.findings); Object.assign(checks, { ...pack.catalog, ...checks });
+			}
 			// R8.7: an incomplete status artifact makes the cell incomplete, like any other selected artifact (#295).
 			const states = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			states.push(...PACK_ARTIFACT_KINDS.filter(kind => row.artifacts[kind]).map(kind => row.artifacts[kind].state));
 			if (!states.length) states.push('missing');
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {

@@ -110,7 +110,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 
 | Command | Required input | Marking | Reason |
 | --- | --- | --- | --- |
-| `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. |
+| `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`, `--packs`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. `--packs` is an addition in 1.1 (R13.51, owner decision of 2026-11-04, #231). It is a flag without a value. It runs the packs of the `packs` key on the open page. It is refused on a remote side. Without it nothing changes. |
 | `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. `--target` and `--viewport` are additions (R4.5): they filter the pair and the report records them in `meta.scope`. |
 | `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). Addition in 1.1: `droppedRequestCount`, `droppedWarnings`, `droppedWarningsOmitted` and `droppedNotListed`, present only when a `font` or `stylesheet` request was aborted or a list was cut (R3.8). Addition: `skipped`, present only when the report skipped a cell (R4.5). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
@@ -125,7 +125,7 @@ Other command facts:
 
 - The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
 - The default store directory `.test-kit` is stable (R12.1). Its content layout is not part of the seam.
-- `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today.
+- `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today. Packs run with `--packs`, not with `--artifacts` (R13.51).
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
 - `COMMANDS` and `run` are also exported from the package root (`src/index.js`). No README documents a project import of them. Experimental.
 
@@ -238,7 +238,7 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 ## 8. Gaps found while writing this
 
 1. Decided by the owner, 2026-10-19: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
-2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
+2. (closed) The `packs` configuration key selects packs (R13.44). The selection stays in the key. Since 1.1, `capture --packs` runs the selected packs that have a page step (R13.51, #231). Without the flag no command runs a pack.
 3. (closed) The six built-in checks export `basis` since `schemaVersion` 3 (#230). `text-difference` is `relative`, the other five are `absolute`.
 4. Decided by the owner, 2026-10-19: the release candidate tag is `vMAJOR.MINOR.PATCH-rc.N` (R13.45). The freeze starts at `-rc.1`. Only the owner tags it.
 5. (closed) Question: does a change of the package version make an old run incompatible (R8.9)? Answer, read in the code on 2026-10-19: no. A run does not record the package version. `run.json` `tools` holds the Playwright and Chromium versions and one entry for each other artifact. A comparison needs equal `settingsHash` values and equal Playwright and Chromium entries (`src/compare/runs.js`). The hash covers the viewports, the `settle` recipe, the screenshot settings, the browser settings and the behavior contract fingerprint. It does not cover the `packs` key. A change of the Playwright or Chromium version, or of a capture setting, does make a run incompatible. One consumer project compared runs from `v0.2.1` and `v1.0.0-rc.2` with `incompatible: 0` (verified once, local site). See [migration-guide-tailwind-base.md](migration-guide-tailwind-base.md), Part 1, step 6.
