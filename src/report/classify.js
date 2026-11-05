@@ -66,7 +66,8 @@ export function cellClass(report, target, viewportId) {
 	const cell = target.viewports.find((row) => row.id === viewportId);
 	const statusOnly = cell?.artifacts?.status && Object.keys(cell.artifacts).every(kind => kind === 'status');
 	if (target.judge === 'oracle') return statusOnly ? null : 'oracle';
-	const findings = findingsFor(report, target.id, { viewportId });
+	// State first (R8.7): a status finding counts only while its artifact is complete.
+	const findings = findingsFor(report, target.id, { viewportId }).filter(finding => finding.artifact !== 'status' || cell?.artifacts?.status?.state === 'complete');
 	if (findings.length) return findings.every((finding) => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';
 	// A cell with status evidence only never reads match (R6.1).
 	return statusOnly ? null : 'match';
@@ -83,7 +84,7 @@ export function targetClass(report, target) {
 	const values = [...target.viewports.map((row) => cellClass(report, target, row.id)),
 		...Object.keys(target.artifacts ?? {}).map((kind) => artifactClass(report, target, null, kind))].filter((value) => value !== null);
 	const findings = findingsFor(report, target.id).filter((finding) => {
-		if (!['screenshot', 'html'].includes(finding.artifact)) return true;
+		if (!['screenshot', 'html', 'status'].includes(finding.artifact)) return true;
 		if (finding.artifact === 'html' && finding.viewportId == null) return true;
 		const row = target.viewports.find(row => row.id === finding.viewportId);
 		return row?.artifacts?.[finding.artifact]?.state === 'complete';
