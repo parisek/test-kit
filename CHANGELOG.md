@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Fixed
+
+- An incomplete `status` artifact (`failed`, `missing` or `incompatible`) now makes its cell incomplete, as a screenshot or HTML artifact does. Before, a cell with a complete screenshot read `match` while its status evidence was missing. `compareRuns` and `cellState` agree, so the viewer and `summary` agree. Migration: a report that read `match` with an incomplete `status` artifact now reads incomplete. Run `diff` again to refresh a stored report. A run without the `status` artifact selected is unchanged (R8.7, R6.13, #295).
+
 ## [1.1.0-rc.1] - 2026-11-05
 
 First release candidate for 1.1.0. It is not a stable release. `package.json` says `1.1.0`, so `--version` prints `1.1.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The report is `schemaVersion` 3: a stored version 2 report reads as version 3. The behavior version is 2: a stored version 1 behavior run reads `incompatible` against a new run (R8.9).
