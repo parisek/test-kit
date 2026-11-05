@@ -109,7 +109,7 @@ export function redirectPermitted({ from, to, ownTarget, navigation, resourceTyp
 function clean(value, max) {
   return String(value ?? '').replace(/[^\x20-\x7e]/g, '').trim().slice(0, max);
 }
-export function describeBlockedRequest({ url, method, resourceType, topLevel, navigation = topLevel, redirect = false }) {
+export function describeBlockedRequest({ url, method, resourceType, topLevel, navigation = topLevel, redirect = false, certificate = false }) {
   let origin = 'unknown origin';
   try {
     const parsed = new URL(url);
@@ -121,14 +121,16 @@ export function describeBlockedRequest({ url, method, resourceType, topLevel, na
     origin: clean(origin, 100) || 'unknown origin',
     method: clean(method, 10).toUpperCase() || 'unknown',
     resourceType: clean(resourceType, 20) || 'unknown',
-    kind, redirect: redirect === true,
+    kind, redirect: redirect === true, ...(certificate === true ? { certificate: true } : {}),
   };
 }
 
 export function blockedRequestMessage(blocked) {
   const base = 'A request leaves the local environment or submits data.';
   if (!blocked) return base;
-  const { origin, method, resourceType, kind, redirect } = blocked;
+  const { origin, method, resourceType, kind, redirect, certificate } = blocked;
+  // R3.9: the certificate of an allowed origin is not valid. The text names the origin and the type.
+  if (certificate) return `The certificate of an allowed origin (allowOrigins) is not valid: ${origin}, ${resourceType}.`;
   return `${base} First blocked request: ${method} ${origin}, ${resourceType}, ${kind}${redirect ? ', redirect target' : ''}.`;
 }
 
@@ -179,4 +181,10 @@ export function droppedFields(log) {
     return { resourceType, origin, count };
   }).sort((a, b) => a.resourceType.localeCompare(b.resourceType) || a.origin.localeCompare(b.origin));
   return { dropped, ...(log.omitted ? { droppedOmitted: log.omitted } : {}) };
+}
+
+// R3.9: a failed fetch of an allowed origin fails the capture when the cause is a certificate.
+// Other network errors keep the request failing, as for any origin.
+export function isCertificateError(error) {
+  return /certificate|self[- ]signed|CERT_|SSL|TLS|unable to verify/i.test(String(error?.message ?? error));
 }

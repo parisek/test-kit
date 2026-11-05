@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin, redirectPermitted, ALLOW_ORIGIN_TYPES } from '../../src/capture/helpers.js';
+import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin, redirectPermitted, ALLOW_ORIGIN_TYPES, isCertificateError, describeBlockedRequest, blockedRequestMessage } from '../../src/capture/helpers.js';
 import { comparisonState, incompatibleDiagnostic } from '../../src/compare/runs.js';
 import { normalizeConfig, captureSettings, settingsHash } from '../../src/config/index.js';
 
@@ -132,4 +132,15 @@ test('a pair with a list on one side only is incompatible and the diagnostic nam
   // The same list on a local and a remote side gives the same settings hash: the pair stays comparable.
   assert.equal(run(listed, 'local').settingsHash, run(listed, 'production').settingsHash);
   assert.doesNotMatch(incompatibleDiagnostic(run(plain, 'local'), run(plain, 'production')), /allowOrigins/);
+});
+
+test('a certificate failure of an allowed origin gives a message that names the origin and the type (R3.9)', () => {
+  assert.equal(isCertificateError(new Error('apiRequestContext.fetch: self-signed certificate')), true);
+  assert.equal(isCertificateError(new Error('unable to verify the first certificate')), true);
+  assert.equal(isCertificateError(new Error('connect ECONNREFUSED')), false);
+  const blocked = describeBlockedRequest({ url: `${FONTS}/a.css?x=1`, method: 'GET', resourceType: 'stylesheet', topLevel: false, navigation: false, certificate: true });
+  const text = blockedRequestMessage(blocked);
+  assert.match(text, /certificate of an allowed origin/);
+  assert.ok(text.includes(FONTS) && text.includes('stylesheet'));
+  assert.ok(!text.includes('a.css') && !text.includes('x=1'));
 });

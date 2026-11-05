@@ -38,3 +38,28 @@ export function scopeLine(scope) {
 	}
 	return `Scope: ${plural(scope.targets, 'target')}, ${plural(scope.viewports, 'viewport')} compared. ${skipped}`;
 }
+
+// The components a `targetSource: styleguide` run skipped as "no fixture" (#290, owner decision of 2026-11-05).
+// Run data is untrusted: each ID is checked and the list is bounded. Each ID counts once, over both runs.
+// `summary` and the viewer use this one function, so both give the same count.
+export function noFixtureIds(report) {
+	const ids = new Set();
+	for (const run of report?.runs ?? []) {
+		if (!Array.isArray(run?.noFixture)) continue;
+		for (const id of run.noFixture.slice(0, 1000)) if (typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(id)) ids.add(id);
+	}
+	return [...ids].sort();
+}
+
+// "Not compared: 3 components have no fixture." The sentence joins the scope line. An empty list gives no sentence.
+export function noFixtureLine(ids) {
+	if (!ids.length) return '';
+	return `Not compared: ${ids.length} ${ids.length === 1 ? 'component has' : 'components have'} no fixture.`;
+}
+
+// The whole header line: the scope sentence first, then the "not compared" sentence. Null when neither applies.
+export function headerLine(report) {
+	const scope = reportScope(report);
+	const parts = [scope ? scopeLine(scope) : '', noFixtureLine(noFixtureIds(report))].filter(Boolean);
+	return parts.length ? parts.join(' ') : null;
+}

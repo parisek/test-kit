@@ -2,6 +2,7 @@ import { adaptReport } from '../report/model.js';
 import { droppedWarnings, droppedNotListed } from '../report/dropped.js';
 import { summarize, targetClass, targetState } from '../report/classify.js';
 import { isHash } from '../rules/model.js';
+import { noFixtureIds } from '../report/scope.js';
 import { clip, markCut, wasCut, outputBytes, OUTPUT_BYTE_LIMIT } from './bound.js';
 
 const ID = 200;
@@ -15,13 +16,6 @@ const safePair = (pair) => pair ? {
 	bRunId: cut(pair.bRunId), ...(wasCut(pair.bRunId, ID) ? { bRunIdTruncated: true } : {}),
 	...(isHash(pair.key) ? { key: pair.key } : {}),
 } : null;
-
-// The IDs of the runs of the report that have no fixture, once each.
-function noFixtureIds(report) {
-	const ids = new Set();
-	for (const run of report.runs) if (Array.isArray(run.noFixture)) for (const id of run.noFixture.slice(0, 1000)) if (typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(id)) ids.add(id);
-	return [...ids].sort();
-}
 
 // Bounded detail lists with counts over the full report (R11.1–R11.6).
 export function summarizeReport(input, { maxTargets = 20, filter = 'all', target } = {}) {
