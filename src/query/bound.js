@@ -12,12 +12,10 @@ export const markCut = (value, length = 200) => typeof value === 'string' && val
 export const wasCut = (value, length = 200) => typeof value === 'string' && value.length > length;
 
 // Halve the largest bounded list of an answer until it fits. Each cut adds to the omitted counter
-// of that list, so the answer says what it left out. A caller gives the lists as { owner, key, counter, last? }.
-// A list marked last (the rules and the scope) is cut only when all other lists are empty.
+// of that list, so the answer says what it left out. A caller gives the lists as { owner, key, counter }.
 export function fitLists(result, lists, limit = OUTPUT_BYTE_LIMIT) {
 	while (outputBytes(result) > limit) {
-		const alive = lists().filter(({ owner, key }) => Array.isArray(owner[key]) && owner[key].length);
-		const live = alive.some((item) => !item.last) ? alive.filter((item) => !item.last) : alive;
+		const live = lists().filter(({ owner, key }) => Array.isArray(owner[key]) && owner[key].length);
 		if (!live.length) return false;
 		const widest = live.reduce((best, item) => outputBytes(item.owner[item.key]) > outputBytes(best.owner[best.key]) ? item : best);
 		const { owner, key, counter } = widest;

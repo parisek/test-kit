@@ -171,6 +171,17 @@ test('query cuts the rules last (R11.2)', async () => {
 	assert.equal(out.rulesOmitted, 0);
 });
 
+test('query drops an oversize scalar difference before it cuts the rules (R11.2)', async () => {
+	const rules = Object.fromEntries(Array.from({ length: 5 }, (_, index) => [`rule-${index}`, { text: 'x', evidence: 'x', applies: {}, operation: { kind: 'literal-pair', a: 'one', b: 'two', maxOccurrences: 1 } }]));
+	// The behavior validator returns unknown keys, so a scalar in the sidecar reaches the answer.
+	const out = await askDiff('behavior', { state: 'complete', changed: true, steps: [], payload: big(100_000) }, { rules });
+	assert.ok(bytes(out) <= OUTPUT_BYTE_LIMIT, `${bytes(out)} bytes`);
+	assert.equal(out.diff, undefined);
+	assert.equal(out.diffOmitted, true);
+	assert.equal(out.rules.length, 5);
+	assert.equal(out.rulesOmitted, 0);
+});
+
 test('a cut target id ends with an ellipsis and carries a flag (R11.2)', () => {
 	const data = pairReport();
 	data.entries = [entry(big(300))];

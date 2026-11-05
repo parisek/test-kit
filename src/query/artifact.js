@@ -8,12 +8,12 @@ import { OUTPUT_BYTE_LIMIT, outputBytes, clip, markCut, wasCut, fitLists } from 
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-// R11.2: the answer stays under one byte limit. Cut the lists first. Then drop the difference. A
-// report that still does not fit is refused, and it does not reach the agent.
+// R11.2: the answer stays under one byte limit. Halve the lists of the difference first. Then drop the
+// difference. Cut the rules and the scope last, so a difference that is too big does not cost them.
+// A report that still does not fit is refused, and it does not reach the agent.
 function bounded(result) {
-  const lists = () => {
-    const out = [], add = (owner, key, counter, last = false) => { if (owner && typeof owner === 'object') out.push({ owner, key, counter, last }); };
-    add(result.scope, 'checks', 'checksOmitted', true); add(result, 'rules', 'rulesOmitted', true);
+  const diffLists = () => {
+    const out = [], add = (owner, key, counter) => { if (owner && typeof owner === 'object') out.push({ owner, key, counter }); };
     const diff = result.diff;
     if (diff && typeof diff === 'object') {
       add(diff, 'lines', 'omittedLines'); add(diff.rawWindow, 'lines', 'omittedLines'); add(diff, 'findings', 'findingsOmitted'); add(diff, 'steps', 'stepsOmitted');
@@ -22,10 +22,11 @@ function bounded(result) {
     }
     return out;
   };
-  if (fitLists(result, lists)) return result;
+  const answerLists = () => [{ owner: result, key: 'rules', counter: 'rulesOmitted' }, ...(result.scope ? [{ owner: result.scope, key: 'checks', counter: 'checksOmitted' }] : [])];
+  if (fitLists(result, diffLists)) return result;
   if (result.diff) { delete result.diff; result.diffOmitted = true; result.next = 'Open the same target and viewport in the viewer. The difference exceeds the query byte limit.'; }
-  if (outputBytes(result) > OUTPUT_BYTE_LIMIT) throw new Error('The answer exceeds the query byte limit. Open the report in the viewer.');
-  return result;
+  if (fitLists(result, answerLists)) return result;
+  throw new Error('The answer exceeds the query byte limit. Open the report in the viewer.');
 }
 
 export async function queryArtifact(reportPath, { target, viewport, artifact, maxLines = 40 }) {
