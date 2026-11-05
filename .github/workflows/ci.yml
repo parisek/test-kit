@@ -59,6 +59,7 @@ jobs:
       - run: node tests/integration/check-pipeline.mjs
       - run: node tests/integration/check-response-artifacts.mjs
       - run: node tests/integration/check-content-engine.mjs
+      - run: node tests/integration/check-compare-absolute.mjs
       - run: node tests/integration/check-behavior-engine.mjs
       - run: node tests/integration/check-behavior-artifact.mjs
       - run: node tests/integration/check-behavior-pipeline.mjs

@@ -1,3 +1,4 @@
+// Needs pngjs and pixelmatch (compareRuns loads them). No browser. The unit suite has no dependency, so this runs in the browser job.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
