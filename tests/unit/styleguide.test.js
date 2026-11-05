@@ -236,3 +236,9 @@ test('parseComponents: the expanded target list has the same 1000 limit as the c
   assert.equal(parseComponents(big).targets.length, 11, 'Without variants the list is not expanded.');
   assert.throws(() => parseComponents([{ id: 'a' }], { pages: Array.from({ length: 1000 }, (_, index) => ({ id: `p${index}` })) }), /makes 1001 targets/);
 });
+
+test('parseComponents: a no-fixture page ID over 64 characters with its prefix stops the read (R13.52)', () => {
+  const pages = [{ id: 'p'.repeat(59), has_styleguide: false }];
+  assert.throws(() => parseComponents([{ id: 'a' }], { pages }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && /longer than 64/.test(error.message));
+  assert.deepEqual(parseComponents([{ id: 'a' }], { pages: [{ id: 'p'.repeat(58), has_styleguide: false }] }).noFixture, [`page--${'p'.repeat(58)}`]);
+});
