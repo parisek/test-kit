@@ -14,9 +14,10 @@ It throws a `StyleguideError` with a code and never skips an entry:
 | --- | --- |
 | `STYLEGUIDE_CATALOGUE_UNREACHABLE` | The GET fails, answers a status other than 200, or redirects. |
 | `STYLEGUIDE_CATALOGUE_INVALID` | Not JSON, larger than 8 MiB, not an array, empty, more than 1000 entries, an entry with an unsafe or repeated ID. |
+| `STYLEGUIDE_CATALOGUE_INVALID` | Also: every selected component has `has_styleguide: false`, so no target remains. |
 | `STYLEGUIDE_COMPONENT_UNKNOWN` | `include` names a component that the catalogue does not hold. |
 
-`noFixture` lists the IDs with `has_styleguide: false`. Their render page holds no component. Capture keeps them as targets and fails each capture with `STYLEGUIDE_NO_FIXTURE`, so a blank image never reads as a measurement.
+`noFixture` lists the IDs with `has_styleguide: false`. Their render page holds no component, so they make no target. Capture sends no request for them. The run manifest (`targetSource.noFixture`), the report (`runs[].noFixture`) and `summary` (`noFixture`) list them as "no fixture". They are not failed targets, so a run whose only gaps are these components reaches `complete`. `include` may name such a component. It is skipped and listed the same way.
 An entry with no `has_styleguide` key counts as renderable, because an older styleguide omits the key.
 
 `readComponents({ origin, mount, include, get })` calls `get(url)` once, with `{ status, body }` as the result, and parses the body.

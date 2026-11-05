@@ -5,7 +5,6 @@
 export const DEFAULT_MOUNT = '/styleguide';
 export const MAX_COMPONENTS = 1000;
 export const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
-export const NO_FIXTURE = 'STYLEGUIDE_NO_FIXTURE';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 const MOUNT = /^\/(?:[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*)?$/;
 
@@ -36,8 +35,8 @@ export function componentPath(id, mount = DEFAULT_MOUNT) {
 
 // Turn a parsed `/api/components` payload into targets.
 // A bad catalogue throws. An entry with no usable id is never skipped: the whole read fails and names it.
-// An entry with `has_styleguide: false` has nothing to render. It stays a target and is listed in `noFixture`,
-// so capture reports it as a failed capture and not as a blank image.
+// An entry with `has_styleguide: false` has nothing to render. It makes no target and sends no request.
+// It is listed in `noFixture`, so the run manifest and the report name it (owner decision, #94).
 export function parseComponents(payload, { mount = DEFAULT_MOUNT, include } = {}) {
   if (!Array.isArray(payload)) throw new StyleguideError('STYLEGUIDE_CATALOGUE_INVALID', 'The styleguide component list is not an array.');
   if (payload.length > MAX_COMPONENTS) throw new StyleguideError('STYLEGUIDE_CATALOGUE_INVALID', `The styleguide lists more than ${MAX_COMPONENTS} components.`);
@@ -56,12 +55,14 @@ export function parseComponents(payload, { mount = DEFAULT_MOUNT, include } = {}
     if (unknown.length) throw new StyleguideError('STYLEGUIDE_COMPONENT_UNKNOWN', `The styleguide has no component ${unknown.slice(0, 5).map(shown).join(', ')}${unknown.length > 5 ? ', ...' : ''}.`);
   }
   const ids = [...seen.keys()].filter(id => include === undefined || include.includes(id)).sort();
-  const targets = ids.map(id => {
+  const noFixture = ids.filter(id => seen.get(id).has_styleguide === false);
+  const skipped = new Set(noFixture);
+  if (ids.length === skipped.size) throw new StyleguideError('STYLEGUIDE_CATALOGUE_INVALID', 'No selected component has a fixture. Every one has has_styleguide false.');
+  const targets = ids.filter(id => !skipped.has(id)).map(id => {
     const name = seen.get(id).name;
     const title = typeof name === 'string' && name.trim() && name.length <= 200 && !/[\x00-\x1f\x7f]/.test(name) ? name : id;
     return { id, kind: 'component', title, path: componentPath(id, mount) };
   });
-  const noFixture = ids.filter(id => seen.get(id).has_styleguide === false);
   return { targets, noFixture };
 }
 

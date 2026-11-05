@@ -18,11 +18,24 @@ function input(extra = {}) {
 
 test('parseComponents: one component target for each entry, sorted by ID (R13.3)', () => {
   const { targets, noFixture } = parseComponents(catalogue());
-  assert.deepEqual(targets.map(target => target.id), ['button', 'card', 'hero']);
+  assert.deepEqual(targets.map(target => target.id), ['button', 'card']);
   assert.deepEqual(targets[0], { id: 'button', kind: 'component', title: 'Button', path: '/styleguide/render/component/button?canvas' });
   assert.deepEqual(noFixture, ['hero']);
   assert.equal(parseComponents(catalogue(), { mount: '/tools/ui' }).targets[0].path, '/tools/ui/render/component/button?canvas');
   assert.equal(parseComponents(catalogue(), { mount: '/' }).targets[0].path, '/render/component/button?canvas');
+});
+
+test('parseComponents: has_styleguide false makes no target and is listed as no fixture (#94)', () => {
+  const { targets, noFixture } = parseComponents(catalogue());
+  assert.equal(targets.some(target => target.id === 'hero'), false);
+  assert.deepEqual(noFixture, ['hero']);
+  // include may name it: it is skipped and listed, not an unknown name.
+  const named = parseComponents(catalogue(), { include: ['card', 'hero'] });
+  assert.deepEqual(named.targets.map(target => target.id), ['card']);
+  assert.deepEqual(named.noFixture, ['hero']);
+  // No target left: the capture stops with a named error.
+  assert.throws(() => parseComponents(catalogue(), { include: ['hero'] }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && /has a fixture/.test(error.message));
+  assert.throws(() => parseComponents([{ id: 'a', has_styleguide: false }]), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID');
 });
 
 test('parseComponents: an entry with has_styleguide absent counts as renderable', () => {
@@ -56,7 +69,8 @@ test('readComponents: reads the endpoint through the given transport and fails w
   const urls = [];
   const get = body => async url => { urls.push(url); return { status: 200, body: JSON.stringify(body) }; };
   const result = await readComponents({ origin: 'http://localhost:8080', get: get(catalogue()) });
-  assert.equal(result.targets.length, 3);
+  assert.equal(result.targets.length, 2);
+  assert.deepEqual(result.noFixture, ['hero']);
   assert.deepEqual(urls, ['http://localhost:8080/styleguide/api/components']);
   assert.equal(componentsUrl('http://localhost:8080', '/tools/ui'), 'http://localhost:8080/tools/ui/api/components');
   assert.equal(componentPath('card'), '/styleguide/render/component/card?canvas');

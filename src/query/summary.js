@@ -3,6 +3,13 @@ import { droppedWarnings, droppedNotListed } from '../report/dropped.js';
 import { summarize, targetClass, targetState } from '../report/classify.js';
 import { isHash } from '../rules/model.js';
 
+// The IDs of the runs of the report that have no fixture, once each.
+function noFixtureIds(report) {
+	const ids = new Set();
+	for (const run of report.runs) if (Array.isArray(run.noFixture)) for (const id of run.noFixture.slice(0, 1000)) if (typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(id)) ids.add(id);
+	return [...ids].sort();
+}
+
 // Bounded detail lists with counts over the full report (R11.1–R11.6).
 export function summarizeReport(input, { maxTargets = 20, filter = 'all', target } = {}) {
 	if (!Number.isInteger(maxTargets) || maxTargets < 1 || maxTargets > 1000) throw new Error('maxTargets must be an integer from 1 to 1000.');
@@ -34,6 +41,8 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		// droppedNotListed counts aborted requests that the capture cut from its 50-entry list.
 		// The keys appear only when one of them is above zero, so the pinned output stays the same.
 		...(warnings.length || notListed ? { droppedRequestCount: requests, droppedWarnings: warnings.slice(0, maxTargets), droppedWarningsOmitted: Math.max(0, warnings.length - maxTargets), droppedNotListed: notListed } : {}),
+		// Owner decision on #94: components the styleguide lists with no fixture. They are not targets. Bounded like other lists.
+		...(noFixtureIds(report).length ? { noFixture: { count: noFixtureIds(report).length, ids: noFixtureIds(report).slice(0, maxTargets), omitted: Math.max(0, noFixtureIds(report).length - maxTargets) } } : {}),
 		next: ['Open the report with test-kit serve.', 'Use summary --filter unexplained or --filter incomplete for scoped evidence.'],
 	};
 }

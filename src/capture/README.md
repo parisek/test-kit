@@ -93,5 +93,5 @@ With `targetSource` in the configuration, `capture` first reads `<mount>/api/com
 It makes one `component` target for each entry and stores the list in the run settings.
 The run manifest holds `targetSource` with the count and the IDs that have no fixture.
 It reads before any run directory exists, so a bad catalogue leaves no run. `--side` must be the side of the source.
-A component with `has_styleguide: false` gets a failed capture with `STYLEGUIDE_NO_FIXTURE` for each viewport and no navigation.
+A component with `has_styleguide: false` makes no target and sends no request. The manifest lists it under `targetSource.noFixture`, and the report and `summary` list it as "no fixture".
 See `src/styleguide/README.md`.

@@ -12,7 +12,7 @@ import { resolve, dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readComponents, NO_FIXTURE } from '../styleguide/index.js';
+import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
 import { isLocalUrl, isOwnOrigin, decideRequest, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
@@ -290,7 +290,7 @@ async function readStyleguideTargets(tool, config, side) {
     // The stored settings read as a plain target list, so every reader of a run keeps working.
     // The source and what it found go in the run manifest, next to the settings.
     const { targetSource, ...rest } = config;
-    return { config: { ...rest, targets }, found: { ...source, resolved: targets.length, ...(noFixture.length ? { noFixture } : {}) }, noFixture: new Set(noFixture) };
+    return { config: { ...rest, targets }, found: { ...source, resolved: targets.length, ...(noFixture.length ? { noFixture } : {}) } };
   } finally { await context.dispose().catch(() => {}); }
 }
 
@@ -317,9 +317,8 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   }
   const tool = await playwright();
   // The catalogue is read before any run directory exists, so a bad catalogue leaves no partial run.
-  let noFixture = new Set();
   let found;
-  if (config.targetSource) ({ config, found, noFixture } = await readStyleguideTargets(tool, config, side));
+  if (config.targetSource) ({ config, found } = await readStyleguideTargets(tool, config, side));
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const root = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;
@@ -356,13 +355,6 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       if (stopped) {
         run.captures.push({ targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(settleRecipe(config, side, target)), state: 'failed', artifacts: {},
           error: { code: 'RUN_STOPPED', message: 'An earlier capture met a remote edge stop. This capture did not run.' } });
-        continue;
-      }
-      if (noFixture.has(target.id)) {
-        // A component with no fixture renders no component. A screenshot would look like a measurement.
-        run.captures.push({ targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(settleRecipe(config, side, target)), state: 'failed', artifacts: {},
-          error: { code: NO_FIXTURE, message: 'The styleguide reports no fixture for this component. Add a styleguide.twig file.' } });
-        await writeManifest(manifestPath, run);
         continue;
       }
       run.captures.push(await captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource));

@@ -1,7 +1,7 @@
 // Explicit browser integration check. npm test does not discover this file.
 // A synthetic styleguide (example-site data only) serves a component list and one render page for each component.
 // It checks R13.3: one target for each component, a self-baseline pair, a removed component, an unknown component
-// and a component with no fixture.
+// and a component with no fixture (skipped, listed, no request).
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
@@ -14,8 +14,10 @@ import { summarizeReport } from '../../src/query/summary.js';
 const colors = { button: '#c00', card: '#0a0', banner: '#00c' };
 let catalogue = [];
 let colorOf = { ...colors };
+const requests = [];
 const site = createServer((request, response) => {
   const url = new URL(request.url, 'http://localhost');
+  requests.push(url.pathname);
   const send = (status, type, body) => { response.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' }); response.end(body); };
   if (url.pathname === '/styleguide/api/components') return send(200, 'application/json', JSON.stringify(catalogue));
   const match = /^\/styleguide\/render\/component\/([a-z-]+)$/.exec(url.pathname);
@@ -37,22 +39,25 @@ try {
   // Run A: three components with a fixture and one without.
   catalogue = [entry('card'), entry('button'), entry('banner'), { id: 'hero', name: 'Hero', has_styleguide: false }];
   const a = await capture({ configPath, side: 'styleguide' });
-  assert.deepEqual(a.run.settings.targets.map(target => target.id), ['banner', 'button', 'card', 'hero']);
-  assert.equal(a.run.captures.length, 8, 'One capture for each component and viewport.');
-  for (const row of a.run.captures.filter(row => row.targetId !== 'hero')) assert.equal(row.state, 'captured', JSON.stringify(row));
-  for (const row of a.run.captures.filter(row => row.targetId === 'hero')) assert.equal(row.error.code, 'STYLEGUIDE_NO_FIXTURE');
-  assert.equal(a.run.state, 'partial', 'A component with no fixture keeps the run partial.');
+  assert.deepEqual(a.run.settings.targets.map(target => target.id), ['banner', 'button', 'card']);
+  assert.equal(a.run.captures.length, 6, 'One capture for each component with a fixture and viewport.');
+  for (const row of a.run.captures) assert.equal(row.state, 'captured', JSON.stringify(row));
+  assert.equal(a.run.state, 'complete', 'A component with no fixture is skipped and does not keep the run partial.');
   assert.deepEqual(a.run.targetSource.noFixture, ['hero']);
-  assert.equal(a.run.targetSource.resolved, 4);
+  assert.equal(a.run.targetSource.resolved, 3);
+  assert.equal(requests.some(url => url.includes('/hero')), false, 'No request goes to the render page of a component with no fixture.');
   assert.equal(a.run.settings.targetSource, undefined, 'The stored settings read as a plain target list.');
 
-  // Run B: same styleguide, so a self-baseline pair has no difference. The fixture-less component stays failed.
+  // Run B: same styleguide, so a self-baseline pair has no difference. The fixture-less component is no entry; the report and summary list it.
   const b = await capture({ configPath, side: 'styleguide' });
   const same = await compareRuns({ runsRoot, runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'same'), kind: 'self-baseline' });
   assert.equal(same.report.pair.kind, 'self-baseline');
   const states = report => Object.fromEntries(report.entries.map(entry => [entry.id, entry.viewports.map(row => row.state)]));
   assert.deepEqual(states(same.report).button, ['complete', 'complete']);
-  assert.deepEqual(states(same.report).hero, ['failed', 'failed']);
+  assert.equal(same.report.entries.some(entry => entry.id === 'hero'), false);
+  assert.deepEqual(same.report.runs.map(run => run.noFixture), [['hero'], ['hero']]);
+  assert.deepEqual(summarizeReport(same.report).noFixture, { count: 1, ids: ['hero'], omitted: 0 });
+  assert.equal(summarizeReport(same.report).verdict, 'match');
   assert.equal(summarizeReport(same.report).counts.unexplained, 0);
 
   // Run C: one component changed, one removed, one added.
@@ -68,7 +73,7 @@ try {
   assert.ok(changed.report.entries.every(entry => entry.kind === 'component'));
   const summary = summarizeReport(changed.report);
   assert.equal(summary.counts.unexplained, 1);
-  assert.ok(summary.counts.incomplete >= 3, JSON.stringify(summary.counts));
+  assert.ok(summary.counts.incomplete === 2, JSON.stringify(summary.counts));
 
   // An unknown component named in `include` stops the capture before any run exists.
   await writeFile(configPath, config({ include: ['card', 'gone'] }));
@@ -84,7 +89,7 @@ try {
   await assert.rejects(capture({ configPath, side: 'styleguide' }), /no usable ID/);
 
   const stored = JSON.parse(await readFile(a.manifestPath, 'utf8'));
-  assert.equal(stored.settings.targets.length, 4);
+  assert.equal(stored.settings.targets.length, 3);
   console.log('Styleguide component target checks pass.');
 } finally {
   await new Promise(resolve => site.close(resolve));
