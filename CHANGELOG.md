@@ -31,6 +31,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
+- `diff` no longer writes the fixture label `example-site` as `meta.project`. A report names no project, and the viewer shows "Local reports". A stored report with the label still loads (#282).
 - A remote capture no longer records `data:`, `blob:` or other non-http(s) requests in `dropped`. They used list slots and could push real origins out. The viewer copy says "stylesheet" everywhere (R3.8, #251).
 - `capture` and `perf` stop on a DDEV project that is not running and name the fix: "The DDEV project is not running (status: stopped). Run ddev start." The check runs before Playwright loads, so no browser starts and no run directory exists (#255).
 
