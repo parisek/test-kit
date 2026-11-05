@@ -10,6 +10,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
+- An incomplete `status` artifact (`failed`, `missing` or `incompatible`) now makes its cell incomplete, as a screenshot or HTML artifact does. Before, a cell with a complete screenshot read `match` while its status evidence was missing. `compareRuns` and `cellState` agree, so the viewer and `summary` agree. Migration: a report that read `match` with an incomplete `status` artifact now reads incomplete. Run `diff` again to refresh a stored report. A run without the `status` artifact selected is unchanged (R8.7, R6.13, #295).
 - `summary` and `query` keep every answer under 60000 bytes, the limit of the behavior query. This implements the size limit of R11.2. `summary` copies only `kind`, `aRunId`, `bRunId` and `key` of `pair`. It cuts a run id of `pair` or `subject` to 200 characters, ends it with `…` and sets `aRunIdTruncated`, `bRunIdTruncated` or `runIdTruncated`. It cuts a target id to 200 characters, ends it with `…` and sets `idTruncated: true`, so `--target` with that id does not match. Both queries halve their longest list until the answer fits and add the omitted count (`checksOmitted`, `rulesOmitted`, `redirectsOmitted`, `omitted`). A normal answer does not change (R11.2, #272).
 
 ## [1.1.0-rc.1] - 2026-11-05
