@@ -37,6 +37,8 @@ First release candidate for 1.1.0. It is not a stable release. `package.json` sa
 
 - `diff` no longer writes the fixture label `example-site` as `meta.project`. A report names no project, and the viewer shows "Local reports". A stored report with the label still loads (#282).
 - A remote capture no longer records `data:`, `blob:` or other non-http(s) requests in `dropped`. They used list slots and could push real origins out. The viewer copy says "stylesheet" everywhere (R3.8, #251).
+- `before`, `after`, `run` and `perf` with `--ddev` inside the DDEV container no longer fail with a raw "Unexpected token" parse error. They say to run `--ddev` on the host (#253).
+- The JSON-like error of a pack names the class of a class instance ("an instance of class Box"), not "an Object" (R4.4, #259).
 - `capture` and `perf` stop on a DDEV project that is not running and name the fix: "The DDEV project is not running (status: stopped). Run ddev start." The check runs before Playwright loads, so no browser starts and no run directory exists (#255).
 
 ## [1.0.0] - 2026-11-04
