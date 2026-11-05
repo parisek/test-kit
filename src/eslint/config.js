@@ -3,15 +3,6 @@
 // A project adds them in its own blocks after this array (R13.40).
 import portadesign from './rules/index.js';
 
-// Used only when the `globals` package is absent. Do not grow it. Install the package.
-const FALLBACK_BROWSER_GLOBALS = Object.fromEntries([
-  'window', 'document', 'navigator', 'location', 'localStorage', 'sessionStorage', 'console', 'fetch',
-  'URL', 'URLSearchParams', 'FormData', 'HTMLElement', 'HTMLDialogElement', 'Element', 'Event',
-  'CustomEvent', 'CSS', 'history', 'IntersectionObserver', 'MutationObserver', 'ResizeObserver',
-  'requestAnimationFrame', 'cancelAnimationFrame', 'setTimeout', 'clearTimeout', 'setInterval',
-  'clearInterval', 'queueMicrotask', 'performance', 'getComputedStyle', 'AbortController',
-].map((name) => [name, 'readonly']));
-
 const UNUSED = { argsIgnorePattern: '^_', varsIgnorePattern: '^_' };
 
 // Rule levels of the four portadesign rules. `require-reduced-motion-guard` is a warning
@@ -34,12 +25,13 @@ export function buildConfig({ js, importPlugin, globals = null, tseslint = null,
       languageOptions: {
         ecmaVersion: 2024,
         sourceType: 'module',
-        globals: { ...(globals?.browser ?? FALLBACK_BROWSER_GLOBALS) },
+        globals: { ...(globals?.browser ?? {}) },
       },
       plugins: { import: importPlugin, portadesign },
       rules: {
         'no-unused-vars': ['error', UNUSED],
-        'no-undef': 'error',
+        // Without the `globals` package no global list exists. The rule goes off, and the entry point warns (R13.47).
+        'no-undef': globals ? 'error' : 'off',
         'no-throw-literal': 'error',
         'no-console': ['warn', { allow: ['warn', 'error'] }],
         'no-debugger': 'error',
@@ -49,14 +41,17 @@ export function buildConfig({ js, importPlugin, globals = null, tseslint = null,
         ...PORTADESIGN_RULES,
       },
     },
-    {
-      // Node context: test harnesses, build scripts and config files. A separate block, so a
-      // browser file never gains Node globals. The patterns anchor at the working directory.
+  ];
+
+  if (globals) {
+    // Node context: test harnesses, build scripts and config files. A separate block, so a
+    // browser file never gains Node globals. The patterns anchor at the working directory.
+    config.push({
       name: 'test-kit/eslint/node',
       files: ['**/*.test.{js,mjs,ts}', '**/*.config.{js,mjs,ts}', 'scripts/**', 'tests/**'],
-      languageOptions: { globals: { ...(globals?.node ?? {}) } },
-    },
-  ];
+      languageOptions: { globals: { ...globals.node } },
+    });
+  }
 
   if (tseslint) {
     // Syntax only. No `projectService`, so no tsconfig.json is needed and no type-aware rule runs.

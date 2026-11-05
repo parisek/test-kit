@@ -28,11 +28,11 @@ export default [
 ];
 ```
 
-Install the peers that you need. Every peer is optional in `package.json`:
+Install the peers. In `package.json` every one is marked `"optional": true` in `peerDependenciesMeta`. That flag is for the package manager only: it stops `npm` from installing or warning about a peer that a screenshot-only project never needs. It does not make a peer optional for this entry point. `@eslint/js` and `eslint-plugin-import` are required here, and the import fails at runtime without them (see "Missing peers").
 
 ```bash
-npm i -D eslint @eslint/js eslint-plugin-import
-npm i -D globals typescript-eslint typescript eslint-plugin-vue vue-eslint-parser   # optional
+npm i -D eslint @eslint/js eslint-plugin-import                                           # required
+npm i -D globals typescript-eslint typescript eslint-plugin-vue vue-eslint-parser   # enhancements
 ```
 
 ## Rules
@@ -53,7 +53,7 @@ The rule files keep the source style of the project they came from (tabs and dou
 | Peer | Missing means |
 | --- | --- |
 | `@eslint/js`, `eslint-plugin-import` | The import throws `LintPeerError` with the code `LINT_PEER_MISSING`. The message names the package and the install command. |
-| `globals` | A warning. Browser files use a short fallback list. Test, script and config files get no Node globals. |
+| `globals` | A warning. The browser and Node global lists are dropped, and `no-undef` is off. |
 | `typescript-eslint` | A warning. TypeScript files and script blocks with `lang="ts"` are not linted. |
 | `eslint-plugin-vue` or `vue-eslint-parser` | A warning. Vue files are not linted. Both are needed. |
 
@@ -67,4 +67,4 @@ The rule files keep the source style of the project they came from (tabs and dou
 
 ## Tests
 
-`tests/unit/eslint-rules.test.js` runs each rule with `RuleTester`. `tests/unit/eslint-entry.test.js` covers the namespace, the project override, the disable comment, the missing peers, and the import in a child process that blocks the browser packages.
+`tests/unit/eslint-entry.test.js` is pure and needs no package: it covers `messageIds`, the blocks that `buildConfig` drops, and `loadPeers`. The tests that lint code sit in `tests/lint-cases/` (`eslint-rules.mjs` with `RuleTester`, `eslint-entry.mjs` for the namespace, the project override, the disable comment, and the import in a child process that blocks the browser packages). `npm test` loads them only when the peers are installed. Without them the run prints a skip with the reason, so `npm test` needs no dependency. After `npm ci` they run. CI sets `TEST_KIT_REQUIRE_LINT_PEERS=1`, so a missing peer there fails the run.

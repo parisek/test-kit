@@ -47,8 +47,7 @@ export async function loadPeers(importer = (name) => import(name)) {
   const globals = await load(importer, 'globals');
   if (!globals) {
     warnings.push(
-      '[test-kit/eslint] "globals" is not installed. Browser files fall back to a short list of browser globals, '
-      + 'so an unusual browser API may report as undefined. Test, script and config files get no Node globals. '
+      '[test-kit/eslint] "globals" is not installed. The browser and Node global lists are dropped, and the rule "no-undef" is off. '
       + 'Install it: npm i -D globals',
     );
   }
