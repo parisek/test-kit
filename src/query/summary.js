@@ -39,6 +39,8 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		// droppedNotListed counts aborted requests that the capture cut from its 50-entry list.
 		// The keys appear only when one of them is above zero, so the pinned output stays the same.
 		...(warnings.length || notListed ? { droppedRequestCount: requests, droppedWarnings: warnings.slice(0, maxTargets), droppedWarningsOmitted: Math.max(0, warnings.length - maxTargets), droppedNotListed: notListed } : {}),
+		// R4.5: cells outside a recorded selection or filter. The key appears only when the report skipped one, so the pinned output stays the same.
+		...(Number.isSafeInteger(report.meta?.skipped) && report.meta.skipped > 0 ? { skipped: report.meta.skipped } : {}),
 		next: ['Open the report with test-kit serve.', 'Use summary --filter unexplained or --filter incomplete for scoped evidence.'],
 	};
 }

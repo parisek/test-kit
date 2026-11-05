@@ -36,6 +36,22 @@ Other served files have an 80,000,000 byte size limit.
 Stop the command after review. Client evidence stays local.
 
 
+## Compare a subset
+
+`capture` and `diff` take `--target ID,ID` and `--viewport ID,ID` (R4.5). The configuration stays whole.
+
+```sh
+test-kit capture --side local --label before --target home,contact --viewport desktop
+test-kit capture --side local --label after
+test-kit diff <run-a> <run-b> --output tests/visual/report
+test-kit diff <run-a> <run-b> --output tests/visual/report --target home
+```
+
+A selected run captures only the selected cells. It keeps the full lists and the same settings hash, and it
+records `selection` in `run.json`. `diff` compares the cells that every recorded selection holds and counts the
+rest in `meta.skipped`. A selected cell without a capture stays `missing`. A run made before this option has no
+`selection`, and `diff` treats it as a full run. `diff --target` and `--viewport` narrow the pair again.
+
 ## Response evidence
 
 Screenshots remain the default. Enable HTML or HTTP metadata explicitly:
