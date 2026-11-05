@@ -7,7 +7,7 @@ Requirements: R6.4–R6.12.
 `plan.js` selects explicit page targets without I/O.
 `model.js` contains consent, load, findings and Node provenance hashing.
 `runPerformance()` runs only on an explicit request. It uses the optional Lighthouse peer.
-Lighthouse 13.5.0 needs Node 22.19 or newer. Other test-kit commands keep Node 20 support.
+Lighthouse 13.6.0 needs Node 22.19 or newer. Other test-kit commands keep Node 20 support.
 
 Each target uses one discarded warmup and 3 to 5 measured audits.
 The browser keeps its cache between audits. The result stores each sample, the median and the full range.
@@ -41,7 +41,7 @@ Sources checked on 2026-10-09:
 - [Official Node usage](https://github.com/GoogleChrome/lighthouse/blob/main/docs/readme.md).
 - [Official throttle contract](https://github.com/GoogleChrome/lighthouse/blob/main/docs/throttling.md).
 - [Official security page](https://github.com/GoogleChrome/lighthouse/security): no published project advisories at the time of review.
-- The npm registry reports Lighthouse 13.5.0 with Node `>=22.19`.
+- The npm registry reports Lighthouse 13.6.0 with Node `>=22.19`.
 
 A dependency audit of the installed lockfile is a separate required check.
 The lack of published project advisories is not a dependency audit.
