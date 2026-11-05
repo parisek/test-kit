@@ -50,6 +50,14 @@ async function contained(root, path) {
 	return file;
 }
 
+// Owner decision on #94: a component without a fixture is skipped and listed as "no fixture". Run data is untrusted,
+// so each ID is checked and the list is bounded.
+function noFixtureField(run) {
+	const list = run.targetSource?.noFixture;
+	const ids = Array.isArray(list) ? list.filter((id) => typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(id)).slice(0, 1000) : [];
+	return ids.length ? { noFixture: ids } : {};
+}
+
 async function readRun(root, id) {
 	if (!relativePath(id) || id.includes('/')) throw new Error('Run must be a safe ID.');
 	const path = await contained(root, `${id}/run.json`);
@@ -271,7 +279,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });
 	}
-	const report = { schemaVersion: SCHEMA_VERSION, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
+	const report = { schemaVersion: SCHEMA_VERSION, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, ...noFixtureField(run), settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
     targets: run.settings.targets.filter(target => target.settle !== undefined || target.settleBySide?.[run.side] !== undefined).map(target => ({ id: target.id,
       ...(target.settle !== undefined ? { settle: target.settle } : {}),
       ...(target.settleBySide?.[run.side] !== undefined ? { settleBySide: { [run.side]: target.settleBySide[run.side] } } : {}) })) }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, checks, entries, causes: [], findings, rules: {} };
