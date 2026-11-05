@@ -11,3 +11,5 @@ Exit 0 means the operation succeeds. Exit 1 means invalid arguments, an
 operational error or a partial capture. Pixel ratios do not change exit codes.
 Output is JSON. Errors go to stderr. The binary reads its package version.
 Dependencies load only when dispatch runs the selected command.
+
+`capture --packs` (R13.51) is a flag without a value. It runs the packs of the `packs` key on the open page. The output adds `packs` (`selected`, `skipped`) when the flag is set. See `src/capture/README.md`.

@@ -14,6 +14,7 @@ import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
+import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
 
 // The text of a status finding: each differing field with both values, bounded in size.
@@ -129,6 +130,12 @@ function available(capture) {
 	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
 
+// R3.9: a pair whose sides list different origins names the key, so a person finds the cause.
+export function incompatibleDiagnostic(runA, runB) {
+  const list = run => JSON.stringify(run?.captureSettings?.allowOrigins ?? null);
+  return list(runA) !== list(runB) ? 'Capture settings differ: allowOrigins is not the same on both sides.' : 'Capture settings or tool versions differ.';
+}
+
 export function comparisonState(a, b, runA, runB) {
 	if (!a || !b) return 'missing';
 	if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
@@ -229,7 +236,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
-			} else row.diagnostic ??= row.state === 'incompatible' ? 'Capture settings or tool versions differ.' : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
+			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
 			row.artifacts.screenshot.state = row.state;
 			} else { delete row.artifacts.screenshot; row.state = 'complete'; }
 			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {
@@ -268,8 +275,15 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 					findings.push({ ...finding, checkId, layer: LIGHTHOUSE_CHECKS[checkId].layer, ...(LIGHTHOUSE_CHECKS[checkId].basis === 'absolute' ? { runId: b.id } : {}), id: `lighthouse-${target.id}-${viewport.id}-${index}` });
 				});
 			}
+			// R13.51: a pack result that `capture --packs` stored in run B. A run with none adds nothing (R5.1).
+			for (const kind of PACK_ARTIFACT_KINDS) {
+				const pack = await comparePackArtifact({ kind, b, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
+				if (!pack) continue;
+				row.artifacts[kind] = pack.artifact; findings.push(...pack.findings); Object.assign(checks, { ...pack.catalog, ...checks });
+			}
 			// R8.7: an incomplete status artifact makes the cell incomplete, like any other selected artifact (#295).
 			const states = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			states.push(...PACK_ARTIFACT_KINDS.filter(kind => row.artifacts[kind]).map(kind => row.artifacts[kind].state));
 			if (!states.length) states.push('missing');
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {

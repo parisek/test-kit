@@ -12,7 +12,7 @@ The Node engine belongs here. PHP and Twig lint belong to
 
 ## Install
 
-Use Node 20 or later. Install from an exact git tag, not the npm registry.
+Use Node 20.19 or later. Install from an exact git tag, not the npm registry.
 Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
@@ -119,9 +119,26 @@ A remote run stops at the first sign that the edge challenges or limits it: a
 That capture fails with `REMOTE_EDGE_STOP`. The rest of the run fails with
 `RUN_STOPPED` and sends no request, so a challenge does not grow into a ban.
 
-Aborted third-party requests are not recorded as evidence. A page that needs
-such a request to render differs from the same page with it, so read an
-`unexplained` finding with that in mind.
+A remote side aborts a request to another origin (a local side blocks it). A web font from a font host is such a
+request, and the page then renders in the fallback font. `run.json` records the aborted
+requests per resource type and origin (no path or query), and `summary` and the viewer
+warn when a `font` or `stylesheet` request was aborted. To load the font, name its origin:
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true,
+  "allowOrigins": [{"origin": "https://use.example-site.net", "types": ["stylesheet", "font"]}]}
+```
+
+The capture then reads that exact HTTPS origin with GET and HEAD for the named types
+(`stylesheet`, `font`). Name a font host that loads CSS from one origin and fonts from another
+with one entry for each origin. It never uses the list for a navigation, and a redirect from
+an allowed origin to an origin that is not named fails the capture. The capture verifies the
+certificate of a named origin. A local side may set the same key, so a local side can load a
+web font from a named third-party origin. A failed request to a named origin, or an HTTP error answer such as a 404 for a font file, fails the capture. A request to a named origin sends its URL and headers, including the `Referer` of the page, to that origin. The list is part of the capture settings hash. A pair
+with a list on one side only is incompatible, and the diagnostic names `allowOrigins`.
+
+Other aborted requests are not evidence. A page that needs such a request to render
+differs from the same page with it, so read an `unexplained` finding with that in mind.
 
 ## Scoped project workflow
 
@@ -314,7 +331,7 @@ under #25 and #45.
 
 ### Local Lighthouse measurements
 
-The engine and pure helpers still support Node 20. Lighthouse 13.5 requires
+The engine and pure helpers support Node 20.19. Lighthouse 13.5 requires
 Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
 is pinned to 13.5.0. Measurement accepts local HTTP page targets only.
 HTTPS and component targets fail explicitly.

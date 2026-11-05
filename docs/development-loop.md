@@ -30,7 +30,7 @@ test has run yet. No client report is copied into this repository.
 
 ## Test infrastructure
 
-- Pure logic: Node tests, no browser, no network. Keep Node 20 support.
+- Pure logic: Node tests, no browser, no network. Keep Node 20.19 support.
 - Engine integration: a synthetic local HTTP site with known changes, redirects,
   failures, animation, and a delayed asset. Use Chromium on the host.
 - Viewer integration: load reports produced by that engine. Test v1 adaptation,
