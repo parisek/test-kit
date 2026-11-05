@@ -11,7 +11,7 @@ The seam is everything a project touches: its configuration file, the commands i
 - From the first release candidate tag, the freeze starts. A change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
 - The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The form of the release candidate tag is decided: `vMAJOR.MINOR.PATCH-rc.N` (R13.45, owner decision, 2026-10-19). Only the owner tags it.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
-- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist (2026-11-04).
+- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` and the stable tag `v1.0.0` exist (2026-11-04).
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
 
 ## Markings
@@ -60,7 +60,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `artifacts` | list | `["screenshot"]` | no | 1 to 5 of `screenshot`, `html`, `status`, `content`, `behavior`. Additive only. |
 | `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
 | `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
-| `runsRoot` | string | `.test-kit/runs` | no | Plain relative path. The default was `tests/visual/runs` before 1.0.0-rc.8 (R12.1). See section 8, gap 6. |
+| `runsRoot` | string | `.test-kit/runs` | no | Plain relative path. The default was `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
 | `screenshot.fullPage` | boolean | `true` | no | |
 | `rules` | object | `{}` | no | Evidenced normaliser rules (R8.4, R8.5). Shape in `src/rules/model.js`. |
@@ -231,11 +231,11 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 3. The six built-in checks export no `basis`, although R7.2 requires it. Decided by the owner, 2026-10-19: deferred to `schemaVersion` 3. It is not an open question.
 4. Decided by the owner, 2026-10-19: the release candidate tag is `vMAJOR.MINOR.PATCH-rc.N` (R13.45). The freeze starts at `-rc.1`. Only the owner tags it.
 5. (closed) Question: does a change of the package version make an old run incompatible (R8.9)? Answer, read in the code on 2026-10-19: no. A run does not record the package version. `run.json` `tools` holds the Playwright and Chromium versions and one entry for each other artifact. A comparison needs equal `settingsHash` values and equal Playwright and Chromium entries (`src/compare/runs.js`). The hash covers the viewports, the `settle` recipe, the screenshot settings, the browser settings and the behavior contract fingerprint. It does not cover the `packs` key. A change of the Playwright or Chromium version, or of a capture setting, does make a run incompatible. One consumer project compared runs from `v0.2.1` and `v1.0.0-rc.2` with `incompatible: 0` (verified once, local site). See [migration-guide-tailwind-base.md](migration-guide-tailwind-base.md), Part 1, step 6.
-6. Decided by the owner, 2026-11-04 (issue #250): the default `runsRoot` moves from `tests/visual/runs` to `.test-kit/runs`, inside the ignored store, in `1.0.0-rc.8`. It is a breaking change for a 0.x project that relies on the old default. It lands after `-rc.1`, so it is the last change of this default before 1.0. A project that sets `runsRoot` explicitly sees no change. A project that wants the old place sets `"runsRoot": "tests/visual/runs"`. See [upgrade-from-0.5.md](upgrade-from-0.5.md), "What breaks".
+6. Decided by the owner, 2026-11-04 (issue #250): the default `runsRoot` moves from `tests/visual/runs` to `.test-kit/runs`, inside the ignored store, in `1.0.0`. It is a breaking change for a 0.x project that relies on the old default. It lands after `-rc.1`, so it is the last change of this default before 1.0. A project that sets `runsRoot` explicitly sees no change. A project that wants the old place sets `"runsRoot": "tests/visual/runs"`. See [upgrade-from-0.5.md](upgrade-from-0.5.md), "What breaks".
 
 ## 9. What this document did not check
 
-- The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist now. This document was written before them.
+- The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` and `v1.0.0` exist now. This document was written before them.
 - One consumer project ran `v1.0.0-rc.2` once, on 2026-10-19, against a local site (see the migration guide). No other project ran against the package. Every other statement about a project is derived from this repository.
 - The viewer was not opened. The seam covers files, commands and the JSON that the code reads and writes.
 - The cap values in the pack API are chosen bounds, not measurements.

@@ -1,7 +1,7 @@
 # Upgrade from v0.5.0 to `main`
 
 Status: measured on 2026-10-19. It serves issue #105 and R13.9.
-`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). At that time no tag newer than `v0.5.0` existed (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). This is history. The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist now (2026-11-04). A project pins the newest candidate tag (see [rc-trial.md](rc-trial.md)).
+`main` is commit 245611d. Its `package.json` still says version `0.5.0` (before this candidate). At that time no tag newer than `v0.5.0` existed (`git tag -l`: v0.1.0, v0.2.0, v0.2.1, v0.3.0, v0.4.0, v0.5.0). This is history. The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` and the stable tag `v1.0.0` exist now (2026-11-04). A project pins `v1.0.0` or a later stable tag (see [rc-trial.md](rc-trial.md)).
 
 ## Result
 
@@ -29,17 +29,17 @@ The new packs (`a11y`, `swiper`, `lint`) are opt-in (G3, R5.1). The optional `pa
 
 ## Steps
 
-1. Pin the new version with a candidate tag (R13.27): `npm install -D github:parisek/test-kit#v1.0.0-rc.7`. Replace the tag with the newest candidate. At the time of the 0.5.0 measurement only a commit form was possible. Not verified: this exact install from a commit in a project.
+1. Pin the new version with a stable tag (R13.27): `npm install -D github:parisek/test-kit#v1.0.0`. Replace the tag with a later stable tag when one exists. At the time of the 0.5.0 measurement only a commit form was possible. Not verified: this exact install from a commit in a project.
 
    One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
-2. Keep `test-kit.config.json` as it is. No key changes, but the default `runsRoot` changes from `1.0.0-rc.8` (see "What breaks"). Not verified in a project.
+2. Keep `test-kit.config.json` as it is. No key changes, but the default `runsRoot` changes in `1.0.0` (see "What breaks"). Not verified in a project.
 3. Keep your project aliases as they are. No command or flag changes. Not verified in a project.
 4. Optional, only when you use `@parisek/test-kit/packs/a11y/runner`: `npm install -D axe-core@^4.10.0`. Not verified in a project.
 5. Run the checks in the list below.
 
 ## What breaks
 
-- Shipped, from `1.0.0-rc.8` (R12.1, issue #250): the default `runsRoot` is `.test-kit/runs`. It was `tests/visual/runs`. A config that sets `runsRoot` is not affected. A config without the key now writes new runs to `.test-kit/runs`, and `diff` looks there. Migration note: to keep the old place, add `"runsRoot": "tests/visual/runs"` to `test-kit.config.json`. To move to the new place, move the run folders (`mkdir -p .test-kit/runs && mv tests/visual/runs/* .test-kit/runs/`) and add `.test-kit/` to the project ignore file. A run id that you pass to `diff` must exist under the configured `runsRoot`.
+- Shipped, from `1.0.0` (R12.1, issue #250): the default `runsRoot` is `.test-kit/runs`. It was `tests/visual/runs`. A config that sets `runsRoot` is not affected. A config without the key now writes new runs to `.test-kit/runs`, and `diff` looks there. Migration note: to keep the old place, add `"runsRoot": "tests/visual/runs"` to `test-kit.config.json`. To move to the new place, move the run folders (`mkdir -p .test-kit/runs && mv tests/visual/runs/* .test-kit/runs/`) and add `.test-kit/` to the project ignore file. A run id that you pass to `diff` must exist under the configured `runsRoot`.
 - Planned, not in the code: `report.json` goes to `schemaVersion` 3. `pair` becomes optional. A reader that supports only version 2 rejects a version 3 file with a message about `schemaVersion` (R9.1, `CHANGELOG.md`, `[1.0.0-rc.1]`, Migration). The code still writes version 2 on `main`. No project change is needed today.
 - Stored `known_diffs` records bind a comparator policy hash. This change set does not alter the comparator, so existing records stay valid. Not verified on a real project.
 

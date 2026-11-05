@@ -12,13 +12,13 @@ A fourth run on 2026-10-25 used the tag `v1.0.0-rc.5` in the same pull request. 
 
 The guide is for a project that pins an old `@parisek/test-kit` and moves once onto the frozen seam ([seam.md](seam.md)). The vision names `tailwind-base` as the first such project. Its default branch pins `v1.0.0-rc.5` since 2026-10-25 (portadesign/tailwind-base#947). Before that it pinned `v0.2.1`. The text uses `v0.2.1` as the worked example.
 
-Move once, onto a release candidate tag. The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist. Use the newest one. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0. A candidate is not the stable release: the owner has not tagged 1.0.0. A later candidate may need a second move.
+Move once, onto the stable tag `v1.0.0`. The owner tagged it on 2026-11-04, after the candidates `v1.0.0-rc.1` to `v1.0.0-rc.7`. The runs below used candidate tags, so they are history. [rc-trial.md](rc-trial.md) says how to tell a candidate from a stable 1.0.0.
 
 ## What the move covers
 
 Two different moves share the word "migration". Keep them apart.
 
-1. The package pin moves from an old tag to the release candidate. This guide covers it in full. Part 1 is verified once (see the status above).
+1. The package pin moves from an old tag to the stable tag. This guide covers it in full. Part 1 is verified once (see the status above).
 2. The project's own testing files move into the package (R13.9 to R13.11, R13.43). This is a plan. Much of it is not possible yet. See "What stays blocked". Not verified.
 
 ## Part 1: move the pin
@@ -41,7 +41,7 @@ Measured with `git diff v0.2.1 origin/main` on 2026-10-19. The changes that reac
 Steps:
 
 1. Read [seam.md](seam.md). Check that the project uses only frozen or experimental items. Mark any use of an item that is "not frozen". Verified once.
-2. Install the exact tag (R13.27): `npm install -D github:parisek/test-kit#<tag>`. Replace `<tag>` with the release candidate tag. The lockfile records the commit. Verified once.
+2. Install the exact tag (R13.27): `npm install -D github:parisek/test-kit#<tag>`. Replace `<tag>` with the stable tag, `v1.0.0`. The lockfile records the commit. Verified once.
 
    Note: One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
 3. Install the browser peer: `npm install -D @playwright/test` and `npx playwright install chromium`. Add `lighthouse` only if the project runs `perf`. Verified once for `@playwright/test`, with version 1.63.0. The peer range is `>=1.49`. The version that `docs/rc-trial.md` names is the one CI uses, not a requirement. Verified on 2026-10-23 for `perf`: with `lighthouse` 13.5.0, `perf --side local --targets <id> --ddev --runs 3` measured the loopback HTTP origin and exited 0. Without the `lighthouse` peer, `perf` stops with "Install the optional lighthouse peer before performance capture." and exit code 1. On a busy machine `perf` stops with "Machine load is high." and exit code 1. `--allow-high-load` runs it anyway, and the results are then less stable. In that run `lighthouse` came from a separate install, not from the project's lockfile. Not verified: `npm install -D lighthouse` in the project.

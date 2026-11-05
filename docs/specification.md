@@ -362,7 +362,7 @@ An agent must not read a whole report. It asks for the part it needs.
 
 ## 12. Storage and privacy
 
-- R12.1 Low-level captures keep `.test-kit/runs/<id>/` by default, inside the store of the opt-in project workflow. The `runsRoot` key overrides the path. The default was `tests/visual/runs/<id>/` before 1.0.0-rc.8. The workflow uses a configured relative store, with `.test-kit/` as its default. Its `runs/`, `reports/`, and baseline state stay in `.gitignore`. The run id grammar of `runs-store.js` stays. No automatic deletion runs (section 17, item 4).
+- R12.1 Low-level captures keep `.test-kit/runs/<id>/` by default, inside the store of the opt-in project workflow. The `runsRoot` key overrides the path. The default was `tests/visual/runs/<id>/` before 1.0.0. The workflow uses a configured relative store, with `.test-kit/` as its default. Its `runs/`, `reports/`, and baseline state stay in `.gitignore`. The run id grammar of `runs-store.js` stays. No automatic deletion runs (section 17, item 4).
 - R12.2 Committed: viewport manifest, `sides`, target lists, `known_diffs`, the viewer shell. Not committed: captures, snapshots, raw tool output.
 - R12.3 Content snapshots store the body compressed so that a new check needs no new crawl. They stay local.
 - R12.4 Anything that reaches a public repository (issue, pull request, example data) must be anonymised: no client name, URL or screenshot.
@@ -481,7 +481,7 @@ The v0.1 milestone delivers local screenshot capture, comparison, viewer, bounde
 | Install from a git tag and from a `semver:` range (section 13.2) | verified on a local copy |
 | Local Drupal screenshot pilot | two targets, two viewports; repeated A/A has no screenshot findings, 2026-10-09 |
 | `git` inside the DDEV container | git 2.47.3; pinned GitHub commit installation verified, 2026-10-09 |
-| The tag workflow (version check, GitHub Release) | verified: tags `v1.0.0-rc.1` to `v1.0.0-rc.7` each made a GitHub prerelease, 2026-10-19 to 2026-11-04 |
+| The tag workflow (version check, GitHub Release) | verified: tags `v1.0.0-rc.1` to `v1.0.0-rc.7` each made a GitHub prerelease, and the tag `v1.0.0` made the stable GitHub Release (latest), 2026-10-19 to 2026-11-04 |
 | CLI run of a selected pack, pack results in `report.json` | not built; milestone 1.1 (section 17, item 8) |
 | Agent `summary` size | measured 1310 bytes for the six-target synthetic browser report, 2026-10-09 |
 
