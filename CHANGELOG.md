@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- `targetSource` takes two opt-in booleans, `variants` and `pages` (R13.52, #94). `variants: true` makes one `component` target for each `styleguide.<variant>.twig` of an entry: ID `<component>--<variant>`, path `<mount>/render/component/<id>?canvas&variant=<variant>`. `pages: true` reads `<mount>/api/pages` and makes one `page` target for each page: ID `page--<id>`, path `<mount>/render/page/<id>?canvas`, variants as `page--<id>--<variant>`. `include` now names target IDs, and a component ID also selects its variants. A page with `has_styleguide: false` is listed as no fixture, like a component. Without the keys nothing changes.
+
 ## [1.1.0-rc.2] - 2026-11-06
 
 Second release candidate for 1.1.0. It is not a stable release. `package.json` stays at `1.1.0`, so `--version` prints `1.1.0`; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update: Node 20.19 or newer is required, and a pair with a status or redirect difference, or an incomplete `status` artifact, no longer reads `match`.

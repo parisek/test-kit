@@ -24,4 +24,11 @@ An entry with no `has_styleguide` key counts as renderable, because an older sty
 `readComponents({ origin, mount, include, get })` calls `get(url)` once, with `{ status, body }` as the result, and parses the body.
 `componentsUrl` and `componentPath` build the two URLs. `validMount` checks `mount`.
 
-Out of scope: `usage` as `composedOf` (R9.5), variants (`?variant=`), themes, locales, content checks on a component, the `convergence` pair and a remote styleguide side.
+Two opt-in options add targets (R13.52). Both are off by default, so a catalogue read as before gives the same targets.
+`variants: true` reads the `variants` field of each entry (`[{ id, title }]`, `id` matching `[a-z0-9-]+`) and makes one target for each variant. Its ID is `<component>--<variant>`, its title `<name> / <variant title>` and its path `<mount>/render/component/<id>?canvas&variant=<variant>`. With this option an entry whose `has_default_variant` is `false` makes no default target, because the styleguide grid shows no default tile for it. If the entry has no variant either, it is listed in `noFixture`.
+`pages: true` passes the parsed `<mount>/api/pages` list (same shape, `[]` allowed). Each page makes a `page` target with ID `page--<id>`, so a page never collides with a component. Its path is `<mount>/render/page/<id>?canvas`. Page variants follow the same rule as `page--<id>--<variant>`. A page with `has_styleguide: false` is listed in `noFixture` as `page--<id>`.
+A bad `variants` field, a target ID longer than 64 characters and a repeated target ID throw `STYLEGUIDE_CATALOGUE_INVALID`. The read never skips an entry.
+`include` names target IDs. A component ID also selects its variants, and `page--<id>` also selects the variants of a page. A name that matches no target throws `STYLEGUIDE_COMPONENT_UNKNOWN`, also when the option that would make it is off.
+`readComponents` sends one GET for the components and, with `pages`, one more for the pages.
+
+Out of scope: `usage` as `composedOf` (R9.5), themes, locales, content checks on a component, the `convergence` pair and a remote styleguide side.
