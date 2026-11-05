@@ -11,6 +11,8 @@ Versions follow semver. Each release uses an immutable git tag.
 - The behavior runner writes `contract` on each step. The catalog key is `behavior.<contract name>`, and a `-detect` or `-scoping` step folds into its contract. The registry records the origin of each contract. The feedback summary names the contract by its name and gives the same key (ADR 0004, question 1).
 - The six built-in content checks export `basis`: `text-difference` is `relative`, the other five are `absolute` (R7.2).
 - `summary` returns `subject` (`null` for a pair report) and `pair: null` for a subject report. `queryArtifact` reads `lint` and `a11y` artifacts at target scope.
+- A rule scope (`applies`) and the scope of an override accept the artifacts `behavior`, `lighthouse`, `lint` and `a11y`, and the kind `single-run`. Before, only `screenshot`, `html`, `status` and `content` were valid. A rule or override can now limit these results on the same axes (R8.5, R9.7, #230).
+- `query` copies only `violations` and `checks` from an absolute result, and the check names of `scope`. `summary` copies only `kind`, `runId` and `key` of `subject`. Other keys in a report file never reach the agent (R11.2).
 - The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
 
 ### Changed
