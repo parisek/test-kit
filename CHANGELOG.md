@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.1.0-rc.1] - 2026-11-05
+
+First release candidate for 1.1.0. It is not a stable release. `package.json` says `1.1.0`, so `--version` prints `1.1.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The report is `schemaVersion` 3: a stored version 2 report reads as version 3. The behavior version is 2: a stored version 1 behavior run reads `incompatible` against a new run (R8.9).
+
 ### Added
 
 - The optional config key `targetSource` reads component targets from a styleguide side: `{ "source": "styleguide", "side": "styleguide" }`, with optional `mount` (default `/styleguide`) and `include`. Capture reads `<mount>/api/components` and makes one `component` target for each entry, rendered at `<mount>/render/component/<id>?canvas`. A component with `has_styleguide: false` is skipped: it sends no request, it is no target, and the run manifest, the report and `summary` list it as "no fixture". A bad catalogue, a wrong mount or an unknown name in `include` stops the capture before a run exists. A removed component reads `missing` in a `self-baseline` pair. `perf` refuses these targets (R13.3, R8.7, #94). The key is absent by default and changes no existing config or settings hash (R5.1).
@@ -17,11 +21,13 @@ Versions follow semver. Each release uses an immutable git tag.
 - A rule scope (`applies`) and the scope of an override accept the artifacts `behavior`, `lighthouse`, `lint` and `a11y`, and the kind `single-run`. Before, only `screenshot`, `html`, `status` and `content` were valid. A rule or override can now limit these results on the same axes (R8.5, R9.7, #230).
 - `query` copies only `violations` and `checks` from an absolute result, and the check names of `scope`. `summary` copies only `kind`, `runId` and `key` of `subject`. Other keys in a report file never reach the agent (R11.2).
 - The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
+- `text-difference` lists the lines that exist on one side only. Its finding evidence carries `onlyInA`, `onlyInB`, `onlyInACount`, `onlyInBCount`, `sideA` and `sideB`. The lines are whitespace-normalised and counted as multisets. The lists hold the first 20 lines, each cut at 200 characters. The counts are exact. A change of whitespace only gives no finding. The same lines in another order give a finding with `orderChanged: true`. `query --artifact content` prints these lines first as `diff.oneSided`, with the name of each side, and removes them from the findings. `summary` adds `lineGapTargets`, the number of targets with a gap, when it is above zero. The check version is `1.1.0`. Comparison sidecars of version `1.0.0` still load, and their finding keeps `before` and `after`. The evidence of a built-in check is Experimental (`docs/seam.md`) (#281).
 - A remote capture records the requests it aborts per resource type and origin (no path or query) as `dropped` in `run.json`. `diff` copies it into the report. `summary` and the viewer warn when a `font` or `stylesheet` request was aborted, so a page that renders in a fallback font is visible. The verdict does not change (R3.8, #251).
 
 ### Changed
 
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
+- Docs: the README names the cause of `git+ssh` in `package-lock.json`: a DDEV `post-start` hook that runs `npm install`. The fix is on the project side: run `npm ci` in that hook (#289).
 - The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, #230). `docs/seam.md` marks `report.json` "Not frozen" (`docs/seam.md`, versions table, row "Report `report.json`"), and the owner decided the break on #230. The alpha clause of R13.9 ended with the stable release and does not cover it.
 - Migration note, cost 1: the behavior version is 2 (it was 1). `docs/seam.md` lists the bump, with the identity of a behavior finding ("Not frozen, decided 2026-11-04"). A stored version 1 behavior run no longer compares with a new run. The pair reads `incompatible` (R8.9). Capture the older side again.
 - Migration note, cost 2: `known_diffs` no longer explains an absolute content finding. A known difference applies to a relative check only (R7.3). The five content checks other than `text-difference`, and `lighthouse-budget`, are absolute. Their findings stay `unexplained` until the allowlist ships (#254).
@@ -31,7 +37,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
+- `diff` no longer writes the fixture label `example-site` as `meta.project`. A report names no project, and the viewer shows "Local reports". A stored report with the label still loads (#282).
 - A remote capture no longer records `data:`, `blob:` or other non-http(s) requests in `dropped`. They used list slots and could push real origins out. The viewer copy says "stylesheet" everywhere (R3.8, #251).
+- `before`, `after`, `run` and `perf` with `--ddev` inside the DDEV container no longer fail with a raw "Unexpected token" parse error. They say to run `--ddev` on the host (#253).
+- The JSON-like error of a pack names the class of a class instance ("an instance of class Box"), not "an Object" (R4.4, #259).
 - `capture` and `perf` stop on a DDEV project that is not running and name the fix: "The DDEV project is not running (status: stopped). Run ddev start." The check runs before Playwright loads, so no browser starts and no run directory exists (#255).
 
 ## [1.0.0] - 2026-11-04

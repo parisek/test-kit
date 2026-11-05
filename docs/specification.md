@@ -159,7 +159,7 @@ export function check(doc, ctx) { return [ /* { target, severity, message, evide
 - R7.2 A check must export `id`, `title`, `applies` and `check`. It exports `basis` (R8.10). Until `schemaVersion` 3 a check without `basis` is relative. From `schemaVersion` 3 `basis` is required. Wording aligned by owner direction on 2026-10-22 (issue #113). A CLI entry, if any, must sit behind an `import.meta.url` guard.
 - R7.3 Findings of a check go into the same `findings` list as findings of any artifact. A class applies by the basis of the check (section 8). Normaliser rules and known differences apply to relative checks only.
 - R7.4 A run stores the version of each extractor that read its content. Two runs with different extractor versions must not be compared silently.
-- R7.5 Starter checks: heading outline (one `h1`, no skipped level), page language against the expected one, empty `title` and `alt`, broken internal links, text difference A against B.
+- R7.5 Starter checks: heading outline (one `h1`, no skipped level), page language against the expected one, empty `title` and `alt`, broken internal links, text difference A against B. The text difference finding lists the lines that exist on one side only, as multisets, with exact counts and the name of each side (`onlyInA`, `onlyInB`, `onlyInACount`, `onlyInBCount`, `sideA`, `sideB`). A line is a line of `innerText` with its whitespace collapsed. An empty line does not count. A whitespace-only difference, including a different count of blank lines, gives no finding. The same lines in another order give a finding with `orderChanged: true` and empty lists. Each list holds at most 20 lines of at most 200 characters, and a reader refuses a stored finding that breaks this. A reader of a stored comparison accepts every earlier check version. Owner decision on 2026-11-05 (issue #281): the lists and `orderChanged` stay.
 - R7.7 Content checks keep the stored pure check contract. Browser contracts keep `name`, `detect`, and `run`. An explicit name list selects checks or contracts. Unknown or duplicate names fail. An empty behavior selection records no executed assertion. A skipped contract does not prove a pass.
 
 - R7.6 A language-detection check needs a library. Add it only after a check of origin, releases and advisories.
@@ -213,7 +213,7 @@ The code writes version 3 (ADR 0004, #230). R9.7 to R9.11 describe it.
 - R9.3 `meta.tools` must list every tool with name, version and settings hash.
 
 ```
-meta       project, title, generated, matchBelow, primaryViewport, viewports[], groups?, tools[], sample?
+meta       project?, title, generated, matchBelow, primaryViewport, viewports[], groups?, tools[], sample?
 runs[]     id, side, label, at, captures
 pair       kind, aRunId, bRunId          (exactly one of pair and subject)
 subject    kind: 'single-run', runId, key?
@@ -361,6 +361,7 @@ An agent must not read a whole report. It asks for the part it needs.
 - R11.4 `summary` should stay under about 5 kB for a normal report (estimate, not yet measured).
 - R11.5 Each answer has a `next` field that names what the agent may do. Recording a known difference stays a command with evidence (R5.3).
 - R11.6 A person and an agent open the same report and see the same classes. `summary` returns `pair` for a report with a pair, and `subject` for a report with a subject. It returns `pair: null` for a subject report and `subject: null` for a pair report. The `subject` key is additive. A subject report has no sides A and B, so `summary` lists no availability problem for it.
+- R11.7 For a `content` query, `diff.oneSided` comes first: `sides` (the side names), `lines` (`side`, `name`, `text`; at most `--max-lines` lines, 200 characters each) and `omittedLines`. It is present only when a text difference finding carries line lists. `summary` returns `lineGapTargets`, one integer, only when above zero. The content `diff` index in the report holds `lineGaps`, the number of lines that exist on one side only, only when above zero. Each is a bounded integer or a bounded list, so none breaks R11.2 or R11.4 (#281).
 
 ---
 
