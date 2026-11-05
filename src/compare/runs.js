@@ -130,6 +130,12 @@ function available(capture) {
 	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
 
+// R3.9: a pair whose sides list different origins names the key, so a person finds the cause.
+export function incompatibleDiagnostic(runA, runB) {
+  const list = run => JSON.stringify(run?.captureSettings?.allowOrigins ?? null);
+  return list(runA) !== list(runB) ? 'Capture settings differ: allowOrigins is not the same on both sides.' : 'Capture settings or tool versions differ.';
+}
+
 export function comparisonState(a, b, runA, runB) {
 	if (!a || !b) return 'missing';
 	if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
@@ -230,7 +236,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
-			} else row.diagnostic ??= row.state === 'incompatible' ? 'Capture settings or tool versions differ.' : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
+			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
 			row.artifacts.screenshot.state = row.state;
 			} else { delete row.artifacts.screenshot; row.state = 'complete'; }
 			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {
