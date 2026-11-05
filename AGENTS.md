@@ -24,7 +24,7 @@ PLAN: "docs/specification.md section 14"
 ## Development Commands
 
 ```bash
-npm test                        # node --test (finds *.test.js; no dependency, no browser)
+npm test                        # node --test (finds *.test.js; no browser; run npm ci first, the lint tests need eslint and stylelint)
 node bin/cli.js --help     # the command line
 ```
 
