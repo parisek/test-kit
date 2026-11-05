@@ -80,6 +80,31 @@ test('R9.7: a report has exactly one of pair and subject', () => {
 	says(run, 'Subject refers to an unknown run.');
 });
 
+test('R9.7: an unknown pair kind fails in the validator and on the command line', () => {
+	const kind = pairReport(); kind.pair.kind = 'single-run';
+	says(kind, 'Unknown pair kind.');
+	assert.throws(() => adaptReport(kind), /Unknown pair kind\./);
+	assert.throws(() => parseCommand(['diff', 'a', 'b', '--output', 'out', '--kind', 'nonsense']), /Unknown pair kind/);
+	assert.doesNotThrow(() => parseCommand(['diff', 'a', 'b', '--output', 'out', '--kind', 'update']));
+});
+
+test('The report bounds the catalog, the overrides and a scope list at 500 checks', () => {
+	const sized = (count, overrides) => {
+		const report = pairReport();
+		report.checks = Object.fromEntries(Array.from({ length: count }, (_, index) => [`check-${index}`, { basis: 'absolute', layer: 'project', title: 'Check' }]));
+		report.entries[0].viewports[0].artifacts.content = pairContent(Object.keys(report.checks).slice(0, 500));
+		if (overrides !== undefined) report.overrides = Array.from({ length: overrides }, () => ({ checkId: 'check-0', layer: 'project', reason: 'Accepted.', owner: 'example-owner' }));
+		return report;
+	};
+	assert.deepEqual(validateReport(sized(500, 500)), []);
+	says(sized(501), 'checks lists too many checks.');
+	says(sized(500, 501), 'overrides must be an array.');
+	// 501 names with a catalog of 500: only the bound (not the catalog lookup) gives this message.
+	const scope = sized(500);
+	scope.entries[0].viewports[0].artifacts.content = pairContent([...Object.keys(scope.checks), 'check-501']);
+	says(scope, 'Invalid artifact scope.');
+});
+
 test('R9.7: subject.key follows the comparison policy hash', () => {
 	const policy = `sha256:${'a'.repeat(64)}`;
 	const withHash = subjectReport(); withHash.meta.comparisonPolicyHash = policy;
