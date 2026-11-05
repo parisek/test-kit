@@ -274,8 +274,9 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 					findings.push({ ...finding, checkId, layer: LIGHTHOUSE_CHECKS[checkId].layer, ...(LIGHTHOUSE_CHECKS[checkId].basis === 'absolute' ? { runId: b.id } : {}), id: `lighthouse-${target.id}-${viewport.id}-${index}` });
 				});
 			}
-			const comparable = ['screenshot', 'html', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
-			const states = comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing'];
+			// R8.7: an incomplete status artifact makes the cell incomplete, like any other selected artifact (#295).
+			const states = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			if (!states.length) states.push('missing');
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {
 				row.state = 'failed';
