@@ -28,7 +28,7 @@ The entry points need nine packages: `eslint`, `@eslint/js`, `eslint-plugin-impo
 
 Layout (design detail, Tier 1): `src/eslint/` and `src/stylelint/`. Each folder holds a README, the rules and the entry file. Fixtures sit in `tests/fixtures/lint/`.
 
-The Stylelint entry is a CommonJS file (`index.cjs`). The package is `"type": "module"`. `require()` of an ES module works only from Node 20.19 and 22.12, and the package supports `>=20`. A `.cjs` entry loads with `require` and with `import` on every supported Node. The ESLint entry is an ES module, because flat config projects use `import` and the entry loads optional peers with `await import()`.
+The Stylelint entry is a CommonJS file (`index.cjs`). The package is `"type": "module"`, so a `.js` file would load as ESM. The moved Stylelint rules are CommonJS and call `require("stylelint")`. A `.cjs` entry loads the same way from `require` and from `import`. A project config such as `.stylelintrc.cjs` calls `require`. Stylelint 17 needs Node 20.19 or later, and `require()` of an ES module works from that version, so the choice does not depend on the Node version. The ESLint entry is an ES module, because flat config projects use `import` and the entry loads optional peers with `await import()`.
 
 ## Ranges and security check
 
@@ -58,7 +58,7 @@ The check covers known advisories on the day above. It does not cover a future o
 - **Hard dependencies.** They give the project a second ESLint or Stylelint instance and install nine packages for a screenshot user. The owner chose optional peers.
 - **A `createConfig(options)` factory for globals and ignores.** A project already adds blocks after the array (R13.40). A factory would add a second public API to freeze. Rejected for now. It is an addition if a need appears.
 - **Keep the vendor globals, pseudo-classes and ignore paths in the shared config.** They are values of one project and would leak to the next one. The owner decided to make them project input.
-- **An ES module entry for Stylelint.** `require()` of ESM fails on Node 20.0 to 20.18. The `.cjs` entry avoids that.
+- **An ES module entry for Stylelint.** It would force a rewrite of the moved rules or a mix of two module kinds in one folder. The `.cjs` entry keeps the rules as they are.
 - **A baseline file written by the package.** No such file exists today and nothing needs it. R5.1 and principle 5 say a new artifact must be opt-in.
 
 ## Consequences
