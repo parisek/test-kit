@@ -6,6 +6,7 @@ import TargetDetail from './components/TargetDetail.vue';
 import MatrixView from './components/MatrixView.vue';
 import FindingsView from './components/FindingsView.vue';
 import RunSummary from './components/RunSummary.vue';
+import ScopeLine from './components/ScopeLine.vue';
 import ReportFilters from './components/ReportFilters.vue';
 import IndexView from './components/IndexView.vue';
 import TimelineView from './components/TimelineView.vue';
@@ -249,7 +250,7 @@ onUnmounted(() => {
                         <li v-else aria-current="page">{{ state.report.meta.title ?? 'Comparison' }}</li>
                         <li v-if="state.view === 'evidence'" aria-current="page">Evidence</li>
                     </ol></nav>
-                    <div class="comparison-heading"><div><p class="eyebrow">{{ state.report.subject ? 'Single-run result' : state.report.pair.kind + ' comparison' }}</p><h1 ref="reportHeading" tabindex="-1">{{ state.report.meta.title ?? 'Comparison' }}</h1><p v-if="summary && state.view !== 'evidence'" class="report-verdict"><span class="verdict-dot" :data-verdict="rowClass(summary.counts) ?? 'unknown'" aria-hidden="true"></span><span>{{ verdictSentence(summary.counts) }}</span></p><p class="report-time"><time v-if="reportTime" :datetime="state.report.meta.generated" :title="state.report.meta.generated">{{ reportTime }}</time><template v-else>Time unknown</template></p></div><span class="local-label">Local report</span></div>
+                    <div class="comparison-heading"><div><p class="eyebrow">{{ state.report.subject ? 'Single-run result' : state.report.pair.kind + ' comparison' }}</p><h1 ref="reportHeading" tabindex="-1">{{ state.report.meta.title ?? 'Comparison' }}</h1><p v-if="summary && state.view !== 'evidence'" class="report-verdict"><span class="verdict-dot" :data-verdict="rowClass(summary.counts) ?? 'unknown'" aria-hidden="true"></span><span>{{ verdictSentence(summary.counts) }}</span></p><p class="report-time"><time v-if="reportTime" :datetime="state.report.meta.generated" :title="state.report.meta.generated">{{ reportTime }}</time><template v-else>Time unknown</template></p><ScopeLine :report="state.report" /></div><span class="local-label">Local report</span></div>
                     <nav v-if="neighbors" class="report-order" aria-label="Comparison order">
                         <a v-if="neighbors.older" :href="anchorFor(neighbors.older.id)" @click.prevent="open(neighbors.older.id)">Older</a><span v-else class="report-order-end">Older</span>
                         <span class="record">{{ neighbors.position }} of {{ neighbors.total }}</span>

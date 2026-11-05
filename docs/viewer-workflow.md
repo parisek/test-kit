@@ -81,4 +81,5 @@ The owner decided these on 2026-10-22:
 - The viewer builds the `record-known` command text (see the table above).
 - Content and Speed are evidence types of the Evidence view (R10.4, issue #155).
 - Behavior is an evidence type of the Evidence view too (R10.4). Decided on 2026-10-22.
+- A report with `meta.scope` shows one scope line in the report header, on every view: "Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped." The full lists sit in "Run details". A skipped cell is not a target. A report without `meta.scope` shows no line (owner decision of 2026-11-05, #287, option C).
 - Any future change to the adopted view set or the deep link grammar needs a new owner decision and a specification change.
