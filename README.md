@@ -134,7 +134,7 @@ The capture then reads that exact HTTPS origin with GET and HEAD for the named t
 with one entry for each origin. It never uses the list for a navigation, and a redirect from
 an allowed origin to an origin that is not named fails the capture. The capture verifies the
 certificate of a named origin. A local side may set the same key, so a local side can load a
-web font from a named third-party origin. A failed request to a named origin fails the capture. A request to a named origin sends its URL and headers, including the `Referer` of the page, to that origin. The list is part of the capture settings hash. A pair
+web font from a named third-party origin. A failed request to a named origin, or an HTTP error answer such as a 404 for a font file, fails the capture. A request to a named origin sends its URL and headers, including the `Referer` of the page, to that origin. The list is part of the capture settings hash. A pair
 with a list on one side only is incompatible, and the diagnostic names `allowOrigins`.
 
 Other aborted requests are not evidence. A page that needs such a request to render

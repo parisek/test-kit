@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin, redirectPermitted, ALLOW_ORIGIN_TYPES, isCertificateError, allowedOriginFailure, describeBlockedRequest, blockedRequestMessage } from '../../src/capture/helpers.js';
+import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin, redirectPermitted, ALLOW_ORIGIN_TYPES, isCertificateError, allowedOriginFailure, allowedOriginStatusFailure, describeBlockedRequest, blockedRequestMessage } from '../../src/capture/helpers.js';
 import { comparisonState, incompatibleDiagnostic } from '../../src/compare/runs.js';
 import { normalizeConfig, captureSettings, settingsHash } from '../../src/config/index.js';
 
@@ -147,4 +147,16 @@ test('any failed fetch of an allowed origin fails the capture and the message na
   }
   assert.equal(fail(new Error('boom'), { url: 'https://other.example-site.net/a.css' }), null, 'an origin that is not allowed keeps its rule');
   assert.equal(fail(new Error('boom'), { resourceType: 'script' }), null);
+});
+
+test('an HTTP error answer of an allowed origin fails the capture and the message names the status (R3.9)', () => {
+  const check = (status, extra = {}) => allowedOriginStatusFailure({ url: `${FONTS}/f.woff2?x=1`, method: 'GET', resourceType: 'font', allowOrigins, status, ...extra });
+  for (const status of [400, 403, 404, 410, 500, 503]) {
+    const text = blockedRequestMessage(check(status));
+    assert.ok(text.includes(`(HTTP ${status})`) && text.includes(FONTS) && text.includes('font'), text);
+    assert.ok(!text.includes('f.woff2') && !text.includes('x=1'));
+  }
+  for (const status of [200, 204, 206, 301, 302, 304, 307]) assert.equal(check(status), null, String(status));
+  assert.equal(check(404, { url: 'https://other.example-site.net/f.woff2' }), null, 'an origin that is not allowed keeps its rule');
+  assert.equal(check(404, { resourceType: 'script' }), null);
 });

@@ -192,3 +192,11 @@ export function allowedOriginFailure({ url, method, resourceType, allowOrigins, 
   if (!isAllowedOriginRequest({ url, resourceType, allowOrigins })) return null;
   return describeBlockedRequest({ url, method, resourceType, topLevel: false, navigation: false, failure: isCertificateError(error) ? 'certificate' : 'request failed' });
 }
+
+// R3.9: an HTTP error answer of an allowed origin (below 200 or 400 and above) also fails the capture.
+// A 2xx and a 3xx answer pass: a redirect keeps the rule of its own (redirectPermitted).
+export function allowedOriginStatusFailure({ url, method, resourceType, allowOrigins, status }) {
+  if (!isAllowedOriginRequest({ url, resourceType, allowOrigins })) return null;
+  if (!Number.isInteger(status) || (status >= 200 && status < 400)) return null;
+  return describeBlockedRequest({ url, method, resourceType, topLevel: false, navigation: false, failure: `HTTP ${status}` });
+}

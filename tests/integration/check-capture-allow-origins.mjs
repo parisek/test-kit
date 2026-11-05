@@ -29,6 +29,7 @@ if (process.env.ALLOW_ORIGINS_CHILD) {
   const otherOrigin = `https://${ADDRESS}:${otherHost.address().port}`;
   const fontHost = createSecureServer(tls, (request, response) => {
     hits.push(`font${request.url}`);
+    if (request.url === '/missing.css') { response.setHeader('Content-Type', 'text/css'); response.end(`@font-face{font-family:Ex;src:url(https://${ADDRESS}:${fontHost.address().port}/gone.woff2)}`); return; }
     if (request.url === '/a.css') { response.setHeader('Content-Type', 'text/css'); response.end(`@font-face{font-family:Ex;src:url(https://${ADDRESS}:${fontHost.address().port}/f.woff2)}`); return; }
     if (request.url === '/r.css') { response.writeHead(302, { Location: `${otherOrigin}/a.css` }); response.end(); return; }
     if (request.url === '/f.woff2') { response.setHeader('Content-Type', 'font/woff2'); response.end(Buffer.alloc(32)); return; }
@@ -41,6 +42,7 @@ if (process.env.ALLOW_ORIGINS_CHILD) {
       '/': '',
       '/font': `<link rel="stylesheet" href="${fontOrigin}/a.css"><p style="font-family:Ex,serif">Hello</p>`,
       '/redirect': `<link rel="stylesheet" href="${fontOrigin}/r.css">`,
+      '/missing': `<link rel="stylesheet" href="${fontOrigin}/missing.css"><p style="font-family:Ex,serif">Hello</p>`,
       '/script': `<script src="${fontOrigin}/a.js"></script>`,
       '/other': `<link rel="stylesheet" href="${otherOrigin}/a.css">`,
     };
@@ -48,7 +50,7 @@ if (process.env.ALLOW_ORIGINS_CHILD) {
   });
   await new Promise(resolve => local.listen(0, '127.0.0.1', resolve));
   try {
-    const targets = ['home', 'font', 'redirect', 'script', 'other'].map(id => ({ id, kind: 'page', title: id, path: id === 'home' ? '/' : `/${id}` }));
+    const targets = ['home', 'font', 'redirect', 'script', 'other', 'missing'].map(id => ({ id, kind: 'page', title: id, path: id === 'home' ? '/' : `/${id}` }));
     const base = { schemaVersion: 1, targets, viewports: [{ id: 'desktop', width: 400, height: 300 }], artifacts: ['screenshot', 'status'], checks: [], runsRoot: 'runs', screenshot: { timeoutMs: 5000 } };
     const side = list => ({ local: { origin: `http://127.0.0.1:${local.address().port}`, settle: { waitMs: 100 }, ...(list ? { allowOrigins: list } : {}) } });
     const configPath = join(directory, `config-${process.env.ALLOW_ORIGINS_CHILD}.json`);
@@ -69,6 +71,8 @@ if (process.env.ALLOW_ORIGINS_CHILD) {
     if (trusted) {
       assert.equal(row('font').state, 'captured', JSON.stringify(row('font')));
       assert.ok(hits.includes('font/a.css') && hits.includes('font/f.woff2'), `the stylesheet and the font load: ${hits}`);
+      assert.equal(row('missing').state, 'failed', 'a 404 font of an allowed origin fails the capture');
+      assert.match(row('missing').error.message, /allowed origin \(allowOrigins\) failed \(HTTP 404\)/);
       assert.equal(row('redirect').state, 'failed', 'a redirect to an origin that is not named fails the capture');
       assert.equal(row('redirect').error.code, 'LOCAL_NAVIGATION_REQUIRED');
       assert.ok(!hits.some(hit => hit.startsWith('other')), 'the redirect target receives no request');
