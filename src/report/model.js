@@ -1,5 +1,6 @@
 import { normalizeKnown, normalizeRules, isHash } from '../rules/model.js';
 import { relativePath } from './safe.js';
+import { selectionShapeValid } from '../capture/selection.js';
 import {
 	ABSOLUTE_ARTIFACTS, ARTIFACT_KINDS, BASES, BUILTIN_CONTENT_CHECKS, CHECK_ID, ENTRY_KINDS, IMPLICIT_ARTIFACTS, LAYERS,
 	LEGACY_BEHAVIOR_CHECK, LEGACY_BEHAVIOR_ID, LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS, PROJECT_TARGET,
@@ -154,6 +155,16 @@ export function validateReport(report) {
 	for (const field of ['runs', 'entries', 'causes', 'findings']) if (!array(report[field])) problems.push(`${field} must be an array.`);
 	if (!array(report.meta?.viewports)) problems.push('meta.viewports must be an array.');
 	if (!Number.isFinite(report.meta?.matchBelow) || report.meta.matchBelow < 0 || report.meta.matchBelow > 100) problems.push('matchBelow must be a percentage from 0 to 100.');
+	// R4.5: an optional record of the compared scope. It claims nothing about a report that has none.
+	if (report.meta?.skipped !== undefined && (!Number.isSafeInteger(report.meta.skipped) || report.meta.skipped < 0)) problems.push('meta.skipped must be a non-negative integer.');
+	if (report.meta?.scope !== undefined) {
+		const scope = report.meta.scope;
+		const selection = (value) => value === null || selectionShapeValid(value);
+		if (!isPlain(scope) || !['a', 'b', 'filter'].every((key) => selection(scope[key])) || Object.keys(scope).length !== 3
+			|| ['a', 'b', 'filter'].every((key) => scope[key] === null)) problems.push('Invalid meta.scope.');
+	}
+	// The two keys come together: a scope without a count, or a count without a scope, is malformed.
+	if ((report.meta?.scope === undefined) !== (report.meta?.skipped === undefined)) problems.push('meta.scope and meta.skipped come together.');
 	// R9.7: exactly one of pair and subject.
 	const hasPair = report.pair !== undefined, hasSubject = report.subject !== undefined;
 	const subject = hasSubject && !hasPair;

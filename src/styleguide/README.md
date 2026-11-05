@@ -18,6 +18,7 @@ It throws a `StyleguideError` with a code and never skips an entry:
 | `STYLEGUIDE_COMPONENT_UNKNOWN` | `include` names a component that the catalogue does not hold. |
 
 `noFixture` lists the IDs with `has_styleguide: false`. Their render page holds no component, so they make no target. Capture sends no request for them. The run manifest (`targetSource.noFixture`), the report (`runs[].noFixture`) and `summary` (`noFixture`) list them as "no fixture". They are not failed targets, so a run whose only gaps are these components reaches `complete`. `include` may name such a component. It is skipped and listed the same way.
+A whole-page render compares only within `self-baseline` and `update` pairs. Against a live site the styleguide frame can change the box, and an optional `selector` is a follow-up (owner decision on #94, point 4).
 An entry with no `has_styleguide` key counts as renderable, because an older styleguide omits the key.
 
 `readComponents({ origin, mount, include, get })` calls `get(url)` once, with `{ status, body }` as the result, and parses the body.

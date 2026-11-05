@@ -21,6 +21,7 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	const problems = rows.filter((row) => row.availability.length);
 	const selected = rows.filter((row) => (target == null || row.id === target) && (filter === 'all' || filter === row.class || filter === 'incomplete' && row.state !== 'complete' || filter === 'availability' && row.availability.length));
 	const aggregate = summarize(report);
+	const noFixture = noFixtureIds(report);
 	const warnings = droppedWarnings(report).filter((item) => target == null || item.id === target);
 	const requests = warnings.reduce((sum, item) => sum + item.count, 0);
 	const notListed = target == null ? droppedNotListed(report) : droppedNotListed({ entries: report.entries.filter((entry) => entry.id === target) });
@@ -42,7 +43,9 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		// The keys appear only when one of them is above zero, so the pinned output stays the same.
 		...(warnings.length || notListed ? { droppedRequestCount: requests, droppedWarnings: warnings.slice(0, maxTargets), droppedWarningsOmitted: Math.max(0, warnings.length - maxTargets), droppedNotListed: notListed } : {}),
 		// Owner decision on #94: components the styleguide lists with no fixture. They are not targets. Bounded like other lists.
-		...(noFixtureIds(report).length ? { noFixture: { count: noFixtureIds(report).length, ids: noFixtureIds(report).slice(0, maxTargets), omitted: Math.max(0, noFixtureIds(report).length - maxTargets) } } : {}),
+		...(noFixture.length ? { noFixture: { count: noFixture.length, ids: noFixture.slice(0, maxTargets), omitted: Math.max(0, noFixture.length - maxTargets) } } : {}),
+		// R4.5: cells outside a recorded selection or filter. The key appears only when the report skipped one, so the pinned output stays the same.
+		...(Number.isSafeInteger(report.meta?.skipped) && report.meta.skipped > 0 ? { skipped: report.meta.skipped } : {}),
 		next: ['Open the report with test-kit serve.', 'Use summary --filter unexplained or --filter incomplete for scoped evidence.'],
 	};
 }

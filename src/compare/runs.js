@@ -13,6 +13,7 @@ import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
+import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
 
 function performanceEnvironment(run) {
   try { const origin = new URL(run.settings.sides[run.side].origin); return origin.protocol === 'http:' && isLocalUrl(origin.href) ? `${run.side}|${origin.origin}` : null; } catch { return null; }
@@ -73,6 +74,11 @@ async function readRun(root, id) {
 			ids.add(row.id);
 		}
 	}
+	// R4.5: a recorded selection is checked. A run without one is a full run: nothing is inferred from absence.
+	if (run.selection !== undefined) {
+		validateSelection(run.selection, run.settings);
+		if (run.captures.some(capture => !cellSelected(run.selection, capture.targetId, capture.viewportId))) throw new Error('Stored capture lies outside the stored selection.');
+	}
 	return run;
 }
 
@@ -121,7 +127,7 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
@@ -133,8 +139,17 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	await mkdir(output, { recursive: true });
 	if ((await readdir(output)).length) throw new Error('Comparison output directory must be empty.');
 	const diffSettingsHash = comparatorIndex('screenshot').settingsHash;
-	const viewports = new Map([...a.settings.viewports, ...b.settings.viewports].map((item) => [item.id, item]));
-	const targets = new Map([...a.settings.targets, ...b.settings.targets].map((item) => [item.id, item]));
+	const allViewports = [...a.settings.viewports, ...b.settings.viewports].map((item) => [item.id, item]);
+	const allTargets = [...a.settings.targets, ...b.settings.targets].map((item) => [item.id, item]);
+	// R4.5: a cell is skipped only when it lies outside a recorded selection of run A or run B, or outside the filter of this call.
+	// A run without a selection skips nothing. The filter is checked against the ids of both runs.
+	const filter = filterInput ? recordSelection({ targets: [...new Map(allTargets).values()], viewports: [...new Map(allViewports).values()] }, filterInput) : null;
+	const inScope = (targetId, viewportId) => cellSelected(a.selection, targetId, viewportId) && cellSelected(b.selection, targetId, viewportId) && cellSelected(filter, targetId, viewportId);
+	const viewports = new Map(allViewports.filter(([viewportId]) => allTargets.some(([targetId]) => inScope(targetId, viewportId))));
+	const targets = new Map(allTargets.filter(([targetId]) => allViewports.some(([viewportId]) => inScope(targetId, viewportId))));
+	if (!targets.size) throw new Error('The selections of the two runs and the filter have no cell in common.');
+	const scoped = a.selection !== undefined || b.selection !== undefined || filter !== null;
+	let compared = 0;
 	let exitCode = 0;
 	const findings = [];
 	const entries = [];
@@ -143,6 +158,8 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	for (const target of targets.values()) {
 		const rows = [];
 		for (const viewport of viewports.values()) {
+			if (!inScope(target.id, viewport.id)) continue;
+			compared++;
 			const ac = a.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const bc = b.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac), b: available(bc) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
@@ -248,6 +265,11 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	}
 	report.meta.tools.push(...responseTools.values());
 	report.pair.key = key;
+	// R4.5: the report records its scope and the count of skipped cells. A full pair adds neither key.
+	if (scoped) {
+		report.meta.scope = { a: a.selection ?? null, b: b.selection ?? null, filter };
+		report.meta.skipped = new Map(allTargets).size * new Map(allViewports).size - compared;
+	}
 	report.rules = rules;
 	report.known_diffs = { [key]: known_diffs[key] ?? [] };
 	report.meta.comparisonPolicyHash = policyHash(rules);
