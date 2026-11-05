@@ -4,7 +4,7 @@ import { dirname, basename, resolve } from 'node:path';
 import { adaptReport } from '../report/model.js';
 import { readSidecar } from '../artifacts/compare.js';
 import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
-import { OUTPUT_BYTE_LIMIT, outputBytes, clip, fitLists } from './bound.js';
+import { OUTPUT_BYTE_LIMIT, outputBytes, clip, markCut, wasCut, fitLists } from './bound.js';
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -12,11 +12,12 @@ const isPlain = value => value !== null && typeof value === 'object' && !Array.i
 // report that still does not fit is refused, and it does not reach the agent.
 function bounded(result) {
   const lists = () => {
-    const out = [], add = (owner, key, counter) => { if (owner && typeof owner === 'object') out.push({ owner, key, counter }); };
-    add(result.scope, 'checks', 'checksOmitted'); add(result, 'rules', 'rulesOmitted');
+    const out = [], add = (owner, key, counter, last = false) => { if (owner && typeof owner === 'object') out.push({ owner, key, counter, last }); };
+    add(result.scope, 'checks', 'checksOmitted', true); add(result, 'rules', 'rulesOmitted', true);
     const diff = result.diff;
     if (diff && typeof diff === 'object') {
       add(diff, 'lines', 'omittedLines'); add(diff.rawWindow, 'lines', 'omittedLines'); add(diff, 'findings', 'findingsOmitted'); add(diff, 'steps', 'stepsOmitted');
+      add(diff.a, 'redirects', 'redirectsOmitted'); add(diff.b, 'redirects', 'redirectsOmitted');
       for (const check of Array.isArray(diff.checks) ? diff.checks : []) for (const side of [check?.a, check?.b]) add(side, 'findings', 'omitted');
     }
     return out;
@@ -42,7 +43,7 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
   const index = (row ? row.artifacts : entry.artifacts)?.[artifact];
   if (!index) throw new Error('Artifact is not requested.');
   const pairContext = { pairKey: report.pair?.key, kind: report.pair?.kind ?? 'single-run', targetId: target, artifact };
-  const result = { target: clip(target, 200), viewport: viewport == null ? viewport : clip(viewport, 200), artifact, state: clip(index.state, 64), diagnostic: typeof index.diagnostic === 'string' ? index.diagnostic.slice(0, 500) : null,
+  const result = { target: markCut(target), ...(wasCut(target) ? { targetTruncated: true } : {}), viewport: viewport == null ? viewport : markCut(viewport), ...(wasCut(viewport) ? { viewportTruncated: true } : {}), artifact, state: clip(index.state, 64), diagnostic: typeof index.diagnostic === 'string' ? index.diagnostic.slice(0, 500) : null,
     pairKey: isHash(report.pair?.key) ? report.pair.key : null,
     rules: Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).slice(0, 50).map(([id, rule]) => ({ id: id.slice(0, 64), text: typeof rule.text === 'string' ? rule.text.slice(0, 500) : '', evidence: rule.evidence.slice(0, 1000) })),
     rulesOmitted: Math.max(0, Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).length - 50),

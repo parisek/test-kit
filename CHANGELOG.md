@@ -19,8 +19,8 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Changed
 
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
-- The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, #230). `docs/seam.md` marks `report.json` "Not frozen, change planned", and the owner decided the break on #230. The alpha clause of R13.9 ended with the stable release and does not cover it.
-- Migration note, cost 1: the behavior version is 2 (it was 1). `docs/seam.md` lists the bump, with the identity of a behavior finding ("Not frozen, decided 2026-11-04"). A stored version 1 behavior run no longer compares with a new run. The pair reads `incompatible` (R8.9). Capture the older side again.
+- The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, R13.9, #230).
+- Migration note, cost 1: the behavior version is 2 (it was 1). A stored version 1 behavior run no longer compares with a new run. The pair reads `incompatible` (R8.9). Capture the older side again.
 - Migration note, cost 2: `known_diffs` no longer explains an absolute content finding. A known difference applies to a relative check only (R7.3). The five content checks other than `text-difference`, and `lighthouse-budget`, are absolute. Their findings stay `unexplained` until the allowlist ships (#254).
 - Migration note, cost 3: `record-known` refuses an absolute finding with the error "A known difference applies to a relative check only (R7.3)". Existing `known_diffs` records stay in the config, and they still explain a relative finding.
 - Migration note, cost 4: a stored version 2 report reads as version 3 and sorts its absolute findings again. A finding that the old report showed as `explained` now reads `unexplained`. Run `diff` again to write a version 3 file.
@@ -28,7 +28,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
-- `summary` and `query` keep every answer under 60000 bytes, the limit of the behavior query. `summary` copies only `kind`, `aRunId`, `bRunId` and `key` of `pair` and cuts a target id to 200 characters. Both queries halve their longest list until the answer fits and add the omitted count (`checksOmitted`, `rulesOmitted`, `omitted`). A normal answer does not change (R11.2, #272).
+- `summary` and `query` keep every answer under 60000 bytes, the limit of the behavior query. This implements the size limit of R11.2. `summary` copies only `kind`, `aRunId`, `bRunId` and `key` of `pair`. It cuts a target id to 200 characters, ends it with `…` and sets `idTruncated: true`, so `--target` with that id does not match. Both queries halve their longest list until the answer fits and add the omitted count (`checksOmitted`, `rulesOmitted`, `redirectsOmitted`, `omitted`). A normal answer does not change (R11.2, #272).
 - `capture` and `perf` stop on a DDEV project that is not running and name the fix: "The DDEV project is not running (status: stopped). Run ddev start." The check runs before Playwright loads, so no browser starts and no run directory exists (#255).
 
 ## [1.0.0] - 2026-11-04

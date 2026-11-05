@@ -7,11 +7,17 @@ export const outputBytes = (value) => Buffer.byteLength(JSON.stringify(value));
 // A string cut to a length. A non-string reads as an empty string.
 export const clip = (value, length) => typeof value === 'string' ? value.slice(0, length) : '';
 
+// An id cut to a length. A cut id ends with an ellipsis, so a reader sees that it will not match --target.
+export const markCut = (value, length = 200) => typeof value === 'string' && value.length > length ? value.slice(0, length - 1) + '\u2026' : typeof value === 'string' ? value : '';
+export const wasCut = (value, length = 200) => typeof value === 'string' && value.length > length;
+
 // Halve the largest bounded list of an answer until it fits. Each cut adds to the omitted counter
-// of that list, so the answer says what it left out. A caller gives the lists as { owner, key, counter }.
+// of that list, so the answer says what it left out. A caller gives the lists as { owner, key, counter, last? }.
+// A list marked last (the rules and the scope) is cut only when all other lists are empty.
 export function fitLists(result, lists, limit = OUTPUT_BYTE_LIMIT) {
 	while (outputBytes(result) > limit) {
-		const live = lists().filter(({ owner, key }) => Array.isArray(owner[key]) && owner[key].length);
+		const alive = lists().filter(({ owner, key }) => Array.isArray(owner[key]) && owner[key].length);
+		const live = alive.some((item) => !item.last) ? alive.filter((item) => !item.last) : alive;
 		if (!live.length) return false;
 		const widest = live.reduce((best, item) => outputBytes(item.owner[item.key]) > outputBytes(best.owner[best.key]) ? item : best);
 		const { owner, key, counter } = widest;

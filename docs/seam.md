@@ -149,7 +149,6 @@ Source of truth: `src/behavior/contracts.js`, `src/behavior/README.md`, R7.7, R1
 | Contract files `*.contract.js` under `behavior.source` | Frozen | `loadProjectContracts`. |
 | The default projects `desktop-1280` and `mobile-390` | Frozen | `DEFAULT_PROJECTS` in `src/behavior/contracts.js`. |
 | The identity of a behavior finding (step ID against contract name) | Not frozen, decided 2026-11-04 | Each step carries `contract`. The catalog key is `behavior.<contract name>`, and the registry records the origin (ADR 0004, open question 1; R9.8). |
-| The behavior snapshot version | Not frozen, decided 2026-11-04 | The version is 2 since `schemaVersion` 3 (it was 1), because each step carries `contract`. A stored version 1 snapshot does not compare with a version 2 snapshot. The pair reads `incompatible` (R8.9). Capture the older side again (#230). |
 | The format of component allowlists | Not frozen, owner decision open | R13.41 puts the format in the package. The allowlist is unspecified and moved to #254. |
 | Shared contracts `picture`, `gsap`, `lightgallery`, `header-*`, `cookieconsent`, `hygiene`, `render-integrity` | Not in the package | R13.42 plans them as packs. Only `swiper` and the axe pack ship. |
 
