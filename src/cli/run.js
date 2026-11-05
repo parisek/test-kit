@@ -109,7 +109,7 @@ async function dispatch({ command, positions, options }) {
   if (command === 'capture') {
     const { capture } = await import('../capture/index.js');
     const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), packs: options.packs === true });
-    // R13.46: the output names a pack that did not run. A skipped pack is never reported as run.
+    // R13.51: the output names a pack that did not run. A skipped pack is never reported as run.
     const packs = result.run.packs ? { packs: result.run.packs } : {};
     return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 };
   }

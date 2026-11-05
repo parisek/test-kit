@@ -217,7 +217,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 					findings.push({ ...finding, checkId, layer: LIGHTHOUSE_CHECKS[checkId].layer, ...(LIGHTHOUSE_CHECKS[checkId].basis === 'absolute' ? { runId: b.id } : {}), id: `lighthouse-${target.id}-${viewport.id}-${index}` });
 				});
 			}
-			// R13.46: a pack result that `capture --packs` stored in run B. A run with none adds nothing (R5.1).
+			// R13.51: a pack result that `capture --packs` stored in run B. A run with none adds nothing (R5.1).
 			for (const kind of PACK_ARTIFACT_KINDS) {
 				const pack = await comparePackArtifact({ kind, b, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
 				if (!pack) continue;

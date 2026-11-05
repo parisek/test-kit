@@ -1,4 +1,4 @@
-// Runs the selected page packs on the page that capture already has open (R13.46).
+// Runs the selected page packs on the page that capture already has open (R13.51).
 // It adds no navigation and no request. The a11y runner injects axe with `page.evaluate` (R4.2, R3.5).
 // A bad run gives a stored artifact with status `missing` or `failed`. It never throws for a pack (R8.7).
 import { mkdir, writeFile, unlink } from 'node:fs/promises';

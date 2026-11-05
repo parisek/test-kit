@@ -1,4 +1,4 @@
-// Turns the stored pack artifact of run B into an absolute result of the v3 model (R9.9, R13.46).
+// Turns the stored pack artifact of run B into an absolute result of the v3 model (R9.9, R13.51).
 // It reads the sidecar that `capture --packs` wrote, runs the pack checks over it and returns the artifact index and the findings.
 // Only side B enters the report, as for the content checks (ADR 0004, "Open points", 1). A run with no pack artifact adds nothing (R5.1).
 import { mkdir, writeFile } from 'node:fs/promises';

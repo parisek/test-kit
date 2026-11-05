@@ -102,4 +102,4 @@ Component-level axe contracts, per-state runs (ADR 0004, accessibility per compo
 
 ## Command line
 
-`test-kit capture --side ID --packs` runs this pack on the page that capture already has open, when the `packs` key lists `a11y` (R13.46). It stores the artifact in the run, and `diff` writes it into the report as an absolute result. The command takes no pack option, so `runAxe` runs with its defaults and the capture timeout.
+`test-kit capture --side ID --packs` runs this pack on the page that capture already has open, when the `packs` key lists `a11y` (R13.51). It stores the artifact in the run, and `diff` writes it into the report as an absolute result. The command takes no pack option, so `runAxe` runs with its defaults and the capture timeout.

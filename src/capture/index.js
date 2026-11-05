@@ -214,13 +214,14 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         artifacts.content = { ...index, state: 'failed', error: { code: 'CONTENT_CAPTURE_FAILED', message: target.selector ? 'Component content scope is not supported. Select a page target.' : 'Content snapshot is unavailable or exceeds its limit.' } };
       }
     }
-    // R13.46: the selected page packs run on this page, after settlement and content, before behavior steps change the page.
-    if (packRun?.ids.length) {
+    // R13.51: the selected page packs run on this page. With a screenshot they run after it, so they cannot change its pixels.
+    const runPackStep = async () => {
+      if (!packRun?.ids.length) return;
       phase = 'packs';
       Object.assign(artifacts, await runPagePacks({ page, ids: packRun.ids, runDir, targetId: target.id, viewportId: viewport.id,
         timeoutMs: config.screenshot.timeoutMs, settingsHash: packRun.settingsHash, browserVersion: packRun.browserVersion }));
       if (expired || edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
-    }
+    };
     const captureBehavior = async () => {
       if (!config.artifacts.includes('behavior')) return;
       phase = 'behavior';
@@ -238,6 +239,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     };
     if (!config.artifacts.includes('screenshot')) {
       if (edge || blocked || expired || !allowedUrl(page.url())) throw new Error('Capture is unavailable.');
+      await runPackStep();
       await captureBehavior();
       if (edge) throw new Error('Remote edge stop');
       return { ...identity, state: 'captured', statusCode, finalPath, artifacts, ...droppedFields(droppedLog) };
@@ -270,6 +272,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     assertImageBounds(width, height);
     if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
+    await runPackStep();
     await captureBehavior();
     // R3.6: a behavior step can also meet the edge.
     if (edge) throw new Error('Remote edge stop');
@@ -288,8 +291,8 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   const loaded = await loadConfig(configPath);
   const config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
-  // R13.46: --packs needs a packs key. Without the flag nothing here runs (R5.1).
-  const packPlan = runPacks ? planPackRun(config.packs) : null;
+  // R13.51: --packs needs a packs key. Without the flag nothing here runs (R5.1).
+  const packPlan = runPacks ? planPackRun(config.packs, { remote: config.sides[side].remote === true }) : null;
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled }) : null;
   // Verify DDEV before Playwright loads, so a stopped project starts no browser.

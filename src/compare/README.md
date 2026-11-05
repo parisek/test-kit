@@ -12,4 +12,4 @@ Comparison takes optional validated rules and pair-scoped known differences.
 It retains raw findings and attaches verified evidence acceptance. Policy does not
 change screenshot capture hashes. See `src/rules/README.md` (R8.4–R8.6).
 
-`packs.js` reads the pack results that `capture --packs` stored in run B (R13.46). It runs the pack checks over each stored sidecar and writes an absolute artifact index (R9.9), findings and a catalog entry. Only side B enters the report. A run with no stored pack result adds nothing (R5.1).
+`packs.js` reads the pack results that `capture --packs` stored in run B (R13.51). It runs the pack checks over each stored sidecar and writes an absolute artifact index (R9.9), findings and a catalog entry. Only side B enters the report. A run with no stored pack result adds nothing (R5.1).

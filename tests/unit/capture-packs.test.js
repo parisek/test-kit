@@ -12,7 +12,7 @@ import { reduceAxeResults, gapArtifact } from '../../src/packs/a11y/axe.js';
 import { validateReport } from '../../src/report/model.js';
 import { capture } from '../../src/capture/index.js';
 
-// `capture --packs` (R13.46). All data uses example-site.
+// `capture --packs` (R13.51). All data uses example-site.
 const axe = () => reduceAxeResults(JSON.parse(readFileSync(new URL('../fixtures/a11y/axe-result.json', import.meta.url), 'utf8')));
 const sink = () => ({ text: '', write(chunk) { this.text += chunk; } });
 
@@ -49,6 +49,19 @@ test('the plan keeps the selected IDs only and skips a pack with no page step', 
   assert.ok(mixed.skipped.every(item => item.diagnostic.length > 0));
   assert.deepEqual(planPackRun(['lint']).page, []);
   assert.throws(() => planPackRun(['nope']), /Unknown pack/);
+});
+
+test('--packs on a remote side is refused before any browser starts (R13.51)', async () => {
+  assert.throws(() => planPackRun(['a11y'], { remote: true }), /not allowed on a remote side/);
+  assert.doesNotThrow(() => planPackRun(['a11y'], { remote: false }));
+  const dir = await mkdtemp(join(tmpdir(), 'test-kit-packs-'));
+  try {
+    const configPath = join(dir, 'config.json');
+    await writeFile(configPath, JSON.stringify({ schemaVersion: 1, sides: { live: { origin: 'https://example.com', remote: true } }, targets: [{ id: 'home', kind: 'page', path: '/' }],
+      viewports: [{ id: 'wide', width: 500, height: 300 }], artifacts: ['screenshot'], runsRoot: 'runs', packs: ['a11y'] }));
+    await assert.rejects(capture({ configPath, side: 'live', packs: true }), /not allowed on a remote side/);
+    await assert.rejects(access(join(dir, 'runs')));
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('no pack runs without the flag, and only the selected IDs run with it', async () => {

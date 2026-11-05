@@ -1,4 +1,4 @@
-// `capture --packs` runs the a11y pack on the open page and the result reaches report.json v3 (R13.46).
+// `capture --packs` runs the a11y pack on the open page and the result reaches report.json v3 (R13.51).
 // It skips when Playwright, Chromium or axe-core is missing.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -54,6 +54,10 @@ try {
   assert.equal(index.path, 'a11y/home/wide.json');
   // The selection is not a capture setting (R13.44): both runs share the settings hash and stay comparable.
   assert.equal(plain.run.settingsHash, withPacks.run.settingsHash);
+
+  // The pack step cannot change the screenshot: the bytes are identical with and without --packs (R13.51).
+  const shot = run => readFile(join(directory, 'runs', run.id, run.captures[0].path));
+  assert.ok((await shot(plain.run)).equals(await shot(withPacks.run)), 'screenshot bytes are identical with and without --packs');
 
   const out = join(directory, 'report');
   const { report } = await compareRuns({ runsRoot: join(directory, 'runs'), runA: plain.run.id, runB: withPacks.run.id, outputDir: out });
