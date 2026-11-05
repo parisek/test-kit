@@ -6,7 +6,7 @@
 import { buildDeepLink } from './deep-link.js';
 import { relativePath } from '../../../src/report/safe.js';
 
-const RECORDABLE = ['screenshot', 'html', 'content'];
+const RECORDABLE = ['screenshot', 'html', 'status', 'content'];
 const EVIDENCE = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'];
 const PLAIN_ID = /^[A-Za-z0-9_@][A-Za-z0-9._@-]{0,159}$/;
 const plain = (value) => (typeof value === 'string' && PLAIN_ID.test(value) ? value : null);
@@ -66,7 +66,7 @@ export function decisionActions(finding, options = {}) {
 		{ id: 'known', label: 'Known difference', button: 'Copy command', text: known,
 			reason: known ? null : options.basis === 'absolute'
 				? 'A known difference applies to a relative check only. An absolute finding stays unexplained until the allowlist exists.'
-				: 'Only a screenshot, HTML or content finding with a target and a viewport can be recorded as known.' },
+				: 'Only a screenshot, HTML, status or content finding with a target and a viewport can be recorded as known.' },
 		{ id: 'noise', label: 'Noise or unstable', button: 'Copy re-capture command', text: recapture,
 			reason: recapture ? null : 'A re-capture needs a target and a viewport.' },
 		{ id: 'pass', label: 'Pass on', button: 'Copy link', text: link, reason: link ? null : 'This finding has no valid link.' },

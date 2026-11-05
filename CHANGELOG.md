@@ -16,8 +16,11 @@ Versions follow semver. Each release uses an immutable git tag.
 - The viewer shows a subject report, the project entry, a "Checks" list for absolute checks (R8.6), and the check, layer and location of a finding.
 - A remote capture records the requests it aborts per resource type and origin (no path or query) as `dropped` in `run.json`. `diff` copies it into the report. `summary` and the viewer warn when a `font` or `stylesheet` request was aborted, so a page that renders in a fallback font is visible. The verdict does not change (R3.8, #251).
 
+- A difference in the final status code, the final path or the redirect chain between side A and side B is a finding of the `status` artifact, for every pair kind. It counts in the class of the target and in `summary`. Asset counts never make a finding. The viewer names the differing fields. `record-known` accepts `--artifact status`, so a known difference can explain an intended redirect. The report schema is unchanged: a `status` finding has no `checkId`, like a screenshot or HTML finding (R6.13, #278).
+
 ### Changed
 
+- Migration note: a pair that captured `status` and had a redirect or status difference read `match` before. It now reads `unexplained` until a known difference explains it. A pair with equal status, path and chain is unchanged. A status-only cell stays unclassified. R6.1 now says so (#278).
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
 - The default report version changes from 2 to 3. `diff` writes `schemaVersion` 3. `adaptReport` reads versions 1, 2 and 3 and returns version 3 (R9.1, #230). `docs/seam.md` marks `report.json` "Not frozen" (`docs/seam.md`, versions table, row "Report `report.json`"), and the owner decided the break on #230. The alpha clause of R13.9 ended with the stable release and does not cover it.
 - Migration note, cost 1: the behavior version is 2 (it was 1). `docs/seam.md` lists the bump, with the identity of a behavior finding ("Not frozen, decided 2026-11-04"). A stored version 1 behavior run no longer compares with a new run. The pair reads `incompatible` (R8.9). Capture the older side again.

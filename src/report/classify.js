@@ -49,13 +49,14 @@ export function artifactState(target, viewportId, artifact) {
 }
 
 export function artifactClass(report, target, viewportId, artifact) {
-	if (artifact === 'status' || artifactState(target, viewportId, artifact) !== 'complete') return null;
+	if (artifactState(target, viewportId, artifact) !== 'complete') return null;
 	const selected = artifactIndex(target, viewportId, artifact);
 	if ((artifact === 'content' || selected?.result) && !(executedChecks(selected) > 0)) return null;
 	if (target.judge === 'oracle') return 'oracle';
 	const findings = findingsFor(report, target.id, { viewportId, artifact });
 	if (findings.length) return findings.every(finding => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';
-	return 'match';
+	// Equal status evidence is not proof of a match (R6.1): without a finding it stays unclassified.
+	return artifact === 'status' ? null : 'match';
 }
 
 export function cellClass(report, target, viewportId) {
@@ -63,11 +64,12 @@ export function cellClass(report, target, viewportId) {
 	const contentCell = target.viewports.find(row => row.id === viewportId);
 	if (contentCell?.artifacts?.content && !contentCell.artifacts.screenshot && !contentCell.artifacts.html && !contentCell.artifacts.behavior && !(executedChecks(contentCell.artifacts.content) > 0)) return null;
 	const cell = target.viewports.find((row) => row.id === viewportId);
-	if (cell?.artifacts?.status && Object.keys(cell.artifacts).every(kind => kind === 'status')) return null;
-	if (target.judge === 'oracle') return 'oracle';
-	const findings = findingsFor(report, target.id, { viewportId }).filter(finding => finding.artifact !== 'status');
+	const statusOnly = cell?.artifacts?.status && Object.keys(cell.artifacts).every(kind => kind === 'status');
+	if (target.judge === 'oracle') return statusOnly ? null : 'oracle';
+	const findings = findingsFor(report, target.id, { viewportId });
 	if (findings.length) return findings.every((finding) => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';
-	return 'match';
+	// A cell with status evidence only never reads match (R6.1).
+	return statusOnly ? null : 'match';
 }
 
 export function targetState(target) {
@@ -81,7 +83,6 @@ export function targetClass(report, target) {
 	const values = [...target.viewports.map((row) => cellClass(report, target, row.id)),
 		...Object.keys(target.artifacts ?? {}).map((kind) => artifactClass(report, target, null, kind))].filter((value) => value !== null);
 	const findings = findingsFor(report, target.id).filter((finding) => {
-		if (finding.artifact === 'status') return false;
 		if (!['screenshot', 'html'].includes(finding.artifact)) return true;
 		if (finding.artifact === 'html' && finding.viewportId == null) return true;
 		const row = target.viewports.find(row => row.id === finding.viewportId);

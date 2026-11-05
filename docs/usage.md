@@ -56,8 +56,10 @@ Normalization runs only from an explicit evidenced rules catalog.
 The query reports displayed and omitted lines for raw and normalized windows.
 The line limit is 1 to 100. Unknown target or viewport identifiers fail.
 
-HTML and status can also run alone. Status never determines target class.
-A status-only report has the verdict no-comparable-evidence. A failed requested
+HTML and status can also run alone. A difference in the final status, the final
+path or the redirect chain is a finding, so the target is not `match` (R6.13).
+Equal status evidence adds no class. A status-only report has the verdict
+no-comparable-evidence. A failed requested
 HTML artifact remains incomplete even when screenshot pixels match.
 See [the response contract](contracts.md#opt-in-response-artifacts-after-v01).
 
@@ -93,9 +95,10 @@ Acceptance uses full raw bytes, not the displayed window.
 
 A fully normalized raw difference remains a finding with the class `explained`.
 A remaining normalized difference is `unexplained`. Failed evidence stays incomplete.
-HTTP status and oracle classification keep their existing contracts.
+Oracle classification keeps its existing contract.
 
-Record an observed screenshot or HTML difference through the CLI:
+Record an observed screenshot, HTML, status or content difference through the CLI. Use
+`--artifact status` for an intended redirect, for example a trailing slash:
 
 ```sh
 test-kit record-known tests/visual/report/report.json --config test-kit.config.json --target home --viewport desktop --artifact html --cause response-token --reason 'The observed token differs in this exact pair.'
