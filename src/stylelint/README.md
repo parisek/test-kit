@@ -1,6 +1,6 @@
 # Stylelint entry point
 
-`@parisek/test-kit/stylelint` exports the shared Stylelint config and the `portadesign` plugin rules. It serves requirement R13.40. R13.46 to R13.49 and [ADR 0006](../../docs/adr/0006-lint-entry-points.md) set the contract.
+`@parisek/test-kit/stylelint` exports the shared Stylelint config and the `portadesign` plugin rules. It serves requirement R13.40. R13.46 to R13.50 and [ADR 0006](../../docs/adr/0006-lint-entry-points.md) set the contract.
 
 The entry point lints a project. It does not capture, compare or report. Loading it resolves two lint packages and no browser package.
 
@@ -36,7 +36,7 @@ module.exports = {
 
 An ES module config works too: `import testKit from '@parisek/test-kit/stylelint'`.
 
-Install the peers. Both are required. Every peer is optional in `package.json`, so npm does not install them for you:
+Install the peers. Both are required. In `package.json` they are marked `"optional": true` in `peerDependenciesMeta`. That flag is for the package manager only: it stops `npm` from installing them for a project that never lints. It does not make them optional for this entry, which throws at load without them (see "Missing peers").
 
 ```bash
 npm i -D stylelint stylelint-config-standard
@@ -68,4 +68,4 @@ The rule files keep the source style of the project they came from (tabs and dou
 
 ## Tests
 
-`tests/unit/stylelint-rules.test.js` runs each rule through `stylelint.lint`. `tests/unit/stylelint-entry.test.js` covers `require` and `import`, the project override, the disable comment, the missing peers, and a child process that checks that no browser package loads.
+`tests/unit/stylelint-entry.test.js` is pure and needs no package: it covers `assertPeers` and `LINT_PEER_MISSING`. The tests that lint CSS sit in `tests/lint-cases/`: `stylelint-rules.mjs` runs each rule through `stylelint.lint`, and `stylelint-entry.mjs` covers `require` and `import`, the project override, the disable comment, the missing `stylelint` in a child process, and a child process that checks that no browser package loads. `npm test` loads them only when the peers are installed. Without them the run prints a skip with the reason. CI sets `TEST_KIT_REQUIRE_LINT_PEERS=1` after `npm ci`, so a missing peer there fails the run.
