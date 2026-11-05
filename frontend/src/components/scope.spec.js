@@ -206,4 +206,3 @@ describe('components without a fixture (#290)', () => {
 		app.unmount();
 	});
 });
-
