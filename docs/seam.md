@@ -109,7 +109,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | --- | --- | --- | --- |
 | `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--packs`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--packs` is an addition in 1.1 (R13.46, owner decision of 2026-11-04, #231). It is a flag without a value. It runs the packs of the `packs` key on the open page. Without it nothing changes. The names and the other flags stay frozen. |
 | `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. |
-| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). |
+| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). Addition in 1.1: `droppedRequestCount`, `droppedWarnings`, `droppedWarningsOmitted` and `droppedNotListed`, present only when a `font` or `stylesheet` request was aborted or a list was cut (R3.8). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
 | `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. |
@@ -198,6 +198,7 @@ Source of truth: the `schemaVersion` literals in `src/` (grep, 2026-10-19), `doc
 | Stored run `run.json` (`src/capture/index.js`, `src/cli/perf.js`) | 2 | Frozen | `src/compare/runs.js` and `src/rules/evidence.js` read only version 2. |
 | Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 3 | Not frozen | The code writes version 3 (#230). Version 3 is not additive: `pair` becomes optional (R9.1, R9.7). A reader of version 2 rejects version 3. `adaptReport` reads versions 1, 2 and 3. |
 | Content snapshot (`src/content/snapshot.js`) and content comparison sidecar (`src/content/compare.js`) | 1 | Frozen | The extractor and check versions guard them (R7.4). |
+| Optional addition to `run.json` capture entries and `report.json` rows, 1.1 | 2 (run), 3 (report) | Frozen | Optional addition to a frozen version (an optional key is not a break). `dropped` (and `droppedOmitted`) on a capture, `dropped: {a, b, omitted?}` on a report row. Absent when no request was aborted. R3.8. |
 | Workflow state (`src/workflow/index.js`) | 1 | Experimental | It sits in the store. The store belongs to the experimental workflow commands. |
 
 What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is frozen:

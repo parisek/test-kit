@@ -12,6 +12,7 @@ import { relativePath } from '../report/safe.js';
 import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
+import { droppedForRow } from '../report/dropped.js';
 import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 
 function performanceEnvironment(run) {
@@ -138,6 +139,9 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			const ac = a.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const bc = b.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac), b: available(bc) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
+			// R3.8: a remote side aborts subresources of other origins. Carry the record to the report.
+			const dropped = droppedForRow(ac, bc);
+			if (dropped) row.dropped = dropped;
 			const images = [];
 			const requested = new Set([...(a.settings.artifacts ?? ['screenshot']), ...(b.settings.artifacts ?? ['screenshot'])]);
 			if (requested.has('screenshot')) {
