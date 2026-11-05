@@ -9,6 +9,7 @@ import { settingsHash, settleRecipe, settlementMatches } from '../config/setting
 import { validateContentSnapshot } from './snapshot.js';
 import { compareContentSnapshots } from './compare.js';
 import { CHECK_VERSION } from '../checks/index.js';
+import { safeCount } from '../checks/builtin/text-difference.js';
 
 export async function compareContentArtifact({ a, b, ac, bc, runsRoot, output, targetId, viewportId, contentChecks, contentExpectedLanguage }) {
   const indexes = [ac?.artifacts?.content, bc?.artifacts?.content];
@@ -43,11 +44,13 @@ export async function compareContentArtifact({ a, b, ac, bc, runsRoot, output, t
   if (result.state === 'complete' && snapshots.every(Boolean)) {
     const checks = policy(b).checks;
     const detail = compareContentSnapshots(...snapshots, { checks, expectedLanguage: policy(b).expectedLanguage,
-      targetId, viewportId, responsesA: responses(a, viewportId), responsesB: responses(b, viewportId) });
+      targetId, viewportId, sideA: a.side, sideB: b.side, responsesA: responses(a, viewportId), responsesB: responses(b, viewportId) });
     const src = `diff/content/${targetId}/${viewportId}.json`;
     await mkdir(dirname(join(output, src)), { recursive: true }); await writeFile(join(output, src), JSON.stringify(detail));
+    // Lines that exist on one side only (R11.4: `summary` counts the targets with a gap from this number).
+    const lineGaps = detail.findings.reduce((sum, item) => sum + (item.checkId === 'text-difference' ? safeCount(item.evidence.onlyInACount) + safeCount(item.evidence.onlyInBCount) : 0), 0);
     result.diff = { kind: 'content', src, tool: 'test-kit-content-checks', version: CHECK_VERSION,
-      ...comparatorIndex('content', {}, policy(b)), changed: detail.changed, incomplete: detail.incomplete, checks: checks.length };
+      ...comparatorIndex('content', {}, policy(b)), changed: detail.changed, incomplete: detail.incomplete, checks: checks.length, ...(lineGaps ? { lineGaps } : {}) };
     if (detail.incomplete || !checks.length) { result.state = 'missing'; result.diagnostic = detail.incomplete ? 'Content checks have unknown or incomplete evidence.' : 'No content checks are selected.'; }
     return { artifact: result, findings: detail.findings };
   }
