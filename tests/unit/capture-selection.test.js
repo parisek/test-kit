@@ -39,6 +39,18 @@ test('validateSelection rejects a bad record', () => {
     { targets: Array.from({ length: 1001 }, (_, index) => `t${index}`) }]) assert.throws(() => validateSelection(bad, settings), /Invalid stored selection/);
 });
 
+test('a report with a bad meta.scope or meta.skipped fails validation', async () => fixture(async root => {
+  await writeRun(root, 'full', { side: 'a' });
+  await writeRun(root, 'part', { side: 'b', selection: { targets: ['about'] } });
+  const { report } = await diff(root, 'full', 'part');
+  const check = change => validateReport({ ...report, meta: { ...report.meta, ...change } });
+  assert.deepEqual(check({}), []);
+  const scope = value => ({ a: null, b: null, filter: null, ...value });
+  for (const bad of [scope({ b: {} }), scope({ b: { targets: [] } }), scope({ b: { targets: ['x', 'x'] } }), scope({ b: { targets: ['bad id'] } }), scope({ filter: { viewports: ['x'.repeat(65)] } }),
+    scope({ filter: { other: ['x'] } }), scope({ a: [] }), scope({ b: 'x' }), { a: null, b: null }, [], 'x']) assert.deepEqual(check({ scope: bad }).length > 0, true, JSON.stringify(bad));
+  for (const bad of [-1, 1.5, '2', null]) assert.equal(check({ skipped: bad }).length > 0, true, String(bad));
+}));
+
 test('cellSelected treats no selection as every cell', () => {
   assert.equal(cellSelected(undefined, 'home', 'mobile'), true);
   assert.equal(cellSelected(null, 'home', 'mobile'), true);

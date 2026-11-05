@@ -1,5 +1,6 @@
 import { normalizeKnown, normalizeRules, isHash } from '../rules/model.js';
 import { relativePath } from './safe.js';
+import { selectionShapeValid } from '../capture/selection.js';
 import {
 	ABSOLUTE_ARTIFACTS, ARTIFACT_KINDS, BASES, BUILTIN_CONTENT_CHECKS, CHECK_ID, ENTRY_KINDS, IMPLICIT_ARTIFACTS, LAYERS,
 	LEGACY_BEHAVIOR_CHECK, LEGACY_BEHAVIOR_ID, LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS, PROJECT_TARGET,
@@ -158,8 +159,7 @@ export function validateReport(report) {
 	if (report.meta?.skipped !== undefined && (!Number.isSafeInteger(report.meta.skipped) || report.meta.skipped < 0)) problems.push('meta.skipped must be a non-negative integer.');
 	if (report.meta?.scope !== undefined) {
 		const scope = report.meta.scope;
-		const selection = (value) => value === null || (isPlain(value) && Object.keys(value).every((axis) => ['targets', 'viewports'].includes(axis)
-			&& array(value[axis]) && value[axis].length <= 1000 && value[axis].every((id) => typeof id === 'string')));
+		const selection = (value) => value === null || selectionShapeValid(value);
 		if (!isPlain(scope) || !['a', 'b', 'filter'].every((key) => selection(scope[key])) || Object.keys(scope).length !== 3) problems.push('Invalid meta.scope.');
 	}
 	// R9.7: exactly one of pair and subject.

@@ -28,18 +28,25 @@ export function recordSelection(settings, { targets, viewports } = {}) {
   return Object.keys(selection).length ? selection : null;
 }
 
+// True when the value has the shape of a selection: a plain object with at least one known axis,
+// each a non-empty, bounded list of unique, safe IDs. It needs no settings, so a report reader uses it too.
+export function selectionShapeValid(selection) {
+  if (selection === null || typeof selection !== 'object' || Array.isArray(selection)) return false;
+  const keys = Object.keys(selection);
+  if (!keys.length || keys.some(key => !AXES.some(([axis]) => axis === key))) return false;
+  return AXES.every(([axis, , max]) => {
+    const list = selection[axis];
+    return list === undefined || (Array.isArray(list) && list.length > 0 && list.length <= max && new Set(list).size === list.length
+      && list.every(id => typeof id === 'string' && ID.test(id)));
+  });
+}
+
 // Check a stored selection against the stored settings. Throws on any problem (R8.9: no guess from a bad record).
 export function validateSelection(selection, settings) {
-  const fail = () => { throw new Error('Invalid stored selection.'); };
-  if (selection === null || typeof selection !== 'object' || Array.isArray(selection)) fail();
-  const keys = Object.keys(selection);
-  if (!keys.length || keys.some(key => !AXES.some(([axis]) => axis === key))) fail();
-  for (const [axis, , max] of AXES) {
-    if (selection[axis] === undefined) continue;
-    const list = selection[axis];
+  if (!selectionShapeValid(selection)) throw new Error('Invalid stored selection.');
+  for (const [axis] of AXES) {
     const known = new Set(settings[axis].map(row => row.id));
-    if (!Array.isArray(list) || !list.length || list.length > max || new Set(list).size !== list.length
-      || list.some(id => typeof id !== 'string' || !ID.test(id) || !known.has(id))) fail();
+    if (selection[axis]?.some(id => !known.has(id))) throw new Error('Invalid stored selection.');
   }
   return selection;
 }
