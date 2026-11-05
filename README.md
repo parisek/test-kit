@@ -22,7 +22,7 @@ npm install -D @playwright/test
 npx playwright install chromium
 ```
 
-One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
+One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). A DDEV `post-start` hook that runs `npm install` rewrites it on every `ddev start` (measured on one consumer project on 2026-11-05). The fix is on the project side: run `npm ci` in that hook, or skip the install when `node_modules` already matches the lockfile. Run `git diff package-lock.json` before every commit.
 
 ## Configure
 
@@ -119,7 +119,7 @@ A remote run stops at the first sign that the edge challenges or limits it: a
 That capture fails with `REMOTE_EDGE_STOP`. The rest of the run fails with
 `RUN_STOPPED` and sends no request, so a challenge does not grow into a ban.
 
-A remote side aborts a request to another origin. A web font from a font host is such a
+A remote side aborts a request to another origin (a local side blocks it). A web font from a font host is such a
 request, and the page then renders in the fallback font. `run.json` records the aborted
 requests per resource type and origin (no path or query), and `summary` and the viewer
 warn when a `font` or `stylesheet` request was aborted. To load the font, name its origin:
@@ -130,10 +130,12 @@ warn when a `font` or `stylesheet` request was aborted. To load the font, name i
 ```
 
 The capture then reads that exact HTTPS origin with GET and HEAD for the named types
-(`script`, `stylesheet`, `font`, `image`, `media`). It never uses the list for a
-navigation, and a redirect to an origin that is not named still fails. Name only an
-origin you trust: a script from it runs in the page. The list is part of the capture
-settings hash, so a pair with different lists is incompatible. A local side refuses the key.
+(`stylesheet`, `font`). Name a font host that loads CSS from one origin and fonts from another
+with one entry for each origin. It never uses the list for a navigation, and a redirect from
+an allowed origin to an origin that is not named fails the capture. The capture verifies the
+certificate of a named origin. A local side may set the same key, so a local side can load a
+web font from a named third-party origin. The list is part of the capture settings hash. A pair
+with a list on one side only is incompatible, and the diagnostic names `allowOrigins`.
 
 Other aborted requests are not evidence. A page that needs such a request to render
 differs from the same page with it, so read an `unexplained` finding with that in mind.

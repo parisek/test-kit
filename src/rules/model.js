@@ -53,7 +53,7 @@ export function normalizeKnown(input = {}) {
     return [pair, records.map(record => {
       keys(record, ['target', 'viewport', 'artifact', 'cause', 'reason', 'fingerprint', 'evidence']);
       if (![record.target, record.viewport, record.cause].every(value => typeof value === 'string' && ID.test(value))
-        || !['screenshot', 'html', 'content'].includes(record.artifact) || !text(record.reason, 1000)
+        || !['screenshot', 'html', 'status', 'content'].includes(record.artifact) || !text(record.reason, 1000)
         || !isHash(record.fingerprint)) fail();
       if (fingerprints.has(record.fingerprint)) fail();
       fingerprints.add(record.fingerprint);

@@ -16,3 +16,5 @@ The artifacts `lint` and `a11y` are absolute results (R9.9). They need no viewpo
 Artifact query returns the ordered pair key, at most 50 scoped rules, bounded
 rule text and evidence, and an omitted-rule count. Raw and normalized windows
 use the same requested display-line cap (R11.6).
+
+For `content`, `diff.oneSided` comes first. It holds `sides` (the side names), `lines` (`side`, `name`, `text`; at most `--max-lines`, 200 characters each) and `omittedLines`. A byte bound that halves lists must treat `oneSided.lines` as one of them. `summary` adds `lineGapTargets`, one integer, when a target has a gap (#281).

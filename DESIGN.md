@@ -173,6 +173,7 @@ Panels use the contract radius 0.25rem. Pills (segmented control, chips) use the
 - **Verdict history strip:** one dot for each comparison, oldest on the left, each with a time and a class word under it.
 - **Small heading:** the label style (0.8125rem, 500, muted). It carries a caption such as "Latest comparison". Identifiers inside it use the record style.
 - **Page counter:** "n of N" in the record style, between the older and newer links.
+- **Scope line:** shown only when the report has `meta.scope`. One line under the report time, in the label style (0.8125rem, 500, muted), on every report view: "Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped." It wraps and has no fixed width. A report without `meta.scope` shows no line and leaves no space. The full lists (compared targets and viewports, the selection of each run, the filter) sit in "Run details", as a definition list in the record style. On the views where "Run details" is not a disclosure, the same lists sit in their own disclosure "Scope details", closed by default, so those views show only the line. A skipped cell is not a target, so the target list never shows it. The line is the one place for "not compared, and why": a later reason joins it as another sentence with its own list in "Run details" (owner decision of 2026-11-05, #287, option C).
 - **Settings hash line:** shown on a row only when the hash differs from the previous row.
 - **Placeholder frame:** a dashed 1px border for an image that is not loaded.
 - **Page background:** the toolbar color.

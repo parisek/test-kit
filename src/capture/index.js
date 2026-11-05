@@ -12,8 +12,10 @@ import { resolve, dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, isOwnOrigin, decideRequest, redirectToAllowedOrigin, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { recordSelection, cellSelected } from './selection.js';
+import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, decideRequest, redirectPermitted, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -54,7 +56,7 @@ async function playwright() {
     const module = await import('@playwright/test');
     const path = require.resolve('@playwright/test/package.json');
     const { version } = JSON.parse(await readFile(path, 'utf8'));
-    return { chromium: module.chromium, version };
+    return { chromium: module.chromium, request: module.request, version };
   } catch {
     throw new Error('Install @playwright/test in the test-kit runtime and run npx playwright install chromium');
   }
@@ -72,6 +74,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   let finalPath;
   let unexpectedNavigation = false;
   let context;
+  let verifier;
   let blocked = false;
   // The first blocked request, for the error text. Later ones do not replace it.
   let firstBlocked = null;
@@ -95,7 +98,9 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       reducedMotion: config.artifacts.includes('behavior') ? config.behavior.emulate.reducedMotion ?? (recipe.disableMotion ? 'reduce' : 'no-preference') : recipe.disableMotion ? 'reduce' : 'no-preference',
       ...(config.artifacts.includes('behavior') && config.behavior.emulate.colorScheme ? { colorScheme: config.behavior.emulate.colorScheme } : {}),
     });
-    if (expired) { await context.close(); throw new Error('Capture deadline exceeded'); }
+    // R3.9: a local context ignores certificate errors, so an allowed origin gets a verifying context.
+    if (config.sides[side].allowOrigins?.length && ignoreHTTPSErrors(config, side)) verifier = await browser.newContext({ ignoreHTTPSErrors: false });
+    if (expired) { await context.close(); await verifier?.close().catch(() => {}); throw new Error('Capture deadline exceeded'); }
     if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
     await context.routeWebSocket('**/*', socket => socket.close());
     const page = await context.newPage();
@@ -145,12 +150,18 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         // Fetch one response without following redirects. Check Location before
         // the browser can issue a request to its destination.
         try {
-          const response = await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
+          // R3.9: a local context ignores certificate errors. A request to an allowed origin goes through
+          // a context that verifies them, so a bad certificate of a third party fails the request.
+          const viaVerifier = verifier && isAllowedOriginRequest({ url: request.url(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
+          const response = viaVerifier
+            ? await verifier.request.fetch(request.url(), { method: request.method(), headers: request.headers(), maxRedirects: 0, timeout: config.screenshot.timeoutMs })
+            : await route.fetch({ maxRedirects: 0, timeout: config.screenshot.timeoutMs });
           const location = response.headers().location;
           // R3.5: a redirect of an allowed write could repeat it on another path, so it fails the capture.
           const write = !['GET', 'HEAD'].includes(request.method());
           // R3.9: a subresource may also redirect to an allowed origin, for its own resource type.
-          const permitted = href => allowedUrl(href) || redirectToAllowedOrigin({ url: href, navigation: request.isNavigationRequest(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
+          // A redirect from an allowed origin may lead only to an allowed origin.
+          const permitted = href => redirectPermitted({ from: request.url(), to: href, ownTarget: allowedUrl(href), navigation: request.isNavigationRequest(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
           if (response.status() >= 300 && response.status() < 400 && (write || (location
             && !permitted(new URL(location, request.url()).href)))) {
             blocked = true;
@@ -271,16 +282,39 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});
+    if (verifier) await verifier.close().catch(() => {});
     await unlink(file).catch(() => {});
     return { ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
       message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : `The ${phase} step fails. Check the local page and capture recipe.` } };
-  } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
+  } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested }) {
+// R13.3: one GET to the side origin for the component list. Same certificate policy as the capture contexts.
+async function readStyleguideTargets(tool, config, side) {
+  const source = config.targetSource;
+  if (source.side !== side) throw new Error(`targetSource reads the styleguide of side ${source.side}. Capture that side.`);
+  const origin = config.sides[side].origin;
+  const context = await tool.request.newContext({ baseURL: origin, ignoreHTTPSErrors: true });
+  try {
+    const { targets, noFixture } = await readComponents({ origin, mount: source.mount, include: source.include, get: async url => {
+      const response = await context.get(url, { headers: { accept: 'application/json' }, timeout: 30000, maxRedirects: 0 });
+      return { status: response.status(), body: (await response.body()).toString('utf8') };
+    } });
+    // The stored settings read as a plain target list, so every reader of a run keeps working.
+    // The source and what it found go in the run manifest, next to the settings.
+    const { targetSource, ...rest } = config;
+    return { config: { ...rest, targets }, found: { ...source, resolved: targets.length, ...(noFixture.length ? { noFixture } : {}) } };
+  } finally { await context.dispose().catch(() => {}); }
+}
+
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports }) {
   const loaded = await loadConfig(configPath);
-  const config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
+  let config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
+  // R4.5: the selection is checked against the full lists before any run directory or browser exists.
+  // With targetSource the target list is unknown until the catalogue is read, so the check runs after that read.
+  const fromCatalogue = Boolean(config.targetSource);
+  let selection = fromCatalogue ? null : recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled }) : null;
   // Verify DDEV before Playwright loads, so a stopped project starts no browser.
@@ -299,6 +333,10 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     catch { throw new Error('ddev mutagen sync fails. Fix DDEV synchronization before capture.'); }
   }
   const tool = await playwright();
+  // The catalogue is read before any run directory exists, so a bad catalogue leaves no partial run.
+  let found;
+  if (config.targetSource) ({ config, found } = await readStyleguideTargets(tool, config, side));
+  if (fromCatalogue) selection = recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const root = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;
@@ -308,8 +346,8 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   const manifestPath = join(runDir, 'run.json');
   const effectiveSettings = { ...captureSettings(config, side), browser: BROWSER_SETTINGS, ...(behaviorSource ? { behavior: { ...config.behavior, fingerprint: behaviorSource.fingerprint } } : {}) };
   const hash = settingsHash(effectiveSettings);
-  const run = { schemaVersion: 2, id, side, label, at: at.toISOString(), state: 'partial', settings: config,
-    captureSettings: effectiveSettings, settingsHash: hash, tools: [{ name: 'playwright', version: tool.version, settingsHash: hash }], captures: [] };
+  const run = { schemaVersion: 2, id, side, label, at: at.toISOString(), state: 'partial', settings: config, ...(found ? { targetSource: found } : {}),
+    captureSettings: effectiveSettings, settingsHash: hash, ...(selection ? { selection } : {}), tools: [{ name: 'playwright', version: tool.version, settingsHash: hash }], captures: [] };
   await writeManifest(manifestPath, run);
   let browser;
   try {
@@ -331,6 +369,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     await writeManifest(manifestPath, run);
     let stopped = false;
     for (const target of config.targets) for (const viewport of config.viewports) {
+      if (!cellSelected(selection, target.id, viewport.id)) continue;
       // R3.6: after an edge stop, no further request goes to the remote side.
       if (stopped) {
         run.captures.push({ targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(settleRecipe(config, side, target)), state: 'failed', artifacts: {},
@@ -343,6 +382,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       if (behaviorIndex?.path && !run.tools.some(item => item.settingsHash === behaviorIndex.settingsHash)) run.tools.push({ name: behaviorIndex.tool, version: behaviorIndex.version, settingsHash: behaviorIndex.settingsHash, artifact: 'behavior' });
       await writeManifest(manifestPath, run);
     }
+    // With a selection, `complete` means every selected cell is captured. `run.selection` tells the reader (R4.5).
     if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot').every(kind => result.artifacts?.[kind]?.state === 'captured'))) run.state = 'complete';
     await writeManifest(manifestPath, run);
   } catch (error) {

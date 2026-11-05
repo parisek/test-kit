@@ -38,6 +38,18 @@ test('the dropped log bounds its list and cleans page values (R3.8)', () => {
   assert.doesNotMatch(JSON.stringify(droppedFields(bad)), /[\u0000-\u001f\u007f]/);
 });
 
+test('the dropped log skips data, blob and other non-http(s) requests and keeps their slots free (R3.8)', () => {
+  const log = createDroppedLog();
+  recordDropped(log, { url: 'data:image/png;base64,AAAA', resourceType: 'image' });
+  recordDropped(log, { url: 'blob:https://example-site.net/1234', resourceType: 'image' });
+  recordDropped(log, { url: 'ftp://example-site.net/a', resourceType: 'font' });
+  recordDropped(log, { url: 'not a url', resourceType: 'font' });
+  assert.deepEqual(droppedFields(log), {});
+  for (let index = 0; index < DROPPED_LIMIT; index += 1) recordDropped(log, { url: `data:text/plain,${index}`, resourceType: 'image' });
+  recordDropped(log, { url: 'https://use.example-site.net/a.woff2', resourceType: 'font' });
+  assert.deepEqual(droppedFields(log), { dropped: [{ resourceType: 'font', origin: 'https://use.example-site.net', count: 1 }] });
+});
+
 test('the request policy drops a read of another origin on a remote side and blocks a write (R3.8)', () => {
   const base = { origin: 'https://example.com', remote: true, topLevel: false, navigation: false };
   assert.equal(requestPolicy({ ...base, url: 'https://use.example-site.net/a.woff2', method: 'GET' }), 'drop');

@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin } from '../../src/capture/helpers.js';
+import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin, redirectPermitted, ALLOW_ORIGIN_TYPES } from '../../src/capture/helpers.js';
+import { comparisonState, incompatibleDiagnostic } from '../../src/compare/runs.js';
 import { normalizeConfig, captureSettings, settingsHash } from '../../src/config/index.js';
 
 const FONTS = 'https://use.example-site.net';
 const allowOrigins = [{ origin: FONTS, types: ['stylesheet', 'font'] }];
 const remote = { origin: 'https://example.com', remote: true, allowOrigins };
+const localPolicy = (url, { method = 'GET', resourceType = 'font', navigation = false, ...rest } = {}) =>
+  requestPolicy({ url, method, topLevel: navigation, navigation, resourceType, origin: 'http://localhost:8080', remote: false, allowOrigins, ...rest });
 const policy = (url, { method = 'GET', topLevel = false, navigation = topLevel, resourceType = 'font', ...rest } = {}) =>
   requestPolicy({ url, method, topLevel, navigation, resourceType, ...remote, ...rest });
 
@@ -25,6 +28,20 @@ test('a resource type outside the list of the origin is still aborted (R3.9)', (
   assert.equal(policy(`${FONTS}/a.png`, { resourceType: 'image' }), 'drop');
   assert.equal(policy(`${FONTS}/x`, { resourceType: 'xhr' }), 'drop');
   assert.equal(policy(`${FONTS}/x`, { resourceType: null }), 'drop');
+  assert.equal(policy(`${FONTS}/a.css`, { resourceType: 'stylesheet', allowOrigins: [{ origin: FONTS, types: ['font'] }] }), 'drop');
+  assert.deepEqual([...ALLOW_ORIGIN_TYPES], ['stylesheet', 'font']);
+});
+
+test('a local side reads a named origin for a named type, and blocks everything else (R3.9)', () => {
+  assert.equal(localPolicy(`${FONTS}/a.woff2`), 'allow');
+  assert.equal(localPolicy(`${FONTS}/a.woff2`, { method: 'HEAD' }), 'allow');
+  assert.equal(localPolicy('http://localhost:8080/a.css', { resourceType: 'stylesheet', allowOrigins: undefined }), 'allow');
+  assert.equal(localPolicy(`${FONTS}/a.woff2`, { allowOrigins: undefined }), 'block');
+  assert.equal(localPolicy(`${FONTS}/a.js`, { resourceType: 'script' }), 'block');
+  assert.equal(localPolicy('https://other.example-site.net/a.woff2'), 'block');
+  assert.equal(localPolicy(`${FONTS}/a.woff2`, { method: 'POST' }), 'block');
+  assert.equal(localPolicy(`${FONTS}/`, { navigation: true, resourceType: 'document' }), 'block');
+  assert.equal(localPolicy(`${FONTS}/`, { navigation: true, resourceType: 'font' }), 'block');
 });
 
 test('a write to an allowed origin still blocks, and the challenge rule does not reach it (R3.9)', () => {
@@ -44,36 +61,30 @@ test('the origin must match exactly: scheme, host, port, credentials (R3.9)', ()
   }
 });
 
-test('a subresource redirect may lead to an allowed origin, a navigation redirect never (R3.9)', () => {
-  const base = { url: `${FONTS}/a.woff2`, resourceType: 'font', allowOrigins };
-  assert.equal(redirectToAllowedOrigin({ ...base, navigation: false }), true);
-  assert.equal(redirectToAllowedOrigin({ ...base, navigation: true }), false);
-  assert.equal(redirectToAllowedOrigin({ ...base, navigation: false, resourceType: 'script' }), false);
-  assert.equal(redirectToAllowedOrigin({ ...base, navigation: false, url: 'https://other.example-site.net/a' }), false);
+test('a redirect from an allowed origin must end at an allowed origin for the type (R3.9)', () => {
+  const two = [{ origin: FONTS, types: ['stylesheet', 'font'] }, { origin: 'https://files.example-site.net', types: ['font'] }];
+  const base = { from: `${FONTS}/a.woff2`, resourceType: 'font', navigation: false, allowOrigins: two };
+  assert.equal(redirectPermitted({ ...base, to: 'https://files.example-site.net/a.woff2', ownTarget: false }), true);
+  assert.equal(redirectPermitted({ ...base, to: 'https://evil.example-site.net/a.woff2', ownTarget: false }), false);
+  assert.equal(redirectPermitted({ ...base, to: 'https://files.example-site.net/a.css', resourceType: 'stylesheet', ownTarget: false }), false, 'the type must be listed for the target');
+  assert.equal(redirectPermitted({ ...base, to: 'https://example.com/a.woff2', ownTarget: true }), false, 'the own origin is not on the list');
+  assert.equal(redirectPermitted({ ...base, to: 'http://use.example-site.net/a.woff2', ownTarget: false }), false, 'a downgrade to HTTP is another origin');
+  // A redirect from the own origin keeps its rule, and may also reach a listed origin.
+  assert.equal(redirectPermitted({ ...base, from: 'https://example.com/a.css', to: 'https://example.com/b.css', ownTarget: true }), true);
+  assert.equal(redirectPermitted({ ...base, from: 'https://example.com/a.css', to: `${FONTS}/a.woff2`, ownTarget: false }), true);
+  assert.equal(redirectPermitted({ ...base, from: 'https://example.com/a.css', to: 'https://evil.example-site.net/a', ownTarget: false }), false);
+  assert.equal(redirectToAllowedOrigin({ url: `${FONTS}/a.woff2`, navigation: true, resourceType: 'font', allowOrigins }), false);
 });
 
-test('a side without the list, or a local side, ignores it (R3.9)', () => {
-  assert.equal(policy(`${FONTS}/a.woff2`, { allowOrigins: undefined }), 'drop');
-  assert.equal(policy(`${FONTS}/a.woff2`, { allowOrigins: [] }), 'drop');
-  assert.equal(requestPolicy({ url: `${FONTS}/a.woff2`, method: 'GET', topLevel: false, resourceType: 'font', origin: 'http://localhost:8080', remote: false, allowOrigins }), 'block');
-  assert.equal(isAllowedOriginRequest({ url: `${FONTS}/a`, resourceType: 'font', allowOrigins: 'x' }), false);
-  assert.equal(isAllowedOriginRequest({ url: `${FONTS}/a`, resourceType: 'font', allowOrigins: [null, { origin: FONTS }] }), false);
-});
-
-test('a remote side may set allowOrigins, and the config normalizes it (R3.9)', () => {
-  const result = normalizeConfig(input({ allowOrigins: [{ origin: 'https://use.example-site.net/', types: ['script', 'font'] }] }));
-  assert.deepEqual(result.sides.production.allowOrigins, [{ origin: FONTS, types: ['script', 'font'] }]);
+test('both sides accept allowOrigins, and the config normalizes it (R3.9)', () => {
+  const entry = [{ origin: 'https://use.example-site.net/', types: ['stylesheet', 'font'] }];
+  const result = normalizeConfig(input({ allowOrigins: entry }));
+  assert.deepEqual(result.sides.production.allowOrigins, [{ origin: FONTS, types: ['stylesheet', 'font'] }]);
   assert.equal(Object.hasOwn(result.sides.local, 'allowOrigins'), false);
   assert.equal(Object.hasOwn(normalizeConfig(input()).sides.production, 'allowOrigins'), false);
-});
-
-test('a local side refuses allowOrigins (R3.9)', () => {
   const source = input();
-  source.sides.local.allowOrigins = allowOrigins;
-  assert.throws(() => normalizeConfig(source), /allowOrigins requires remote true/);
-  const flagged = input({ allowOrigins });
-  flagged.sides.production.remote = false;
-  assert.throws(() => normalizeConfig(flagged), /allowOrigins requires remote true/);
+  source.sides.local.allowOrigins = entry;
+  assert.deepEqual(normalizeConfig(source).sides.local.allowOrigins, [{ origin: FONTS, types: ['stylesheet', 'font'] }]);
 });
 
 test('allowOrigins rejects anything but a short list of HTTPS origins and known types (R3.9)', () => {
@@ -82,12 +93,12 @@ test('allowOrigins rejects anything but a short list of HTTPS origins and known 
   bad(Array.from({ length: 21 }, (_, index) => ({ origin: `https://h${index}.example-site.net`, types: ['font'] })));
   bad([{ origin: FONTS }]); bad([{ origin: FONTS, types: [] }]); bad([{ origin: FONTS, types: 'font' }]);
   bad([{ origin: FONTS, types: ['font', 'font'] }]);
-  for (const type of ['document', 'xhr', 'fetch', 'websocket', 'other', 'Font', '*', '']) bad([{ origin: FONTS, types: [type] }]);
+  for (const type of ['script', 'image', 'media', 'document', 'xhr', 'fetch', 'websocket', 'other', 'Font', '*', '']) bad([{ origin: FONTS, types: [type] }]);
   for (const origin of ['http://use.example-site.net', 'use.example-site.net', '//use.example-site.net', 'https://use.example-site.net/path', 'https://use.example-site.net/?q=1',
-    'https://use.example-site.net/#x', 'https://user:pass@use.example-site.net', 'file:///etc', 'javascript:alert(1)', '*', '', 5, null, 'https://use.example-site.net\n']) {
+    'https://use.example-site.net/#x', 'https://*.example-site.net', 'https://*', 'https://use.example-site.net:*', 'https://user:pass@use.example-site.net', 'file:///etc', 'javascript:alert(1)', '*', '', 5, null, 'https://use.example-site.net\n']) {
     bad([{ origin, types: ['font'] }]);
   }
-  bad([{ origin: FONTS, types: ['font'] }, { origin: `${FONTS}/`, types: ['script'] }]);
+  bad([{ origin: FONTS, types: ['font'] }, { origin: `${FONTS}/`, types: ['stylesheet'] }]);
   bad([{ origin: FONTS, types: ['font'], extra: true }]);
   bad([null]); bad([FONTS]);
   const holes = [, { origin: FONTS, types: ['font'] }]; // eslint-disable-line no-sparse-arrays
@@ -107,4 +118,18 @@ test('allowOrigins enters the capture settings hash and the order does not matte
   // A side without the key keeps its hash, so an existing run stays comparable.
   assert.deepEqual(Object.keys(captureSettings(plain, 'production')), ['viewports', 'settle', 'screenshot']);
   assert.equal(hash(one, 'local'), hash(plain, 'local'));
+});
+
+test('a pair with a list on one side only is incompatible and the diagnostic names allowOrigins (R3.9)', () => {
+  const run = (config, side) => ({ side, settingsHash: settingsHash(captureSettings(config, side)), captureSettings: captureSettings(config, side), tools: [{ name: 'playwright', version: '1', settingsHash: 'x' }] });
+  const listed = normalizeConfig({ ...input(), sides: { production: { origin: 'https://example.com', remote: true, allowOrigins }, local: { origin: 'http://localhost:8080', allowOrigins } } });
+  const plain = normalizeConfig(input());
+  const captured = { state: 'captured' };
+  const withList = run(listed, 'local');
+  assert.equal(comparisonState(captured, captured, withList, run(plain, 'local')), 'incompatible');
+  assert.match(incompatibleDiagnostic(withList, run(plain, 'local')), /allowOrigins/);
+  assert.match(incompatibleDiagnostic(run(plain, 'local'), withList), /allowOrigins/);
+  // The same list on a local and a remote side gives the same settings hash: the pair stays comparable.
+  assert.equal(run(listed, 'local').settingsHash, run(listed, 'production').settingsHash);
+  assert.doesNotMatch(incompatibleDiagnostic(run(plain, 'local'), run(plain, 'production')), /allowOrigins/);
 });
