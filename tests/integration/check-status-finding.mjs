@@ -54,7 +54,7 @@ try {
   assert.equal(finding.artifact, 'status');
   assert.equal(finding.checkId, undefined);
   assert.match(finding.message, /final path A \/page, B \/page\//);
-  assert.match(finding.message, /redirects A 0, B 1/);
+  assert.match(finding.message, /redirects A none, B \/page/);
   assert.doesNotMatch(finding.message, /status A/, 'The status code is equal.');
   const counts = summarizeReport(diff.report).counts;
   assert.equal(counts.unexplained, 1); assert.equal(counts.match, 0);

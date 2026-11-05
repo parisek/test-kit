@@ -18,8 +18,9 @@ import { droppedForRow } from '../report/dropped.js';
 // The text of a status finding: each differing field with both values. A path is cut at 120 characters.
 function statusMessage({ a, b }) {
 	const cut = path => path.length > 120 ? path.slice(0, 120) + '…' : path;
+	const chain = list => list.length ? list.slice(0, 5).map(cut).join(' > ') + (list.length > 5 ? ` > … (${list.length} steps)` : '') : 'none';
 	const parts = { statusCode: () => `status A ${a.statusCode}, B ${b.statusCode}`, finalPath: () => `final path A ${cut(a.finalPath)}, B ${cut(b.finalPath)}`,
-		redirects: () => `redirects A ${a.redirects.length}, B ${b.redirects.length}${a.redirects.length === b.redirects.length ? ' (different chains)' : ''}` };
+		redirects: () => `redirects A ${chain(a.redirects)}, B ${chain(b.redirects)}` };
 	const fields = statusDifference(a, b);
 	return fields.length ? `HTTP response differs: ${fields.map(field => parts[field]()).join('; ')}.` : null;
 }
