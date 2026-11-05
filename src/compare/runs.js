@@ -275,8 +275,10 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				if (!pack) continue;
 				row.artifacts[kind] = pack.artifact; findings.push(...pack.findings); Object.assign(checks, { ...pack.catalog, ...checks });
 			}
-			const comparable = ['screenshot', 'html', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
-			const states = [...(comparable.length ? comparable : [row.artifacts.status?.state ?? 'missing']), ...PACK_ARTIFACT_KINDS.filter(kind => row.artifacts[kind]).map(kind => row.artifacts[kind].state)];
+			// R8.7: an incomplete status artifact makes the cell incomplete, like any other selected artifact (#295).
+			const states = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			states.push(...PACK_ARTIFACT_KINDS.filter(kind => row.artifacts[kind]).map(kind => row.artifacts[kind].state));
+			if (!states.length) states.push('missing');
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
 			if (ac?.state === 'failed' || bc?.state === 'failed') {
 				row.state = 'failed';

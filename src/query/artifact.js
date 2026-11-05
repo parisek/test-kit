@@ -5,6 +5,7 @@ import { adaptReport } from '../report/model.js';
 import { readSidecar } from '../artifacts/compare.js';
 import { hasLineLists, safeLines, safeCount } from '../checks/builtin/text-difference.js';
 import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
+import { OUTPUT_BYTE_LIMIT, outputBytes, clip, markCut, wasCut, fitLists } from './bound.js';
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -29,6 +30,27 @@ function oneSidedLines(detail, maxLines) {
   return { sides: names, lines, omittedLines: Math.max(0, total - lines.length) };
 }
 
+// R11.2: the answer stays under one byte limit. Halve the lists of the difference first. Then drop the
+// difference. Cut the rules and the scope last, so a difference that is too big does not cost them.
+// A report that still does not fit is refused, and it does not reach the agent.
+function bounded(result) {
+  const diffLists = () => {
+    const out = [], add = (owner, key, counter) => { if (owner && typeof owner === 'object') out.push({ owner, key, counter }); };
+    const diff = result.diff;
+    if (diff && typeof diff === 'object') {
+      add(diff, 'lines', 'omittedLines'); add(diff.oneSided, 'lines', 'omittedLines'); add(diff.rawWindow, 'lines', 'omittedLines'); add(diff, 'findings', 'findingsOmitted'); add(diff, 'steps', 'stepsOmitted');
+      add(diff.a, 'redirects', 'redirectsOmitted'); add(diff.b, 'redirects', 'redirectsOmitted');
+      for (const check of Array.isArray(diff.checks) ? diff.checks : []) for (const side of [check?.a, check?.b]) add(side, 'findings', 'omitted');
+    }
+    return out;
+  };
+  const answerLists = () => [{ owner: result, key: 'rules', counter: 'rulesOmitted' }, ...(result.scope ? [{ owner: result.scope, key: 'checks', counter: 'checksOmitted' }] : [])];
+  if (fitLists(result, diffLists)) return result;
+  if (result.diff) { delete result.diff; result.diffOmitted = true; result.next = 'Open the same target and viewport in the viewer. The difference exceeds the query byte limit.'; }
+  if (fitLists(result, answerLists)) return result;
+  throw new Error('The answer exceeds the query byte limit. Open the report in the viewer.');
+}
+
 export async function queryArtifact(reportPath, { target, viewport, artifact, maxLines = 40 }) {
   const absolute = ABSOLUTE_ARTIFACTS.includes(artifact);
   if (!['html', 'status', 'content', 'behavior', 'lighthouse', ...ABSOLUTE_ARTIFACTS].includes(artifact)) throw new Error('Artifact must be html, status, content, behavior, lighthouse, lint, or a11y.');
@@ -44,7 +66,7 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
   const index = (row ? row.artifacts : entry.artifacts)?.[artifact];
   if (!index) throw new Error('Artifact is not requested.');
   const pairContext = { pairKey: report.pair?.key, kind: report.pair?.kind ?? 'single-run', targetId: target, artifact };
-  const result = { target, viewport, artifact, state: index.state, diagnostic: typeof index.diagnostic === 'string' ? index.diagnostic.slice(0, 500) : null,
+  const result = { target: markCut(target), ...(wasCut(target) ? { targetTruncated: true } : {}), viewport: viewport == null ? viewport : markCut(viewport), ...(wasCut(viewport) ? { viewportTruncated: true } : {}), artifact, state: clip(index.state, 64), diagnostic: typeof index.diagnostic === 'string' ? index.diagnostic.slice(0, 500) : null,
     pairKey: isHash(report.pair?.key) ? report.pair.key : null,
     rules: Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).slice(0, 50).map(([id, rule]) => ({ id: id.slice(0, 64), text: typeof rule.text === 'string' ? rule.text.slice(0, 500) : '', evidence: rule.evidence.slice(0, 1000) })),
     rulesOmitted: Math.max(0, Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).length - 50),
@@ -56,7 +78,7 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
     result.result = isPlain(index.result) ? { violations: index.result.violations === true, checks: Number.isSafeInteger(index.result.checks) ? index.result.checks : 0 } : null;
     result.scope = Array.isArray(index.scope?.checks) ? { checks: index.scope.checks.filter(id => typeof id === 'string').slice(0, 500).map(id => id.slice(0, 128)) } : null;
     result.next = 'Open the same target in the viewer.';
-    return result;
+    return bounded(result);
   }
   if ((index.state === 'complete' || artifact === 'content' || artifact === 'behavior' || artifact === 'lighthouse') && index.diff?.src) {
     const detail = comparisonDetail(artifact, JSON.parse(await readSidecar(root, index.diff.src)));
@@ -74,7 +96,7 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
       for (const step of detail.steps) {
         if (steps.length >= maxLines) break;
         const encoded = JSON.stringify(step);
-        if (bytes + encoded.length > 60000) break;
+        if (bytes + encoded.length > OUTPUT_BYTE_LIMIT) break;
         steps.push(step); bytes += encoded.length;
       }
       result.diff = { ...detail, steps, stepsOmitted: detail.steps.length - steps.length };
@@ -89,5 +111,5 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
       result.diff = { ...(oneSided ? { oneSided } : {}), ...detail, checks: detail.checks.map(check => ({ ...check, a: leanSide(boundedSide(check.a)), b: leanSide(boundedSide(check.b)) })), findings: detail.findings.slice(0, maxLines).map(lean), findingsOmitted: Math.max(0, detail.findings.length - maxLines) };
     } else result.diff = detail;
   }
-  return result;
+  return bounded(result);
 }

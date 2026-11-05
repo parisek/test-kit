@@ -6,7 +6,7 @@ One comparator per artifact kind, normalisers with evidence, the noise floor. Sp
 
 Response artifacts use bounded sidecars and a linear HTML replacement window.
 A status pair creates a finding when the final status, the final path or the redirect chain differs (R6.13). Asset counts do not.
-Requested comparable artifact failures keep measurement incomplete (R8.7).
+Requested artifact failures keep measurement incomplete, a `status` failure too (R8.7).
 
 `readRun` validates a recorded `selection`. A cell outside a recorded selection of either run, or outside the
 optional `filter` (`{ targets, viewports }`), is skipped and counted in `meta.skipped`. The report records
