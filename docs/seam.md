@@ -54,6 +54,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `targets[].selector` | string or list | none | no | CSS selector, or 1 to 50 unique selectors. |
 | `targets[].box` | string | none | no | `border` or `content`. Needs `selector`. |
 | `targets[].settle`, `targets[].settleBySide` | object | none | no | Partial settle recipe, for all sides or for one side. |
+| `targetSource` | object | none | no | R13.3. Component targets from a styleguide side. Needs `source: "styleguide"` and `side`. Optional `mount` (default `/styleguide`) and `include` (component IDs). `targets` must be absent or empty. Not in the capture settings hash. An addition: old input passes. Added after 1.0.0. |
 | `viewports` | list | none | yes | 1 to 20 entries. |
 | `viewports[].id`, `width`, `height` | string, number, number | none | yes | Width and height 1 to 4096. At most 32 million physical pixels. |
 | `viewports[].deviceScaleFactor` | number | `1` | no | 0.5 to 3. |
@@ -82,7 +83,7 @@ Items inside the configuration that stay open:
 | --- | --- | --- |
 | The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
 | Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. |
-| The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, not built yet | Specification section 17, items 7 and 10, R13.40, R13.46 to R13.50: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). The design is ADR 0006. The build is #26, milestone 1.1. |
+| The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, 2026-11-04 and 2026-11-05, not built yet | Specification section 17, items 7 and 10, R13.40, R13.46 to R13.50: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). The design is ADR 0006. The build is #26, milestone 1.1. |
 | The allowlist (`reason`, `owner`) | Not frozen, owner decision open | Moved to #254 (ADR 0004, open question 4). No config key exists. |
 | Selection of checks or contracts per target | Not frozen, decided 2026-11-04 | `scope.checks` on each artifact index, derived from the run settings (ADR 0004, open question 2; R9.10). |
 | Artifact kinds `a11y` and `lint` in `artifacts` | Not frozen, change planned | Both are glossary artifacts (specification section 2). The code rejects both today. They come with `schemaVersion` 3 in 1.1 (specification section 17, item 8). |
@@ -107,12 +108,12 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 
 | Command | Required input | Marking | Reason |
 | --- | --- | --- | --- |
-| `capture` | `--side` (`--config`, `--label`, `--artifacts`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. |
-| `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. |
-| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). |
+| `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. |
+| `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. `--target` and `--viewport` are additions (R4.5): they filter the pair and the report records them in `meta.scope`. |
+| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). Addition in 1.1: `droppedRequestCount`, `droppedWarnings`, `droppedWarningsOmitted` and `droppedNotListed`, present only when a `font` or `stylesheet` request was aborted or a list was cut (R3.8). Addition: `skipped`, present only when the report skipped a cell (R4.5). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
-| `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. |
+| `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. Addition in 1.1: `--artifact` accepts `status` (R6.13). Old input still passes. |
 | `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. On a side with `production: true`, `perf` waits for `--consent` for any number of targets (R6.5, #162). |
 | `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). |
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
@@ -149,6 +150,7 @@ Source of truth: `src/behavior/contracts.js`, `src/behavior/README.md`, R7.7, R1
 | Contract files `*.contract.js` under `behavior.source` | Frozen | `loadProjectContracts`. |
 | The default projects `desktop-1280` and `mobile-390` | Frozen | `DEFAULT_PROJECTS` in `src/behavior/contracts.js`. |
 | The identity of a behavior finding (step ID against contract name) | Not frozen, decided 2026-11-04 | Each step carries `contract`. The catalog key is `behavior.<contract name>`, and the registry records the origin (ADR 0004, open question 1; R9.8). |
+| The behavior snapshot version | Not frozen, decided 2026-11-04 | The version is 2 since `schemaVersion` 3 (it was 1), because each step carries `contract`. A stored version 1 snapshot does not compare with a version 2 snapshot. The pair reads `incompatible` (R8.9). Capture the older side again (#230). |
 | The format of component allowlists | Not frozen, owner decision open | R13.41 puts the format in the package. The allowlist is unspecified and moved to #254. |
 | Shared contracts `picture`, `gsap`, `lightgallery`, `header-*`, `cookieconsent`, `hygiene`, `render-integrity` | Not in the package | R13.42 plans them as packs. Only `swiper` and the axe pack ship. |
 
@@ -185,8 +187,8 @@ Entry points in `package.json` `exports`. The list on `main` has nine entries. v
 | `./packs/a11y/runner` | Frozen (decided) | Decided by the owner, 2026-10-19. `runAxe(page, options)` and its options. It needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
 | `./packs/swiper` | Experimental | The browser step that collects DOM facts and the version is not built (`src/packs/versioned/README.md`). |
 | `./packs/lint`, `./packs/lint/runner` | Not frozen (decided) | Decided by the owner, 2026-10-19. The pack may change in minor releases. The ESLint and Stylelint seam is decided as entry points with a thin import (specification section 17, item 7; R13.40). It is not built yet. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
-| `./eslint` | Addition planned for 1.1 (decided) | Decided by the owner, 2026-10-22 and 2026-11-04 (issue #26). An ES module that default-exports a flat-config array, with the `portadesign` plugin. The rule IDs, the namespace and the rule options are frozen from the release that ships them (R13.40). Peers are optional (R13.46). A missing required peer throws `LINT_PEER_MISSING` (R13.47). The config holds no project values (R13.48). Not built yet. |
-| `./stylelint` | Addition planned for 1.1 (decided) | Same decision. A CommonJS file that exports a config object, so `require` and `import` both load it (R13.48). The `portadesign` rule IDs and options are frozen from the release that ships them. Not built yet. |
+| `./eslint` | Addition planned for 1.1 (decided) | Decided by the owner, 2026-10-22 and 2026-11-04 (issue #26). An ES module that default-exports a flat-config array, with the `portadesign` plugin. The rule IDs, the namespace and the rule options are frozen from the release that ships them (R13.40). Peers are optional (R13.46). A missing required peer throws `LINT_PEER_MISSING`. A missing enhancement peer drops its block with a warning (R13.47). Rule messages carry no project links, and `messageIds` stay (R13.50). Lint needs Node 20.19. A separate change raises `engines`. The config holds no project values (R13.48). Not built yet. |
+| `./stylelint` | Addition planned for 1.1 (decided) | Same decision, with the 2026-11-05 details. A CommonJS file that exports a config object, so `require` and `import` both load it (R13.48). The `portadesign` rule IDs and options are frozen from the release that ships them. Not built yet. |
 
 A new pack that a project selects, a new contract set for a new library major, and a new entry point are additions (vision layers rules 6 to 9). Pack identity lives in stable contract IDs.
 
@@ -197,9 +199,10 @@ Source of truth: the `schemaVersion` literals in `src/` (grep, 2026-10-19), `doc
 | Document | Version in code | Marking | Reason |
 | --- | --- | --- | --- |
 | Config (`src/config/normalize.js`) | 1 | Frozen | See section 1. |
-| Stored run `run.json` (`src/capture/index.js`, `src/cli/perf.js`) | 2 | Frozen | `src/compare/runs.js` and `src/rules/evidence.js` read only version 2. |
-| Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 3 | Not frozen | The code writes version 3 (#230). Version 3 is not additive: `pair` becomes optional (R9.1, R9.7). A reader of version 2 rejects version 3. `adaptReport` reads versions 1, 2 and 3. |
+| Stored run `run.json` (`src/capture/index.js`, `src/cli/perf.js`) | 2 | Frozen | `src/compare/runs.js` and `src/rules/evidence.js` read only version 2. The optional field `targetSource` (what a styleguide source found) is an addition. |
+| Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 3 | Not frozen | The code writes version 3 (#230). Version 3 is not additive: `pair` becomes optional (R9.1, R9.7). A reader of version 2 rejects version 3. `adaptReport` reads versions 1, 2 and 3. The optional field `runs[].noFixture` (IDs of styleguide components with no fixture) is an addition. |
 | Content snapshot (`src/content/snapshot.js`) and content comparison sidecar (`src/content/compare.js`) | 1 | Frozen | The extractor and check versions guard them (R7.4). |
+| Optional addition to `run.json` capture entries and `report.json` rows, 1.1 | 2 (run), 3 (report) | Frozen | Optional addition to a frozen version (an optional key is not a break). `dropped` (and `droppedOmitted`) on a capture, `dropped: {a, b, omitted?}` on a report row. Absent when no request was aborted. R3.8. |
 | Workflow state (`src/workflow/index.js`) | 1 | Experimental | It sits in the store. The store belongs to the experimental workflow commands. |
 
 What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is frozen:

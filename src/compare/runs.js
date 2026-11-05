@@ -6,12 +6,36 @@ import { compareContentArtifact } from '../content/compare-artifact.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { pairKey, policyHash, evidenceBinding, comparatorIndex } from '../rules/evidence.js';
 import { compareResponseArtifact } from '../artifacts/compare.js';
+import { statusDifference } from '../artifacts/schema.js';
 import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';
 import { resolve, join, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
 import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
+import { droppedForRow } from '../report/dropped.js';
+import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
+
+// The text of a status finding: each differing field with both values, bounded in size.
+// A path is cut around the first character where A and B differ. A chain shows the steps around its first differing step.
+export function statusMessage({ a, b }) {
+	const common = (x, y) => { let n = 0; while (n < x.length && n < y.length && x[n] === y[n]) n++; return n; };
+	const path = (value, other) => {
+		const start = Math.max(0, common(value, other) - 30);
+		const text = value.slice(start, start + 120);
+		return (start ? '…' : '') + text + (start + 120 < value.length ? '…' : '');
+	};
+	const chain = (list, other) => {
+		if (!list.length) return 'none';
+		let first = 0; while (first < list.length && first < other.length && list[first] === other[first]) first++;
+		const start = Math.max(0, Math.min(first, list.length - 1) - 1), end = Math.min(list.length, start + 4);
+		return (start ? `(${start} before) ` : '') + list.slice(start, end).map((step, k) => path(step, other[start + k] ?? '')).join(' > ') + (end < list.length ? ` > (${list.length - end} more)` : '');
+	};
+	const parts = { statusCode: () => `status A ${a.statusCode}, B ${b.statusCode}`, finalPath: () => `final path A ${path(a.finalPath, b.finalPath)}, B ${path(b.finalPath, a.finalPath)}`,
+		redirects: () => `redirects A ${chain(a.redirects, b.redirects)}, B ${chain(b.redirects, a.redirects)}` };
+	const fields = statusDifference(a, b);
+	return fields.length ? `HTTP response differs: ${fields.map(field => parts[field]()).join('; ')}.` : null;
+}
 
 function performanceEnvironment(run) {
   try { const origin = new URL(run.settings.sides[run.side].origin); return origin.protocol === 'http:' && isLocalUrl(origin.href) ? `${run.side}|${origin.origin}` : null; } catch { return null; }
@@ -24,6 +48,14 @@ async function contained(root, path) {
 	const offset = relative(base, file);
 	if (offset.startsWith('..') || offset.startsWith('/') || offset === '') throw new Error('Stored artifact escapes its run.');
 	return file;
+}
+
+// Owner decision on #94: a component without a fixture is skipped and listed as "no fixture". Run data is untrusted,
+// so each ID is checked and the list is bounded.
+function noFixtureField(run) {
+	const list = run.targetSource?.noFixture;
+	const ids = Array.isArray(list) ? list.filter((id) => typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(id)).slice(0, 1000) : [];
+	return ids.length ? { noFixture: ids } : {};
 }
 
 async function readRun(root, id) {
@@ -63,6 +95,11 @@ async function readRun(root, id) {
 			if (!row || !relativePath(row.id) || row.id.includes('/') || ids.has(row.id)) throw new Error('Unsafe or duplicate stored capture ID.');
 			ids.add(row.id);
 		}
+	}
+	// R4.5: a recorded selection is checked. A run without one is a full run: nothing is inferred from absence.
+	if (run.selection !== undefined) {
+		validateSelection(run.selection, run.settings);
+		if (run.captures.some(capture => !cellSelected(run.selection, capture.targetId, capture.viewportId))) throw new Error('Stored capture lies outside the stored selection.');
 	}
 	return run;
 }
@@ -112,7 +149,7 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind = 'update', rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
@@ -124,8 +161,17 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	await mkdir(output, { recursive: true });
 	if ((await readdir(output)).length) throw new Error('Comparison output directory must be empty.');
 	const diffSettingsHash = comparatorIndex('screenshot').settingsHash;
-	const viewports = new Map([...a.settings.viewports, ...b.settings.viewports].map((item) => [item.id, item]));
-	const targets = new Map([...a.settings.targets, ...b.settings.targets].map((item) => [item.id, item]));
+	const allViewports = [...a.settings.viewports, ...b.settings.viewports].map((item) => [item.id, item]);
+	const allTargets = [...a.settings.targets, ...b.settings.targets].map((item) => [item.id, item]);
+	// R4.5: a cell is skipped only when it lies outside a recorded selection of run A or run B, or outside the filter of this call.
+	// A run without a selection skips nothing. The filter is checked against the ids of both runs.
+	const filter = filterInput ? recordSelection({ targets: [...new Map(allTargets).values()], viewports: [...new Map(allViewports).values()] }, filterInput) : null;
+	const inScope = (targetId, viewportId) => cellSelected(a.selection, targetId, viewportId) && cellSelected(b.selection, targetId, viewportId) && cellSelected(filter, targetId, viewportId);
+	const viewports = new Map(allViewports.filter(([viewportId]) => allTargets.some(([targetId]) => inScope(targetId, viewportId))));
+	const targets = new Map(allTargets.filter(([targetId]) => allViewports.some(([viewportId]) => inScope(targetId, viewportId))));
+	if (!targets.size) throw new Error('The selections of the two runs and the filter have no cell in common.');
+	const scoped = a.selection !== undefined || b.selection !== undefined || filter !== null;
+	let compared = 0;
 	let exitCode = 0;
 	const findings = [];
 	const entries = [];
@@ -134,9 +180,14 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	for (const target of targets.values()) {
 		const rows = [];
 		for (const viewport of viewports.values()) {
+			if (!inScope(target.id, viewport.id)) continue;
+			compared++;
 			const ac = a.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const bc = b.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac), b: available(bc) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
+			// R3.8: a remote side aborts subresources of other origins. Carry the record to the report.
+			const dropped = droppedForRow(ac, bc);
+			if (dropped) row.dropped = dropped;
 			const images = [];
 			const requested = new Set([...(a.settings.artifacts ?? ['screenshot']), ...(b.settings.artifacts ?? ['screenshot'])]);
 			if (requested.has('screenshot')) {
@@ -186,6 +237,11 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				if (artifact === 'html' && row.artifacts.html.state === 'complete' && (row.artifacts.html.diff?.rawChanged ?? row.artifacts.html.diff?.changed)) {
 					findings.push({ id: 'html-' + target.id + '-' + viewport.id, targetId: target.id, viewportId: viewport.id, artifact: 'html', layer: 'package', message: 'HTML response bytes differ.' });
 				}
+				// R6.13: a difference in final status, final path or redirect chain is a finding. Asset counts are not.
+				if (artifact === 'status' && row.artifacts.status.state === 'complete' && row.artifacts.status.diff?.changed) {
+					const message = statusMessage(JSON.parse(await readFile(join(output, row.artifacts.status.diff.src), 'utf8')));
+					if (message) findings.push({ id: 'status-' + target.id + '-' + viewport.id, targetId: target.id, viewportId: viewport.id, artifact: 'status', layer: 'package', message });
+				}
 			}
 			if (requested.has('content')) {
 				const content = await compareContentArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, contentChecks, contentExpectedLanguage });
@@ -223,7 +279,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });
 	}
-	const report = { schemaVersion: SCHEMA_VERSION, meta: { project: 'example-site', title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
+	const report = { schemaVersion: SCHEMA_VERSION, meta: { title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, ...noFixtureField(run), settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
     targets: run.settings.targets.filter(target => target.settle !== undefined || target.settleBySide?.[run.side] !== undefined).map(target => ({ id: target.id,
       ...(target.settle !== undefined ? { settle: target.settle } : {}),
       ...(target.settleBySide?.[run.side] !== undefined ? { settleBySide: { [run.side]: target.settleBySide[run.side] } } : {}) })) }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, checks, entries, causes: [], findings, rules: {} };
@@ -236,11 +292,16 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	}
 	report.meta.tools.push(...responseTools.values());
 	report.pair.key = key;
+	// R4.5: the report records its scope and the count of skipped cells. A full pair adds neither key.
+	if (scoped) {
+		report.meta.scope = { a: a.selection ?? null, b: b.selection ?? null, filter };
+		report.meta.skipped = new Map(allTargets).size * new Map(allViewports).size - compared;
+	}
 	report.rules = rules;
 	report.known_diffs = { [key]: known_diffs[key] ?? [] };
 	report.meta.comparisonPolicyHash = policyHash(rules);
 	for (const finding of findings) {
-		if (!['screenshot', 'html', 'content'].includes(finding.artifact)) continue;
+		if (!['screenshot', 'html', 'status', 'content'].includes(finding.artifact)) continue;
 		// Known differences and fingerprints bind a difference between A and B. An absolute finding has no cause until the allowlist ships (#254).
 		if (finding.runId !== undefined) continue;
 		const entry = entries.find(entry => entry.id === finding.targetId);

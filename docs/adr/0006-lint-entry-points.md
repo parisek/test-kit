@@ -1,6 +1,6 @@
 # ADR 0006: ESLint and Stylelint entry points
 
-Status: accepted by the owner in chat on 2026-10-25 (decision 1) and on 2026-11-04 (decisions 2 to 6). Issue #26 holds both comments.
+Status: accepted. The owner decided points 1 to 6 on 2026-10-25 and 2026-11-04, and approved the four details on 2026-11-05: the required and enhancement peers (decision 3), the `LINT_PEER_MISSING` error and the warning for a missing enhancement (decision 3), the `.cjs` Stylelint entry (layout note below) and the removal of project links from rule messages (Consequences). Issue #26 holds the comments.
 Requirements: R13.40, R13.43, R13.46 to R13.50, R5.1, R4.4, R12.4. Principles: 5, 6. Tier 2 (the choices below keep every principle). The new peer dependencies are optional and the owner approved them.
 
 ## Context
@@ -28,7 +28,7 @@ The entry points need nine packages: `eslint`, `@eslint/js`, `eslint-plugin-impo
 
 Layout (design detail, Tier 1): `src/eslint/` and `src/stylelint/`. Each folder holds a README, the rules and the entry file. Fixtures sit in `tests/fixtures/lint/`.
 
-The Stylelint entry is a CommonJS file (`index.cjs`). The package is `"type": "module"`, so a `.js` file would load as ESM. The moved Stylelint rules are CommonJS and call `require("stylelint")`. A `.cjs` entry loads the same way from `require` and from `import`. A project config such as `.stylelintrc.cjs` calls `require`. Stylelint 17 needs Node 20.19 or later, and `require()` of an ES module works from that version, so the choice does not depend on the Node version. The ESLint entry is an ES module, because flat config projects use `import` and the entry loads optional peers with `await import()`.
+The Stylelint entry is a CommonJS file (`index.cjs`). The package is `"type": "module"`, so a `.js` file would load as ESM. The moved Stylelint rules are CommonJS and call `require("stylelint")`. A `.cjs` entry loads the same way from `require` and from `import`. A project config such as `.stylelintrc.cjs` calls `require`. Stylelint 17 needs Node 20.19 or later, and `require()` of an ES module works from that version, so the choice does not depend on the Node version. Lint therefore needs Node 20.19 or later. The package still declares `>=20`. A separate change raises `engines` to `>=20.19`, with a seam row and a CHANGELOG entry. This record does not change `engines`. The ESLint entry is an ES module, because flat config projects use `import` and the entry loads optional peers with `await import()`.
 
 ## Ranges and security check
 
@@ -65,5 +65,5 @@ The check covers known advisories on the day above. It does not cover a future o
 
 - R13.46 to R13.50 record the contract. `docs/seam.md` gains two rows (additions, not breaks).
 - The work is two pull requests: the ESLint entry, then the Stylelint entry. The project switch to the thin import waits for the skeleton adoption issue (#21) and stays in the project (R13.43).
-- Rule logic moves from the first consumer project. No client name, URL or path moves with it (R12.4). Project documentation links in rule messages are removed.
+- Rule logic moves from the first consumer project. No client name, URL or path moves with it (R12.4). Project documentation links in rule messages are removed. Rule identifiers and `messageIds` stay (R13.50).
 - Fixtures are rewritten with `example-site` style names where needed.

@@ -52,3 +52,12 @@ test('absent availability remains unknown', () => {
 	assert.equal(summary.verdict, 'availability-problems');
 	assert.equal(summary.targets[0].availability.length, 2);
 });
+
+test('summary lists components with no fixture, bounded, and omits the key when there are none (#94)', () => {
+	assert.equal(Object.hasOwn(summarizeReport(report()), 'noFixture'), false);
+	const data = report();
+	data.runs = [{ id: 'a', noFixture: ['hero', 'zeta', 'bad id', 7] }, { id: 'b', noFixture: ['hero', 'alpha'] }];
+	assert.deepEqual(summarizeReport(data).noFixture, { count: 3, ids: ['alpha', 'hero', 'zeta'], omitted: 0 });
+	assert.deepEqual(summarizeReport(data, { maxTargets: 2 }).noFixture, { count: 3, ids: ['alpha', 'hero'], omitted: 1 });
+	assert.equal(summarizeReport(data).verdict, 'match', 'A component with no fixture is no gap.');
+});
