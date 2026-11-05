@@ -52,22 +52,33 @@ export function isOwnOrigin(value, origin) {
 
 // Decide what a capture does with one request.
 // allow: let it through. block: fail the capture. drop: abort it, keep the capture.
-// A local side allows local GET and HEAD and blocks the rest.
+// A local side allows local GET and HEAD and blocks the rest (R3.10: `thirdParty: "drop"` drops a frame or
+// subresource of another origin).
 // A remote side blocks every method except GET and HEAD, to any origin: an
 // attempted write is a finding, not noise. It allows GET and HEAD to its own
 // origin and drops a GET or HEAD to another origin (a frame or a subresource).
 // A top-level navigation to another origin fails the capture.
 // R3.5: a remote side with `challenge: 'cloudflare'` also allows a POST that is not a
 // navigation (fetch, XHR, beacon) to the challenge path of its own origin.
+// R3.10: a side with `thirdParty` set to "drop" drops, and with "block" blocks, a GET or HEAD frame or
+// subresource of another origin. Unset keeps the default of the side. A top-level navigation and every
+// non-read method still block.
 // R3.9: a side (local or remote) with `allowOrigins` also allows a GET or HEAD subresource of a
 // named origin, when the resource type is in the list of that origin. A navigation never qualifies.
-export function requestPolicy({ url, method, topLevel, navigation = topLevel, resourceType, origin, remote, challenge, allowOrigins }) {
+export function requestPolicy({ url, method, topLevel, navigation = topLevel, resourceType, origin, remote, challenge, allowOrigins, thirdParty }) {
   const read = ['GET', 'HEAD'].includes(method);
-  if (!remote) return read && (isLocalUrl(url) || (!navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins }))) ? 'allow' : 'block';
+  // R3.10: the mode for a GET or HEAD frame or subresource of another origin. A local side blocks it
+  // unless `thirdParty` is "drop". A remote side drops it unless `thirdParty` is "block".
+  const drop = thirdParty === 'drop' || (remote && thirdParty !== 'block');
+  const other = topLevel || !drop ? 'block' : 'drop';
+  if (!remote) {
+    if (!read) return 'block';
+    return isLocalUrl(url) || (!navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins })) ? 'allow' : other;
+  }
   if (!read) return challenge === 'cloudflare' && isChallengeRequest({ url, method, navigation, origin }) ? 'allow' : 'block';
   if (isOwnOrigin(url, origin)) return 'allow';
   if (!navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins })) return 'allow';
-  return topLevel ? 'block' : 'drop';
+  return other;
 }
 
 // R3.8: the one entry of the request handler. It decides with requestPolicy and counts an

@@ -137,6 +137,23 @@ certificate of a named origin. A local side may set the same key, so a local sid
 web font from a named third-party origin. A failed request to a named origin, or an HTTP error answer such as a 404 for a font file, fails the capture. A request to a named origin sends its URL and headers, including the `Referer` of the page, to that origin. The list is part of the capture settings hash. A pair
 with a list on one side only is incompatible, and the diagnostic names `allowOrigins`.
 
+A page can embed content from another origin, for example a video frame. A local side fails the capture
+on such a request, and a remote side aborts it and keeps the capture. To give both sides the same rule,
+set `thirdParty` on both sides (R3.10):
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true, "thirdParty": "drop"},
+"local": {"origin": "http://localhost:8080", "thirdParty": "drop"}
+```
+
+`"drop"` aborts a GET or HEAD request for a frame or subresource of another origin and keeps the capture.
+A local side sends nothing to that origin. `"block"` fails the capture, with the error that names the
+request. Without the key, a local side blocks and a remote side drops. A top-level navigation to another
+origin, a redirect that leaves the permitted origins and every other method still fail the capture. The
+value is part of the capture settings hash, so set the same value on both sides. A pair with different
+values is incompatible, and the diagnostic names `thirdParty`. Each dropped request appears in the
+`dropped` record of the capture, on a local and on a remote side.
+
 Other aborted requests are not evidence. A page that needs such a request to render
 differs from the same page with it, so read an `unexplained` finding with that in mind.
 

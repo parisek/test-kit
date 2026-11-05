@@ -141,7 +141,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       }
       let topLevel = true;
       try { topLevel = !request.isNavigationRequest() ? false : request.frame().parentFrame() === null; } catch { /* A popup requests its first URL before its frame exists. Fail closed. */ }
-      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge, resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
+      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge, resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins, thirdParty: config.sides[side].thirdParty });
       if (decision !== 'allow') {
         if (decision === 'block') {
           blocked = true;

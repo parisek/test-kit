@@ -130,10 +130,11 @@ function available(capture) {
 	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
 
-// R3.9: a pair whose sides list different origins names the key, so a person finds the cause.
+// R3.9, R3.10: a pair whose sides set different network keys names the key, so a person finds the cause.
 export function incompatibleDiagnostic(runA, runB) {
-  const list = run => JSON.stringify(run?.captureSettings?.allowOrigins ?? null);
-  return list(runA) !== list(runB) ? 'Capture settings differ: allowOrigins is not the same on both sides.' : 'Capture settings or tool versions differ.';
+  const differs = key => JSON.stringify(runA?.captureSettings?.[key] ?? null) !== JSON.stringify(runB?.captureSettings?.[key] ?? null);
+  const keys = ['allowOrigins', 'thirdParty'].filter(differs);
+  return keys.length ? `Capture settings differ: ${keys.join(' and ')} ${keys.length > 1 ? 'are' : 'is'} not the same on both sides.` : 'Capture settings or tool versions differ.';
 }
 
 export function comparisonState(a, b, runA, runB) {

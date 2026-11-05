@@ -21,6 +21,7 @@ that POST fails the capture. Every other non-read request still fails.
 A remote run stops at a `cf-mitigated` header on an own-origin response, or a 403 or 429 on the page
 (R3.6). That capture fails with `REMOTE_EDGE_STOP`; the later ones fail with `RUN_STOPPED` and send nothing.
 A remote capture records each request it aborts and keeps, per resource type and origin, as `dropped` (R3.8). The record has no path or query. It holds at most 50 entries.
+A side with `thirdParty`, local or remote, sets the mode for a GET or HEAD frame or subresource of another origin (R3.10): `"drop"` aborts it and keeps the capture, `"block"` fails the capture. Unset, a local side blocks and a remote side drops. A top-level navigation and every non-read method still fail. The value is part of the settings hash. A dropped request enters the `dropped` record on either side.
 A side with `allowOrigins`, local or remote, also reads the named HTTPS origins with GET and HEAD for the named resource types (`stylesheet`, `font`) (R3.9). A navigation never uses the list. A redirect from an allowed origin must end at an allowed origin. A local side verifies the certificate of these origins through a separate verifying context. The list is part of the settings hash.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
 WebSockets are blocked, including local sockets. Version 0.1 captures a static
