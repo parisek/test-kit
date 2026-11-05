@@ -13,6 +13,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
+import { recordSelection, cellSelected } from './selection.js';
 import { isLocalUrl, isOwnOrigin, decideRequest, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
@@ -275,10 +276,12 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested }) {
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports }) {
   const loaded = await loadConfig(configPath);
   const config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
+  // R4.5: the selection is checked against the full lists before any run directory or browser exists.
+  const selection = recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled }) : null;
   // Verify DDEV before Playwright loads, so a stopped project starts no browser.
@@ -307,7 +310,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   const effectiveSettings = { ...captureSettings(config, side), browser: BROWSER_SETTINGS, ...(behaviorSource ? { behavior: { ...config.behavior, fingerprint: behaviorSource.fingerprint } } : {}) };
   const hash = settingsHash(effectiveSettings);
   const run = { schemaVersion: 2, id, side, label, at: at.toISOString(), state: 'partial', settings: config,
-    captureSettings: effectiveSettings, settingsHash: hash, tools: [{ name: 'playwright', version: tool.version, settingsHash: hash }], captures: [] };
+    captureSettings: effectiveSettings, settingsHash: hash, ...(selection ? { selection } : {}), tools: [{ name: 'playwright', version: tool.version, settingsHash: hash }], captures: [] };
   await writeManifest(manifestPath, run);
   let browser;
   try {
@@ -329,6 +332,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     await writeManifest(manifestPath, run);
     let stopped = false;
     for (const target of config.targets) for (const viewport of config.viewports) {
+      if (!cellSelected(selection, target.id, viewport.id)) continue;
       // R3.6: after an edge stop, no further request goes to the remote side.
       if (stopped) {
         run.captures.push({ targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(settleRecipe(config, side, target)), state: 'failed', artifacts: {},
@@ -341,6 +345,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       if (behaviorIndex?.path && !run.tools.some(item => item.settingsHash === behaviorIndex.settingsHash)) run.tools.push({ name: behaviorIndex.tool, version: behaviorIndex.version, settingsHash: behaviorIndex.settingsHash, artifact: 'behavior' });
       await writeManifest(manifestPath, run);
     }
+    // With a selection, `complete` means every selected cell is captured. `run.selection` tells the reader (R4.5).
     if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot').every(kind => result.artifacts?.[kind]?.state === 'captured'))) run.state = 'complete';
     await writeManifest(manifestPath, run);
   } catch (error) {
