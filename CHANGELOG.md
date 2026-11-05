@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- The viewer names the components a `targetSource: styleguide` run skipped as no fixture: one sentence in the header line ("Not compared: 3 components have no fixture."), and the list in "Run details". A report without `noFixture` shows nothing new. The count equals the `noFixture` count of `summary` (#290).
+
 ## [1.1.0-rc.1] - 2026-11-05
 
 First release candidate for 1.1.0. It is not a stable release. `package.json` says `1.1.0`, so `--version` prints `1.1.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The report is `schemaVersion` 3: a stored version 2 report reads as version 3. The behavior version is 2: a stored version 1 behavior run reads `incompatible` against a new run (R8.9).
