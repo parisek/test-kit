@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, isOwnOrigin, requestPolicy, describeBlockedRequest, blockedRequestMessage, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, decideRequest, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -75,6 +75,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   let blocked = false;
   // The first blocked request, for the error text. Later ones do not replace it.
   let firstBlocked = null;
+  // R3.8: the requests a remote side aborts and keeps the capture.
+  const droppedLog = createDroppedLog();
   // R3.6: the reason a remote edge challenges or limits the capture. It stops the run.
   let edge = null;
   let phase = 'navigation';
@@ -132,7 +134,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       }
       let topLevel = true;
       try { topLevel = !request.isNavigationRequest() ? false : request.frame().parentFrame() === null; } catch { /* A popup requests its first URL before its frame exists. Fail closed. */ }
-      const decision = requestPolicy({ url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge });
+      const decision = decideRequest(droppedLog, { url: request.url(), method: request.method(), topLevel, navigation: request.isNavigationRequest(), resourceType: request.resourceType(), origin: config.sides[side].origin, remote, challenge: config.sides[side].challenge });
       if (decision !== 'allow') {
         if (decision === 'block') {
           blocked = true;
@@ -171,7 +173,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
     if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior')) {
       if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
-      return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
+      return { ...identity, state: 'captured', statusCode, finalPath, artifacts, ...droppedFields(droppedLog) };
     }
     phase = 'settlement';
     await settlePage({ page, recipe, active: () => !expired && !edge && !blocked && !unexpectedNavigation });
@@ -229,7 +231,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       if (edge || blocked || expired || !allowedUrl(page.url())) throw new Error('Capture is unavailable.');
       await captureBehavior();
       if (edge) throw new Error('Remote edge stop');
-      return { ...identity, state: 'captured', statusCode, finalPath, artifacts };
+      return { ...identity, state: 'captured', statusCode, finalPath, artifacts, ...droppedFields(droppedLog) };
     }
     phase = 'screenshot';
     let locator;
@@ -263,12 +265,12 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     // R3.6: a behavior step can also meet the edge.
     if (edge) throw new Error('Remote edge stop');
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
-      width, height, deviceScaleFactor: viewport.deviceScaleFactor, scopeHash: settingsHash(screenshotScope(target, side)), artifacts };
+      width, height, deviceScaleFactor: viewport.deviceScaleFactor, scopeHash: settingsHash(screenshotScope(target, side)), artifacts, ...droppedFields(droppedLog) };
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});
     await unlink(file).catch(() => {});
-    return { ...identity, state: 'failed', artifacts, statusCode, finalPath, error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
+    return { ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
       message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : `The ${phase} step fails. Check the local page and capture recipe.` } };
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); }
 }
