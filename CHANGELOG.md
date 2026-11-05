@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- `targetSource` takes two opt-in booleans, `variants` and `pages` (R13.52, #94). `variants: true` makes one `component` target for each `styleguide.<variant>.twig` of an entry: ID `<component>--<variant>`, path `<mount>/render/component/<id>?canvas&variant=<variant>`. `pages: true` reads `<mount>/api/pages` and makes one `page` target for each page: ID `page--<id>`, path `<mount>/render/page/<id>?canvas`, variants as `page--<id>--<variant>`. `include` now names target IDs, and a component ID also selects its variants. A page with `has_styleguide: false` is listed as no fixture, like a component. Without the keys nothing changes.
 - The viewer names the components a `targetSource: styleguide` run skipped as no fixture: one sentence in the header line ("Not compared: 3 components have no fixture."), and the list in "Run details". A report without `noFixture` shows nothing new. The count equals the `noFixture` count of `summary` (#290).
 
 ### Fixed

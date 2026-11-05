@@ -284,7 +284,7 @@ async function readStyleguideTargets(tool, config, side) {
   const origin = config.sides[side].origin;
   const context = await tool.request.newContext({ baseURL: origin, ignoreHTTPSErrors: true });
   try {
-    const { targets, noFixture } = await readComponents({ origin, mount: source.mount, include: source.include, get: async url => {
+    const { targets, noFixture } = await readComponents({ origin, mount: source.mount, include: source.include, variants: source.variants === true, pages: source.pages === true, get: async url => {
       const response = await context.get(url, { headers: { accept: 'application/json' }, timeout: 30000, maxRedirects: 0 });
       return { status: response.status(), body: (await response.body()).toString('utf8') };
     } });

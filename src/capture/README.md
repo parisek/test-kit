@@ -98,4 +98,5 @@ It makes one `component` target for each entry and stores the list in the run se
 The run manifest holds `targetSource` with the count and the IDs that have no fixture.
 It reads before any run directory exists, so a bad catalogue leaves no run. `--side` must be the side of the source.
 A component with `has_styleguide: false` makes no target and sends no request. The manifest lists it under `targetSource.noFixture`, and the report and `summary` list it as "no fixture".
+With `variants: true` it also makes one target for each variant. With `pages: true` it reads `<mount>/api/pages` (a second GET) and makes one `page` target for each page.
 See `src/styleguide/README.md`.

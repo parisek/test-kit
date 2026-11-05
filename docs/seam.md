@@ -54,7 +54,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `targets[].selector` | string or list | none | no | CSS selector, or 1 to 50 unique selectors. |
 | `targets[].box` | string | none | no | `border` or `content`. Needs `selector`. |
 | `targets[].settle`, `targets[].settleBySide` | object | none | no | Partial settle recipe, for all sides or for one side. |
-| `targetSource` | object | none | no | R13.3. Component targets from a styleguide side. Needs `source: "styleguide"` and `side`. Optional `mount` (default `/styleguide`) and `include` (component IDs). `targets` must be absent or empty. Not in the capture settings hash. An addition: old input passes. Added after 1.0.0. |
+| `targetSource` | object | none | no | R13.3. Component targets from a styleguide side. Needs `source: "styleguide"` and `side`. Optional `mount` (default `/styleguide`), `include` (target IDs) and the booleans `variants` and `pages` (R13.52, default off). `targets` must be absent or empty. Not in the capture settings hash. An addition: old input passes. Added after 1.0.0. |
 | `viewports` | list | none | yes | 1 to 20 entries. |
 | `viewports[].id`, `width`, `height` | string, number, number | none | yes | Width and height 1 to 4096. At most 32 million physical pixels. |
 | `viewports[].deviceScaleFactor` | number | `1` | no | 0.5 to 3. |

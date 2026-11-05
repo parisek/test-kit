@@ -27,7 +27,7 @@ The selection does not enter the capture settings hash.
 `src/packs/builtin.js` maps the IDs to pack objects for `resolveChecks`.
 
 `targetSource` is an optional object that reads component targets from a styleguide (R13.3).
-It holds `source` (`"styleguide"` only), `side` (a local side), `mount` (an origin-relative path, default `/styleguide`) and `include` (a list of component IDs).
+It holds `source` (`"styleguide"` only), `side` (a local side), `mount` (an origin-relative path, default `/styleguide`) `include` (a list of target IDs; a component ID also selects its variants), and the opt-in booleans `variants` and `pages` (R13.52).
 When it is set, `targets` must be absent or empty.
 Validation is pure: it reads no network and imports no styleguide code (R4.4, R13.4).
 Capture reads the catalogue and writes the resolved list into the run settings (`src/styleguide/README.md`).
