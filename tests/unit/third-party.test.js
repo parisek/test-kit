@@ -74,6 +74,15 @@ test('thirdParty enters the capture settings hash when set, and equal values giv
   assert.notEqual(hash(block, 'local'), hash(both, 'local'));
 });
 
+test('thirdParty applies to a non-local origin only: another loopback or DDEV host stays allowed (R3.10)', () => {
+  for (const thirdParty of [undefined, 'drop', 'block']) {
+    assert.equal(local('http://127.0.0.1:9090/x', { thirdParty, resourceType: 'script' }), 'allow');
+    assert.equal(local('http://localhost:9090/x', { thirdParty, resourceType: 'script' }), 'allow');
+    assert.equal(local('https://example-site.ddev.site/x', { thirdParty, resourceType: 'script' }), 'allow');
+  }
+  assert.equal(requestPolicy({ url: 'http://127.0.0.1:9090/x', method: 'GET', topLevel: false, navigation: false, resourceType: 'script', origin: 'http://127.0.0.1:8080', remote: false, thirdParty: 'drop' }), 'allow');
+});
+
 test('a pair with different thirdParty values is incompatible and the diagnostic names thirdParty (R3.10)', () => {
   const run = (config, side) => ({ side, settingsHash: settingsHash(captureSettings(config, side)), captureSettings: captureSettings(config, side), tools: [{ name: 'playwright', version: '1', settingsHash: 'x' }] });
   const mixed = normalizeConfig(input({}, { thirdParty: 'drop' }));
