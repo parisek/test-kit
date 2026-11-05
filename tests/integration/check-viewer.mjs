@@ -228,6 +228,40 @@ try {
 		}
 		await context.close();
 	}
+	// #287: a scoped report shows one scope line in the header on every view, and the lists in "Run details".
+	const viewportList = ['phone', 'tablet', 'laptop', 'wide'].map((id) => ({ id, width: 400 }));
+	const scopedReport = {
+		...report,
+		meta: { ...report.meta, title: 'Scoped', viewports: [viewportList[0]], scope: { a: null, b: null, filter: { targets: ['home', 'button'], viewports: ['phone'] } }, skipped: 250 },
+		runs: [{ id: 'a', label: 'Before', settings: { viewports: viewportList } }, { id: 'b', label: 'After', settings: { viewports: viewportList } }],
+		entries: report.entries.map((entry) => ({ ...entry, viewports: entry.viewports.filter((row) => row.id === 'mobile').map((row) => ({ ...row, id: 'phone' })) })),
+		findings: [],
+	};
+	const scopedPath = join(directory, 'scoped.json');
+	await writeFile(scopedPath, JSON.stringify(scopedReport));
+	const scopedViewer = await serve({ reportPath: scopedPath });
+	try {
+		for (const width of [390, 1280]) {
+			const context = await browser.newContext({ viewport: { width, height: 900 } });
+			const page = await context.newPage();
+			await page.goto(scopedViewer.origin);
+			await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+			for (const view of ['overview', 'evidence', 'findings', 'info']) {
+				await page.locator(`[data-view=${view}]`).click();
+				const line = page.locator('[data-testid="scope-line"]');
+				assert.equal(await line.innerText(), 'Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped.', `${view} scope line at ${width}`);
+				assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${view} overflows at ${width}`);
+			}
+			await page.locator('[data-view=evidence]').click();
+			assert.equal(await page.locator('.scope-details').isVisible(), false, 'the lists wait inside the closed Run details');
+			await page.getByText('Run details', { exact: true }).click();
+			assert.match(await page.locator('details.run-details .scope-details').innerText(), /Filter of this comparison/);
+			assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `open Run details overflows at ${width}`);
+			await context.close();
+		}
+	} finally {
+		await scopedViewer.close();
+	}
 	console.log(
 		'Viewer checks pass at 390, 860, 1100, and 1440 px with blocked storage and strict CSP.',
 	);

@@ -2,6 +2,9 @@
 export function comparatorDescriptor(artifact, rules = {}, contentPolicy = {}) {
   if (artifact === 'screenshot') return { name: 'pixelmatch', version: '8.0.0', pipelineVersion: 1,
     settings: { threshold: 0.1, padding: 'white', maxRegions: 8, minPixels: 1 } };
+  // The status comparison keeps the settings of the response window, so a stored status index keeps its hash.
+  if (artifact === 'status') return { name: 'test-kit-response', version: '1', pipelineVersion: 1,
+    settings: { mode: 'response-window', version: 1, maxLines: 100, maxLineLength: 2000, normalization: Object.entries(rules) } };
   if (artifact === 'html') return { name: 'test-kit-response', version: '1', pipelineVersion: 1,
     settings: { mode: 'response-window', version: 1, maxLines: 100, maxLineLength: 2000, normalization: Object.entries(rules) },
     decoder: { encoding: 'utf-8', fatal: true, preserveBOM: true },

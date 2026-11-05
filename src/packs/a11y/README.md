@@ -98,4 +98,4 @@ Consequence, as R8.14 states: these warnings have no `evidence.state`. A consume
 
 ## Not built yet
 
-Component-level axe contracts, per-state runs (ADR 0004, accessibility per component state), frame injection, and the report `schemaVersion` 3 fields (R13.9).
+Component-level axe contracts, per-state runs (ADR 0004, accessibility per component state), frame injection, and the command that writes pack results into a report (#231). The report `schemaVersion` 3 fields exist (#230).

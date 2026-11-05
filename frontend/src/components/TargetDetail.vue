@@ -2,6 +2,8 @@
 import { computed } from 'vue';
 import { targetClass, targetState, artifactClass, artifactState, findingsFor } from '../../../src/report/classify.js';
 import RuleAudit from './RuleAudit.vue';
+import CheckAudit from './CheckAudit.vue';
+import { ABSOLUTE_ARTIFACTS, TARGET_SCOPE_ARTIFACTS } from '../../../src/report/catalog.js';
 import ArtifactEvidence from './ArtifactEvidence.vue';
 import ScreenshotComparison from './ScreenshotComparison.vue';
 import FindingCards from './FindingCards.vue';
@@ -13,15 +15,22 @@ const target = computed(() => props.report?.entries?.find(item => item.id === pr
 const row = computed(() => target.value?.viewports?.find(item => item.id === props.viewportId) ?? (props.viewportId == null ? target.value?.viewports?.[0] : null));
 // R10.4: an evidence type shows only when the row has that artifact.
 const artifacts = computed(() => ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => row.value?.artifacts?.[kind]));
-const selectedArtifact = computed(() => artifacts.value.includes(props.artifact) ? props.artifact : artifacts.value[0] ?? props.artifact);
+// R9.9: an absolute result sits at viewport or at target scope. It is not an evidence type of the deep link (R10.14),
+// so it shows in the Checks list and never as a tab.
+const absoluteKinds = computed(() => ABSOLUTE_ARTIFACTS.filter(kind => row.value?.artifacts?.[kind]));
+const targetKinds = computed(() => Object.keys(target.value?.artifacts ?? {}).filter(kind => target.value.artifacts[kind]));
+const selectedArtifact = computed(() => artifacts.value.includes(props.artifact) ? props.artifact : artifacts.value[0] ?? absoluteKinds.value[0] ?? props.artifact);
+const auditKinds = computed(() => [selectedArtifact.value, ...absoluteKinds.value, ...targetKinds.value]);
 const viewports = computed(() => props.report?.meta?.viewports?.length ? props.report.meta.viewports : target.value?.viewports ?? []);
 const parts = computed(() => (Array.isArray(target.value?.composedOf) ? target.value.composedOf : []).map(item => typeof item === 'string' ? item : item?.id).filter(Boolean).join(', '));
 const usedOn = computed(() => props.report.entries.filter(item => Array.isArray(item.composedOf) && item.composedOf.some(part => (typeof part === 'string' ? part : part?.id) === target.value?.id)).map(item => item.title ?? item.id).join(', '));
-const findings = computed(() => target.value ? findingsFor(props.report, target.value.id, { viewportId: row.value?.id ?? props.viewportId, artifact: selectedArtifact.value }) : []);
+// A lint finding has no viewport (R9.11). It belongs to the target, so every view of the target lists it.
+const targetFindings = computed(() => target.value ? props.report.findings.filter(finding => finding.targetId === target.value.id && TARGET_SCOPE_ARTIFACTS.includes(finding.artifact)) : []);
+const findings = computed(() => target.value ? [...(row.value || !targetKinds.value.length ? findingsFor(props.report, target.value.id, { viewportId: row.value?.id ?? props.viewportId, artifact: selectedArtifact.value }) : []), ...targetFindings.value] : []);
 const selectedState = computed(() => row.value && target.value ? artifactState(target.value, row.value.id, selectedArtifact.value) : 'missing');
 const selectedClass = computed(() => row.value && target.value ? artifactClass(props.report, target.value, row.value.id, selectedArtifact.value) : null);
 const diagnostic = value => typeof value === 'string' ? value : value?.message ?? 'This measurement cannot be compared. Inspect technical details for its diagnostic.';
-const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status', behavior: 'Behavior', content: 'Content', lighthouse: 'Lighthouse' })[kind];
+const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status', behavior: 'Behavior', content: 'Content', lighthouse: 'Lighthouse', a11y: 'Accessibility', lint: 'Lint' })[kind];
 </script>
 <template>
     <section v-if="target" class="min-w-0 rounded-ui-panel border border-ui-border bg-ui-surface">
@@ -35,22 +44,24 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
                     <button v-for="kind in artifacts" :key="kind" :aria-pressed="selectedArtifact === kind" :class="selectedArtifact === kind ? 'border-ui-text text-ui-text' : 'border-transparent text-ui-muted hover:text-ui-text'" class="border-b-2 px-0.5 pb-2 text-sm font-medium" @click="emit('action', 'artifact', kind)">{{ label(kind) }}</button>
                 </nav></div>
                 <div class="mt-1 mb-3 flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex flex-wrap items-center gap-2"><span class="mr-1 text-xs text-ui-muted">Viewport</span><div class="inline-flex max-w-full flex-wrap rounded-ui-pill border border-ui-control-border p-1" aria-label="Viewport"><button v-for="viewport in viewports" :key="viewport.id" :aria-pressed="(viewportId ?? row?.id) === viewport.id" :class="(viewportId ?? row?.id) === viewport.id ? 'bg-ui-active-surface text-ui-active-text' : 'text-ui-muted'" class="rounded-ui-pill break-all px-3 py-1.5 text-xs" @click="emit('action', 'viewport', viewport.id)">{{ viewport.id }}<span v-if="viewport.width" class="ml-1">{{ viewport.width }}</span></button></div></div>
+                    <div v-if="target.kind !== 'project'" class="flex flex-wrap items-center gap-2"><span class="mr-1 text-xs text-ui-muted">Viewport</span><div class="inline-flex max-w-full flex-wrap rounded-ui-pill border border-ui-control-border p-1" aria-label="Viewport"><button v-for="viewport in viewports" :key="viewport.id" :aria-pressed="(viewportId ?? row?.id) === viewport.id" :class="(viewportId ?? row?.id) === viewport.id ? 'bg-ui-active-surface text-ui-active-text' : 'text-ui-muted'" class="rounded-ui-pill break-all px-3 py-1.5 text-xs" @click="emit('action', 'viewport', viewport.id)">{{ viewport.id }}<span v-if="viewport.width" class="ml-1">{{ viewport.width }}</span></button></div></div>
                     <div v-if="selectedArtifact === 'screenshot' && row?.artifacts?.screenshot" class="flex flex-wrap items-center gap-2"><span class="mr-1 text-xs text-ui-muted">Mode</span><div class="inline-flex rounded-ui-pill border border-ui-control-border p-1" aria-label="Screenshot comparison mode"><button v-for="[mode, title] in [['side-by-side', 'Side by side'], ['overlay', 'Overlay'], ['diff', 'Difference']]" :key="mode" :aria-pressed="comparison === mode" :class="comparison === mode ? 'bg-ui-active-surface text-ui-active-text' : 'text-ui-muted'" class="rounded-ui-pill px-3 py-1.5 text-xs" @click="emit('action', 'comparison', mode)">{{ title }}</button></div></div>
                 </div>
             </div>
         </header>
         <div class="p-3 sm:px-4">
             <template v-if="row">
-                <div class="mb-2 flex flex-wrap items-center gap-2 text-xs" aria-label="Selected artifact measurement"><span class="text-ui-muted">{{ label(selectedArtifact) }}</span><Badge :text="selectedClass ?? 'unclassified'" /><Badge :text="selectedState" /><span v-for="side in ['a', 'b']" :key="side" :class="row.availability?.[side] === 'capture-error' ? 'text-[var(--verdict-incomplete)]' : row.availability?.[side] === 'http-error' ? 'font-semibold text-ui-text' : 'text-ui-muted'">{{ side.toUpperCase() }}: {{ row.availability?.[side] ?? 'unknown' }}</span><span v-if="selectedArtifact === 'screenshot'" class="text-ui-muted">· Pixel difference {{ formatRatio(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio) ?? 'not measured' }} · not a verdict</span></div>
+                <div class="mb-2 flex flex-wrap items-center gap-2 text-xs" aria-label="Selected artifact measurement"><span class="text-ui-muted">{{ label(selectedArtifact) }}</span><Badge :text="selectedClass ?? 'unclassified'" /><Badge :text="selectedState" /><span v-for="side in (report.subject ? [] : ['a', 'b'])" :key="side" :class="row.availability?.[side] === 'capture-error' ? 'text-[var(--verdict-incomplete)]' : row.availability?.[side] === 'http-error' ? 'font-semibold text-ui-text' : 'text-ui-muted'">{{ side.toUpperCase() }}: {{ row.availability?.[side] ?? 'unknown' }}</span><span v-if="selectedArtifact === 'screenshot'" class="text-ui-muted">· Pixel difference {{ formatRatio(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio) ?? 'not measured' }} · not a verdict</span></div>
                 <p v-if="row.error ?? row.diagnostic" role="status" class="mb-4 rounded-ui-panel border border-ui-border bg-ui-toolbar p-3 text-sm">{{ diagnostic(row.error ?? row.diagnostic) }}</p>
                 <ScreenshotComparison v-if="selectedArtifact === 'screenshot' && row.artifacts?.screenshot" :screenshot="row.artifacts.screenshot" :source="source" :target-title="target.title ?? target.id" :viewport-id="row.id" :mode="comparison" :overlay="overlay" :ratio="row.ratio" @action="(...args) => emit('action', ...args)" />
                 <ArtifactEvidence v-else-if="['html', 'status', 'content', 'behavior', 'lighthouse'].includes(selectedArtifact)" :row="row" :source="source" :evidence="artifactEvidence" :kind="selectedArtifact" :evidence-view="evidenceView" @action="(...args) => emit('action', ...args)" />
-                <p v-else role="status" class="rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">No evidence is indexed for this viewport.</p>
+                <p v-else-if="!absoluteKinds.length" role="status" class="rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">No evidence is indexed for this viewport.</p>
                 <RuleAudit v-if="selectedArtifact === 'html'" :report="report" :target-id="targetId" :row="row" :evidence="artifactEvidence?.kind === 'html' ? artifactEvidence.data : null" />
+                <CheckAudit :report="report" :target-id="target.id" :viewport-id="row.id" :kinds="auditKinds" />
 
                 <details v-if="selectedArtifact === 'screenshot'" class="mt-5 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Technical details · artifact provenance</summary><pre class="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-all">{{ JSON.stringify({ state: selectedState, targetViewportState: row.state, diagnostic: row.error ?? row.diagnostic, artifacts: row.artifacts }, null, 2) }}</pre></details>
             </template>
+            <CheckAudit v-else-if="targetKinds.length" :report="report" :target-id="target.id" :kinds="auditKinds" />
             <p v-else role="status" class="my-4 rounded-ui-panel border border-ui-border p-5 text-sm text-ui-muted">Missing evidence for {{ viewportId ?? 'this target' }}. This measurement is unclassified.</p>
 <details v-if="parts || usedOn || target.note" class="mt-4 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Target details · composition and usage</summary><p v-if="target.note" class="mt-2 break-words">{{ target.note }}</p><p v-if="parts" class="mt-2 break-words">Composed of: {{ parts }}</p><p v-if="usedOn" class="mt-2 break-words">Used on: {{ usedOn }}</p></details>
             <FindingCards :findings="findings" :report="report" :source="source" />

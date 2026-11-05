@@ -174,9 +174,9 @@ These rules follow R8.2 to R8.7 and vision layer rule 1.
    - Today `RuleAudit.vue` reads `report.rules`, `report.pair.key` and `html.diff.firedRuleIds`. Those are normaliser rules, and they stay relative-only (point 7).
    - For an absolute check, "fired" means: the check has at least one finding on the target. "In scope" means: the check is selected for the target and no override disables it there.
    - What encodes selection today. Content checks are selected by one run-wide list, `run.settings.checks` (`src/content/compare-artifact.js:16`, `src/workflow/feedback.js:31,38`). Behavior contracts are selected by one run-wide list, `settings.enabled` (`src/behavior/index.js:17-28`). Neither is per target. So at run level, the catalog encodes selection: the producer writes a catalog entry exactly for each selected check. A check that is in the catalog and has no outcome at a scope is `missing`. A check that is not in the catalog is unselected. The viewer can tell the two apart at run level.
-   - Selection per target (for example, a contract that does not apply to a target) is not encoded anywhere. The ADR does not assert a field for it. It is open question 2.
+   - Selection per target (for example, a contract that does not apply to a target) is `scope.checks` on the artifact index (open question 2, decided 2026-11-04).
    - The viewer lists the fired absolute checks first, each with its `checkId`, title, `layer` and finding count. It collapses the other checks in scope, in the same way as for rules. An override that disables a check at the target is shown in the collapsed list with its reason and owner (point 3). A check whose artifact is not `complete` is shown as `missing`, `failed` or `incompatible`, not as "no finding" (R8.7).
-   - The viewer change: `RuleAudit.vue` gets a second list, "Checks", fed by `report.checks`, `report.findings` and the overrides. It must not read `pair.key`, so it works in a `subject` report. The labels follow section 8 ("violation", "allowlisted", "no finding"). Until question 2 is decided, the list shows the checks of the catalog, and it does not claim to list per-target selection.
+   - The viewer change: `RuleAudit.vue` gets a second list, "Checks", fed by `report.checks`, `report.findings` and the overrides. It must not read `pair.key`, so it works in a `subject` report. The labels follow section 8 ("violation", "allowlisted", "no finding"). The list reads `scope.checks`. An index without it, such as a version 2 file, makes no claim about selection, and the list claims none.
 
 ### 8. Classification
 
@@ -210,7 +210,7 @@ The table lists every place in `src/` that builds a report finding. The search: 
 | `src/compare/runs.js:183` | `html` | none (implicit) | relative | package | none |
 | `src/content/compare.js` through `runs.js:189`: `heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links` | `content` | the check id | absolute | package | `pair.bRunId` (today only side B enters the list) |
 | same: `text-difference` | `content` | `text-difference` | relative | package | none |
-| `src/behavior/compare-artifact.js:68` through `runs.js:193` | `behavior` | open: see "Open design questions", question 1 | relative | open (by contract origin) | none |
+| `src/behavior/compare-artifact.js:68` through `runs.js:193` | `behavior` | `behavior.<contract name>` (decided 2026-11-04, question 1) | relative | the origin of the contract | none |
 | `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-change'` | `lighthouse` | `lighthouse-change` | relative | package | none |
 | `src/perf/model.js:85` through `runs.js:199`, `cause: 'performance-budget'` | `lighthouse` | `lighthouse-budget` | absolute | project | `pair.bRunId` |
 
@@ -231,11 +231,11 @@ Out of scope on purpose:
   | content `missing` (no evidence, invalid evidence, or no checks selected) | artifact state `missing`. No finding. Never a pass |
   | content finding with `evidence.state` `unknown` or `incomplete` | the check state is `incomplete`. The artifact state is `missing`. The finding is not a violation and not a pass |
   | content finding with no such state | an absolute finding, `unexplained` until allowlisted |
-  | behavior step `failed` | a finding on the contract of the step (the catalog identity is open question 1). Basis `absolute` in a `subject` report |
+  | behavior step `failed` | a finding on the contract of the step (the catalog key is `behavior.<contract name>`, question 1). Basis `absolute` in a `subject` report |
   | behavior step `skipped` or `incompatible` | artifact state not `complete`. Never a pass (R7.7, R8.7) |
   | behavior `passed` | counted, not a finding |
 
-  The feedback summary sets `contractId: step.id` (`src/workflow/feedback.js`). That is the step id, not the contract name, so it has the same identity gap as the report finding (open question 1).
+  The feedback summary sets `contractId: step.id` (`src/workflow/feedback.js`). That was the step id, not the contract name. Question 1 is decided: `contractId` is the contract name and `checkId` is `behavior.<contract name>`, as in the report.
 - New producers (`lint`, `a11y`, hygiene, render integrity). They register their own entries when they are built.
 
 The count is 5 report-finding call sites in `src/compare/runs.js`, 7 rows above. A producer that the grep did not find would be a gap. The grep ran on the files in `src/` only. It did not run on `frontend/`, which holds readers.
@@ -523,13 +523,13 @@ Not measured: the effort in hours, and the number of lines.
 
 ## Open design questions (decided in the implementation issue)
 
-The record cannot prove the answers below from the code. Each one states the question and the constraint the answer must meet.
+The record could not prove the answers from the code. The owner decided questions 1 and 2 on 2026-11-04 (issue #230, comment "Owner decisions, 2026-11-04"). Questions 3 and 4 moved to #254. Question 5 was decided earlier (#178).
 
-1. Behavior identity. How does a step id (`<contract>`, `<contract>-detect`, `<contract>-<N>`, `<contract>-scoping`) map to a contract, and to a catalog entry? Constraints: the report finding keeps the contract name; a failed or changed `-detect` step either folds into the contract entry or has its own catalog entry, and never produces an uncatalogued `checkId`; one catalog entry exists for each selected contract, not for each step; the catalog key does not collide with a content check id (a prefix such as `behavior.` is one way); the feedback summary uses the same identity (`contractId` is a step id today); the contract origin (package, project, component) is recorded by the registry, which does not do it today.
-2. Selection per target. Where is it stored when a check or contract is selected for some targets and not for others? Candidates: a list of selected check ids on each entry, or a `scope.checks` list on each artifact. Constraints: the viewer tells an unselected check from a selected check with a missing outcome (R8.7); the field is derived from run settings and never invented by the viewer; it works in a `subject` report; it keeps `report.json` small (R9.2). Run-level selection is already encoded by the catalog (section 7, point 8).
-3. The absolute fingerprint (section 7, point 6).
-4. The allowlist file and its reason and owner fields (section 7, point 5).
-5. Completed checks in a non-complete artifact. A mixed `content` artifact is non-complete when one selected check throws. Findings of a non-complete artifact do not count toward a class ("A check that throws or cannot run"). So real findings of its completed checks drop out of class aggregation, and the scope reports the incomplete state instead of a class. It is never `match`. Should findings of completed checks keep counting? The spec states only the current rule. Decided by the owner on 2026-10-23 (issue #178): at target scope they keep counting. At cell and artifact scope the class stays `null`. R8.12 holds the rule.
+1. Behavior identity. Decided 2026-11-04. The behavior runner writes a `contract` field on each step, so a step id is never parsed back to a contract. A contract name may hold hyphens and digits (`/^[a-z0-9][a-z0-9-]{0,79}$/`), so a step id such as `menu-2` is ambiguous: it is instance 2 of `menu`, or the contract `menu-2`. The catalog key is `behavior.<contract name>`. A dot cannot occur in a pack check id or a content check id, so the key cannot collide with them. A `-detect` or `-scoping` step folds into the entry of its contract. There is one catalog entry for each selected contract, never one for each step. The registry records the origin of each contract: `package`, `project` or `component`. The origin is the `layer` of the catalog entry. Every loader reads the project source directory today, so every contract has the origin `project`. No co-location rule exists for `component`, and the value is reserved. The feedback summary uses the same identity: `contractId` is the contract name, and `checkId` is the catalog key. The behavior version goes from 1 to 2, because the step and the settings gain fields. A stored version 1 run no longer compares with a new run. The pair reads `incompatible` (R8.9), and the project captures again. A version 2 report reader maps its behavior findings to one legacy key `behavior` (R9.1). A new report writes the same key when it compares two stored behavior runs of version 1, because those steps name no contract. The code never guesses a contract name.
+2. Selection per target. Decided 2026-11-04. Each artifact index gets `scope: { checks: [<checkId>, ...] }`, the selected check ids. The producer derives the list from the run settings and the viewer never invents it (R8.7). A check that is in `scope.checks` and has no outcome reads as `missing`. A check that is in the catalog and not in `scope.checks` is not selected for that artifact. The field works in a `subject` report and adds a list of ids to each artifact index, not to each finding (R9.2). Sources: content takes the check list of run B; behavior takes the contracts that apply to the project of the viewport, from the settings that the snapshot stores; speed takes the change check, and the budget check when the run has budgets. A version 2 file has no `scope`, and the adapter adds none.
+3. The absolute fingerprint (section 7, point 6). Moved to #254. Until it ships an absolute finding stays `unexplained`, and the report writes no `evidenceFingerprint` for it.
+4. The allowlist file and its `reason` and `owner` fields (section 7, point 5). Moved to #254. Until it ships `findingIsExplained` returns `false` for an absolute finding, and `record-known` refuses one (R7.3).
+5. Completed checks in a non-complete artifact. Decided by the owner on 2026-10-23 (issue #178): at target scope they keep counting. At cell and artifact scope the class stays `null`. R8.12 holds the rule.
 
 ## Open points
 

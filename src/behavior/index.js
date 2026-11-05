@@ -7,7 +7,9 @@ export { loadProjectContracts } from './registry.js';
 export { loadBehaviorSource } from './source.js';
 export { validateBehaviorSnapshot } from './snapshot.js';
 export { compareBehavior } from './compare.js';
-export const BEHAVIOR_VERSION = '1';
+// Version 2 records `contract` on each step and `origin` on each contract (ADR 0004, question 1).
+// A stored version 1 run no longer compares with a new run: the pair reads `incompatible` (R8.9).
+export const BEHAVIOR_VERSION = '2';
 const text = value => String(value ?? '').slice(0, 2000);
 const bounded = value => { try { const encoded = JSON.stringify(value ?? null); return encoded.length <= 4000 ? JSON.parse(encoded) : { omitted: true }; } catch { return { omitted: true }; } };
 
@@ -24,7 +26,7 @@ export async function runBehavior({ page, contracts, enabled, projectName, libra
   for (const [name, hash] of Object.entries(contractFingerprints)) { if (!contracts.some(contract => contract.name === name) || !/^[a-f0-9]{64}$/.test(hash)) throw new Error('Contract fingerprints must bind a selected contract to a SHA-256 hash.'); }
   const directory = resolve(artifactDir);
   await mkdir(directory, { recursive: true });
-  const settings = { contracts: contracts.map(c => ({ name: c.name, projects: c.projects ?? null, library: c.library ?? null, emulate: c.emulate ?? null, eagerImages: !!c.eagerImages, source: createHash('sha256').update(`${c.detect}\n${c.run}\n${c.runScoping ?? ''}`).digest('hex') })), projectName, libraryVersions, contractFingerprints, emulate, eagerImages, timeoutMs, maxInstances, trace };
+  const settings = { contracts: contracts.map(c => ({ name: c.name, origin: c.origin ?? 'project', projects: c.projects ?? null, library: c.library ?? null, emulate: c.emulate ?? null, eagerImages: !!c.eagerImages, source: createHash('sha256').update(`${c.detect}\n${c.run}\n${c.runScoping ?? ''}`).digest('hex') })), projectName, libraryVersions, contractFingerprints, emulate, eagerImages, timeoutMs, maxInstances, trace };
   if (enabled !== undefined) settings.enabled = enabled;
   const settingsHash = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
   const steps = [], consoleEvents = [], network = [], dataLayer = [];
@@ -35,8 +37,8 @@ export async function runBehavior({ page, contracts, enabled, projectName, libra
   page.on('console', onConsole); page.on('pageerror', onError); page.on('response', onResponse);
   let timedOut = false, tracing = false, traceError;
   if (trace) { try { await page.context().tracing.start({ screenshots: true, snapshots: true }); tracing = true; } catch (error) { traceError = text(error.message); } }
-  const execute = async (id, title, operation) => {
-    const step = { id, title, state: 'complete', result: null, evidence: {} };
+  const execute = async (contract, id, title, operation) => {
+    const step = { id, title, contract, state: 'complete', result: null, evidence: {} };
     const offsets = [consoleEvents.length, network.length, dataLayer.length];
     let timer;
     try {
@@ -54,15 +56,15 @@ export async function runBehavior({ page, contracts, enabled, projectName, libra
   };
   try {
     for (const contract of contracts) {
-      if (timedOut) { steps.push({ id: contract.name, title: contract.name, state: 'skipped', result: null, reason: 'A prior step timed out.' }); continue; }
+      if (timedOut) { steps.push({ id: contract.name, title: contract.name, contract: contract.name, state: 'skipped', result: null, reason: 'A prior step timed out.' }); continue; }
       const applicability = contractApplicability(contract, { projectName, libraryVersions, emulate, eagerImages });
-      if (applicability.state !== 'ready') { steps.push({ id: contract.name, title: contract.name, result: null, ...applicability }); continue; }
+      if (applicability.state !== 'ready') { steps.push({ id: contract.name, title: contract.name, contract: contract.name, result: null, ...applicability }); continue; }
       let instances;
-      const detection = await execute(`${contract.name}-detect`, `${contract.name}: detect`, async () => { instances = await contract.detect(page); if (!Array.isArray(instances)) throw new Error('Contract detect must return an array.'); if (instances.length > maxInstances) throw new Error('Contract instance limit exceeded.'); return { instances: instances.length }; });
+      const detection = await execute(contract.name, `${contract.name}-detect`, `${contract.name}: detect`, async () => { instances = await contract.detect(page); if (!Array.isArray(instances)) throw new Error('Contract detect must return an array.'); if (instances.length > maxInstances) throw new Error('Contract instance limit exceeded.'); return { instances: instances.length }; });
       if (detection.state === 'failed') continue;
-      if (!instances.length) { steps.push({ id: contract.name, title: contract.name, state: 'skipped', result: null, reason: 'No contract marker on this target.' }); continue; }
-      for (let index = 0; index < instances.length && !timedOut; index++) await execute(`${contract.name}-${index + 1}`, `${contract.name}: instance ${index + 1}`, () => contract.run(page, instances[index]));
-      if (!timedOut && instances.length > 1 && contract.runScoping) await execute(`${contract.name}-scoping`, `${contract.name}: instance isolation`, () => contract.runScoping(page, instances));
+      if (!instances.length) { steps.push({ id: contract.name, title: contract.name, contract: contract.name, state: 'skipped', result: null, reason: 'No contract marker on this target.' }); continue; }
+      for (let index = 0; index < instances.length && !timedOut; index++) await execute(contract.name, `${contract.name}-${index + 1}`, `${contract.name}: instance ${index + 1}`, () => contract.run(page, instances[index]));
+      if (!timedOut && instances.length > 1 && contract.runScoping) await execute(contract.name, `${contract.name}-scoping`, `${contract.name}: instance isolation`, () => contract.runScoping(page, instances));
     }
   } finally {
     page.off('console', onConsole); page.off('pageerror', onError); page.off('response', onResponse);

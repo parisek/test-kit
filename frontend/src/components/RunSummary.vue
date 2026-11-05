@@ -2,18 +2,31 @@
 import { localDateTime } from '../state/report-nav.js';
 import { computed } from 'vue';
 import { verdictSentence } from '../state/home-model.js';
+import { droppedRenderRequests } from '../state/dropped.js';
+import ScopeDetails from './ScopeDetails.vue';
+import { reportScope } from '../../../src/report/scope.js';
 const props = defineProps({ report: Object, summary: Object, compact: Boolean });
-const sides = computed(() => ['a', 'b'].map((side) => ({
-    side: side.toUpperCase(),
-    id: props.report.pair[side === 'a' ? 'aRunId' : 'bRunId'],
-    run: props.report.runs.find((run) => run.id === props.report.pair[side === 'a' ? 'aRunId' : 'bRunId']),
-})));
-const absent = computed(() => props.report.entries.reduce((count, target) =>
+// The caption counts targets as the scope line does: the reserved @project entry is not a target.
+const scope = computed(() => reportScope(props.report));
+// A pair report has two runs. A subject report has one (R9.7).
+const sides = computed(() => {
+    const pair = props.report.pair;
+    if (props.report.subject) return [{ side: 'Run', id: props.report.subject.runId, run: props.report.runs.find((run) => run.id === props.report.subject.runId) }];
+    return ['a', 'b'].map((side) => ({
+        side: side.toUpperCase(),
+        id: pair[side === 'a' ? 'aRunId' : 'bRunId'],
+        run: props.report.runs.find((run) => run.id === pair[side === 'a' ? 'aRunId' : 'bRunId']),
+    }));
+});
+// The project entry has no viewport rows, so it has none to miss.
+const absent = computed(() => props.report.entries.filter((target) => target.kind !== 'project').reduce((count, target) =>
     count + props.report.meta.viewports.filter((viewport) =>
         !target.viewports.some((row) => row.id === viewport.id)).length, 0));
-const availability = computed(() => props.report.entries.reduce((count, target) =>
+const availability = computed(() => props.report.subject ? 0 : props.report.entries.reduce((count, target) =>
     count + target.viewports.filter((row) => ['a', 'b'].some((side) =>
         row.availability?.[side] && ['http-error', 'capture-error'].includes(row.availability[side]))).length, 0));
+// R3.8: a font or a stylesheet that a side aborted changes how the page renders.
+const aborted = computed(() => droppedRenderRequests(props.report));
 </script>
 <template>
     <!-- DESIGN.md "Layout" (#204): on the Evidence view the summary is one line, the verdict sentence and the counts, and "Run details" opens the full summary. -->
@@ -26,13 +39,14 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
             <span class="summary-count" data-status="incomplete" :data-zero="summary.counts.incomplete === 0 || undefined"><strong>{{ summary.counts.incomplete }}</strong> incomplete (state)</span>
             <span v-if="absent" class="summary-count" data-status="warning">{{ absent }} absent viewport measurements</span>
             <span v-if="availability" class="summary-count" data-status="warning">{{ availability }} availability problems</span>
+            <span v-if="aborted.count || aborted.notListed" class="summary-count" data-status="warning">{{ aborted.count }} aborted font or stylesheet requests{{ aborted.notListed ? ` (and ${aborted.notListed} more not listed)` : '' }}</span>
         </div>
         <component :is="compact ? 'details' : 'div'" class="run-details">
         <summary v-if="compact">Run details</summary>
         <div class="run-pair" aria-label="Compared runs">
             <section v-for="item in sides" :key="item.side" class="run-card">
                 <span class="run-letter">{{ item.side }}</span>
-                <div class="min-w-0"><p class="eyebrow">{{ item.side === 'A' ? 'Baseline' : 'Compared run' }} · {{ item.run?.side ?? 'Side not recorded' }}</p><h2>{{ item.run?.label ?? item.id }}</h2><details class="run-id"><summary>Capture details</summary><p><time v-if="localDateTime(item.run?.at)" :datetime="item.run.at" :title="item.run.at">{{ localDateTime(item.run.at) }}</time><template v-else>Capture date not recorded</template></p><p>{{ item.id }}</p></details></div>
+                <div class="min-w-0"><p class="eyebrow">{{ item.side === 'A' ? 'Baseline' : item.side === 'B' ? 'Compared run' : 'Checked run' }} · {{ item.run?.side ?? 'Side not recorded' }}</p><h2>{{ item.run?.label ?? item.id }}</h2><details class="run-id"><summary>Capture details</summary><p><time v-if="localDateTime(item.run?.at)" :datetime="item.run.at" :title="item.run.at">{{ localDateTime(item.run.at) }}</time><template v-else>Capture date not recorded</template></p><p>{{ item.id }}</p></details></div>
             </section>
         </div>
         <div v-if="summary" class="summary-metrics" aria-label="All target counts">
@@ -42,9 +56,12 @@ const availability = computed(() => props.report.entries.reduce((count, target) 
             <div v-if="summary.counts.unclassified" class="summary-metric" data-status="unclassified"><strong>{{ summary.counts.unclassified }}</strong><span>unclassified</span></div>
             <div class="summary-metric summary-state" data-status="incomplete" :data-zero="summary.counts.incomplete === 0 || undefined"><strong>{{ summary.counts.incomplete }}</strong><span>Incomplete (state)</span></div>
         </div>
-        <p class="summary-caption">All {{ report.entries.length }} targets · {{ report.meta.viewports.length }} declared viewports. Counts remain visible under filters.</p>
+        <ScopeDetails :report="report" :collapsible="!compact" />
+        <p v-if="scope" class="summary-caption">{{ scope.targets }} compared {{ scope.targets === 1 ? 'target' : 'targets' }} · {{ scope.viewports }} compared {{ scope.viewports === 1 ? 'viewport' : 'viewports' }}. Counts remain visible under filters.</p>
+        <p v-else class="summary-caption">All {{ report.entries.length }} targets · {{ report.meta.viewports.length }} declared viewports. Counts remain visible under filters.</p>
         <p v-if="absent" class="summary-warning" role="status">Absent declared viewport measurements: {{ absent }}. Stored target counts do not include absent rows. Use the missing viewport measurement filter to find these targets.</p>
         <p v-if="availability" class="summary-warning" role="status">Availability problems: {{ availability }} viewport measurements across all targets. Availability is separate from screenshot class.</p>
+        <p v-if="aborted.count || aborted.notListed" class="summary-warning" role="status">Aborted requests: {{ aborted.count }} font or stylesheet requests were aborted{{ aborted.notListed ? `, and ${aborted.notListed} more requests were cut from the stored list, so some of them may be fonts or stylesheets` : '' }} ({{ aborted.groups.slice(0, 5).map((group) => `side ${group.side}: ${group.resourceType} from ${group.origin}`).join('; ') }}{{ aborted.groups.length > 5 ? '; more not shown' : '' }}). The page may render in a fallback font or without a stylesheet on that side. A remote side aborts every request to another origin.</p>
         </component>
     </section>
 </template>

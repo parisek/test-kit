@@ -1,6 +1,7 @@
 import { snapshot, finding, omitted } from './shared.js';
 export const id = 'internal-links';
 export const title = 'Stored internal link responses';
+export const basis = 'absolute';
 export const applies = { artifacts: ['content'] };
 export function check(value, ctx = {}) {
   const doc = snapshot(value), findings = omitted(doc, ctx, id, 'links');

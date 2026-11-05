@@ -59,7 +59,7 @@ The viewer is a static application. It cannot run a command or write a file. A d
 | Decision | What the viewer offers | What exists today |
 | --- | --- | --- |
 | Fix | Copy the link. The task or the agent gets the same view. | The link holds only `#r-<id>`. |
-| Known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT`. The viewer fills in the report, target, viewport and artifact. `--config`, `--cause` and `--reason` stay placeholders. The person adds them and runs the command. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
+| Known difference | Copy the command `test-kit record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|status|content --cause ID --reason TEXT`. The viewer fills in the report, target, viewport and artifact. `--config`, `--cause` and `--reason` stay placeholders. The person adds them and runs the command. R5.3 and R11.5 say recording must not be a viewer action: copying text does not record anything. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
 | Noise or unstable | Copy the command `test-kit run --config FILE --target ID --viewport ID` with the target and viewport filled in. The person runs it and sees whether the difference stays. Copying the command stores nothing. The run stores its evidence as any run does. A stored noise mark is not part of 1.0. Decided by the owner on 2026-10-22. | The command exists. The viewer does not build it. |
 | Pass on | Copy the link. Later: an evidence bundle (issue #149). | None. |
 
@@ -81,4 +81,5 @@ The owner decided these on 2026-10-22:
 - The viewer builds the `record-known` command text (see the table above).
 - Content and Speed are evidence types of the Evidence view (R10.4, issue #155).
 - Behavior is an evidence type of the Evidence view too (R10.4). Decided on 2026-10-22.
+- A report with `meta.scope` shows one scope line in the report header, on every view: "Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped." The full lists sit in "Run details". A skipped cell is not a target. A report without `meta.scope` shows no line (owner decision of 2026-11-05, #287, option C).
 - Any future change to the adopted view set or the deep link grammar needs a new owner decision and a specification change.

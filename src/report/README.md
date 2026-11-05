@@ -1,9 +1,11 @@
 # src/report
 
-Validates report schema version 2 and adapts stored reports for the viewer.
+Validates report schema version 3 (R9.7 to R9.11) and adapts versions 1 and 2 (R9.1).
+`catalog.js` holds the pure constants of the checks catalog: bases, layers, artifact kinds, the six built-in checks and the behavior key `behavior.<contract name>`. The viewer bundles it, so it imports no check module.
+A report has exactly one of `pair` and `subject`. The classifier reads the basis of a finding from the catalog: an absolute finding is never `explained` until the allowlist ships (#254). An absolute artifact index (`evidence`, `result`) sits at viewport or target scope (R9.9), and `targetState` and `targetClass` read both scopes.
 Classification is pure and shared by the viewer and queries (R4.4, R11.6).
 
-`cellState` and `targetState` aggregate requested comparable artifacts.
+`cellState` and `targetState` aggregate every selected artifact, `status` included.
 A failed artifact keeps the target incomplete. Availability remains separate.
 
 `artifactState` and `artifactClass` describe the selected artifact. A complete
