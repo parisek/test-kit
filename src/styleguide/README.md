@@ -1,6 +1,6 @@
 # src/styleguide
 
-Reads component targets from a styleguide catalogue. Spec R13.3 and R13.46 (issue #94).
+Reads component targets from a styleguide catalogue. Spec R13.3 and R13.52 (issue #94).
 
 The module is pure (R4.4). It has no file system, no network and no DOM. `capture` passes the transport.
 The package reads JSON only. It has no dependency on the styleguide code (R13.4, R13.5).
