@@ -107,3 +107,23 @@ test('the incompatible diagnostic names the differing setting and both values (R
   assert.ok(long.length < 200 && !/\n/.test(long));
   assert.equal(incompatibleDiagnostic(run(base), run(base)), 'Capture settings or tool versions differ.');
 });
+
+test('the diagnostic uses the effective settle of the target, with its override (R8.9)', async () => {
+  const { incompatibleDiagnostic } = await import('../../src/compare/runs.js');
+  const settle = { waitMs: 0, selectors: [], disableMotion: true, masks: [] };
+  const run = (target, side) => ({ side, captureSettings: { settle }, tools: [], settings: { sides: { [side]: { settle } }, targets: [target] } });
+  const a = run({ id: 'home' }, 'local'), b = run({ id: 'home', settle: { lazyImages: true } }, 'production');
+  const shot = { targetId: 'home' };
+  assert.equal(incompatibleDiagnostic(a, b), 'Capture settings or tool versions differ.');
+  assert.match(incompatibleDiagnostic(a, b, shot, shot), /settle\.lazyImages \(A: unset, B: true\)/);
+  const bySide = run({ id: 'home', settleBySide: { production: { waitMs: 500 } } }, 'production');
+  assert.match(incompatibleDiagnostic(a, bySide, shot, shot), /settle\.waitMs \(A: 0, B: 500\)/);
+});
+
+test('the diagnostic lists at most 5 settings and counts the rest (R8.9)', async () => {
+  const { incompatibleDiagnostic } = await import('../../src/compare/runs.js');
+  const run = n => ({ captureSettings: { settle: Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(key => [key, n])) }, tools: [] });
+  const text = incompatibleDiagnostic(run(1), run(2));
+  assert.equal(text.match(/settle\./g).length, 5);
+  assert.match(text, /; and 2 more\.$/);
+});

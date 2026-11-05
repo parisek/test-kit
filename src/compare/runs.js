@@ -138,8 +138,15 @@ const shown = value => {
   return line.length > 60 ? line.slice(0, 57) + '...' : line;
 };
 
-function settingDiffs(runA, runB) {
-  const a = runA?.captureSettings ?? {}, b = runB?.captureSettings ?? {};
+// The settle recipe that comparisonState uses for one cell: run-wide, then target, then target for this side.
+function effectiveSettle(run, capture) {
+  const fallback = run?.captureSettings?.settle;
+  if (!capture || !run?.settings?.sides) return fallback;
+  try { return settleRecipe(run.settings, run.side, run.settings.targets?.find(target => target.id === capture.targetId)); } catch { return fallback; }
+}
+
+function settingDiffs(runA, runB, captureA, captureB) {
+  const a = { ...runA?.captureSettings, settle: effectiveSettle(runA, captureA) }, b = { ...runB?.captureSettings, settle: effectiveSettle(runB, captureB) };
   const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const differs = (x, y) => JSON.stringify(x) !== JSON.stringify(y);
   const diffs = [];
@@ -156,8 +163,8 @@ function settingDiffs(runA, runB) {
   return diffs;
 }
 
-export function incompatibleDiagnostic(runA, runB) {
-  const diffs = settingDiffs(runA, runB);
+export function incompatibleDiagnostic(runA, runB, captureA, captureB) {
+  const diffs = settingDiffs(runA, runB, captureA, captureB);
   if (!diffs.length) return 'Capture settings or tool versions differ.';
   const listed = diffs.slice(0, 5).join('; ') + (diffs.length > 5 ? `; and ${diffs.length - 5} more` : '');
   return `Capture settings differ: ${listed}.`;
@@ -263,7 +270,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
-			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
+			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b, ac, bc) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
 			row.artifacts.screenshot.state = row.state;
 			} else { delete row.artifacts.screenshot; row.state = 'complete'; }
 			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {
