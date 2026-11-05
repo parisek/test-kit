@@ -16,3 +16,5 @@ The artifacts `lint` and `a11y` are absolute results (R9.9). They need no viewpo
 Artifact query returns the ordered pair key, at most 50 scoped rules, bounded
 rule text and evidence, and an omitted-rule count. Raw and normalized windows
 use the same requested display-line cap (R11.6).
+
+Every `summary` and `query` answer stays under one byte limit, `OUTPUT_BYTE_LIMIT` in `bound.js` (60000 bytes, the first limit of the behavior query). `summary` copies the documented keys of `pair` and cuts a target id to 200 characters. Both queries halve the longest bounded list until the answer fits, and the omitted counts say what was cut (R11.2).

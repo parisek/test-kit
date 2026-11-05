@@ -355,7 +355,7 @@ An agent must not read a whole report. It asks for the part it needs.
 | `behavior <target>` | failed step, result A and B, evidence paths |
 
 - R11.1 The agent output is JSON for text and a file path for images. It must use the same classification code as the viewer.
-- R11.2 Every query needs a target or a filter and must have a size limit (`--max-targets`). When it cuts, it must say how many it left out.
+- R11.2 Every query needs a target or a filter and must have a size limit (`--max-targets`). When it cuts, it must say how many it left out. Every answer of `summary` and `query` stays under 60000 bytes, even when the report holds oversized data. When the limit cuts a list, the answer counts what it left out.
 - R11.3 Crops must come from the full-resolution original, not from a reduced preview.
 - R11.4 `summary` should stay under about 5 kB for a normal report (estimate, not yet measured).
 - R11.5 Each answer has a `next` field that names what the agent may do. Recording a known difference stays a command with evidence (R5.3).
