@@ -157,3 +157,52 @@ describe('scope of a report (#287)', () => {
 		expect(rule('.report-scope')).toMatch(/font-size: 0\.8125rem/);
 	});
 });
+
+describe('components without a fixture (#290)', () => {
+	const skipped = (report) => { report.runs[0].noFixture = ['hero', 'zeta']; report.runs[1].noFixture = ['hero', 'alpha']; return report; };
+	it('adds one sentence to the header line of a full report, on every view, with the count of summary', async () => {
+		const report = skipped(full());
+		expect(summarizeReport(report).noFixture.count).toBe(3);
+		const app = await open(report);
+		for (const name of ['overview', 'evidence', 'findings', 'info']) {
+			await view(app, name);
+			const line = app.findAll('[data-testid="scope-line"]');
+			expect(line, name).toHaveLength(1);
+			expect(line[0].text(), name).toBe('Not compared: 3 components have no fixture.');
+			expect(line[0].element.closest('.comparison-heading'), name).not.toBeNull();
+		}
+		app.unmount();
+	});
+	it('puts it after the scope sentence in the same line when the report is scoped too', async () => {
+		const app = await open(skipped(scoped()));
+		await view(app, 'overview');
+		expect(app.findAll('[data-testid="scope-line"]')).toHaveLength(1);
+		expect(app.get('[data-testid="scope-line"]').text()).toBe('Scope: 2 of 63 targets, 1 of 4 viewports. 250 cells skipped. Not compared: 3 components have no fixture.');
+		app.unmount();
+	});
+	it('lists them in "Run details" on Evidence, closed by default', async () => {
+		const app = await open(skipped(full()));
+		await view(app, 'evidence');
+		const details = app.get('details.run-details');
+		expect(details.attributes('open')).toBeUndefined();
+		expect(details.get('.scope-details').text()).toContain('Components without a fixture');
+		expect(details.get('.scope-details').text()).toContain('alpha, hero, zeta');
+		expect(app.findAll('.scope-details')).toHaveLength(1);
+		app.unmount();
+	});
+	it('lists them in the closed "Scope details" disclosure on the other views', () => {
+		const wrapper = mount(RunSummary, { props: { report: skipped(full()) } });
+		const lists = wrapper.get('details.scope-details');
+		expect(lists.attributes('open')).toBeUndefined();
+		expect(lists.get('summary').text()).toBe('Scope details');
+		expect(lists.text()).toContain('alpha, hero, zeta');
+		expect(lists.text()).not.toContain('Compared targets');
+	});
+	it('shows nothing new for a report without noFixture', async () => {
+		const app = await open(full());
+		await view(app, 'evidence');
+		expect(app.find('[data-testid="scope-line"]').exists()).toBe(false);
+		expect(app.find('.scope-details').exists()).toBe(false);
+		app.unmount();
+	});
+});

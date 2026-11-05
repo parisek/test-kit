@@ -262,6 +262,29 @@ try {
 	} finally {
 		await scopedViewer.close();
 	}
+	// #290: components without a fixture join the header line and the lists in "Run details".
+	const noFixturePath = join(directory, 'no-fixture.json');
+	await writeFile(noFixturePath, JSON.stringify({ ...report, runs: report.runs.map((run) => ({ ...run, noFixture: ['hero', 'alpha'] })) }));
+	const noFixtureViewer = await serve({ reportPath: noFixturePath });
+	try {
+		for (const width of [390, 1280]) {
+			const context = await browser.newContext({ viewport: { width, height: 900 } });
+			const page = await context.newPage();
+			await page.goto(noFixtureViewer.origin);
+			await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+			for (const view of ['overview', 'evidence', 'findings', 'info']) {
+				await page.locator(`[data-view=${view}]`).click();
+				assert.equal(await page.locator('[data-testid="scope-line"]').innerText(), 'Not compared: 2 components have no fixture.', `${view} no-fixture line at ${width}`);
+				assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${view} overflows at ${width}`);
+			}
+			await page.locator('[data-view=evidence]').click();
+			await page.getByText('Run details', { exact: true }).click();
+			assert.match(await page.locator('details.run-details .scope-details').innerText(), /alpha, hero/);
+			await context.close();
+		}
+	} finally {
+		await noFixtureViewer.close();
+	}
 	console.log(
 		'Viewer checks pass at 390, 860, 1100, and 1440 px with blocked storage and strict CSP.',
 	);
