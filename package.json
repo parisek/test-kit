@@ -16,7 +16,8 @@
     "./packs/a11y/runner": "./src/packs/a11y/runner.js",
     "./packs/swiper": "./src/packs/versioned/swiper.js",
     "./packs/lint": "./src/packs/lint/index.js",
-    "./packs/lint/runner": "./src/packs/lint/runner.js"
+    "./packs/lint/runner": "./src/packs/lint/runner.js",
+    "./stylelint": "./src/stylelint/index.cjs"
   },
   "files": [
     "bin",
@@ -43,16 +44,24 @@
   "peerDependencies": {
     "@playwright/test": ">=1.49",
     "axe-core": "^4.10.0",
-    "lighthouse": "^13.5.0"
+    "lighthouse": "^13.5.0",
+    "stylelint": "^17.15.0",
+    "stylelint-config-standard": "^40.0.0"
   },
   "peerDependenciesMeta": {
-    "axe-core": {
-      "optional": true
-    },
     "@playwright/test": {
       "optional": true
     },
+    "axe-core": {
+      "optional": true
+    },
     "lighthouse": {
+      "optional": true
+    },
+    "stylelint": {
+      "optional": true
+    },
+    "stylelint-config-standard": {
       "optional": true
     }
   },
@@ -63,7 +72,9 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "axe-core": "4.14.0",
-    "lighthouse": "13.5.0"
+    "lighthouse": "13.5.0",
+    "stylelint": "17.16.0",
+    "stylelint-config-standard": "40.0.0"
   },
   "license": "MIT"
 }

@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- Entry point `@parisek/test-kit/stylelint`: the shared config object and the five `portadesign` rules (`no-duplicate-import`, `no-undefined-tailwind-prose`, `prefer-utility-over-apply`, `import-order`, `no-length-division`). The entry is a CommonJS file, so `require` and `import` both load it. Rule IDs and the namespace stay as in the first consumer project. The config holds no project pseudo-classes and no ignore paths: a project adds them after the object. `stylelint` and `stylelint-config-standard` are optional peers. A missing one throws `LINT_PEER_MISSING`. Loading the entry loads no browser package (R13.40, R13.46 to R13.49, #26).
+
 ### Changed
 
 - Docs: the tag lists, status lines and install examples name `v1.0.0` as the stable release. The `runsRoot` notes say `1.0.0`, not `1.0.0-rc.8`, which no tag carries (#106).
