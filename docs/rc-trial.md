@@ -1,6 +1,6 @@
 # Trial guide for the 1.0.0 release candidate
 
-Status: updated on 2026-11-03 for `v1.0.0-rc.7`, the current candidate.
+Status: written for the candidates up to `v1.0.0-rc.7`. The stable release `v1.0.0` was tagged on 2026-11-04. Install `v1.0.0` or a later stable tag. The text below keeps the candidate wording as history.
 The tag `v1.0.0-rc.1` is the first candidate. It stays as history.
 The owner tags the candidate on the squash commit of the merged pull request on `main`.
 The tag form `-rc.N` is defined by R13.45, and `release.yml` accepts rc tags.
@@ -36,7 +36,7 @@ Measured on 2026-10-19 with a packed copy of this branch in a clean project, bef
 The package is not on an npm registry (specification section 13.2). A project installs it from a git tag and pins it exactly (R13.27).
 
 ```sh
-npm install -D github:parisek/test-kit#v1.0.0-rc.7
+npm install -D github:parisek/test-kit#v1.0.0
 npm install -D @playwright/test@1.64.1
 npx playwright install chromium
 ```
