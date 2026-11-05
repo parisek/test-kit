@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { isLocalUrl, isOwnOrigin, requestPolicy, describeBlockedRequest, blockedRequestMessage, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, describeBlockedRequest, blockedRequestMessage, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -279,7 +279,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled }) : null;
-  const tool = await playwright();
+  // Verify DDEV before Playwright loads, so a stopped project starts no browser.
   if (new URL(config.sides[side].origin).hostname.endsWith('.ddev.site')) {
     const cwd = await projectRoot(loaded.configDir);
     let description;
@@ -288,9 +288,13 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       description = JSON.parse(stdout);
     } catch { throw new Error('Cannot verify the DDEV project for the configured origin'); }
     if (!ddevMatchesOrigin(description, config.sides[side].origin)) throw new Error('The nearest DDEV checkout does not serve the configured origin');
+    // Stop before the first page when DDEV is stopped. This sits outside the describe try/catch.
+    const stopped = ddevStatusProblem(description);
+    if (stopped) throw new Error(stopped);
     try { await execute('ddev', ['mutagen', 'sync'], { cwd, timeout: 60000 }); }
     catch { throw new Error('ddev mutagen sync fails. Fix DDEV synchronization before capture.'); }
   }
+  const tool = await playwright();
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const root = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;

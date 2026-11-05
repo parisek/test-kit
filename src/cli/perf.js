@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
 import { loadConfig, settingsHash } from '../config/index.js';
-import { createRunId, ddevMatchesOrigin } from '../capture/helpers.js';
+import { createRunId, ddevMatchesOrigin, ddevStatusProblem } from '../capture/helpers.js';
 import { runPerformance, evaluateBudgets } from '../perf/index.js';
 
 import { planPerfCommand } from '../perf/plan.js';
@@ -20,7 +20,7 @@ async function writeManifest(path, run) {
   await rename(temporary, path);
 }
 
-async function verifyDdev(directory, origin) {
+export async function verifyDdev(directory, origin) {
   if (!new URL(origin).hostname.endsWith('.ddev.site')) return;
   let current = directory;
   while (true) {
@@ -35,6 +35,8 @@ async function verifyDdev(directory, origin) {
     description = JSON.parse(stdout);
   } catch { throw new Error('Cannot verify the DDEV project for performance.'); }
   if (!ddevMatchesOrigin(description, origin)) throw new Error('The nearest DDEV checkout does not serve the performance origin.');
+  const stopped = ddevStatusProblem(description);
+  if (stopped) throw new Error(stopped);
   try { await execute('ddev', ['mutagen', 'sync'], { cwd: current, timeout: 60000 }); }
   catch { throw new Error('DDEV synchronization fails. Fix it before performance capture.'); }
 }

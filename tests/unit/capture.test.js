@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isLocalUrl, isOwnOrigin, requestPolicy, describeBlockedRequest, blockedRequestMessage, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin } from '../../src/capture/helpers.js';
+import { isLocalUrl, isOwnOrigin, requestPolicy, describeBlockedRequest, blockedRequestMessage, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from '../../src/capture/helpers.js';
 
 test('navigation guards reject remote redirects and credentials', () => {
   for (const value of ['http://localhost/path', 'https://example-site.ddev.site/path', 'http://127.0.0.2/', 'http://[::1]/']) assert.equal(isLocalUrl(value), true);
@@ -120,4 +120,14 @@ test('the blocked-request message treats page data as untrusted (R3.7)', () => {
   assert.ok(text.length < 200);
   assert.match(text, /unknown origin/);
   assert.equal(blockedRequestMessage(null), 'A request leaves the local environment or submits data.');
+});
+
+test('ddevStatusProblem accepts a running project and names the fix for any other status (Principle 1)', () => {
+  assert.equal(ddevStatusProblem({ raw: { status: 'running' } }), null);
+  for (const status of ['stopped', 'paused', 'project directory missing']) {
+    assert.match(ddevStatusProblem({ raw: { status } }), /^The DDEV project is not running \(status: .+\)\. Run ddev start\.$/);
+  }
+  for (const description of [{}, { raw: {} }, { raw: { status: 7 } }, { raw: { status: 'x\ny' } }, null]) {
+    assert.equal(ddevStatusProblem(description), 'The DDEV project is not running. Run ddev start.');
+  }
 });
