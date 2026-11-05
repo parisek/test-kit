@@ -134,6 +134,10 @@ export function userAgentOption(side) {
 export const DROPPED_LIMIT = 50;
 export function createDroppedLog() { return { counts: new Map(), omitted: 0 }; }
 export function recordDropped(log, { url, resourceType }) {
+  // Only an http(s) origin is a record. The reader drops the rest (data:, blob:), so they must not use a slot.
+  let protocol = '';
+  try { protocol = new URL(url).protocol; } catch { /* An unparsable URL is no record. */ }
+  if (protocol !== 'http:' && protocol !== 'https:') return;
   const { origin, resourceType: type } = describeBlockedRequest({ url, method: 'GET', resourceType });
   const key = `${type}\n${origin}`;
   if (log.counts.has(key)) log.counts.set(key, log.counts.get(key) + 1);
