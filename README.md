@@ -147,7 +147,7 @@ set `thirdParty` on both sides (R3.10):
 ```
 
 `"drop"` aborts a GET or HEAD request for a frame or subresource of another origin and keeps the capture.
-A local side sends nothing to that origin. On a local side the key applies to a non-local origin only: a request to another loopback or DDEV host (`localhost`, `127.x.x.x`, `*.ddev.site`) stays allowed, with any port. `"block"` fails the capture, with the error that names the
+A local side sends nothing to that origin, unless `allowOrigins` names it. On a local side the key applies to a non-local origin only: a request to another loopback or DDEV host (`localhost`, `127.x.x.x`, `*.ddev.site`) stays allowed, with any port. `"block"` fails the capture, with the error that names the
 request. Without the key, a local side blocks and a remote side drops. A top-level navigation to another
 origin, a redirect that leaves the permitted origins and every other method still fail the capture. The
 value is part of the capture settings hash, so set the same value on both sides. The template sets `"thirdParty": "drop"` on its one side. A project that adds a second side sets the same value there. A pair with different
