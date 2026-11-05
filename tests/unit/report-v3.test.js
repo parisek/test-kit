@@ -453,3 +453,21 @@ test('the query command reaches a lint result without a viewport, and still need
 		assert.deepEqual(JSON.parse(text).result, { violations: true, checks: 1 });
 	} finally { await rm(dir, { recursive: true }); }
 });
+
+test('R4.5: meta.scope and meta.skipped are optional, valid only together and in shape', () => {
+	assert.deepEqual(validateReport(pairReport()), [], 'A report without a scope claims nothing.');
+	const scoped = (scope, skipped) => { const report = pairReport(); report.meta.scope = scope; report.meta.skipped = skipped; return report; };
+	assert.deepEqual(validateReport(scoped({ a: { targets: ['home'] }, b: null, filter: null }, 3)), []);
+	assert.deepEqual(validateReport(scoped({ a: null, b: null, filter: { viewports: ['desktop'] } }, 0)), []);
+	says(scoped({ a: null, b: null, filter: null }, 1), 'Invalid meta.scope.');
+	says(scoped({ a: { targets: [] }, b: null, filter: null }, 1), 'Invalid meta.scope.');
+	says(scoped({ a: { targets: ['home', 'home'] }, b: null, filter: null }, 1), 'Invalid meta.scope.');
+	says(scoped({ a: { pages: ['home'] }, b: null, filter: null }, 1), 'Invalid meta.scope.');
+	says(scoped({ a: { targets: ['home'] }, b: null }, 1), 'Invalid meta.scope.');
+	says(scoped({ a: { targets: ['home'] }, b: null, filter: null }, -1), 'meta.skipped must be a non-negative integer.');
+	says(scoped({ a: { targets: ['home'] }, b: null, filter: null }, 1.5), 'meta.skipped must be a non-negative integer.');
+	const scopeOnly = pairReport(); scopeOnly.meta.scope = { a: { targets: ['home'] }, b: null, filter: null };
+	says(scopeOnly, 'meta.scope and meta.skipped come together.');
+	const countOnly = pairReport(); countOnly.meta.skipped = 2;
+	says(countOnly, 'meta.scope and meta.skipped come together.');
+});

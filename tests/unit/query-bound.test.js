@@ -22,9 +22,28 @@ test('summary copies only the documented keys of pair (R11.2)', () => {
 	data.pair.aRunId = big(100_000);
 	data.runs[0].id = data.pair.aRunId;
 	const summary = summarizeReport(data);
-	assert.deepEqual(Object.keys(summary.pair), ['kind', 'aRunId', 'bRunId']);
+	assert.deepEqual(Object.keys(summary.pair), ['kind', 'aRunId', 'aRunIdTruncated', 'bRunId']);
 	assert.equal(summary.pair.aRunId.length, 200);
 	assert.ok(bytes(summary) < 5000);
+});
+
+test('summary marks a cut run id of the pair and of the subject (R11.2, owner decision on #274)', () => {
+	const data = pairReport();
+	data.pair.aRunId = big(300, 'a'); data.pair.bRunId = big(300, 'b');
+	data.runs = [{ id: data.pair.aRunId }, { id: data.pair.bRunId }];
+	const { pair } = summarizeReport(data);
+	assert.equal(pair.aRunIdTruncated, true);
+	assert.equal(pair.bRunIdTruncated, true);
+	assert.ok(pair.aRunId.endsWith('\u2026') && pair.bRunId.endsWith('\u2026'));
+	const single = subjectReport(lint());
+	single.subject.runId = big(300, 'r'); single.runs = [{ id: single.subject.runId }];
+	const { subject } = summarizeReport(single);
+	assert.equal(subject.runIdTruncated, true);
+	assert.equal(subject.runId.length, 200);
+	assert.ok(subject.runId.endsWith('\u2026'));
+	// A short run id carries no mark and no flag.
+	const short = summarizeReport(pairReport());
+	assert.deepEqual(Object.keys(short.pair), ['kind', 'aRunId', 'bRunId']);
 });
 
 test('summary cuts a long target id (R11.2)', () => {

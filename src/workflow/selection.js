@@ -2,11 +2,8 @@ import { validateContractSelection } from '../behavior/contracts.js';
 import { builtinChecks } from '../checks/index.js';
 import { DEFAULT_ARTIFACTS } from '../config/normalize.js';
 
-function ids(value, name) {
-  const values = value.split(',');
-  if (!values.length || new Set(values).size !== values.length || values.some(id => !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(id))) throw new Error(`Invalid ${name} selection.`);
-  return values;
-}
+import { parseIdList as ids } from '../capture/selection.js';
+
 export function selectConfig(input, options = {}) {
   const config = structuredClone(input);
   const suite = options.suite ?? (options.selector ? 'visual' : 'all');
@@ -15,15 +12,20 @@ export function selectConfig(input, options = {}) {
   if (options.target && options.path) throw new Error('Use target or path.');
   if (options.target) {
     const selected = ids(options.target, 'target');
-    if (selected.some(id => !input.targets.some(target => target.id === id))) throw new Error('Unknown target.');
-    config.targets = input.targets.filter(target => selected.includes(target.id));
+    // The styleguide catalogue is read at capture. Capture reports an unknown component by name.
+    if (input.targetSource) config.targetSource = { ...input.targetSource, include: selected };
+    else {
+      if (selected.some(id => !input.targets.some(target => target.id === id))) throw new Error('Unknown target.');
+      config.targets = input.targets.filter(target => selected.includes(target.id));
+    }
   }
   if (options.path) {
     if (!options.path.startsWith('/') || options.path.startsWith('//') || /[\\\s#\x00-\x1f]/.test(options.path)) throw new Error('Use an origin-relative page path.');
     config.targets = [{ id: 'custom-page', kind: 'page', path: options.path }];
+    delete config.targetSource;
   }
   if (options.selector) {
-    if (config.targets.length !== 1 || suite !== 'visual') throw new Error('A selector requires one target and the visual suite.');
+    if (config.targets?.length !== 1 || suite !== 'visual') throw new Error('A selector requires one target and the visual suite.');
     if (typeof options.selector !== 'string' || options.selector.length > 2048 || /[\x00-\x1f]/.test(options.selector)) throw new Error('Invalid selector.');
     config.targets[0] = { ...config.targets[0], kind: 'component', selector: options.selector };
     delete config.targets[0].box;

@@ -11,7 +11,7 @@ export const RELATIVE_ARTIFACTS = Object.freeze(['screenshot', 'html', 'status',
 export const ABSOLUTE_ARTIFACTS = Object.freeze(['lint', 'a11y']);
 export const ARTIFACT_KINDS = Object.freeze([...RELATIVE_ARTIFACTS, ...ABSOLUTE_ARTIFACTS]);
 // A finding of these artifacts has no checkId and the basis `relative` (R8.11).
-export const IMPLICIT_ARTIFACTS = Object.freeze(['screenshot', 'html']);
+export const IMPLICIT_ARTIFACTS = Object.freeze(['screenshot', 'html', 'status']);
 // A finding of these artifacts sits at target scope. It has no viewport (R9.11).
 export const TARGET_SCOPE_ARTIFACTS = Object.freeze(['lint']);
 export const CHECK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
