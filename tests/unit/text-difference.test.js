@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { builtinChecks, CHECK_VERSION } from '../../src/checks/index.js';
 import { compareContentSnapshots, validateContentComparison } from '../../src/content/compare.js';
+import { safeLines, safeCount, validLineEvidence } from '../../src/checks/builtin/text-difference.js';
 import { summarizeReport } from '../../src/query/summary.js';
 import { queryArtifact } from '../../src/query/artifact.js';
 
@@ -131,4 +132,34 @@ test('summary counts the targets with a gap as one integer', async () => {
     report.entries[0].viewports[0].artifacts.content.diff.lineGaps = 0;
     assert.equal('lineGapTargets' in summarizeReport(report), false);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('a different count of blank lines gives no finding', () => {
+  assert.deepEqual(check(doc('A\n\n\n\nB'), { before: doc('A\nB') }), []);
+  assert.deepEqual(check(doc('A\n \t \nB\n\n'), { before: doc('\n\nA\nB') }), []);
+});
+
+test('a stored finding with malformed line evidence is refused, and the readers never throw', () => {
+  const base = compareContentSnapshots(doc('a'), doc('b'), { checks: ['text-difference'], targetId: 't' });
+  const bad = (change) => {
+    const r = JSON.parse(JSON.stringify(base));
+    Object.assign(r.findings[0].evidence, change); Object.assign(r.checks[0].b.findings[0].evidence, change);
+    return r;
+  };
+  for (const change of [{ onlyInB: 'not a list' }, { onlyInA: [1, null] }, { onlyInA: Array.from({ length: 21 }, () => 'x'), onlyInACount: 21 }, { onlyInB: ['y'.repeat(201)] }, { onlyInBCount: -1 }, { onlyInBCount: 0 }, { sideA: 5 }, { onlyInA: {} }]) {
+    assert.throws(() => validateContentComparison(bad(change)), /Invalid content comparison/, JSON.stringify(change).slice(0, 60));
+  }
+  assert.equal(validLineEvidence(base.findings[0].evidence), true);
+  assert.deepEqual(safeLines('x'), []);
+  assert.deepEqual(safeLines([1, 'a', null, 'b'.repeat(900)]).map(l => l.length), [1, 200]);
+  assert.equal(safeLines(Array.from({ length: 500 }, () => 'z')).length, 20);
+  assert.equal(safeCount('9'), 0); assert.equal(safeCount(1e12, 3), 3);
+});
+
+test('query refuses a sidecar with malformed line evidence', async () => {
+  const r = compareContentSnapshots(doc('a'), doc('b'), { checks: ['text-difference'], targetId: 'gap', viewportId: 'desktop' });
+  r.findings[0].evidence.onlyInB = { huge: 'x'.repeat(5000) }; r.checks[0].b.findings[0].evidence.onlyInB = r.findings[0].evidence.onlyInB;
+  const { dir, path } = await reportWith(r);
+  try { await assert.rejects(queryArtifact(path, { target: 'gap', viewport: 'desktop', artifact: 'content' }), /Invalid content comparison/); }
+  finally { await rm(dir, { recursive: true, force: true }); }
 });

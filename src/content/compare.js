@@ -1,5 +1,6 @@
 import { builtinChecks, CHECK_VERSION, READABLE_CHECK_VERSIONS, runContentChecks } from '../checks/index.js';
 import { validateContentSnapshot } from './snapshot.js';
+import { hasLineLists, validLineEvidence } from '../checks/builtin/text-difference.js';
 const MAX_FINDINGS = 50;
 const MAX_BYTES = 2 * 1024 * 1024;
 function side(findings) {
@@ -42,6 +43,8 @@ export function validateContentComparison(value) {
       || (item.viewportId !== undefined && (typeof item.viewportId !== 'string' || item.viewportId.length > 2000))
       || !item.evidence || typeof item.evidence !== 'object' || Array.isArray(item.evidence)) fail();
     // JSON cloning removes prototypes. Evidence stays data, never markup.
+    // A text-difference finding that carries line lists must match the documented shape (#281).
+    if (item.checkId === 'text-difference' && hasLineLists(item.evidence) && !validLineEvidence(item.evidence)) fail();
     const bytes = JSON.stringify(item.evidence);
     if (bytes.length > 20000) fail();
     return { ...(item.targetId !== undefined ? { targetId: item.targetId } : {}), ...(item.viewportId !== undefined ? { viewportId: item.viewportId } : {}), artifact: 'content', checkId: item.checkId, severity: item.severity, message: item.message, evidence: JSON.parse(bytes) };

@@ -44,3 +44,16 @@ export function check(value, ctx = {}) {
   };
   return [finding(ctx, id, onlyInA.length || onlyInB.length ? 'The stored page text has lines that exist on one side only.' : 'The stored page text has the same lines in a different order.', evidence)];
 }
+
+// The evidence of a stored comparison is untrusted data. These readers accept the documented shape only.
+const isCount = n => Number.isSafeInteger(n) && n >= 0 && n <= 1_000_000;
+const isLineList = list => Array.isArray(list) && list.length <= MAX_LINES && list.every(line => typeof line === 'string' && line.length <= MAX_LINE_LENGTH);
+// True when the evidence has the lists of this check, false when it has none (a version 1.0.0 finding).
+export const hasLineLists = evidence => evidence !== null && typeof evidence === 'object' && ('onlyInA' in evidence || 'onlyInB' in evidence);
+// The shape a stored finding must have. A list needs at most 20 strings of at most 200 characters, and a count at least as large as its list.
+export const validLineEvidence = e => isLineList(e.onlyInA) && isLineList(e.onlyInB) && isCount(e.onlyInACount) && isCount(e.onlyInBCount)
+  && e.onlyInACount >= e.onlyInA.length && e.onlyInBCount >= e.onlyInB.length
+  && ['sideA', 'sideB'].every(key => e[key] === undefined || typeof e[key] === 'string' && e[key].length <= 200);
+// A copy for an answer: strings only, bounded count and length. Never throws.
+export const safeLines = list => (Array.isArray(list) ? list : []).filter(line => typeof line === 'string').slice(0, MAX_LINES).map(line => line.slice(0, MAX_LINE_LENGTH));
+export const safeCount = (n, fallback = 0) => isCount(n) ? n : fallback;

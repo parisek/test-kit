@@ -3,6 +3,7 @@ import { comparisonDetail } from '../artifacts/schema.js';
 import { dirname, basename, resolve } from 'node:path';
 import { adaptReport } from '../report/model.js';
 import { readSidecar } from '../artifacts/compare.js';
+import { hasLineLists, safeLines, safeCount } from '../checks/builtin/text-difference.js';
 import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -15,12 +16,12 @@ function oneSidedLines(detail, maxLines) {
   let total = 0, names = null;
   for (const item of detail.findings) {
     const e = item.evidence;
-    if (item.checkId !== 'text-difference' || !e || !Array.isArray(e.onlyInA)) continue;
-    names ??= { a: e.sideA ?? null, b: e.sideB ?? null };
+    if (item.checkId !== 'text-difference' || !hasLineLists(e)) continue;
+    names ??= { a: typeof e.sideA === 'string' ? e.sideA.slice(0, 200) : null, b: typeof e.sideB === 'string' ? e.sideB.slice(0, 200) : null };
     for (const side of ['a', 'b']) {
-      const list = e[side === 'a' ? 'onlyInA' : 'onlyInB'], count = e[side === 'a' ? 'onlyInACount' : 'onlyInBCount'];
-      total += Number.isSafeInteger(count) ? count : list.length;
-      for (const text of list) if (typeof text === 'string') all.push({ side, ...(names[side] ? { name: names[side] } : {}), text: text.slice(0, 200) });
+      const list = safeLines(e[side === 'a' ? 'onlyInA' : 'onlyInB']);
+      total += safeCount(e[side === 'a' ? 'onlyInACount' : 'onlyInBCount'], list.length);
+      for (const text of list) all.push({ side, ...(names[side] ? { name: names[side] } : {}), text });
     }
   }
   if (!names) return null;
@@ -83,7 +84,7 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
       const boundedSide = side => { const findings = side.findings.slice(0, remaining); remaining -= findings.length; return { ...side, findings, omitted: side.omitted + side.findings.length - findings.length }; };
       // Lines that exist on one side only come first (#281). They leave the findings, so no line prints twice.
       const oneSided = oneSidedLines(detail, maxLines);
-      const lean = item => item.checkId === 'text-difference' && Array.isArray(item.evidence?.onlyInA) ? { ...item, evidence: Object.fromEntries(Object.entries(item.evidence).filter(([key]) => key !== 'onlyInA' && key !== 'onlyInB')) } : item;
+      const lean = item => item.checkId === 'text-difference' && hasLineLists(item.evidence) ? { ...item, evidence: Object.fromEntries(Object.entries(item.evidence).filter(([key]) => key !== 'onlyInA' && key !== 'onlyInB')) } : item;
       const leanSide = side => ({ ...side, findings: side.findings.map(lean) });
       result.diff = { ...(oneSided ? { oneSided } : {}), ...detail, checks: detail.checks.map(check => ({ ...check, a: leanSide(boundedSide(check.a)), b: leanSide(boundedSide(check.b)) })), findings: detail.findings.slice(0, maxLines).map(lean), findingsOmitted: Math.max(0, detail.findings.length - maxLines) };
     } else result.diff = detail;
