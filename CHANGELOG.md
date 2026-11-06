@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-06
+
+Stable release of 1.1. It holds `1.1.0-rc.3` and the change below. Read the migration notes of the candidates before you update from 1.0.0: `[1.1.0-rc.1]` (report `schemaVersion` 3, behavior version 2), `[1.1.0-rc.2]` (Node 20.19 or newer, status and redirect differences no longer read `match`) and `[1.1.0-rc.3]` (new text of an `incompatible` diagnostic). The owner released it without a pilot on a project.
+
 ### Changed
 
 - The development dependency `lighthouse` moves from 13.5.0 to 13.6.0 (#247). The README names the pinned version. The optional peer range is unchanged.
