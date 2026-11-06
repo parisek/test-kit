@@ -32,7 +32,8 @@ export function sha256(bytes) {
 }
 
 // Provenance of one imported image (R4.6). `importedAt` is an ISO string the caller supplies.
-export function designProvenance({ source, importedAt, bytes }) {
+// `extra` holds the fields only one provider has: `fileKey` and `scale` for `figma`. It never holds a secret.
+export function designProvenance({ source, importedAt, bytes, provider = 'files', extra = {} }) {
   const { width, height } = readPngSize(bytes);
-  return { provider: 'files', source, importedAt, sha256: sha256(bytes), width, height };
+  return { provider, source, ...extra, importedAt, sha256: sha256(bytes), width, height };
 }
