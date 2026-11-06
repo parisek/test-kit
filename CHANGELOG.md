@@ -10,6 +10,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- Overlay parity of lazy-image settlement is defined and tested: a viewport-only capture (`screenshot.fullPage: false`) runs the same sweep as a full-page, element or clip capture (R5.9, #326). The integration check and a unit test cover it. No behavior change and no engine version change. R5.10 states that only `click`, `hover` and `focus` exist until a project needs more.
 - A target with a `selector` now gets the `LAZY_IMAGES_NOT_SWEPT` warning too. It counts the lazy images inside the selected elements, each image once, and `run`, `before` and `after` print the same stderr line as `capture` (R5.11, #329). Stdout stays one JSON line. The count is outside every hash.
 
 ## [1.2.0-rc.1] - 2026-11-06
