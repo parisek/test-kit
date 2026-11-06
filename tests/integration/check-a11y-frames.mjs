@@ -34,6 +34,8 @@ let home;
 const top = await serve(url => (url === '/child' ? child : `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>
 <iframe title="same origin" src="/child"></iframe>
 <iframe title="srcdoc" srcdoc="${srcdoc}"></iframe>
+<iframe title="sandbox srcdoc" sandbox srcdoc="${srcdoc}"></iframe>
+<iframe title="sandbox url" sandbox src="/child"></iframe>
 <iframe title="other origin" src="http://127.0.0.1:${foreignPort}/"></iframe>
 </main></body></html>`));
 home = `http://127.0.0.1:${top.address().port}/`;
@@ -42,12 +44,12 @@ const plan = resolveChecks({ available: [a11yPack], packs: ['a11y'] });
 try {
   const page = await browser.newPage();
   await page.goto(home, { waitUntil: 'load' });
-  assert.equal(page.frames().length, 4, 'the page holds three child frames');
+  assert.equal(page.frames().length, 6, 'the page holds five child frames');
 
   const started = Date.now();
   const artifact = await runAxe(page);
   assert.equal(artifact.status, 'complete');
-  assert.deepEqual(artifact.frames, { injected: 2, unreachable: 1 });
+  assert.deepEqual(artifact.frames, { injected: 2, unreachable: 3 });
   assert.ok(Date.now() - started < 20000, 'the foreign frame does not stall the run');
 
   const result = runChecks(plan, { artifact: 'a11y', value: artifact }, { targetId: 'example-site' });
@@ -59,13 +61,31 @@ try {
   assert.equal(review.length, 1);
   assert.equal(review[0].severity, 'warning');
   assert.equal(review[0].evidence.needsReview, true);
-  assert.equal(review[0].evidence.unreachableFrames, 1);
+  assert.equal(review[0].evidence.unreachableFrames, 3);
   assert.equal(result.state, 'complete');
 
   // Axe never entered the foreign frame, and the run leaves no mark on the page.
   const foreignFrame = page.frames().find(frame => frame.url().includes(`:${foreignPort}`));
   assert.equal(await foreignFrame.evaluate(() => typeof globalThis.axe), 'undefined');
   assert.equal(await page.evaluate(() => document.querySelectorAll('[data-test-kit-axe-skip]').length), 0);
+
+  // Sandboxed frames (opaque origin) got no axe, although their URLs look reachable.
+  for (const frame of page.frames().filter(item => item !== page.mainFrame() && !item.url().includes(`:${foreignPort}`))) {
+    const sandboxed = await frame.evaluate(() => self.origin === 'null');
+    if (sandboxed) assert.equal(await frame.evaluate(() => typeof globalThis.axe), 'undefined', 'a sandboxed frame has no axe');
+  }
+
+  // Race: a frame that navigates to the second origin after classification gets no axe.
+  const racePage = await browser.newPage();
+  await racePage.goto(home, { waitUntil: 'load' });
+  const mover = racePage.frames().find(frame => frame.url().endsWith('/child'));
+  const original = mover.evaluate.bind(mover);
+  mover.evaluate = async (...args) => { await mover.goto(`http://127.0.0.1:${foreignPort}/`); return original(...args); };
+  const raced = await runAxe(racePage);
+  assert.equal(raced.status, 'complete');
+  assert.deepEqual(raced.frames, { injected: 1, unreachable: 4 });
+  mover.evaluate = original;
+  assert.equal(await mover.evaluate(() => typeof globalThis.axe), 'undefined', 'the moved frame has no axe');
 
   // A page with no frame has no frame warning.
   const plain = await browser.newPage();

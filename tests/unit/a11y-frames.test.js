@@ -44,9 +44,10 @@ test('a detached frame, an opaque origin and a bad parent are unreachable', () =
   assert.equal(out.unreachable, 5);
 });
 
-test('a top page with an opaque origin reaches only about:blank frames (setContent)', () => {
+test('a top page with an opaque origin reaches no frame (setContent)', () => {
   const out = classifyFrames('about:blank', [{ url: 'about:blank', parent: -1 }, { url: 'data:text/html,x', parent: -1 }]);
-  assert.deepEqual(out.reachable, [true, false]);
+  assert.deepEqual(out.reachable, [false, false]);
+  assert.equal(out.unreachable, 2);
 });
 
 test('frames beyond the bound count as unreachable', () => {

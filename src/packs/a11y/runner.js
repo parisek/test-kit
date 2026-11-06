@@ -10,7 +10,7 @@
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { reduceAxeResults, gapArtifact } from './axe.js';
-import { classifyFrames } from './frames.js';
+import { classifyFrames, originOf } from './frames.js';
 
 const require = createRequire(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -21,16 +21,24 @@ const FRAME_WAIT_MS = 5000;
 const isPlain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 
 // Gives axe to each frame of the page origin and to about:blank / srcdoc frames below them. Never to another origin (R13.51).
-// A frame that injection fails on counts as unreachable. A frame of another origin is excluded from the run by an attribute on its element.
+// A frame whose own origin differs from the page origin at injection time, or where the injection throws, counts as unreachable. A frame of another origin is excluded from the run by an attribute on its element.
 async function injectFrames(page, source) {
   const children = page.frames().filter(frame => frame !== page.mainFrame());
   const parents = children.map(frame => (frame.parentFrame() === page.mainFrame() ? -1 : children.indexOf(frame.parentFrame())));
-  const plan = classifyFrames(page.url(), children.map((frame, index) => ({ url: frame.url(), parent: parents[index], detached: frame.isDetached() })));
+  const urls = children.map(frame => frame.url());
+  const topOrigin = originOf(page.url());
+  const plan = classifyFrames(page.url(), children.map((frame, index) => ({ url: urls[index], parent: parents[index], detached: frame.isDetached() })));
   const ok = [];
   for (let index = 0; index < children.length; index += 1) {
     let done = false;
     if (plan.reachable[index] && (parents[index] === -1 || ok[parents[index]])) {
-      try { await children[index].evaluate(source); done = true; } catch { done = false; } // sandboxed, navigating or detached
+      // One string evaluation. Its first statement reads the origin of the frame itself, so a frame that navigated after the URL
+      // snapshot, or that has an opaque origin (sandbox without allow-same-origin), throws before axe loads. Any throw means unreachable.
+      try {
+        if (children[index].url() !== urls[index]) throw new Error('TEST_KIT_FRAME_MOVED');
+        await children[index].evaluate(`if (self.origin !== ${JSON.stringify(topOrigin)}) throw new Error('TEST_KIT_FRAME_ORIGIN');\n${source}`);
+        done = true;
+      } catch { done = false; }
     }
     ok.push(done);
   }
