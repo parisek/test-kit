@@ -356,6 +356,46 @@ test('R9.12: record-allowed refuses an oracle target, a relative check, an incom
 	} finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('R9.12: record-allowed --fingerprint selects exactly one finding, and keeps every other refusal', async () => {
+	const dir = await mkdtemp(join(tmpdir(), 'allowlist-fingerprint-'));
+	try {
+		const make = (change) => { const report = pairReport(); report.findings.push(finding(), finding({ id: 'f2', evidenceFingerprint: HASH('b') })); change?.(report); return report; };
+		await assert.rejects(record(dir, await writeReport(dir, make())), /2 findings match.*--fingerprint/, 'The ambiguity error names the option.');
+		const result = await record(dir, await writeReport(dir, make()), { fingerprint: HASH('b') });
+		assert.equal(result.fingerprint, HASH('b'));
+		assert.deepEqual(JSON.parse(await readFile(join(dir, 'test-kit.allowlist.json'), 'utf8')).entries.map((entry) => entry.fingerprint), [HASH('b')]);
+		const refuse = async (change, extra, pattern) => assert.rejects(record(dir, await writeReport(dir, make(change)), { allowlist: join(dir, 'other.json'), ...extra }), pattern);
+		await refuse(null, { fingerprint: 'abc' }, /--fingerprint must be sha256/);
+		await refuse(null, { fingerprint: HASH('a').toUpperCase() }, /--fingerprint must be sha256/);
+		await refuse(null, { fingerprint: '' }, /--fingerprint must be sha256/);
+		await refuse(null, { fingerprint: HASH('c') }, /has this fingerprint/);
+		await refuse(null, { fingerprint: HASH('a'), viewport: 'mobile' }, /has this fingerprint/);
+		await refuse(null, { fingerprint: HASH('a'), target: 'about' }, /Unknown target/);
+		await refuse((report) => { report.entries[0].judge = 'oracle'; }, { fingerprint: HASH('a') }, /oracle/);
+		await refuse(null, { fingerprint: HASH('a'), check: 'text-difference' }, /absolute check only/);
+		await refuse((report) => { report.entries[0].viewports[0].artifacts.content.state = 'missing'; }, { fingerprint: HASH('a') }, /not complete/);
+		await record(dir, await writeReport(dir, make()), { fingerprint: HASH('a'), allowlist: join(dir, 'other.json') });
+		await refuse(null, { fingerprint: HASH('a') }, /already allowlisted/);
+	} finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('R9.12: a lighthouse-budget finding is never explained, and record-allowed refuses it', async () => {
+	const report = pairReport();
+	report.checks['lighthouse-budget'] = { basis: 'absolute', layer: 'project', title: 'Speed budget' };
+	report.findings.push(finding({ id: 'b1', artifact: 'lighthouse', checkId: 'lighthouse-budget', message: 'LCP is over the budget.', evidenceFingerprint: undefined }));
+	const entry = entryRow({ checkId: 'lighthouse-budget' });
+	assert.equal(findingIsExplained(withEntries(report, [entry]), report.findings[0]), false, 'No fingerprint: not explained.');
+	const forged = { ...report, findings: [{ ...report.findings[0], evidenceFingerprint: HASH('a') }], allowlist: [{ ...entry, status: 'active' }] };
+	assert.equal(findingIsExplained(forged, forged.findings[0]), false, 'An active entry cannot explain a budget finding.');
+	const dir = await mkdtemp(join(tmpdir(), 'allowlist-budget-'));
+	try {
+		const path = await writeReport(dir, report);
+		await assert.rejects(record(dir, path, { check: 'lighthouse-budget' }), /speed budget finding takes no allowlist entry.*Change the budget in the config/i);
+		await assert.rejects(record(dir, path, { check: 'lighthouse-budget', fingerprint: HASH('a') }), /speed budget finding takes no allowlist entry/i);
+		assert.deepEqual(await readdir(dir), ['report.json'], 'A refusal writes no allowlist.');
+	} finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('R11.1: summary and query count the entries by status, and only when the report has one', async () => {
 	const report = pairReport();
 	report.findings.push(finding({ evidenceFingerprint: HASH('a') }));
@@ -390,6 +430,8 @@ test('R9.12: the command line has record-allowed, and --allowlist belongs to dif
 		delete args[missing];
 		assert.throws(() => parseCommand(['record-allowed', 'r.json', ...Object.entries(args).flatMap(([key, value]) => [`--${key}`, value])]), /requires target, check, reason, and owner/, missing);
 	}
+	assert.equal(parseCommand(['record-allowed', 'r.json', '--target', 'a', '--check', 'b', '--reason', 'r', '--owner', 'o', '--fingerprint', HASH('a')]).options.fingerprint, HASH('a'));
+	assert.throws(() => parseCommand(['diff', 'a', 'b', '--output', 'o', '--fingerprint', HASH('a')]), /Unknown option/);
 	assert.throws(() => parseCommand(['record-allowed']), /requires 1 positional/);
 	assert.equal(parseCommand(['diff', 'a', 'b', '--output', 'o', '--allowlist', 'x.json']).options.allowlist, 'x.json');
 	assert.equal(parseCommand(['after', '--allowlist', 'x.json']).options.allowlist, 'x.json');
@@ -397,6 +439,7 @@ test('R9.12: the command line has record-allowed, and --allowlist belongs to dif
 	let out = '';
 	await run(['--help'], { out: { write: (text) => { out += text; } }, err: { write() {} } });
 	assert.match(out, /record-allowed REPORT --target ID --check ID/);
+	assert.match(out, /--fingerprint HASH/);
 	assert.match(out, /--allowlist FILE/);
 });
 

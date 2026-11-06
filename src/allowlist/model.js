@@ -89,6 +89,7 @@ export function validateReportAllowlist(list, { catalog, targetIds }, problems) 
 // A finding with no fingerprint is never explained. The check must be an absolute check of the catalog.
 export function isAllowlisted(report, finding) {
 	if (!isHash(finding?.evidenceFingerprint) || !Array.isArray(report?.allowlist)) return false;
+	if (finding.checkId === 'lighthouse-budget') return false; // A budget changes in the config, never in the allowlist.
 	const entry = isPlain(report.checks) && typeof finding.checkId === 'string' && Object.hasOwn(report.checks, finding.checkId) ? report.checks[finding.checkId] : null;
 	if (!isPlain(entry) || entry.basis !== 'absolute') return false;
 	return report.allowlist.some((item) => isPlain(item) && item.status === 'active' && item.checkId === finding.checkId

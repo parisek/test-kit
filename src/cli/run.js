@@ -13,14 +13,14 @@ Usage: test-kit <command> [options]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
   query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|lighthouse|lint|a11y [--max-lines N]
   record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|status|content --cause ID --reason TEXT
-  record-allowed REPORT --target ID --check ID [--viewport ID] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--config FILE] [--allowlist FILE]
+  record-allowed REPORT --target ID --check ID [--viewport ID] [--fingerprint HASH] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--config FILE] [--allowlist FILE]
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
 const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts', 'packs'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'],
-  'record-allowed': ['config', 'target', 'check', 'viewport', 'reason', 'owner', 'expires', 'allowlist'] };
+  'record-allowed': ['config', 'target', 'check', 'viewport', 'fingerprint', 'reason', 'owner', 'expires', 'allowlist'] };
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
 // R4.5: a separate line, so the FLAGS literal above stays easy to merge.
@@ -176,7 +176,7 @@ export async function dispatch({ command, positions, options }, dependencies = {
   }
   if (command === 'record-allowed') {
     const { recordAllowed } = await import('../allowlist/record.js');
-    return { output: await recordAllowed({ reportPath: positions[0], target: options.target, check: options.check, viewport: options.viewport, reason: options.reason, owner: options.owner, expires: options.expires, configPath: options.config, allowlist: options.allowlist }), exitCode: 0 };
+    return { output: await recordAllowed({ reportPath: positions[0], target: options.target, check: options.check, viewport: options.viewport, fingerprint: options.fingerprint, reason: options.reason, owner: options.owner, expires: options.expires, configPath: options.config, allowlist: options.allowlist }), exitCode: 0 };
   }
   if (command === 'record-known') {
     const { recordKnown } = await import('../rules/record.js');
