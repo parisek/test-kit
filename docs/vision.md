@@ -78,7 +78,7 @@ The order is the order of priority. When two principles conflict, the earlier on
 1. **Honest evidence.** Missing, failed and incompatible evidence never becomes a pass. An unmeasured value is `null`, never zero. A skipped check proves nothing (R8.3, R8.7, R7.7).
 2. **One result, two readers.** The viewer and the query interface use the same classification code (R11.6).
 3. **Evidence, not verdict.** The tool measures and reports. It does not gate by default and does not fix (N1, N4). A pixel ratio is a compass.
-4. **Local and untrusted.** Runs stay on the developer machine. Report data is untrusted text. No account, no upload, no hosted service (G5, N3, R10.6).
+4. **Local and untrusted.** Runs stay on the developer machine. Report data is untrusted text. No account, no upload, no hosted service (G5, N3, R10.6). One opt-in exception: the `figma` provider of a design side. A design lives in Figma, and a person would otherwise export every frame by hand. The token comes from the environment only, the network is used only during `import` and only to the Figma API and its image storage, and every comparison reads a local copy (R5.5, owner decision on #288, 2026-11-05).
 5. **Additive and opt-in.** A new artifact or check is a new file. Nothing new runs by default (G3, R5.1).
 6. **The project owns configuration. The package owns the engine.** A project holds targets, settings, its own contracts and thin aliases (R13.1, R13.7).
 7. **Use native tools.** Do not rewrite what Playwright or Lighthouse does well. Link to their own reports.

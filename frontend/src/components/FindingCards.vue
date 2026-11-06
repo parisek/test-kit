@@ -12,7 +12,7 @@ const cause = finding => props.report?.causes?.find(item => item.id === finding.
 const evidence = finding => sameOriginUrl(typeof finding.evidence === 'string' ? finding.evidence : finding.evidence?.src, props.source);
 const reportId = inject('reportId', computed(() => null));
 const page = () => { try { return globalThis.location?.href ?? ''; } catch { return ''; } };
-const actions = finding => decisionActions(finding, { reportId: reportId.value, page: page(), source: props.source, basis: findingBasis(props.report, finding) });
+const actions = finding => decisionActions(finding, { reportId: reportId.value, page: page(), source: props.source, basis: findingBasis(props.report, finding), explained: findingIsExplained(props.report, finding) });
 const where = finding => finding.viewportId ?? (finding.location ? 'Target' : 'All viewports');
 // The viewer cannot run a command. Copying text stores nothing (R5.3, R11.5).
 const copied = ref({});

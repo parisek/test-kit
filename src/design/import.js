@@ -8,6 +8,8 @@ import { gitSha } from '../capture/git.js';
 import { designPathProblem } from './paths.js';
 import { ensureDefaultRunsIgnore } from '../config/store.js';
 import { MAX_DESIGN_BYTES, designProvenance } from './png.js';
+import { downloadFigmaImages, readToken, FigmaError } from './figma.js';
+import { figmaScale } from './figma-ids.js';
 
 export const DESIGN_IMPORT_VERSION = '1.0.0';
 
@@ -33,10 +35,44 @@ export async function readDesignFile(root, source) {
   } finally { await handle.close(); }
 }
 
-// R4.6: import the supplied images of one design side into an immutable run.
-// The work is all-or-nothing: any path or file problem fails the import before a run directory exists.
-// Nothing here opens a browser or a network connection.
-export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports, baseDir }) {
+async function fileImages(root, cells, importedAt) {
+  const images = [];
+  for (const { target, viewport, source } of cells) {
+    const bytes = await readDesignFile(root, source);
+    let provenance;
+    try { provenance = designProvenance({ source, importedAt, bytes }); } catch (error) { throw new Error(`${error.message} (${source})`); }
+    images.push({ target, viewport, bytes, provenance });
+  }
+  return images;
+}
+
+// R5.5: the `figma` provider. The token check comes first, so a missing token makes no request.
+// The scale of an export is the device scale of the viewport, so the image has the width the viewport needs (R8.15).
+async function figmaImages(design, cells, importedAt, env, hooks) {
+  const token = readToken(env);
+  const planned = cells.map(cell => ({ ...cell, scale: figmaScale(cell.viewport) }));
+  let downloaded;
+  try {
+    downloaded = await downloadFigmaImages({ ...hooks, fileKey: design.fileKey, requests: planned.map(cell => ({ nodeId: cell.source, scale: cell.scale })), token });
+  } catch (error) {
+    // Only an error with a known code reaches the caller. Its text was cleaned of the token.
+    if (error instanceof FigmaError) throw error;
+    throw new FigmaError('FIGMA_NETWORK', 'The Figma import failed.');
+  }
+  return planned.map(({ target, viewport, source, scale }) => {
+    const bytes = downloaded.get(`${scale}|${source}`);
+    let provenance;
+    try { provenance = designProvenance({ source, importedAt, bytes, provider: 'figma', extra: { fileKey: design.fileKey, scale } }); } catch (error) { throw new Error(`${error.message} (node ${source})`); }
+    return { target, viewport, bytes, provenance };
+  });
+}
+
+// R4.6: import the images of one design side into an immutable run.
+// The work is all-or-nothing: any path, file, token or request problem fails the import before a run directory exists.
+// Nothing here opens a browser. Only the provider `figma` opens a network connection, and only here (R5.5).
+// `env` and `figma` are test hooks. The command line passes neither, so the token comes from `process.env`
+// and the API base is the fixed Figma host. The configuration cannot set an endpoint.
+export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports, baseDir, env = process.env, figma = {} }) {
   const loaded = await loadConfig(configPath, { baseDir });
   const config = loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
@@ -45,20 +81,16 @@ export async function importDesign({ configPath, side, label = '', runsRoot, tar
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   if (config.targetSource) throw new Error('import reads targets from the configuration only. Remove targetSource or list the targets.');
   const selection = recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
-  const root = resolve(loaded.configDir, design.root);
   const at = new Date();
   const importedAt = at.toISOString();
-  // Read and check every image first.
-  const images = [];
+  const cells = [];
   for (const target of config.targets) for (const viewport of config.viewports) {
     const source = target.design?.[viewport.id];
-    if (source === undefined || !cellSelected(selection, target.id, viewport.id)) continue;
-    const bytes = await readDesignFile(root, source);
-    let provenance;
-    try { provenance = designProvenance({ source, importedAt, bytes }); } catch (error) { throw new Error(`${error.message} (${source})`); }
-    images.push({ target, viewport, bytes, provenance });
+    if (source !== undefined && cellSelected(selection, target.id, viewport.id)) cells.push({ target, viewport, source });
   }
-  if (!images.length) throw new Error('No design image to import. Map a file in target.design for a selected target and viewport.');
+  // Read and check every image first.
+  const images = cells.length ? await (design.provider === 'figma' ? figmaImages(design, cells, importedAt, env, figma) : fileImages(resolve(loaded.configDir, design.root), cells, importedAt)) : [];
+  if (!images.length) throw new Error('No design image to import. Map a file or a node in target.design for a selected target and viewport.');
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const runs = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;
   const runDir = join(runs, id);
