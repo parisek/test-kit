@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveChecks, runChecks } from '../../src/packs/index.js';
 import { a11yPack, reduceAxeResults } from '../../src/packs/a11y/index.js';
-import { classifyFrames, frameIdsByMark, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
+import { classifyFrames, flattenFrameTree, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
 
 const raw = () => JSON.parse(readFileSync(new URL('../fixtures/a11y/axe-result.json', import.meta.url), 'utf8'));
 const run = value => runChecks(resolveChecks({ available: [a11yPack], packs: ['a11y'] }), { artifact: 'a11y', value }, { targetId: 'example-site' });
@@ -115,20 +115,21 @@ test('the warning reads in the singular for one frame', () => {
   assert.match(warn.message, /^1 frame was not checked/);
 });
 
-test('frame IDs come from the marks in the browser DOM tree, through nested documents (R13.51)', () => {
-  const frame = (value, frameId, ...children) => ({ attributes: ['title', 'x', 'data-m', value], frameId, children: [], contentDocument: { children } });
-  const root = { children: [{ children: [frame('0', 'A', frame('1', 'B')), { attributes: ['data-m', '2'], children: [] }, frame('3', 'C')] }] };
-  const ids = frameIdsByMark(root, 'data-m');
-  assert.deepEqual([...ids].sort(), [['0', 'A'], ['1', 'B'], ['3', 'C']]); // a node with no frame ID gives no entry
-  assert.equal(frameIdsByMark(root, 'other').size, 0);
-  assert.equal(frameIdsByMark(null, 'data-m').size, 0);
+test('the browser frame tree flattens in document order, parents first (R13.51)', () => {
+  const node = (id, url, ...childFrames) => ({ frame: { id, url }, childFrames });
+  const flat = flattenFrameTree(node('T', 'http://a.test/', node('A', 'http://a.test/a', node('B', 'about:srcdoc')), node('C', 'about:blank')));
+  assert.deepEqual(flat, [
+    { id: 'A', parent: -1, url: 'http://a.test/a' },
+    { id: 'B', parent: 0, url: 'about:srcdoc' },
+    { id: 'C', parent: -1, url: 'about:blank' }
+  ]);
+  assert.deepEqual(flattenFrameTree(null), []);
+  assert.deepEqual(flattenFrameTree({ childFrames: [{ frame: {} }, 'x'] }).map(item => item.id), [null, null]);
 });
 
-test('a DOM tree beyond the bound throws', () => {
-  let root = { children: [] };
-  const wide = { children: Array.from({ length: 600000 }, () => ({})) };
-  root = wide;
-  assert.throws(() => frameIdsByMark(root, 'x'), /too large/);
+test('a frame tree beyond the bound is cut', () => {
+  const wide = { frame: { id: 'T', url: 'x' }, childFrames: Array.from({ length: 12000 }, (_, index) => ({ frame: { id: String(index), url: 'about:blank' } })) };
+  assert.equal(flattenFrameTree(wide).length, 10000);
 });
 
 test('a failed frame gets its own warning and the counts are validated', () => {

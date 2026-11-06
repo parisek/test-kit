@@ -91,9 +91,9 @@ try {
   assert.equal(manyArtifact.status, 'complete');
   assert.deepEqual(manyArtifact.frames, { injected: 50, unreachable: 5 });
   assert.ok(Date.now() - manyStart < 30000, 'a page with many frames stays bounded');
-  let withAxe = 0;
-  for (const frame of many.frames().filter(item => item !== many.mainFrame())) if (await frame.evaluate(() => typeof globalThis.axe) !== 'undefined') withAxe += 1;
-  assert.equal(withAxe, 50);
+  let withAxe = 0; // axe runs in an isolated world, never in the main world of a frame
+  for (const frame of many.frames()) if (await frame.evaluate(() => typeof globalThis.axe) !== 'undefined') withAxe += 1;
+  assert.equal(withAxe, 0);
 
   // A foreign frame nested in a same-origin frame gets no axe, is counted, and costs no frame wait.
   const nested = await browser.newPage();
@@ -115,17 +115,55 @@ try {
   assert.deepEqual(spoofed.frames, { injected: 0, unreachable: 1 });
   assert.equal(await spoofFrame.evaluate(() => typeof globalThis.axe), 'undefined', 'the spoofing frame has no axe');
 
-  // Race: a frame that navigates to the second origin after classification gets no axe.
-  const racePage = await browser.newPage();
-  await racePage.goto(home, { waitUntil: 'load' });
-  const mover = racePage.frames().find(frame => frame.url().endsWith('/child'));
-  const original = mover.evaluate.bind(mover);
-  mover.evaluate = async (...args) => { await mover.goto(`http://127.0.0.1:${foreignPort}/`); return original(...args); };
-  const raced = await runAxe(racePage);
-  assert.equal(raced.status, 'complete');
-  assert.deepEqual(raced.frames, { injected: 1, unreachable: 4 });
-  mover.evaluate = original;
-  assert.equal(await mover.evaluate(() => typeof globalThis.axe), 'undefined', 'the moved frame has no axe');
+  // Race: the frame navigates to the second origin, or to an opaque document that spoofs its origin, right after the origin check
+  // of the runner and before the evaluation. The isolated world of the old document is gone, so the frame gets no axe.
+  const raceCase = async (label, target, expected) => {
+    const racePage = await browser.newPage();
+    await racePage.goto(home, { waitUntil: 'load' });
+    const mover = racePage.frames().find(frame => frame.url().endsWith('/child'));
+    const context = racePage.context();
+    const real = context.newCDPSession.bind(context);
+    context.newCDPSession = async (...args) => {
+      const session = await real(...args);
+      const send = session.send.bind(session);
+      let moved = false;
+      session.send = async (method, params) => {
+        const out = await send(method, params);
+        if (method === 'Page.createIsolatedWorld' && !moved && mover.url().endsWith('/child')) {
+          moved = true;
+          await mover.evaluate(url => { location.href = url; }, target).catch(() => {});
+          await mover.waitForURL(() => true, { timeout: 5000 }).catch(() => {});
+          await racePage.waitForTimeout(500);
+        }
+        return out;
+      };
+      return session;
+    };
+    const raced = await runAxe(racePage);
+    context.newCDPSession = real;
+    assert.equal(raced.status, 'complete', label);
+    assert.deepEqual(raced.frames, expected, label);
+    assert.ok(!(raced.violations ?? []).some(rule => rule.nodes.some(node => node.selector.includes('frame-no-alt'))), `${label}: the moved frame gives no violation`);
+    await racePage.close();
+  };
+  const spoofDoc = `data:text/html,${encodeURIComponent(`<script>Object.defineProperty(window,'origin',{value:'http://127.0.0.1:${top.address().port}'})</script><img id="frame-no-alt" src="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=">`)}`;
+  await raceCase('navigation to the second origin', `http://127.0.0.1:${foreignPort}/`, { injected: 1, unreachable: 4 });
+  await raceCase('navigation to an opaque spoofing document', spoofDoc, { injected: 1, unreachable: 4 });
+
+  // A page that moves any attribute between frame elements with a MutationObserver cannot make a sandboxed frame look reachable.
+  const watch = await browser.newPage();
+  await watch.addInitScript(() => {
+    new MutationObserver(records => {
+      for (const record of records) if (record.type === 'attributes' && record.target.tagName === 'IFRAME') {
+        const other = [...document.querySelectorAll('iframe')].find(node => node !== record.target);
+        if (other && record.attributeName && record.target.hasAttribute(record.attributeName)) other.setAttribute(record.attributeName, record.target.getAttribute(record.attributeName));
+      }
+    }).observe(document, { attributes: true, subtree: true });
+  });
+  await watch.goto(`${home}spoof`, { waitUntil: 'load' });
+  const watched = await runAxe(watch);
+  assert.equal(watched.status, 'complete');
+  assert.deepEqual(watched.frames, { injected: 0, unreachable: 1 });
 
   // A page with no frame has no frame warning.
   const plain = await browser.newPage();

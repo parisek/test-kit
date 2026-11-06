@@ -2,7 +2,8 @@
 // It decides which frames of a page the runner may give axe to (R13.51, owner decision on #316, 2026-11-06).
 // A frame is reachable when it has the origin of the top page, or when it is `about:blank` or `about:srcdoc` with a reachable parent.
 // A frame of another origin is never reachable. A page with an opaque origin (`setContent`, `data:`) reaches no frame.
-// This is only a pre-filter on a URL snapshot. The runner checks the origin again inside the frame, in the same step as the injection. A detached frame is not reachable.
+// This is only a pre-filter on a URL snapshot. The runner reads the origin again inside an isolated world of the frame, in the same step as the injection.
+// `topUrl` may be an origin text. An opaque origin ('null') reaches no frame.
 // Chosen safety bound, not a measured number.
 export const MAX_FRAMES = 50;
 const INHERITING = new Set(['about:blank', 'about:srcdoc']);
@@ -41,26 +42,21 @@ export function classifyFrames(topUrl, frames) {
   return { reachable, injected, unreachable: frames.length - injected };
 }
 
-const MAX_DOM_NODES = 500000; // chosen safety bound for the walk of an untrusted DOM tree
+const MAX_TREE = 10000; // chosen safety bound for the walk of the browser frame tree
 
-// Pure. Reads the browser's own DOM tree (CDP `DOM.getDocument` with `pierce`) and returns a Map from the value of the mark attribute
-// to the frame ID that the browser gives the iframe element. The runner marks each candidate frame element with its index, so the match is exact
-// and a page cannot change it. An element that the page marked itself with the same attribute name is a different name, because the name is random.
-// A tree beyond the bound throws, and the runner then treats every frame as unreachable.
-export function frameIdsByMark(root, attr) {
-  const ids = new Map();
-  let seen = 0;
-  const stack = [root];
-  while (stack.length) {
-    const node = stack.pop();
-    if (node === null || typeof node !== 'object') continue;
-    if (++seen > MAX_DOM_NODES) throw new Error('The DOM tree is too large.');
-    if (Array.isArray(node.attributes) && typeof node.frameId === 'string') {
-      for (let at = 0; at + 1 < node.attributes.length; at += 2) if (node.attributes[at] === attr) ids.set(node.attributes[at + 1], node.frameId);
-    }
-    for (const child of Array.isArray(node.children) ? node.children : []) stack.push(child);
-    if (node.contentDocument) stack.push(node.contentDocument);
-    for (const child of Array.isArray(node.shadowRoots) ? node.shadowRoots : []) stack.push(child);
+// Pure. Flattens the browser frame tree (CDP `Page.getFrameTree`) below the top frame into a list in document order, parents before children:
+// { id, parent, url }, where `parent` is the index in the list, or -1 for a child of the top frame. It reads at most MAX_TREE frames.
+export function flattenFrameTree(tree) {
+  const frames = [];
+  const stack = [];
+  const push = (node, parent) => { for (const child of (Array.isArray(node?.childFrames) ? node.childFrames : []).slice().reverse()) stack.push({ node: child, parent }); };
+  push(tree, -1);
+  while (stack.length && frames.length < MAX_TREE) {
+    const { node, parent } = stack.pop();
+    const id = node?.frame?.id;
+    const at = frames.length;
+    frames.push({ id: typeof id === 'string' ? id : null, parent, url: typeof node?.frame?.url === 'string' ? node.frame.url : '' });
+    push(node, at);
   }
-  return ids;
+  return frames;
 }
