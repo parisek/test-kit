@@ -1,6 +1,6 @@
 # ADR 0007: How `run.json` records a per-target capture recipe
 
-Status: proposed. The owner decides. The agent does not merge this record. No code or specification change comes with it.
+Status: accepted. The owner chose option A on 2026-11-06 (comment 6679581659 on #49). See "Decision". No code or specification change comes with this record. The first code slice adds the requirement text.
 Requirements: R5.1, R5.4, R8.7, R8.9, R12.4. Tracked in #49. The decision gates #50, #51, #52, #53 and #54 (parent #45), and #294 (`settle.pin`).
 
 ## Context
@@ -151,29 +151,29 @@ Not measured: the size of `recipe` in a real run, and the effect on `run.json` w
 
 ## Requirement text this record would add
 
-This record does not change the specification. If the owner accepts option A, the first slice adds this text (numbers are tentative):
+This record does not change the specification. The owner accepted option A, so the first slice adds this text. The numbers are tentative. #307 takes R5.5 and R8.15 (owner decision on #288), so this record uses the next free numbers:
 
-- R5.5 Each capture entry of a run may carry `recipe`: `{ version, scope, settle }`. `scope` holds the effective `selector` and `box`. `settle` holds the effective settle recipe after the merge of the side, `target.settle` and `target.settleBySide` (R5.4). `version` is an integer that the package raises when a change of capture code alters the pixels for an unchanged declaration. The recipe must not enter the run `settingsHash`. An entry with no `recipe` reads as the default recipe.
-- R8.15 Two captures of one target compare only when their `recipe` values are equal. A pair of captures that differ in `scope`, `settle` or `version` has the state `incompatible` (R8.7, R8.9). The diagnostic names the differing part and shows both stored values. This state does not change the state of another target.
+- R5.6 Each capture entry of a run may carry `recipe`: `{ version, scope, settle }`. `scope` holds the effective `selector` and `box`. `settle` holds the effective settle recipe after the merge of the side, `target.settle` and `target.settleBySide` (R5.4). `version` is one integer for the whole capture engine. The package raises it when a change of capture code alters the pixels for an unchanged declaration. A new run must write `recipe` in each captured entry, also when the recipe is the default. The recipe must not enter the run `settingsHash`. An entry with no `recipe` (a run made before the first slice) reads as the default recipe.
+- R8.16 Two captures of one target compare only when their `recipe` values are equal. A pair of captures that differ in `scope`, `settle` or `version` has the state `incompatible` (R8.7, R8.9). The diagnostic names the differing part and shows both stored values. This state does not change the state of another target.
 
 ## Consequences
 
-If the owner accepts option A:
+With option A:
 
 - `run.json` gains one optional key. `schemaVersion` stays 2. `docs/seam.md` gets a row: stored run, `captures[].recipe`, frozen as an addition.
-- #49 slices 1 to 5, #294 and the siblings #50 to #54 write their keys inside `recipe` and cite this record.
+- #49 slices 1 to 5 and the siblings #50 to #54 write their keys inside `recipe` and cite this record. #294 follows its own record (decision 8).
 - Slice 1 writes `recipe` with `scope.selector` as a list. Its tests must fail without the change (a run with a union records the list, an A/A pair is `complete`, a pair with a different union is `incompatible` for that target only).
 - The viewer and `summary` read the recipe to show the differing part. That work needs `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md`, and follows them.
 
-If the owner rejects it, #49 and its siblings stay blocked until the owner names another option.
+## Decision
 
-## Open questions for the owner
+The owner answered the open questions on 2026-11-06 (comment 6679581659 on #49):
 
-1. Which option: A (recommended), B, C or D?
-2. May a mode version (`recipe.version`) exist at all, or must compatibility stay a pure function of declarations? Without it, a code change that moves pixels reads as a match.
-3. Does a run with no recipe key write `recipe` with default values, or omit it? Writing it gives a uniform record. Omitting it keeps new and old runs equal in shape.
-4. Where does the version number live: one for the whole capture engine, or one for each mode (selector union, content box, lazy images, reveal)? One number is simple. Several numbers make a change in one mode leave the others comparable.
-5. When two captures differ only in `version`, is that `incompatible` (recommended) or a distinct state that the viewer shows as "recapture"?
-6. Does the record keep retries and keep-existing decisions (slice 6) out of the recipe? Do you want them recorded in some other place?
-7. May a recipe differ between viewports of the same target? Option A allows it. Options B and C do not.
-8. Does #294 (`settle.pin`) belong in this record's scope, or does it follow as its own ADR after slices 3 and 4?
+1. Option A: an optional `recipe` object in each `captures[]` entry.
+2. A mode version `recipe.version` exists. Without it, a code change that moves pixels reads as a match.
+3. A new run writes `recipe` with the default values when a target has no own recipe. The record is uniform. An old run with no `recipe` still reads as the default recipe.
+4. One version number for the whole capture engine.
+5. Two captures that differ only in `version` are `incompatible`. No new state.
+6. Retries and keep-existing decisions (slice 6) stay out of the recipe.
+7. A recipe may differ between the viewports of one target.
+8. #294 (`settle.pin`) is outside this record. It gets its own record after slices 3 and 4.
