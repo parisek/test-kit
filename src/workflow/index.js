@@ -69,6 +69,12 @@ export async function refreshViewerAfter(result, dependencies = {}, storePath = 
   }
 }
 
+// True when the path exists, false only when it is missing. A permission or I/O error is not "missing":
+// it propagates, so `after` never tells the user to replace a baseline it merely could not read (#312).
+async function present(path) {
+  try { await lstat(path); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
+
 export async function runWorkflow(command, options = {}, dependencies = {}) {
   return refreshViewerAfter(await executeWorkflow(command, options, dependencies), dependencies);
 }
@@ -82,7 +88,7 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
   if (!offset || offset.startsWith('..') || offset.startsWith('/') || /[\\\x00-\x1f]/.test(offset)) throw new Error('The store must be a subdirectory of the configuration directory.');
   const statePath = join(storePath, 'state.json');
   // A deleted store has no baseline. Say so before ensureStore re-creates it (#312).
-  if (command === 'after' && !(await lstat(statePath).then(() => true, () => false))) throw new Error(NO_BASELINE);
+  if (command === 'after' && !(await present(statePath))) throw new Error(NO_BASELINE);
   await ensureStore(options);
   if (command === 'report') {
     const state = await json(statePath, {});
@@ -134,7 +140,7 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     if (command === 'after' && !profile.before && !Object.keys(state.profiles).length) throw new Error(NO_BASELINE);
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
     // Check the baseline before any capture runs. Any other ENOENT from compare passes through unchanged.
-    if (command === 'after' && !(await lstat(join(storePath, 'runs', String(profile.before), 'run.json')).then(() => true, () => false))) throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`);
+    if (command === 'after' && !(await present(join(storePath, 'runs', String(profile.before), 'run.json')))) throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`);
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
     const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command });

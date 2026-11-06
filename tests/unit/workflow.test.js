@@ -177,3 +177,16 @@ test('after: another ENOENT from compare is not turned into the baseline message
   runWorkflow('after', options, { capture: async () => ({ run: { id: 'a1', state: 'complete' } }), compareRuns: async () => { throw missing; } }),
   error => error === missing && !/baseline run/.test(error.message));
 });
+
+test('after reports a permission error on the baseline as itself, not as a missing baseline (#312)', { skip: process.getuid?.() === 0 ? 'root ignores file modes' : false }, async t => {
+ const { dir, options } = await fixture(t);
+ const ok = { summarizeRunFeedback: async () => ({}), capture: async () => ({ run: { id: 'b1', state: 'complete' } }) };
+ await mkdir(join(dir, 'test-kit', 'runs', 'b1'), { recursive: true });
+ await writeFile(join(dir, 'test-kit', 'runs', 'b1', 'run.json'), '{}');
+ await runWorkflow('before', options, ok);
+ const runDir = join(dir, 'test-kit', 'runs', 'b1');
+ await chmod(runDir, 0o000);
+ try {
+  await assert.rejects(runWorkflow('after', options, { capture: () => assert.fail('no capture') }), error => error.code === 'EACCES' && !/before again/i.test(error.message));
+ } finally { await chmod(runDir, 0o755); }
+});
