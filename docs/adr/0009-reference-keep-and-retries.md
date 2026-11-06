@@ -1,6 +1,6 @@
 # ADR 0009: Reference keep-existing and bounded transient retries
 
-Status: Proposed, not decided. The owner decides (Tier 3: it adds capture options and a stored key, and it touches the honesty of evidence). No code or specification change comes with this record.
+Status: accepted. The owner answered all 12 questions on 2026-11-06 with the recommended options (comment on #315 and on PR #341). See "Decision". No code or specification change comes with this record. The text of R5.13 and R5.14 lands in the specification with the code of slice 6.
 Requirements: R3.6, R3.7, R3.9, R5.1, R5.6, R8.7, R8.9, R8.16, R12.1, R12.4, R13.13. Principles 1, 5 and 8 of the vision. Tracked in #315 (slice 6 of #49, parent #45). Follows ADR 0007, decision 6.
 
 ## Context
@@ -203,7 +203,7 @@ The viewer and `summary` show `warnings` today. A new warning code needs no new 
 
 ## Proposed requirement text
 
-This record does not change the specification. If the owner accepts it, the first slice adds this text. Numbers are proposals.
+This record does not change the specification. The slice adds this text with its code (see "Decision", answer 10 for the stderr line).
 
 - R5.13 `capture` takes the flag `--keep-existing`. Without it nothing changes (R5.1). The flag needs a side with `remote: true`, else the command fails before any run directory or browser exists. With the flag, `capture` must take a cell from an earlier run of the store instead of capturing it, when all of these hold: the earlier run has the state `complete`, the same side id and an equal stored side declaration, the same `settingsHash` and tools, an equal stored declaration of the target, a `captured` entry with every selected artifact `captured`, and a `recipe` equal to the recipe that the new capture would write. The newest eligible run wins. The package copies the stored files to the same relative paths in the new run, and the new entry keeps `recipe`, `settleHash` and `scopeHash` unchanged and adds `kept: { runId, at }`, with `at` the time of the source run. It copies only from a plain relative path inside the source run directory, and it must not follow a symbolic link. A cell with no eligible entry, or whose copy fails, is captured fresh. The entry also gets the warning `REFERENCE_KEPT` with `count` 1 (R5.11). `kept` and the warning enter no hash, not `recipe`, `settleHash`, `scopeHash` or `settingsHash`. A reader accepts `kept` only as an object with exactly the keys `runId` (a valid run id) and `at` (an ISO time), else it ignores the key as a whole. `capture` prints `Kept N of M captures from earlier runs.` on stderr and adds `kept` to the JSON line on stdout only above zero. A run with no `--keep-existing` stores the same bytes as before. The command offers no FORCE: a person captures fresh by omitting the flag.
 - R5.14 `capture` takes the flag `--retries N`, an integer from 0 to 2. Without it, or with 0, nothing changes (R5.1). With N above 0, `capture` must try a failed cell again up to N times, only for a transient error. An error is transient only when it is a Playwright `TimeoutError`, the capture deadline, or a Chromium network error from the list in this record: `ERR_CONNECTION_RESET`, `ERR_CONNECTION_CLOSED`, `ERR_CONNECTION_TIMED_OUT`, `ERR_TIMED_OUT`, `ERR_EMPTY_RESPONSE`, `ERR_NETWORK_CHANGED`. It must never retry `REMOTE_EDGE_STOP` or `RUN_STOPPED` (R3.6), a request-policy block (R3.7, R3.9), a page response with status 4xx, a failure of the content, behavior or pack artifacts, a crash of the browser or the page, or any error when an edge stop, a block or an unexpected navigation is set. Before attempt n + 1 the capture must wait 1000 ms × n. Each attempt uses a fresh context. A cell that succeeds on a retry is stored as a normal `captured` entry with the warning `CAPTURE_RETRIED` and `count` = the retries used (R5.11). A cell that fails on its last attempt is stored as `failed`, its `error.message` states the number of attempts, the run state is `partial` and the exit status is 1 (R8.7). A retry and the flag enter no hash and no `recipe`. A run with no retry stores the same bytes as before.
@@ -220,21 +220,21 @@ If accepted:
 - The slice runs on local synthetic pages only (`example-site`), as #49 states. The refusal on a local side (rule 7) makes the keep tests use a `remote: true` side that points to a local synthetic origin. This is allowed by R3.3, and the slice must show that it works.
 - Not measured: the disk cost of K2, and the run time added by a retry on a real remote origin. Both are estimates until a slice ships.
 
-## Open questions for the owner
-
-1. Keep model. Do you accept K2 (copy with provenance) over K1 (pointer) and K3 (no keep in `capture`)?
-2. Eligibility. Do you accept the seven rules, in particular the equal stored side and target declaration (rules 1 and 3), which go beyond the settings hash?
-3. Which sides may keep? Recommended: `remote: true` only. The other options are any side (a local `after` capture could then read as `match` against changed code) or a per-side opt-in key in the config.
-4. Source runs. Recommended: only runs with state `complete`. Should a `partial` run also supply the cells it captured? That serves a resumed reference harvest, but it conflicts with the spirit of R13.13 ("Partial captures cannot replace a complete baseline").
-5. Retry bound. Recommended: `--retries` from 0 to 2, default 0, with a wait of 1000 ms × the attempt number. What maximum and what wait did the legacy tooling use? The legacy files are not on this machine, so the agent cannot read them.
-6. Is a refused connection (`ERR_CONNECTION_REFUSED`) transient? Recommended: no, because it usually means a stopped server.
-7. Is a 5xx page response transient? Recommended: no. It stays a stored result with its status code.
-8. Should `run`, `before` and `after` pass `--keep-existing` and `--retries` through, or stay out until a project asks? Recommended: stay out for 1.3. `before --side production` is a baseline command, and the interaction of keep with the stored baseline (R13.13) needs its own check.
-9. FORCE. Do you accept F1 (no FORCE in the core, the alias maps it) over F2 (`--force` flag) and F3 (per-target list)?
-10. Visibility. Do you accept the warning pipeline (R5.11) as the only visibility for slice 6, with `REFERENCE_KEPT` and `CAPTURE_RETRIED` as new codes and no new viewer element? Should the stderr line also start with `Warning REFERENCE_KEPT:` and `Warning CAPTURE_RETRIED:`, as it does for `LAZY_IMAGES_NOT_SWEPT`? This record proposes the plain line `Kept N of M captures from earlier runs.` and leaves retries without a stderr line.
-11. Age. Should keep refuse an entry older than a limit (a flag such as `--keep-max-age`)? Recommended: no limit in 1.3. `kept.at` makes the age visible, and a person who wants a fresh reference omits the flag.
-12. Requirement numbers. Do you accept R5.13 and R5.14 as the numbers, and a Tier 3 pull request for the specification text that the owner approves and merges?
-
 ## Decision
 
-None yet. The owner answers the questions above. This record changes to "accepted" with a "Decision" section, as ADR 0007 did, after the answer.
+The owner decided on 2026-11-06 (comment on #315 and PR #341, decision page recorded there). Every answer is the recommended option, with no notes. The questions are closed.
+
+1. K2: the package copies a kept capture into the new run with the provenance `kept: { runId, at }`, outside `recipe` and every hash.
+2. The seven eligibility rules are accepted.
+3. Only `remote: true` sides may keep.
+4. Only `complete` runs may supply a kept capture.
+5. Retries: `--retries` from 0 to 2, default 0, wait of 1000 ms times the attempt number.
+6. `ERR_CONNECTION_REFUSED` is not transient.
+7. A 5xx page response is not transient.
+8. `run`, `before` and `after` do not pass the two flags in 1.3.
+9. F1: the core has no FORCE. The compat alias omits `--keep-existing`.
+10. The warning codes `REFERENCE_KEPT` and `CAPTURE_RETRIED` and the stderr line `Warning <CODE>:` are enough. The slice writes the stderr line for both codes in that form and adds no viewer element. This replaces the plain line `Kept N of M captures from earlier runs.` that the proposed R5.13 text names. The slice adjusts that sentence when it writes the requirement.
+11. No age limit for a kept capture in 1.3.
+12. R5.13 and R5.14 are accepted as the requirement numbers. The agent merges #341 after two reviews and builds slice 6 in 1.3.
+
+This record changes no code and no specification. The proposed requirement text above is the base for R5.13 and R5.14, which land with the code of slice 6. Eligibility rules 1 to 7, the transient allowlist and the never-retried list apply as written in this record.
