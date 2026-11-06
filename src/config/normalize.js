@@ -5,6 +5,7 @@ import { BUILTIN_PACK_IDS } from '../packs/ids.js';
 import { DEFAULT_MOUNT, MAX_COMPONENTS, validMount } from '../styleguide/index.js';
 import { ALLOW_ORIGIN_TYPES } from '../capture/helpers.js';
 import { designPathProblem, designRootProblem } from '../design/paths.js';
+import { fileKeyProblem, nodeIdProblem } from '../design/figma-ids.js';
 import { DEFAULT_RUNS_ROOT } from './store.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
@@ -112,27 +113,36 @@ function freeze(value) {
   return value;
 }
 
-// R5.5: a side of kind `design` holds supplied images. It has no origin and opens no browser or network.
-// Only the provider `files` exists. `root` is a plain relative directory, resolved from the configuration directory.
+// R5.5: a side of kind `design` holds supplied images. It has no origin and opens no browser.
+// Provider `files`: `root` is a plain relative directory, resolved from the configuration directory. No network.
+// Provider `figma`: `fileKey` names the file. The token is never a key here: it comes from the environment (R5.5).
 function normalizeDesignSide(side, name) {
-  object(side, name, ['kind', 'provider', 'root']);
+  object(side, name, ['kind', 'provider', 'root', 'fileKey']);
   if (side.kind !== 'design') fail(`${name}.kind must be "design"`);
-  if (side.provider !== 'files') fail(`${name}.provider must be "files"`);
+  if (!['files', 'figma'].includes(side.provider)) fail(`${name}.provider must be "files" or "figma"`);
+  if (side.provider === 'figma') {
+    if (Object.hasOwn(side, 'root')) fail(`${name}.root is unsupported with the provider "figma"`);
+    const keyProblem = fileKeyProblem(side.fileKey);
+    if (keyProblem) fail(`${name}.fileKey ${keyProblem}`);
+    return { kind: 'design', provider: 'figma', fileKey: side.fileKey };
+  }
+  if (Object.hasOwn(side, 'fileKey')) fail(`${name}.fileKey is unsupported with the provider "files"`);
   const problem = designRootProblem(side.root);
   if (problem) fail(`${name}.root ${problem}`);
   return { kind: 'design', provider: 'files', root: side.root };
 }
 
-// R5.5: the map from viewport ID to a PNG path under the `root` of a design side. Viewport IDs are checked later.
-function normalizeDesignMap(value) {
+// R5.5: the map from viewport ID to a PNG path under the `root` of a `files` side, or to a node ID of a `figma` side.
+// The provider decides the value check. Viewport IDs are checked later.
+function normalizeDesignMap(value, provider) {
   object(value, 'target.design');
   const entries = Object.entries(value);
   if (!entries.length || entries.length > 20) fail('target.design must have 1..20 entries');
-  return Object.fromEntries(entries.map(([viewportId, path]) => {
+  return Object.fromEntries(entries.map(([viewportId, mapped]) => {
     id(viewportId, 'target.design viewport ID');
-    const problem = designPathProblem(path);
+    const problem = provider === 'figma' ? nodeIdProblem(mapped) : designPathProblem(mapped);
     if (problem) fail(`target.design.${viewportId} ${problem}`);
-    return [viewportId, path];
+    return [viewportId, mapped];
   }));
 }
 
@@ -193,6 +203,9 @@ export function normalizeConfig(input) {
       ...(side.production === true ? { production: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
+  // R5.5: one map serves every design side, so all design sides share one provider (paths and node IDs do not mix).
+  const designProviders = [...new Set(Object.values(sides).filter(side => side.kind === 'design').map(side => side.provider))];
+  if (designProviders.length > 1) fail('design sides must all use one provider, because target.design holds paths or node IDs, not both');
   // R13.3: components from the styleguide are an opt-in target source. It replaces the list.
   const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
   if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');
@@ -229,8 +242,8 @@ export function normalizeConfig(input) {
     // A design side holds images, not pages, so it needs no path.
     for (const [sideId, side] of Object.entries(sides)) if (side.kind !== 'design' && !result.path && !(result.paths && Object.hasOwn(result.paths, sideId))) fail(`target ${targetId} has no path for ${sideId}`);
     if (target.design !== undefined) {
-      if (!Object.values(sides).some(side => side.kind === 'design')) fail('target.design needs a side of kind "design"');
-      result.design = normalizeDesignMap(target.design);
+      if (!designProviders.length) fail('target.design needs a side of kind "design"');
+      result.design = normalizeDesignMap(target.design, designProviders[0]);
     }
     return result;
   });
