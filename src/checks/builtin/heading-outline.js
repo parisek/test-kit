@@ -8,7 +8,7 @@ export function check(value, ctx = {}) {
   const h1 = doc.headings.filter(item => item.level === 1), count = h1.length, hiddenCount = h1.filter(item => item.hidden).length;
   if (count !== 1 && !(count === 0 && doc.omitted.headings)) {
     findings.push(hiddenCount
-      ? finding(ctx, id, `The page must have one h1 heading. ${hiddenCount} of ${count} h1 headings are hidden.`, { count, hiddenCount })
+      ? finding(ctx, id, `The page must have one h1 heading. ${hiddenCount} of ${count} h1 headings are hidden.`, { count, hiddenCount, hidden: true })
       : finding(ctx, id, 'The page must have one h1 heading.', { count }));
   }
   let previous = 0;

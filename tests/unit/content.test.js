@@ -29,7 +29,7 @@ test('heading outline names hidden headings and suppresses nothing (R7.5, #83)',
   const skip = findings.find(item => item.evidence.index === 0);
   assert.equal(skip.message, 'The heading outline skips a level. The heading is hidden.'); assert.equal(skip.evidence.hidden, true);
   const count = findings.find(item => item.evidence.count === 2);
-  assert.match(count.message, /1 of 2 h1 headings are hidden/); assert.equal(count.evidence.hiddenCount, 1);
+  assert.match(count.message, /1 of 2 h1 headings are hidden/); assert.equal(count.evidence.hiddenCount, 1); assert.equal(count.evidence.hidden, true);
   const plain = builtinChecks['heading-outline'].check(doc({ headings: [{ level: 2, text: 'First' }] }));
   const plainSkip = plain.find(item => item.evidence.index === 0);
   assert.equal(plainSkip.message, 'The heading outline skips a level.'); assert.equal('hidden' in plainSkip.evidence, false);
