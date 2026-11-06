@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, readdir, rm, mkdir, symlink, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, delimiter } from 'node:path';
+import { join, dirname, delimiter } from 'node:path';
+import { loadConfig } from '../../src/config/index.js';
 import { runWorkflow, selectConfig, loopbackOrigin, resolveStore, ensureStore, parseDdevDescription } from '../../src/workflow/index.js';
 const config = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8000' } }, targets: [{ id: 'home', kind: 'page', path: '/' }, { id: 'contact', kind: 'page', path: '/contact' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }, { id: 'mobile', width: 390, height: 844 }], artifacts: ['screenshot'], checks: [] };
 async function fixture(t) {
@@ -61,7 +62,7 @@ test('DDEV is opt-in and runtime preserves relative source paths', async t => {
  const { dir, options } = await fixture(t);
  const input = { ...config, artifacts: ['behavior'], behavior: { source: 'tests/contracts', projects: { mobile: 'mobile-390', desktop: 'desktop-1280' } } };
  await writeFile(options.config, JSON.stringify(input)); let discovered = 0;
- const dependencies = { summarizeRunFeedback: async () => ({ state: 'complete' }), describe: async () => { discovered++; return { raw: { services: { web: { host_http_url: 'http://127.0.0.1:4567' } } } }; }, loadBehaviorSource: async input => { assert.equal(input.projectRoot, dir); assert.equal(input.directory, 'tests/contracts'); assert.deepEqual(input.enabled, ['menu']); return { fingerprint: 'source-1' }; }, capture: async ({ configPath }) => { assert.equal(join(dir, configPath.split('/').at(-1)), configPath); const loaded = JSON.parse(await readFile(configPath)); assert.equal(loaded.sides.local.origin, 'http://127.0.0.1:4567'); assert.equal(loaded.behavior.source, 'tests/contracts'); return { run: { id: 'single-1', state: 'complete' } }; } };
+ const dependencies = { summarizeRunFeedback: async () => ({ state: 'complete' }), describe: async () => { discovered++; return { raw: { services: { web: { host_http_url: 'http://127.0.0.1:4567' } } } }; }, loadBehaviorSource: async input => { assert.equal(input.projectRoot, dir); assert.equal(input.directory, 'tests/contracts'); assert.deepEqual(input.enabled, ['menu']); return { fingerprint: 'source-1' }; }, capture: async ({ configPath, baseDir }) => { assert.equal(dirname(configPath), join(dir, 'test-kit')); assert.equal(baseDir, dir); const loaded = JSON.parse(await readFile(configPath)); assert.equal(loaded.sides.local.origin, 'http://127.0.0.1:4567'); assert.equal(loaded.behavior.source, 'tests/contracts'); return { run: { id: 'single-1', state: 'complete' } }; } };
  await runWorkflow('run', { ...options, ddev: true, contracts: 'menu' }, dependencies);
  assert.equal(discovered, 1);
 });
@@ -108,4 +109,35 @@ test('report export calls the exporter without starting a server', async t => {
  assert.equal(exported.reportPath, join(dir, 'test-kit/reports/run-1/report.json'));
  assert.equal(result.exitCode, 0);
  assert.equal(result.output.url, undefined);
+});
+
+test('the runtime copy sits inside the store and relative paths still resolve from the project root (#312)', async t => {
+ const { dir, options } = await fixture(t);
+ const input = { ...config, artifacts: ['behavior'], behavior: { source: 'tests/contracts', projects: { mobile: 'mobile-390', desktop: 'desktop-1280' } } };
+ await writeFile(options.config, JSON.stringify(input));
+ let seen;
+ await runWorkflow('run', { ...options, contracts: 'menu' }, {
+  summarizeRunFeedback: async () => ({ state: 'complete' }),
+  loadBehaviorSource: async () => ({ fingerprint: 'source-1' }),
+  capture: async ({ configPath, baseDir }) => {
+   const loaded = await loadConfig(configPath, { baseDir });
+   seen = { runtimeDir: dirname(configPath), configDir: loaded.configDir, runsRoot: loaded.runsRoot, source: loaded.config.behavior.source };
+   return { run: { id: 'single-1', state: 'complete' } };
+  },
+ });
+ assert.equal(seen.runtimeDir, join(dir, 'test-kit'));
+ assert.equal(seen.configDir, dir);
+ assert.equal(seen.runsRoot, join(dir, 'test-kit', 'runs'));
+ assert.equal(seen.source, 'tests/contracts');
+ assert.equal((await readdir(dir)).filter(name => name.includes('runtime')).length, 0);
+ assert.equal((await readdir(join(dir, 'test-kit'))).filter(name => name.includes('runtime')).length, 0);
+});
+test('without baseDir a config copy in the store would resolve from the store (why the option exists)', async t => {
+ const { dir, options } = await fixture(t);
+ await mkdir(join(dir, 'test-kit'));
+ const copy = join(dir, 'test-kit', 'copy.json');
+ await writeFile(copy, JSON.stringify(config));
+ assert.equal((await loadConfig(copy)).configDir, join(dir, 'test-kit'));
+ assert.equal((await loadConfig(copy, { baseDir: dir })).configDir, dir);
+ assert.equal((await loadConfig(copy, { baseDir: dir })).runsRoot, join(dir, 'test-kit', 'runs'));
 });

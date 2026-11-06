@@ -318,8 +318,8 @@ async function readStyleguideTargets(tool, config, side) {
   } finally { await context.dispose().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false }) {
-  const loaded = await loadConfig(configPath);
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false, baseDir }) {
+  const loaded = await loadConfig(configPath, { baseDir });
   let config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   if (config.sides[side].kind === 'design') throw new Error(`Side ${side} is a design side. Use import, not capture.`);

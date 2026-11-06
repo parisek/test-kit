@@ -50,7 +50,7 @@ async function gitSha(directory) {
 }
 
 export async function runPerfCommand(options = {}) {
-  const loaded = await loadConfig(options.configPath ?? 'test-kit.config.json');
+  const loaded = await loadConfig(options.configPath ?? 'test-kit.config.json', { baseDir: options.baseDir });
   const plan = planPerfCommand(loaded.config, options);
   for (const flag of ['consent', 'allowHighLoad', 'failOnBudget']) {
     if (options[flag] !== undefined && typeof options[flag] !== 'boolean') throw new Error(`Performance ${flag} must be boolean.`);

@@ -84,7 +84,8 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
   }
   const lock = join(storePath, 'lock');
   try { await mkdir(lock); } catch (error) { if (error.code === 'EEXIST') throw new Error('A workflow already owns this store. Remove its lock only after the process stops.'); throw error; }
-  const runtime = join(configDir, `.test-kit.runtime-${randomUUID()}.json`);
+  // The runtime copy lives in the store, so the project root stays free of stray files (#312).
+  const runtime = join(storePath, `.runtime-${randomUUID()}.json`);
   try {
     let config = selectConfig(await json(configPath), options);
     const side = options.side ?? 'local';
@@ -112,7 +113,7 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
-    const result = await capture({ configPath: runtime, side, label: options.label ?? command });
+    const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command });
     const run = result.run;
     const output = { id: run.id, state: run.state, manifestPath: result.manifestPath, storePath, scope };
     const exitCode = run.state === 'complete' ? 0 : 1;

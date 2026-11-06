@@ -14,9 +14,9 @@ export async function runProjectPerformance(options, budgets) {
     config.sides[options.side].origin = loopbackOrigin(await describeDdev(directory));
   }
   config.runsRoot = relative(directory, store).split('\\').join('/') + '/runs';
-  const runtime = join(directory, `.test-kit.runtime-${randomUUID()}.json`);
+  const runtime = join(store, `.runtime-${randomUUID()}.json`);
   try {
     await writeFile(runtime, JSON.stringify(config), { flag: 'wx', mode: 0o600 });
-    return await runPerfCommand({ configPath: runtime, side: options.side, targetIds: options.path ? ['custom-page'] : options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false });
+    return await runPerfCommand({ configPath: runtime, baseDir: directory, side: options.side, targetIds: options.path ? ['custom-page'] : options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false });
   } finally { await rm(runtime, { force: true }); }
 }

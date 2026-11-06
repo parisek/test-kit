@@ -35,8 +35,8 @@ export async function readDesignFile(root, source) {
 // R4.6: import the supplied images of one design side into an immutable run.
 // The work is all-or-nothing: any path or file problem fails the import before a run directory exists.
 // Nothing here opens a browser or a network connection.
-export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports }) {
-  const loaded = await loadConfig(configPath);
+export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports, baseDir }) {
+  const loaded = await loadConfig(configPath, { baseDir });
   const config = loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   const design = config.sides[side];
