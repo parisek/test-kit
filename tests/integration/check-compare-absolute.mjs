@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { compareRuns } from '../../src/compare/runs.js';
 
 // Two content-only runs on disk, no browser. Side B has an empty title and a changed text. All data uses example-site.
-const snapshot = (title, text) => ({ schemaVersion: 1, extractorVersion: '1.0.0', source: 'settled-dom', title, lang: 'en', text,
+const snapshot = (title, text) => ({ schemaVersion: 1, extractorVersion: '1.1.0', source: 'settled-dom', title, lang: 'en', text,
 	headings: [{ level: 1, text: 'Example site' }], images: [], links: [], omitted: { headings: 0, images: 0, links: 0, text: false } });
 async function writeRun(root, id, snap) {
 	const settings = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:1' } }, targets: [{ id: 'home', kind: 'page', path: '/' }],

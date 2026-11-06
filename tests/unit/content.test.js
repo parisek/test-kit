@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateContentSnapshot } from '../../src/content/snapshot.js';
 import { builtinChecks, runContentChecks } from '../../src/checks/index.js';
-const doc = (changes = {}) => ({ schemaVersion: 1, extractorVersion: '1.0.0', source: 'settled-dom', title: 'Example site', lang: 'en', text: 'Hello', headings: [{ level: 1, text: 'Hello' }], images: [], links: [], omitted: { headings: 0, images: 0, links: 0, text: false }, ...changes });
+const doc = (changes = {}) => ({ schemaVersion: 1, extractorVersion: '1.1.0', source: 'settled-dom', title: 'Example site', lang: 'en', text: 'Hello', headings: [{ level: 1, text: 'Hello' }], images: [], links: [], omitted: { headings: 0, images: 0, links: 0, text: false }, ...changes });
 test('content snapshot rejects incompatible extractors, unbounded data and unsafe link paths', () => {
-  for (const value of [doc({ extractorVersion: '2.0.0' }), doc({ text: 'x'.repeat(100001) }), doc({ headings: Array(1001).fill({ level: 1, text: '' }) }), doc({ links: [{ path: '//example.invalid', text: '' }] }), doc({ links: [{ path: '/a\n', text: '' }] }), doc({ omitted: { headings: -1, images: 0, links: 0, text: false } })]) assert.throws(() => validateContentSnapshot(value));
+  for (const value of [doc({ extractorVersion: '2.0.0' }), doc({ extractorVersion: '1.0.0' }), doc({ headings: [{ level: 1, text: 'x', hidden: false }] }), doc({ text: 'x'.repeat(100001) }), doc({ headings: Array(1001).fill({ level: 1, text: '' }) }), doc({ links: [{ path: '//example.invalid', text: '' }] }), doc({ links: [{ path: '/a\n', text: '' }] }), doc({ omitted: { headings: -1, images: 0, links: 0, text: false } })]) assert.throws(() => validateContentSnapshot(value));
   const source = doc({ title: '<script>alert(1)</script>' });
   const result = validateContentSnapshot(source); source.headings[0].text = 'mutated';
   assert.equal(result.title, '<script>alert(1)</script>'); assert.equal(result.headings[0].text, 'Hello');
@@ -21,6 +21,18 @@ test('heading outline checks one h1 and skipped levels while marking omissions',
   assert.equal(findings.length, 3); assert.equal(findings[0].targetId, 'example-site'); assert.equal(findings[0].viewportId, 'mobile');
   const incomplete = builtinChecks['heading-outline'].check(doc({ headings: [], omitted: { headings: 2, images: 0, links: 0, text: false } }));
   assert.equal(incomplete.length, 1); assert.equal(incomplete[0].evidence.state, 'incomplete');
+});
+test('heading outline names hidden headings and suppresses nothing (R7.5, #83)', () => {
+  const stored = validateContentSnapshot(doc({ headings: [{ level: 3, text: 'Menu', hidden: true }, { level: 1, text: 'Hello' }, { level: 1, text: 'Again', hidden: true }] }));
+  assert.equal(stored.headings[0].hidden, true); assert.equal('hidden' in stored.headings[1], false);
+  const findings = builtinChecks['heading-outline'].check(stored);
+  const skip = findings.find(item => item.evidence.index === 0);
+  assert.equal(skip.message, 'The heading outline skips a level. The heading is hidden.'); assert.equal(skip.evidence.hidden, true);
+  const count = findings.find(item => item.evidence.count === 2);
+  assert.match(count.message, /1 of 2 h1 headings are hidden/); assert.equal(count.evidence.hiddenCount, 1); assert.equal(count.evidence.hidden, true);
+  const plain = builtinChecks['heading-outline'].check(doc({ headings: [{ level: 2, text: 'First' }] }));
+  const plainSkip = plain.find(item => item.evidence.index === 0);
+  assert.equal(plainSkip.message, 'The heading outline skips a level.'); assert.equal('hidden' in plainSkip.evidence, false);
 });
 test('language is declared metadata, never guessed or silently passed without expectation', () => {
   assert.deepEqual(builtinChecks.lang.check(doc(), { expectedLanguage: 'EN' }), []);

@@ -9,7 +9,7 @@ import { safeLines, safeCount, validLineEvidence } from '../../src/checks/builti
 import { summarizeReport } from '../../src/query/summary.js';
 import { queryArtifact } from '../../src/query/artifact.js';
 
-const doc = (text) => ({ schemaVersion: 1, extractorVersion: '1.0.0', source: 'settled-dom', title: 'Example', lang: 'en', text, headings: [{ level: 1, text: 'Hello' }], images: [], links: [], omitted: { headings: 0, images: 0, links: 0, text: false } });
+const doc = (text) => ({ schemaVersion: 1, extractorVersion: '1.1.0', source: 'settled-dom', title: 'Example', lang: 'en', text, headings: [{ level: 1, text: 'Hello' }], images: [], links: [], omitted: { headings: 0, images: 0, links: 0, text: false } });
 const check = builtinChecks['text-difference'].check;
 const nav = 'Home\nProducts\nContact';
 const footer = 'Terms\nPrivacy';

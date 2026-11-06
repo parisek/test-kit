@@ -4,6 +4,14 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- A side of kind `design` with the provider `files` holds supplied PNG images. `test-kit import --side <id>` imports the files that `target.design` maps (viewport ID to a path under the side `root`) into an immutable run, with the provider, source path, import time, sha256 and size of each image. `diff` compares that run with a captured run as a `convergence` pair. A viewport with no mapped file is `missing`, never `match`. An image whose width is not the viewport width times the device scale is `incompatible`, and the diagnostic names both sizes. A path must stay inside `root`: `..`, an absolute path and a symlink escape fail the import before a run exists. No network is used. A configuration without a design side changes nothing. The owner confirmed the command, the config keys and the run field on 2026-11-06 (R4.6, R5.5, R8.15, #288). The `figma` provider is not built.
+
+### Changed
+
+- The content extractor stores `hidden: true` on each hidden heading, and the `heading-outline` message names hidden headings. The finding set stays the full DOM outline, so nothing is suppressed (R7.5, #83). The extractor version rises to `1.1.0` (R7.4). A content snapshot from an earlier extractor is refused, so capture the content again before you compare.
+
 ## [1.1.0] - 2026-11-06
 
 Stable release of 1.1. It holds `1.1.0-rc.3` and the change below. Read the migration notes of the candidates before you update from 1.0.0: `[1.1.0-rc.1]` (report `schemaVersion` 3, behavior version 2), `[1.1.0-rc.2]` (Node 20.19 or newer, status and redirect differences no longer read `match`) and `[1.1.0-rc.3]` (new text of an `incompatible` diagnostic). The owner released it without a pilot on a project.
@@ -18,7 +26,6 @@ Third release candidate for 1.1.0. It is not a stable release. `package.json` st
 
 ### Added
 
-- A side of kind `design` with the provider `files` holds supplied PNG images. `test-kit import --side <id>` imports the files that `target.design` maps (viewport ID to a path under the side `root`) into an immutable run, with the provider, source path, import time, sha256 and size of each image. `diff` compares that run with a captured run as a `convergence` pair. A viewport with no mapped file is `missing`, never `match`. An image whose width is not the viewport width times the device scale is `incompatible`, and the diagnostic names both sizes. A path must stay inside `root`: `..`, an absolute path and a symlink escape fail the import before a run exists. No network is used. A configuration without a design side changes nothing. The owner confirmed the command, the config keys and the run field on 2026-11-06 (R4.6, R5.5, R8.15, #288). The `figma` provider is not built.
 - `targetSource` takes two opt-in booleans, `variants` and `pages` (R13.52, #94). `variants: true` makes one `component` target for each `styleguide.<variant>.twig` of an entry: ID `<component>--<variant>`, path `<mount>/render/component/<id>?canvas&variant=<variant>`. `pages: true` reads `<mount>/api/pages` and makes one `page` target for each page: ID `page--<id>`, path `<mount>/render/page/<id>?canvas`, variants as `page--<id>--<variant>`. `include` now names target IDs, and a component ID also selects its variants. A page with `has_styleguide: false` is listed as no fixture, like a component. Without the keys nothing changes.
 - An `incompatible` row names each differing capture setting and both values, for example `settle.lazyImages (A: false, B: true)` (R8.9, #279). The README has a section "Lazy images and reveal", and the template config has two sides with one `settle` recipe.
 - A side, local or remote, may set `thirdParty` to `"drop"` or `"block"` (R3.10, #252). `"drop"` makes a local side abort a GET or HEAD frame or subresource of another origin and keep the capture, as a remote side does. Both sides record the aborted request in `dropped`. The value enters the capture settings hash, and a pair with different values is incompatible. A top-level navigation and every non-read request still fail. Unset keeps today's behavior.
