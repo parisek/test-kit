@@ -46,29 +46,40 @@ const MAX_TREE = 10000; // chosen safety bound for the walk of the browser frame
 
 // Pure. Flattens the browser frame tree (CDP `Page.getFrameTree`) below the top frame into a list in document order, parents before children:
 // { id, parent, url }, where `parent` is the index in the list, or -1 for a child of the top frame. It lists at most MAX_TREE frames.
-// Returns { frames, dropped }. `dropped` counts the frames beyond the bound, so the caller can count them as unreachable.
+// Returns { frames, dropped, ids }. `dropped` counts the frames beyond the bound, so the caller can count them as unreachable.
+// `ids` holds the frame id of every frame in the tree, listed or dropped, up to MAX_IDS; it is null when the tree holds more.
+const MAX_IDS = 100000;
 export function flattenFrameTree(tree) {
   const frames = [];
   let dropped = 0;
+  let ids = new Set();
+  let noId = 0;
   const stack = [];
   const push = (node, parent) => { for (const child of (Array.isArray(node?.childFrames) ? node.childFrames : []).slice().reverse()) stack.push({ node: child, parent }); };
   push(tree, -1);
   while (stack.length) {
     const { node, parent } = stack.pop();
+    if (ids) { if (typeof node?.frame?.id === 'string') ids.add(node.frame.id); else noId += 1; if (ids.size + noId > MAX_IDS) ids = null; }
     if (frames.length >= MAX_TREE) { dropped += 1; push(node, -1); continue; } // counted, not listed
     const id = node?.frame?.id;
     const at = frames.length;
     frames.push({ id: typeof id === 'string' ? id : null, parent, url: typeof node?.frame?.url === 'string' ? node.frame.url : '' });
     push(node, at);
   }
-  return { frames, dropped };
+  return { frames, dropped, ids: ids ? { set: ids, noId } : null };
 }
 
 // Pure. The frames of the second tree read that the first read did not hold, counted by frame id, so a frame added while another
-// one went away still counts. A frame with no id counts as new. Frames past the bound in the second read count when there are more than before.
+// one went away still counts. A frame with no id counts as new.
+// The comparison uses the ids of the whole tree, listed and dropped, so a frame pushed past the bound is not counted twice.
+// When a tree is too large for its ids, the count falls back to the growth of the total.
 export function addedFrames(before, after) {
-  const known = new Set(before.frames.map(frame => frame.id).filter(Boolean));
-  return after.frames.filter(frame => !frame.id || !known.has(frame.id)).length + Math.max(0, after.dropped - before.dropped);
+  if (before.ids && after.ids) {
+    let added = after.ids.noId;
+    for (const id of after.ids.set) if (!before.ids.set.has(id)) added += 1;
+    return added;
+  }
+  return Math.max(0, after.frames.length + after.dropped - before.frames.length - before.dropped);
 }
 
 // Pure. True when a frame error means that the frame is gone or refused the gate: the origin gate, a lost or destroyed world (a navigation),

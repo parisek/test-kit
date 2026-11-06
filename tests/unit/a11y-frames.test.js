@@ -123,7 +123,7 @@ test('the browser frame tree flattens in document order, parents first (R13.51)'
     { id: 'B', parent: 0, url: 'about:srcdoc' },
     { id: 'C', parent: -1, url: 'about:blank' }
   ]);
-  assert.deepEqual(flattenFrameTree(null), { frames: [], dropped: 0 });
+  { const empty = flattenFrameTree(null); assert.deepEqual([empty.frames, empty.dropped, empty.ids.set.size, empty.ids.noId], [[], 0, 0, 0]); }
   assert.deepEqual(flattenFrameTree({ childFrames: [{ frame: {} }, 'x'] }).frames.map(item => item.id), [null, null]);
 });
 
@@ -157,9 +157,20 @@ test('a frame lost to a gate or a navigation is unreachable, any other break is 
   for (const message of ['axe did not load.', 'No axe rule has the tag x.', 'violations has a bad rule.', undefined]) assert.equal(isLostFrameError(message), false, String(message));
 });
 
-test('addedFrames counts by frame id, so a replaced frame at an unchanged total still counts', () => {
-  const before = { frames: [{ id: 'a' }, { id: 'b' }], dropped: 0 };
-  assert.equal(addedFrames(before, { frames: [{ id: 'a' }, { id: 'c' }], dropped: 0 }), 1);
-  assert.equal(addedFrames(before, { frames: [{ id: 'a' }], dropped: 0 }), 0);
-  assert.equal(addedFrames(before, { frames: [{ id: 'a' }, { id: 'b' }, { id: null }], dropped: 2 }), 3);
+test('addedFrames counts by frame id across the whole tree, also at the 10000 bound', () => {
+  const tree = ids => ({ childFrames: ids.map(id => ({ frame: { id, url: 'about:blank' } })) });
+  const many = n => Array.from({ length: n }, (_, i) => `f${i}`);
+  const before = flattenFrameTree(tree(['a', 'b']));
+  assert.equal(addedFrames(before, flattenFrameTree(tree(['a', 'c']))), 1); // replaced at an unchanged total
+  assert.equal(addedFrames(before, flattenFrameTree(tree(['a']))), 0);
+  assert.equal(addedFrames(before, flattenFrameTree({ childFrames: [...tree(['a', 'b']).childFrames, { frame: { url: 'about:blank' } }] })), 1); // no id counts as new
+  // At the bound: one new frame pushes an old one into the dropped tail, and still counts once.
+  const full = many(10000);
+  const atBound = flattenFrameTree(tree(full));
+  assert.equal(atBound.dropped, 0);
+  const oneMore = flattenFrameTree(tree(['new', ...full]));
+  assert.equal(oneMore.dropped, 1);
+  assert.equal(addedFrames(atBound, oneMore), 1);
+  // A frame removed from the listed part lets a dropped one in; nothing was added.
+  assert.equal(addedFrames(oneMore, flattenFrameTree(tree(full))), 0);
 });

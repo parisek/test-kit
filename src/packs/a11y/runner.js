@@ -70,7 +70,8 @@ async function runWorlds(page, source, tags, stopped) {
     const topContext = await createWorld(cdp, frameTree.frame.id);
     const topOrigin = await evaluateIn(cdp, topContext, 'self.origin');
     let merged = await evaluateIn(cdp, topContext, worldCode(null, source, tags));
-    const { frames: children, dropped } = flattenFrameTree(frameTree);
+    const first = flattenFrameTree(frameTree);
+    const { frames: children, dropped } = first;
     // A URL pre-filter and the bound. The origin of each frame is then read in its own isolated world, just before axe runs there.
     const plan = classifyFrames(topOrigin, children.map(child => ({ url: child.url, parent: child.parent, detached: child.id === null })));
     const contexts = [];
@@ -103,7 +104,7 @@ async function runWorlds(page, source, tags, stopped) {
     let added = 0;
     try {
       const again = flattenFrameTree((await cdp.send('Page.getFrameTree')).frameTree);
-      added = addedFrames({ frames: children, dropped }, again);
+      added = addedFrames(first, again);
     } catch { added = 0; }
     return { merged, frames: { injected, unreachable: children.length + dropped + added - injected - failed, failed } };
   } finally {
