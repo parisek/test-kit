@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- The viewer shows capture warnings (R5.11, #329). The report header line gets a last sentence, "Capture warnings: LAZY_IMAGES_NOT_SWEPT in 3 cells (12 in all).", and each cell shows "A: LAZY_IMAGES_NOT_SWEPT (7) · B: none" in the Overview matrix and on Evidence. The numbers equal the `captureWarnings` of `summary`. A warning adds no badge, no filter and no class.
 - `record-allowed --fingerprint HASH` selects the one finding with this `evidenceFingerprint` when several match. It refuses a value that is not a hash and a value that matches no finding. The error for several matches names the option (R9.12, #331).
 - `record-allowed` refuses the check `lighthouse-budget`. A budget finding has no fingerprint, stays `unexplained`, and a budget changes in the config. The rule is now in R9.8 and R9.12 (owner decision, #331).
 

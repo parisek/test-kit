@@ -73,3 +73,22 @@ export function warningLine(run) {
 	}
 	return cells ? `Warning ${LAZY_IMAGES_NOT_SWEPT}: ${cells} ${cells === 1 ? 'capture holds' : 'captures hold'} lazy images that did not load (${images} in all). Set settle.lazyImages to true to load them.` : null;
 }
+
+// The header sentence of the viewer (DESIGN.md "Scope line", #329). It takes the list of `warningTotals`, the same
+// list `summary` returns as `captureWarnings`, so both show the same numbers. No warning gives an empty string.
+export const WARNING_LINE_CODES = 5;
+export function captureWarningsSentence(totals) {
+	if (!totals.length) return '';
+	const shown = totals.slice(0, WARNING_LINE_CODES).map((item) => `${item.code} in ${item.cells} ${item.cells === 1 ? 'cell' : 'cells'} (${item.count} in all)`);
+	const more = totals.length - shown.length;
+	return `Capture warnings: ${shown.join('; ')}${more > 0 ? ` and ${more} more ${more === 1 ? 'code' : 'codes'}` : ''}.`;
+}
+
+// The detail of one cell: "A: LAZY_IMAGES_NOT_SWEPT (7) · B: none". Null when neither side holds a valid warning.
+// The row is untrusted, so each side goes through the same check as the totals.
+export function cellWarningsText(row) {
+	const warnings = row?.warnings && typeof row.warnings === 'object' ? row.warnings : {};
+	const sides = ['a', 'b'].map((side) => sanitizeWarnings(warnings[side]));
+	if (!sides.some((list) => list.length)) return null;
+	return sides.map((list, index) => `${'AB'[index]}: ${list.length ? list.map((item) => `${item.code} (${item.count})`).join(', ') : 'none'}`).join(' · ');
+}
