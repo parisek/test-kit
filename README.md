@@ -27,11 +27,11 @@ One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
-Runs go to `test-kit/runs/` by default. The store `test-kit/` is the one folder of test-kit output. Deleting it costs only the current baseline. A new store gets a `.gitignore` with `*`. Git-ignored is not deploy-excluded: the store holds page captures, so exclude `test-kit/` from every deploy (for example an rsync exclude). Set `runsRoot` to use another path.
+Runs go to `test-kit/runs/` by default. The store `test-kit/` is the one folder of test-kit output. Deleting it costs only the current baseline. A store without a `.gitignore` gets one with `*`. Git-ignored is not deploy-excluded: the store holds page captures, so exclude `test-kit/` from every deploy (for example an rsync exclude). Set `runsRoot` to use another path.
 
 Up to 1.1 the default store was `.test-kit/`. A command that finds one beside the configuration prints one line on stderr. Delete it by hand. test-kit never reads, moves or deletes it.
 
-An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`, `history` and project `perf` (`--store .test-kit`). An explicit `runsRoot` keeps working for `capture`, `import`, `diff` and plain `perf`. Replace `.test-kit/` with `test-kit/` in the project `.gitignore` and in any deploy or rsync exclude list.
+An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`, `history` and project `perf` (`--store .test-kit`). An explicit `runsRoot` keeps working for `capture`, `import`, `diff` and plain `perf`. A project that keeps the old store with `--store .test-kit` must also set `"runsRoot": ".test-kit/runs"` in its configuration. Without it, `capture`, `diff` and plain `perf` use `test-kit/runs` and the stores split. Replace `.test-kit/` with `test-kit/` in the project `.gitignore` and in any deploy or rsync exclude list.
 
 ```json
 {
@@ -234,6 +234,8 @@ A static host can mount the directory at `/` or at a nested URL prefix.
 No hosting, authentication, retention, or deletion is configured by this command.
 Ignore the export directory in the consuming project.
 
+The exports under `test-kit/export/` hold HTML evidence. A local static server serves it as active content. Open the exports only on a local site. Never deploy the folder.
+
 Raw page HTML and Lighthouse HTML use generated text filenames. They cannot
 execute as HTML under normal static MIME handling. Open a downloaded Lighthouse
 report locally if you need its interactive native interface. Exported evidence
@@ -241,15 +243,15 @@ links point to the safe text copies. The source evidence stays unchanged.
 
 ### The store viewer
 
-The workflow commands `run`, `before`, `after`, `report` and project `perf` refresh a static viewer at the store root. The low-level commands `capture`, `import`, `diff` and plain `perf` do not. No flag is needed (R10.16, #312). The store then holds `index.html`, `app.js`, `style.css`, `favicon.svg` and `index.json` beside `runs/` and `reports/`. Serve the store from any static server and open it:
+The workflow commands `run`, `before`, `after`, `report` and project `perf` refresh a static viewer at the store root. So do `capture`, `import` and plain `perf`, when they write the default store. `diff` does not. No flag is needed (R10.16, #312). The store then holds `index.html`, `app.js`, `style.css`, `favicon.svg` and `index.json` beside `runs/` and `reports/`. Serve the store from any static server and open it:
 
 ```sh
 cd test-kit && python3 -m http.server --bind 127.0.0.1 8080
 ```
 
-The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. It copies nothing. Each file is written as a temp file plus a rename, so there is no folder swap and no lock folder. Deleting the store loses the viewer. The next command writes it again.
+The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. It copies nothing. Each file is written as a temp file plus a rename, so there is no folder swap and no lock folder. Deleting the store loses the viewer. The next command writes it again. The first refresh writes a marker `.test-kit-viewer`. A store that holds a viewer file name (`index.html`, `app.js`, `style.css`, `favicon.svg`, `index.json`) and no marker is left untouched, and the refresh prints a warning.
 
-A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server.
+A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server. The store is web-reachable when the theme folder is under the local document root. It holds page captures and, while a command runs, a 0600 copy of the configuration.
 
 ### Publish a stable directory
 
