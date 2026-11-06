@@ -88,7 +88,7 @@ test('a pair with different thirdParty values is incompatible and the diagnostic
   const mixed = normalizeConfig(input({}, { thirdParty: 'drop' }));
   const captured = { state: 'captured' };
   assert.equal(comparisonState(captured, captured, run(mixed, 'local'), run(mixed, 'production')), 'incompatible');
-  assert.match(incompatibleDiagnostic(run(mixed, 'local'), run(mixed, 'production')), /thirdParty is not the same/);
+  assert.match(incompatibleDiagnostic(run(mixed, 'local'), run(mixed, 'production')), /thirdParty \(A: "drop", B: unset\)/);
   const even = normalizeConfig(input({ thirdParty: 'drop' }, { thirdParty: 'drop' }));
   assert.equal(comparisonState(captured, captured, run(even, 'local'), run(even, 'production')), 'complete');
 });
