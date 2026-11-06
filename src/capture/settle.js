@@ -74,3 +74,12 @@ export async function settlePage({ page, recipe, active = () => true }) {
   check();
   } finally { if (guarded) page.off('request', onRequest); }
 }
+
+// R5.11: the count of visible lazy images that are not loaded. Read only: it changes nothing on the page.
+// A read that fails gives 0, so a warning never fails a capture.
+export async function countUnloadedLazyImages(page) {
+  try {
+    const count = await page.evaluate(() => [...document.images].filter(image => image.loading === 'lazy' && !image.complete && image.getClientRects().length > 0).length);
+    return Number.isSafeInteger(count) && count > 0 ? count : 0;
+  } catch { return 0; }
+}

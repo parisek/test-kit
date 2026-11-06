@@ -1,4 +1,5 @@
-import { settlePage } from './settle.js';
+import { settlePage, countUnloadedLazyImages } from './settle.js';
+import { captureWarnings, warningFields } from '../report/warnings.js';
 import { captureScopedScreenshot } from './scope.js';
 import { captureRecipe, settleRecipe } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
@@ -263,6 +264,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       return { ...identity, state: 'captured', statusCode, finalPath, ...stored(), artifacts, ...droppedFields(droppedLog) };
     }
     phase = 'screenshot';
+    // R5.11: a page target without the lazy-image sweep may hold images that never loaded. Read the count; it is no hash input.
+    const warnings = target.selector ? [] : captureWarnings({ lazyImages: recipe.lazyImages, unloaded: await countUnloadedLazyImages(page) });
     let locator;
     let size;
     if (target.selector && !Array.isArray(target.selector) && target.box !== 'content') {
@@ -295,7 +298,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     // R3.6: a behavior step can also meet the edge.
     if (edge) throw new Error('Remote edge stop');
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
-      width, height, deviceScaleFactor: viewport.deviceScaleFactor, ...stored(), artifacts, ...droppedFields(droppedLog) };
+      width, height, deviceScaleFactor: viewport.deviceScaleFactor, ...stored(), artifacts, ...droppedFields(droppedLog), ...warningFields(warnings) };
     })()]);
   } catch (error) {
     if (context) await context.close().catch(() => {});
