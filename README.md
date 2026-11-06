@@ -27,7 +27,7 @@ One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
-Runs go to `test-kit/runs/` by default. The store `test-kit/` is the one folder of test-kit output. Deleting it drops all runs, reports and the viewer. The next command recreates the folder and the viewer, and `before` must run again. The default store `test-kit/` and any explicit `--store` get a `.gitignore` with `*` when they lack one. A project that already has an unrelated `test-kit/` folder must rename it, or pass `--store`, before it upgrades. Otherwise new files there become ignored by Git. Git-ignored is not deploy-excluded: the store holds page captures, so exclude `test-kit/` from every deploy (for example an rsync exclude). Set `runsRoot` to use another path.
+Runs go to `test-kit/runs/` by default. The store `test-kit/` is the one folder of test-kit output. Deleting it drops all runs, reports and the viewer. The next command recreates the folder and the viewer. Run `before` again before the next `after`. The default store `test-kit/` and any explicit `--store` get a `.gitignore` with `*` when they lack one. A project that already has an unrelated `test-kit/` folder must rename it, or pass `--store`, before it upgrades. Otherwise new files there become ignored by Git. Git-ignored is not deploy-excluded: the store holds page captures, so exclude `test-kit/` from every deploy (for example an rsync exclude). Set `runsRoot` to use another path.
 
 Up to 1.1 the default store was `.test-kit/`. A command that finds one beside the configuration prints one line on stderr. Delete it by hand. test-kit never reads, moves or deletes it.
 
