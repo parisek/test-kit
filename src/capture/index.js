@@ -1,6 +1,6 @@
 import { settlePage } from './settle.js';
 import { captureScopedScreenshot } from './scope.js';
-import { CAPTURE_ENGINE_VERSION, screenshotScope, settleRecipe } from '../config/settings.js';
+import { captureRecipe, settleRecipe } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
 import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
@@ -61,8 +61,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   const identity = { targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(recipe) };
   // R5.6: a captured entry stores its effective recipe, also when it is the default. Its parts hash to `scopeHash` and `settleHash`.
   const stored = () => {
-    const scope = screenshotScope(target, side);
-    return { scopeHash: settingsHash(scope), recipe: { version: CAPTURE_ENGINE_VERSION, scope, settle: recipe } };
+    const effective = captureRecipe(config, side, target);
+    return { scopeHash: settingsHash(effective.scope), recipe: effective };
   };
   const remote = config.sides[side].remote === true;
   const allowedUrl = value => remote ? isOwnOrigin(value, config.sides[side].origin) : isLocalUrl(value);

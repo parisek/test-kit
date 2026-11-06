@@ -155,7 +155,12 @@ function settingDiffs(runA, runB, captureA, captureB) {
   const add = (name, x, y) => { if (differs(x, y)) diffs.push(`${name} (A: ${shown(x)}, B: ${shown(y)})`); };
   // R8.16: name the recipe part that differs. A stored recipe gives the value. An entry without one reads as version 1.
   const version = capture => capture?.recipe === undefined ? 1 : capture.recipe?.version;
-  if (captureA && captureB) add('recipe.version', version(captureA), version(captureB));
+  if (captureA && captureB) {
+    // A stored recipe that fails validation is named as such, so the diagnostic is never empty for it.
+    const valid = capture => recipeVersion(capture) === null ? 'invalid' : 'valid';
+    if ([captureA, captureB].some(capture => recipeVersion(capture) === null)) diffs.push(`recipe (A: ${valid(captureA)}, B: ${valid(captureB)})`);
+    else add('recipe.version', version(captureA), version(captureB));
+  }
   const scope = (run, capture) => {
     if (plain(capture?.recipe?.scope)) return capture.recipe.scope;
     try { return screenshotScope(run?.settings?.targets?.find(target => target.id === capture?.targetId), run?.side); } catch { return undefined; }

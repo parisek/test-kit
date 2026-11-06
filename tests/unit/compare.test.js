@@ -159,6 +159,12 @@ test('a stored recipe carries the engine version, and a version mismatch blocks 
   assert.equal(comparisonState(entry(targets[0]), { ...forged, recipe: { ...forged.recipe, scope: { selector: ['#one'], box: 'border' } } }, run, run), 'incompatible');
   for (const version of [0, -1, 1.5, '1', null]) assert.equal(recipeVersion({ ...forged, recipe: { ...forged.recipe, version } }), null);
   assert.equal(recipeVersion({ ...forged, recipe: [] }), null);
+  assert.match(incompatibleDiagnostic(run, run, entry(targets[0]), { ...forged, recipe: { ...forged.recipe, version: 0 } }), /recipe \(A: valid, B: invalid\)/);
+  // A legacy union entry keeps its proof in `scopeHash`: with it, it compares to a new entry; without it, it does not.
+  const { recipe: unused, ...legacyUnion } = entry(targets[0]);
+  assert.equal(comparisonState(legacyUnion, entry(targets[0]), run, run), 'complete');
+  const { scopeHash, ...unproven } = legacyUnion;
+  assert.equal(comparisonState(unproven, entry(targets[0]), run, run), 'incompatible');
 });
 
 test('an incompatible union names the differing scope part with both stored values (R8.16)', async () => {
