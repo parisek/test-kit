@@ -98,7 +98,7 @@ State comes from `CHANGELOG.md` and open issues on 2026-10-16. Shape says how th
 | Content checks | pair, and checks over one stored run (R7.1) | shipped, v0.2.0 |
 | Speed (Lighthouse) | pair, with a noise floor | shipped, v0.2.0 |
 | Remote side (read-only capture) | pair | shipped, v0.5.0 |
-| Components from the styleguide | pair | shipped, v1.1.0-rc.1 (#275, R13.52); variants and page previews open, #94 |
+| Components from the styleguide | pair | shipped, v1.1.0-rc.1 (#275, R13.52); variants and page previews shipped, v1.1.0-rc.3 (#94, #302) |
 | ESLint and Stylelint rules | single run (R13.40) | open, #26 |
 | Cross-engine and browser support | not decided | open, no issue |
 | Accessibility (axe) | not in the package | planned: moves in, as a rule pack (owner direction 2026-10-16; R13.42) |
