@@ -107,10 +107,9 @@ async function assertStore(local) {
   if (!marker || !marker.isFile() || marker.size !== Buffer.byteLength(MARKER_BODY) || (await readFile(join(root, VIEWER_MARKER), 'utf8')) !== MARKER_BODY) {
     throw new Error(`${root} is not a test-kit store: the marker ${VIEWER_MARKER} is missing or foreign. Nothing was removed.`);
   }
-  for (const name of ['runs', 'reports']) {
-    const ok = await plainDirectory(join(root, name));
-    if (ok === false) throw new Error(`${name}/ in the store must be a real directory, not a link or a file. Nothing was removed.`);
-  }
+  // runs/ may be absent (nothing to prune). reports/ must exist: absence is never read as "no references".
+  if ((await plainDirectory(join(root, 'runs'))) === false) throw new Error('runs/ in the store must be a real directory, not a link or a file. Nothing was removed.');
+  if (!(await plainDirectory(join(root, 'reports')))) throw new Error('reports/ in the store is missing or is not a real directory, so the references are unknown. Nothing was removed.');
   return root;
 }
 
@@ -131,11 +130,11 @@ async function scanRuns(root) {
 }
 
 async function scanReports(root) {
-  let names;
-  try { names = await readdir(join(root, 'reports')); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+  const names = await readdir(join(root, 'reports'));
   const reports = [];
   for (const id of names.sort()) {
-    if (!validId(id)) continue;
+    // Any entry that is not a safe-id real directory may hide a reference, so it stops the prune.
+    if (!validId(id) || !(await plainDirectory(join(root, 'reports', id)))) throw new Error(`The entry reports/${id} is not a safe report folder, so its runs are unknown. Nothing was removed.`);
     // A report that cannot be read may name any run, so it stops the prune.
     try { reports.push({ id, value: await loadHistoryEvidence(root, 'reports', id, 'report.json') }); }
     catch { throw new Error(`Report ${id} is not readable, so its runs are unknown. Nothing was removed.`); }

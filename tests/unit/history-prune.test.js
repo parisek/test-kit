@@ -191,6 +191,26 @@ test('a failed removal stops the command, reports it and leaves the rest', async
   } finally { await chmod(join(f.store, 'runs', 'run-2'), 0o700); }
 });
 
+test('a missing or odd reports/ and an odd report entry stop the prune, dry run too', async t => {
+  const cases = {
+    'missing reports/': async f => rm(join(f.store, 'reports'), { recursive: true }),
+    'reports/ as a file': async f => { await rm(join(f.store, 'reports'), { recursive: true }); await writeFile(join(f.store, 'reports'), 'x'); },
+    'reports/ as a symlink': async f => { await rm(join(f.store, 'reports'), { recursive: true }); await mkdir(join(f.root, 'other')); await symlink(join(f.root, 'other'), join(f.store, 'reports')); },
+    'unsafe report folder name': async f => mkdir(join(f.store, 'reports', '.hidden')),
+    'report entry as a file': async f => writeFile(join(f.store, 'reports', 'loose.json'), '{}'),
+    'symlinked report folder': async f => { await mkdir(join(f.root, 'real-report')); await writeFile(join(f.root, 'real-report', 'report.json'), JSON.stringify({ pair: { aRunId: 'run-1', bRunId: 'run-2' } })); await symlink(join(f.root, 'real-report'), join(f.store, 'reports', 'linked')); },
+  };
+  for (const [name, setup] of Object.entries(cases)) {
+    const f = await fixture(t);
+    for (let n = 1; n <= 3; n++) await f.addRun(`run-${n}`, 'local', day(n));
+    await setup(f);
+    for (const yes of [false, true]) {
+      await assert.rejects(pruneHistory({ local: f.store, keep: 1, yes }), /reports|Nothing was removed/, name);
+      assert.equal((await f.ids()).length, 3, name);
+    }
+    await assert.rejects(access(join(f.store, 'lock')), undefined, name);
+  }
+});
 test('parseCommand accepts --prune and refuses a bad --keep or a bad combination', () => {
   const ok = parseCommand(['history', '--prune', '--keep', '5', '--yes']);
   assert.deepEqual([ok.options.prune, ok.options.keep, ok.options.yes], [true, 5, true]);
