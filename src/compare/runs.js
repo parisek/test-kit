@@ -1,4 +1,4 @@
-import { screenshotScope, scopeMatches, settlementMatches, settleRecipe, settingsHash } from '../config/settings.js';
+import { recipeVersion, screenshotScope, scopeMatches, settlementMatches, settleRecipe, settingsHash } from '../config/settings.js';
 import { isLocalUrl } from '../capture/helpers.js';
 import { comparePerformanceArtifact } from '../perf/compare-artifact.js';
 import { compareBehaviorArtifact } from '../behavior/compare-artifact.js';
@@ -153,6 +153,23 @@ function settingDiffs(runA, runB, captureA, captureB) {
   const differs = (x, y) => JSON.stringify(x) !== JSON.stringify(y);
   const diffs = [];
   const add = (name, x, y) => { if (differs(x, y)) diffs.push(`${name} (A: ${shown(x)}, B: ${shown(y)})`); };
+  // R8.16: name the recipe part that differs. A stored recipe gives the value. An entry without one reads as version 1.
+  const version = capture => capture?.recipe === undefined ? 1 : capture.recipe?.version;
+  if (captureA && captureB) {
+    // A stored recipe that fails validation is named as such, so the diagnostic is never empty for it.
+    const valid = capture => recipeVersion(capture) === null ? 'invalid' : 'valid';
+    if ([captureA, captureB].some(capture => recipeVersion(capture) === null)) diffs.push(`recipe (A: ${valid(captureA)}, B: ${valid(captureB)})`);
+    else add('recipe.version', version(captureA), version(captureB));
+  }
+  const scope = (run, capture) => {
+    if (plain(capture?.recipe?.scope)) return capture.recipe.scope;
+    try { return screenshotScope(run?.settings?.targets?.find(target => target.id === capture?.targetId), run?.side); } catch { return undefined; }
+  };
+  if (captureA && captureB) {
+    const scopeA = scope(runA, captureA), scopeB = scope(runB, captureB);
+    add('scope.selector', scopeA?.selector, scopeB?.selector);
+    add('scope.box', scopeA?.box, scopeB?.box);
+  }
   add('viewports', a.viewports, b.viewports);
   if (plain(a.settle) || plain(b.settle)) {
     const keys = [...new Set([...Object.keys(plain(a.settle) ? a.settle : {}), ...Object.keys(plain(b.settle) ? b.settle : {})])].sort();
@@ -197,6 +214,9 @@ export function comparisonState(a, b, runA, runB) {
 		} catch { return 'incompatible'; }
 	}
 	if ([ [a, scopeA], [b, scopeB] ].some(([capture, recipe]) => !scopeMatches(capture, recipe))) return 'incompatible';
+	// R8.16: a stored recipe must be valid, and both captures must have the same engine version.
+	const versionA = recipeVersion(a), versionB = recipeVersion(b);
+	if (versionA === null || versionB === null || versionA !== versionB) return 'incompatible';
 	return 'complete';
 }
 

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { capture } from '../../src/capture/index.js';
 import { compareRuns } from '../../src/compare/runs.js';
-import { settingsHash, screenshotScope } from '../../src/config/settings.js';
+import { settingsHash, screenshotScope, CAPTURE_ENGINE_VERSION } from '../../src/config/settings.js';
 import { createServer } from 'node:http';
 import { chromium } from '@playwright/test';
 import { PNG } from 'pngjs';
@@ -94,6 +94,13 @@ try {
   assert.equal(a.run.state, 'complete'); assert.equal(b.run.state, 'complete');
   assert.equal(a.run.captures[0].height, 450);
   assert.equal(a.run.captures[0].scopeHash, settingsHash(screenshotScope(config.targets[0])));
+  // R5.6: each captured entry stores its effective recipe. Its parts hash to the stored hashes.
+  for (const entry of a.run.captures) {
+    assert.equal(entry.recipe.version, CAPTURE_ENGINE_VERSION);
+    assert.equal(settingsHash(entry.recipe.scope), entry.scopeHash);
+    assert.equal(settingsHash(entry.recipe.settle), entry.settleHash);
+  }
+  assert.deepEqual(a.run.captures[0].recipe.scope, { selector: ['#one', '#two'], box: 'border' });
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].state, 'complete');
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);
