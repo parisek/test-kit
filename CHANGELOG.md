@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Changed
+
+- The development dependency `lighthouse` moves from 13.5.0 to 13.6.0 (#247). The README names the pinned version. The optional peer range is unchanged.
+
 ## [1.1.0-rc.3] - 2026-11-06
 
 Third release candidate for 1.1.0. It is not a stable release. `package.json` stays at `1.1.0`, so `--version` prints `1.1.0`; `npm ls @parisek/test-kit` shows the commit. Nothing new runs by default. The diagnostic text of an `incompatible` row changes: it now lists each differing setting with both values. A script that matches the old text must match the new form.
