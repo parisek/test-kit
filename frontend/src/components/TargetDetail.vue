@@ -9,6 +9,7 @@ import ScreenshotComparison from './ScreenshotComparison.vue';
 import FindingCards from './FindingCards.vue';
 import Badge from './Badge.vue';
 import { formatRatio } from '../state/format.js';
+import { cellWarningsText } from '../../../src/report/warnings.js';
 const props = defineProps({ report: Object, targetId: String, viewportId: String, source: String, artifactEvidence: Object, artifact: { type: String, default: 'screenshot' }, comparison: { type: String, default: 'side-by-side' }, overlay: { type: Number, default: 50 }, evidenceView: { type: String, default: 'normalized' } });
 const emit = defineEmits(['action']);
 const target = computed(() => props.report?.entries?.find(item => item.id === props.targetId));
@@ -52,6 +53,7 @@ const label = kind => ({ screenshot: 'Screenshot', html: 'HTML', status: 'Status
         <div class="p-3 sm:px-4">
             <template v-if="row">
                 <div class="mb-2 flex flex-wrap items-center gap-2 text-xs" aria-label="Selected artifact measurement"><span class="text-ui-muted">{{ label(selectedArtifact) }}</span><Badge :text="selectedClass ?? 'unclassified'" /><Badge :text="selectedState" /><span v-for="side in (report.subject ? [] : ['a', 'b'])" :key="side" :class="row.availability?.[side] === 'capture-error' ? 'text-[var(--verdict-incomplete)]' : row.availability?.[side] === 'http-error' ? 'font-semibold text-ui-text' : 'text-ui-muted'">{{ side.toUpperCase() }}: {{ row.availability?.[side] ?? 'unknown' }}</span><span v-if="selectedArtifact === 'screenshot'" class="text-ui-muted">· Pixel difference {{ formatRatio(row.artifacts?.screenshot?.diff?.ratio ?? row.ratio) ?? 'not measured' }} · not a verdict</span></div>
+                <p v-if="cellWarningsText(row)" class="cell-warning mb-4" data-testid="cell-warning" aria-label="Capture warnings of this cell">{{ cellWarningsText(row) }}</p>
                 <p v-if="row.error ?? row.diagnostic" role="status" class="mb-4 rounded-ui-panel border border-ui-border bg-ui-toolbar p-3 text-sm">{{ diagnostic(row.error ?? row.diagnostic) }}</p>
                 <ScreenshotComparison v-if="selectedArtifact === 'screenshot' && row.artifacts?.screenshot" :screenshot="row.artifacts.screenshot" :source="source" :target-title="target.title ?? target.id" :viewport-id="row.id" :mode="comparison" :overlay="overlay" :ratio="row.ratio" @action="(...args) => emit('action', ...args)" />
                 <ArtifactEvidence v-else-if="['html', 'status', 'content', 'behavior', 'lighthouse'].includes(selectedArtifact)" :row="row" :source="source" :evidence="artifactEvidence" :kind="selectedArtifact" :evidence-view="evidenceView" @action="(...args) => emit('action', ...args)" />

@@ -160,6 +160,7 @@
 .matrix-evidence { border: 1px solid var(--ui-border); padding: 5px 9px; border-radius: 5px; font-size: 0.75rem; }
 .matrix-evidence:hover { border-color: var(--ui-control-hover-border); }
 .matrix-evidence:disabled { opacity: .5; cursor: default; }
+.cell-warning { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; line-height: 1.4; letter-spacing: 0.02em; color: var(--ui-muted); margin: 4px 0; min-width: 0; overflow-wrap: anywhere; }
 .matrix-ratio { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; }
 .sidebar-availability { display: block; color: #f4f4f5; font-weight: 600; font-size: 0.75rem; margin-bottom: 3px; }
 /* A capture error is an incomplete measurement. An HTTP error is a measured status. */
