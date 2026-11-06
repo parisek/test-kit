@@ -7,7 +7,7 @@ Usage: test-kit <command> [options]
   after [--allowlist FILE]   Also read the allowlist from FILE. The default is test-kit.allowlist.json beside the config.
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
-  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID] [--packs] [--retries 0..2]
+  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID] [--packs] [--retries 0..2] [--keep-existing]
   import --side ID [--config FILE] [--label TEXT] [--target ID,ID] [--viewport ID,ID]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID] [--allowlist FILE]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
@@ -25,8 +25,8 @@ const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
 // R4.5: a separate line, so the FLAGS literal above stays easy to merge.
 for (const name of ['capture', 'diff']) FLAGS[name] = [...FLAGS[name], 'target', 'viewport'];
-// R5.14: `capture` only. `run`, `before` and `after` do not pass the flag in 1.3 (ADR 0009, answer 8).
-FLAGS.capture = [...FLAGS.capture, 'retries'];
+// R5.13, R5.14: `capture` only. `run`, `before` and `after` do not pass the flags in 1.3 (ADR 0009, answer 8).
+FLAGS.capture = [...FLAGS.capture, 'retries', 'keep-existing'];
 // R9.12: `diff` and `after` write a report, so they take the path of the allowlist.
 FLAGS.diff = [...FLAGS.diff, 'allowlist'];
 FLAGS.after = [...workflowFlags, 'allowlist'];
@@ -48,7 +48,7 @@ export function parseCommand(argv) {
     const name = argument.slice(2);
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
-    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs'].includes(name)) { options[name] = true; continue; }
+    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs', 'keep-existing'].includes(name)) { options[name] = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
@@ -131,13 +131,16 @@ export async function dispatch({ command, positions, options }, dependencies = {
   }
   if (command === 'capture') {
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
-    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(','), packs: options.packs === true, retries: options.retries });
+    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(','), packs: options.packs === true, retries: options.retries, keepExisting: options['keep-existing'] === true });
     // R13.51: the output names a pack that did not run. A skipped pack is never reported as run.
     const packs = result.run.packs ? { packs: result.run.packs } : {};
     // R5.11: one stderr line when a capture stored lazy images that did not load. Stdout stays one JSON line.
     const { captureWarningLines } = await import('../report/warnings.js');
     const lines = captureWarningLines(result.run);
-    const refreshed = await refreshLowLevel({ output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 }, options);
+    // R5.13: the count of kept captures appears only above zero.
+    const { keptCount } = await import('../capture/keep.js');
+    const kept = keptCount(result.run) ? { kept: keptCount(result.run) } : {};
+    const refreshed = await refreshLowLevel({ output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs, ...kept }, exitCode: result.run.state === 'complete' ? 0 : 1 }, options);
     return lines.length ? { ...refreshed, stderr: [...(refreshed.stderr ?? []), ...lines] } : refreshed;
   }
   if (command === 'import') {
