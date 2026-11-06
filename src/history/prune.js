@@ -72,20 +72,27 @@ export function collectReferences({ reports = [], state = null }) {
     if (!isObject(value)) throw new Error(`Report ${id} is not readable. Nothing was removed.`);
     const reason = `named by report ${id}`;
     const where = `Report ${id}`;
+    const named = new Set();
+    const addNamed = (container, key, what) => { add(container, key, reason, what); if (Object.hasOwn(container, key)) named.add(container[key]); };
     // A valid report names its runs (R9.7). One with no run reference protects nothing, so it stops the command.
     if (!['pair', 'subject', 'runs'].some(key => Object.hasOwn(value, key))) bad(`${where} (no pair, subject or runs)`);
     if (Object.hasOwn(value, 'pair')) {
       if (!isObject(value.pair)) bad(`${where} (pair)`);
-      add(value.pair, 'aRunId', reason, `${where} (pair.aRunId)`); add(value.pair, 'bRunId', reason, `${where} (pair.bRunId)`);
+      // A pair report names both runs (R9.7).
+      if (!Object.hasOwn(value.pair, 'aRunId') || !Object.hasOwn(value.pair, 'bRunId')) bad(`${where} (pair without aRunId or bRunId)`);
+      addNamed(value.pair, 'aRunId', `${where} (pair.aRunId)`); addNamed(value.pair, 'bRunId', `${where} (pair.bRunId)`);
     }
     if (Object.hasOwn(value, 'subject')) {
       if (!isObject(value.subject)) bad(`${where} (subject)`);
-      add(value.subject, 'runId', reason, `${where} (subject.runId)`);
+      if (!Object.hasOwn(value.subject, 'runId')) bad(`${where} (subject without runId)`);
+      addNamed(value.subject, 'runId', `${where} (subject.runId)`);
     }
     if (Object.hasOwn(value, 'runs')) {
       if (!Array.isArray(value.runs)) bad(`${where} (runs)`);
-      for (const run of value.runs) { if (!isObject(run)) bad(`${where} (a runs element)`); add(run, 'id', reason, `${where} (runs[].id)`); }
+      for (const run of value.runs) { if (!isObject(run)) bad(`${where} (a runs element)`); addNamed(run, 'id', `${where} (runs[].id)`); }
     }
+    // A report that names no run at all (pair: {}, subject: {}, runs: []) could hide a reference, so it stops the command.
+    if (named.size === 0) bad(`${where} (names no run)`);
   }
   if (state !== null) {
     if (!isObject(state) || !isObject(state.profiles)) throw new Error('The workflow state is not readable. Nothing was removed.');
@@ -234,6 +241,8 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, be
         if (!(await plainDirectory(dir)) || (await realpath(dir)) !== resolve(runsRoot, run.id) || !inside(runsRoot, dir)) throw new Error('not a real directory inside runs/');
         // A mount point inside the run would let the recursive delete reach another file system. Walk first, link-safe.
         if (!(await sameDevice(dir, runsDev, statFn, walkLimit))) { refused.push({ id: run.id, reason: 'different filesystem, or too many entries to check' }); continue; }
+        // The walk takes time. Check the real path once more just before the delete.
+        if (!(await plainDirectory(dir)) || (await realpath(dir)) !== resolve(runsRoot, run.id)) throw new Error('not a real directory inside runs/');
         await rm(dir, { recursive: true });
         output.removed.push(run.id);
       } catch (error) { output.failed = { id: run.id, error: error.message }; break; }
@@ -246,5 +255,6 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, be
     if (beforeRelease) await beforeRelease(lockPath); // test seam
     const warning = await release();
     if (warning && result) result.stderr = [warning];
+    else if (warning) process.stderr.write(`${warning}\n`);
   }
 }

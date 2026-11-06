@@ -245,7 +245,10 @@ test('a reference container of the wrong shape stops the command', () => {
   for (const state of [{ profiles: { a: 'x' } }, { profiles: { a: null } }, { profiles: { a: { before: 3 } } }]) assert.throws(() => collectReferences({ state }), /cannot read|not readable/, JSON.stringify(state));
   assert.throws(() => collectReferences({ reports: [{ id: 'r', value: {} }] }), /no pair, subject or runs/);
   assert.throws(() => collectReferences({ reports: [{ id: 'r', value: { meta: {} } }] }), /cannot read/);
-  assert.equal(collectReferences({ reports: [{ id: 'r', value: { runs: [] } }], state: { profiles: { a: {} } } }).size, 0);
+  assert.equal(collectReferences({ reports: [{ id: 'r', value: { runs: [{ id: 'run-a' }] } }], state: { profiles: { a: {} } } }).size, 1);
+  for (const value of [{ runs: [] }, { pair: {} }, { pair: { aRunId: 'run-a' } }, { subject: {} }, { runs: [{}] }]) {
+    assert.throws(() => collectReferences({ reports: [{ id: 'r', value }] }), /Nothing was removed/);
+  }
 });
 test('a run whose tree holds another device is kept, and the walk is bounded', async t => {
   const f = await fixture(t);
