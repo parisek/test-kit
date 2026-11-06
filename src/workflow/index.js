@@ -133,6 +133,8 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     const profile = state.profiles[scope] ?? {};
     if (command === 'after' && !profile.before && !Object.keys(state.profiles).length) throw new Error(NO_BASELINE);
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
+    // Check the baseline before any capture runs. Any other ENOENT from compare passes through unchanged.
+    if (command === 'after' && !(await lstat(join(storePath, 'runs', String(profile.before), 'run.json')).then(() => true, () => false))) throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`);
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
     const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command });
@@ -150,7 +152,7 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     if (command === 'after') {
       const compare = dependencies.compareRuns ?? (await import('../compare/runs.js')).compareRuns;
-      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind: 'update', rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage }).catch(error => { if (error.code === 'ENOENT') throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`); throw error; });
+      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind: 'update', rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage });
       state.report = `reports/${run.id}/report.json`;
       output.reportPath = comparison.reportPath;
     }

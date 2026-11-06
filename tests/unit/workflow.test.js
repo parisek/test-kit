@@ -46,7 +46,8 @@ test('baseline scopes and lockfile policy prevent an unrelated after run', async
 });
 test('partial baseline keeps the old baseline and partial after retains report', async t => {
  const { dir, options } = await fixture(t);
- await runWorkflow('before', options, { capture: async () => ({ run: { id: 'before-1', state: 'complete' } }) });
+ // The stub stores the run like the real capture does: `after` checks the baseline run.json first.
+ await runWorkflow('before', options, { capture: async () => { await mkdir(join(dir, 'test-kit/runs/before-1'), { recursive: true }); await writeFile(join(dir, 'test-kit/runs/before-1/run.json'), '{}'); return { run: { id: 'before-1', state: 'complete' } }; } });
  await runWorkflow('before', options, { capture: async () => ({ run: { id: 'failed-1', state: 'partial' } }) });
  let a;
  const result = await runWorkflow('after', options, { capture: async () => ({ run: { id: 'after-1', state: 'partial' } }), compareRuns: async input => { a = input.runA; return { reportPath: join(input.outputDir, 'report.json') }; } });
@@ -154,4 +155,25 @@ test('after with a deleted store or a deleted baseline says to run before again 
  await runWorkflow('before', options, ok);
  await rm(join(dir, 'test-kit', 'runs'), { recursive: true });
  await assert.rejects(runWorkflow('after', options, { capture: async () => ({ run: { id: 'a1', state: 'complete' } }) }), /run before again/i);
+});
+test('after: a deleted baseline run.json gives the baseline message before any capture (#312)', async t => {
+ const { dir, options } = await fixture(t);
+ const ok = { summarizeRunFeedback: async () => ({}), capture: async () => ({ run: { id: 'b1', state: 'complete' } }) };
+ await mkdir(join(dir, 'test-kit', 'runs', 'b1'), { recursive: true });
+ await writeFile(join(dir, 'test-kit', 'runs', 'b1', 'run.json'), '{}');
+ await runWorkflow('before', options, ok);
+ await rm(join(dir, 'test-kit', 'runs', 'b1', 'run.json'));
+ await assert.rejects(runWorkflow('after', options, { capture: () => assert.fail('no capture'), compareRuns: () => assert.fail('no compare') }), /The baseline run b1 is gone from the store\. Run before again, then run after\./);
+ assert.equal((await readdir(join(dir, 'test-kit'))).some(name => name.startsWith('.runtime-') || name === 'lock'), false);
+});
+test('after: another ENOENT from compare is not turned into the baseline message (#312)', async t => {
+ const { dir, options } = await fixture(t);
+ const ok = { summarizeRunFeedback: async () => ({}), capture: async () => ({ run: { id: 'b1', state: 'complete' } }) };
+ await mkdir(join(dir, 'test-kit', 'runs', 'b1'), { recursive: true });
+ await writeFile(join(dir, 'test-kit', 'runs', 'b1', 'run.json'), '{}');
+ await runWorkflow('before', options, ok);
+ const missing = Object.assign(new Error("ENOENT: no such file or directory, open 'runs/a1/sidecar.json'"), { code: 'ENOENT' });
+ await assert.rejects(
+  runWorkflow('after', options, { capture: async () => ({ run: { id: 'a1', state: 'complete' } }), compareRuns: async () => { throw missing; } }),
+  error => error === missing && !/baseline run/.test(error.message));
 });
