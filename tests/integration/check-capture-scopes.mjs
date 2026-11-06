@@ -101,6 +101,7 @@ try {
     assert.equal(settingsHash(entry.recipe.settle), entry.settleHash);
   }
   assert.deepEqual(a.run.captures[0].recipe.scope, { selector: ['#one', '#two'], box: 'border' });
+  assert.deepEqual(a.run.captures.find(entry => entry.targetId === 'content').recipe.scope, { selector: '#padded', box: 'content' }, 'A content box is recorded in the recipe scope (R5.7).');
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].state, 'complete');
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);
