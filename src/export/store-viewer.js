@@ -15,7 +15,7 @@ const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
 export const VIEWER_FILES = ['index.html', 'app.js', 'style.css', 'favicon.svg'];
 // A static server sends these as active content. Publish renames them to inert names. The store viewer cannot.
 export const VIEWER_MARKER = '.test-kit-viewer';
-const MARKER_BODY = `${JSON.stringify({ tool: 'test-kit', kind: 'store-viewer', schemaVersion: 1 })}\n`;
+export const MARKER_BODY = `${JSON.stringify({ tool: 'test-kit', kind: 'store-viewer', schemaVersion: 1 })}\n`;
 const ACTIVE = /\.(?:html?|xhtml|svg|js|mjs)$/i;
 const ROUNDS = 4;
 
