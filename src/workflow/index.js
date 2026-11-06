@@ -9,6 +9,7 @@ import { selectConfig } from './selection.js';
 import { DEFAULT_STORE, ensureStoreIgnore } from '../config/store.js';
 export { selectConfig } from './selection.js';
 const execute = promisify(execFile);
+const NO_BASELINE = 'No baseline in the store. Run before again, then run after.';
 const digest = value => createHash('sha256').update(value).digest('hex');
 export function loopbackOrigin(description) {
   const value = description?.raw?.services?.web?.host_http_url;
@@ -62,8 +63,10 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
   const storePath = resolveStore(options);
   const offset = relative(configDir, storePath);
   if (!offset || offset.startsWith('..') || offset.startsWith('/') || /[\\\x00-\x1f]/.test(offset)) throw new Error('The store must be a subdirectory of the configuration directory.');
-  await ensureStore(options);
   const statePath = join(storePath, 'state.json');
+  // A deleted store has no baseline. Say so before ensureStore re-creates it (#312).
+  if (command === 'after' && !(await lstat(statePath).then(() => true, () => false))) throw new Error(NO_BASELINE);
+  await ensureStore(options);
   if (command === 'report') {
     const state = await json(statePath, {});
     if (options.run && !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(options.run)) throw new Error('Invalid report ID.');
@@ -111,6 +114,7 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
     const state = await json(statePath, { schemaVersion: 1, profiles: {} });
     if (state.schemaVersion !== 1 || !state.profiles || Array.isArray(state.profiles)) throw new Error('Unsupported workflow state.');
     const profile = state.profiles[scope] ?? {};
+    if (command === 'after' && !profile.before && !Object.keys(state.profiles).length) throw new Error(NO_BASELINE);
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
@@ -129,7 +133,7 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
     }
     if (command === 'after') {
       const compare = dependencies.compareRuns ?? (await import('../compare/runs.js')).compareRuns;
-      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind: 'update', rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage });
+      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind: 'update', rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage }).catch(error => { if (error.code === 'ENOENT') throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`); throw error; });
       state.report = `reports/${run.id}/report.json`;
       output.reportPath = comparison.reportPath;
     }

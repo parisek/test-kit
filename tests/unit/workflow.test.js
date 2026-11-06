@@ -141,3 +141,17 @@ test('without baseDir a config copy in the store would resolve from the store (w
  assert.equal((await loadConfig(copy, { baseDir: dir })).configDir, dir);
  assert.equal((await loadConfig(copy, { baseDir: dir })).runsRoot, join(dir, 'test-kit', 'runs'));
 });
+test('after with a deleted store or a deleted baseline says to run before again (#312)', async t => {
+ const { dir, options } = await fixture(t);
+ await assert.rejects(runWorkflow('after', options, { capture: () => assert.fail('no capture') }), /run before again/i);
+ assert.equal((await readdir(dir)).includes('test-kit'), false);
+ await mkdir(join(dir, 'test-kit'));
+ await writeFile(join(dir, 'test-kit', 'state.json'), JSON.stringify({ schemaVersion: 1, profiles: {} }));
+ await assert.rejects(runWorkflow('after', options, { capture: () => assert.fail('no capture') }), /run before again/i);
+ const ok = { summarizeRunFeedback: async () => ({}), capture: async () => ({ run: { id: 'b1', state: 'complete' } }) };
+ await mkdir(join(dir, 'test-kit', 'runs', 'b1'), { recursive: true });
+ await writeFile(join(dir, 'test-kit', 'runs', 'b1', 'run.json'), '{}');
+ await runWorkflow('before', options, ok);
+ await rm(join(dir, 'test-kit', 'runs'), { recursive: true });
+ await assert.rejects(runWorkflow('after', options, { capture: async () => ({ run: { id: 'a1', state: 'complete' } }) }), /run before again/i);
+});
