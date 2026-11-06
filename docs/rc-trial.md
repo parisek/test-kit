@@ -158,7 +158,7 @@ The `lint` pack runner starts your own ESLint and Stylelint (`src/packs/lint/REA
 - `states`: `complete`, `missing`, `failed`, `incompatible`. Fix `failed` and `missing` first. A matching picture with an HTTP error is still reported.
 - The viewer: the screenshot pair, the HTML diff, the status. Check that the text is readable and that a changed target is easy to find.
 - `query ... --artifact status` or `html`: a bounded window of evidence for an agent.
-- Does the output fit your real site? Check the time of a run, the size of `.test-kit/`, and the count of targets you need.
+- Does the output fit your real site? Check the time of a run, the size of `test-kit/` (`.test-kit/` before 1.2.0), and the count of targets you need.
 - Does a stored run from one day work the next day?
 
 ## 6. Known gaps in this candidate

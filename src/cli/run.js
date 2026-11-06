@@ -74,7 +74,12 @@ export function parseCommand(argv) {
   if (options.port) options.port = integer(options.port, '--port', 0, 65535);
   return { command, positions, options };
 }
-async function dispatch({ command, positions, options }) {
+// capture, import and plain perf refresh the viewer when they wrote the default store (#312). diff writes only --output.
+async function refreshLowLevel(result, options) {
+  const { refreshDefaultStoreViewer } = await import('../workflow/index.js');
+  return refreshDefaultStoreViewer(result, options.config ?? 'test-kit.config.json');
+}
+export async function dispatch({ command, positions, options }, dependencies = {}) {
   if (['run', 'before', 'after', 'report'].includes(command)) {
     const { runWorkflow } = await import('../workflow/index.js');
     return runWorkflow(command, options);
@@ -110,22 +115,22 @@ async function dispatch({ command, positions, options }) {
     }
     if (options.ddev || options.store || options.path) {
       const { runProjectPerformance } = await import('../workflow/performance.js');
-      return runProjectPerformance(options, budgets);
+      return (dependencies.runProjectPerformance ?? runProjectPerformance)(options, budgets);
     }
-    return runPerfCommand({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false });
+    return refreshLowLevel(await (dependencies.runPerfCommand ?? runPerfCommand)({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false }), options);
   }
   if (command === 'capture') {
-    const { capture } = await import('../capture/index.js');
+    const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
     const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(','), packs: options.packs === true });
     // R13.51: the output names a pack that did not run. A skipped pack is never reported as run.
     const packs = result.run.packs ? { packs: result.run.packs } : {};
-    return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 };
+    return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 }, options);
   }
   if (command === 'import') {
     // R4.6: no browser and no network. The images come from the root of a design side.
     const { importDesign } = await import('../design/import.js');
     const result = await importDesign({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', targets: options.target?.split(','), viewports: options.viewport?.split(',') });
-    return { output: { id: result.run.id, state: result.run.state, images: result.run.captures.length, manifestPath: result.manifestPath }, exitCode: 0 };
+    return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, images: result.run.captures.length, manifestPath: result.manifestPath }, exitCode: 0 }, options);
   }
   if (command === 'diff') {
     const { loadConfig } = await import('../config/index.js');
@@ -167,13 +172,34 @@ async function dispatch({ command, positions, options }) {
   const result = await serve({ reportPath: positions[0], port: options.port ?? 0 });
   return { output: { url: result.origin }, exitCode: 0 };
 }
+const STORE_COMMANDS = ['run', 'before', 'after', 'report', 'history'];
+const RUNSROOT_COMMANDS = ['capture', 'import', 'diff'];
+// One line per invocation when the default store is in use and an old `.test-kit/` sits beside the config (#312).
+async function legacyNotice({ command, options }) {
+  try {
+    const usesStore = STORE_COMMANDS.includes(command) || (command === 'perf' && (options.ddev || options.store || options.path));
+    if (!usesStore && !RUNSROOT_COMMANDS.includes(command) && command !== 'perf') return null;
+    const { resolve, dirname } = await import('node:path');
+    const { readFile } = await import('node:fs/promises');
+    const { legacyStoreNotice } = await import('../config/store.js');
+    const configPath = resolve(options.config ?? 'test-kit.config.json');
+    let explicit = options.store !== undefined;
+    if (!usesStore && !explicit) {
+      try { explicit = Object.hasOwn(JSON.parse(await readFile(configPath, 'utf8')), 'runsRoot'); } catch { return null; }
+    }
+    return await legacyStoreNotice(dirname(configPath), { explicit });
+  } catch { return null; }
+}
 // Unit tests inject dispatch. Dependencies load only for the selected command.
 export async function run(argv, { out, err }, version = '0.0.0', execute = dispatch) {
   if (!argv.length || argv.length === 1 && ['-h', '--help'].includes(argv[0])) { out.write(HELP); return 0; }
   if (argv.length === 1 && ['-v', '--version'].includes(argv[0])) { out.write(`${version}\n`); return 0; }
   if (argv.length === 2 && Object.hasOwn(COMMANDS, argv[0]) && ['-h', '--help'].includes(argv[1])) { out.write(HELP); return 0; }
   try {
-    const result = await execute(parseCommand(argv));
+    const parsed = parseCommand(argv);
+    const notice = await legacyNotice(parsed);
+    if (notice) err.write(`${notice}\n`);
+    const result = await execute(parsed);
     out.write(`${JSON.stringify(result.output)}\n`);
     for (const line of result.stderr ?? []) err.write(`${line}\n`);
     return result.exitCode;

@@ -156,13 +156,13 @@ test('loadConfig resolves storage relative to the configuration file', async () 
     await writeFile(path, JSON.stringify(input()));
     const loaded = await loadConfig(path);
     assert.equal(loaded.configDir, directory);
-    assert.equal(loaded.runsRoot, join(directory, '.test-kit/runs'));
+    assert.equal(loaded.runsRoot, join(directory, 'test-kit/runs'));
     assert.equal(loaded.configPath, path);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test('runsRoot defaults to the ignored store and an explicit value wins (R12.1)', async () => {
-  assert.equal(normalizeConfig(input()).runsRoot, '.test-kit/runs');
+  assert.equal(normalizeConfig(input()).runsRoot, 'test-kit/runs');
   assert.equal(normalizeConfig({ ...input(), runsRoot: 'tests/visual/runs' }).runsRoot, 'tests/visual/runs');
   const directory = await mkdtemp(join(tmpdir(), 'test-kit-config-'));
   try {

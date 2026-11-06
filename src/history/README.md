@@ -8,7 +8,7 @@ It does not capture evidence or delete files.
 `renderHistory(data)` escapes metadata before it writes HTML.
 
 `startHistory({ local, root, port })` starts a loopback server.
-The default store is `.test-kit` under `root` (the working directory by default).
+The default store is `test-kit` under `root` (the working directory by default).
 It opens comparison viewers with the package server API.
 It returns `{ server, origin, url, close }`.
 `close()` closes the history server and all comparison viewers.

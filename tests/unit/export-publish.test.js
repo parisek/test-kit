@@ -11,12 +11,12 @@ import { validId } from '../../src/history/valid-id.js';
 const H1 = 'sha256:' + 'a'.repeat(64);
 const SUCCESS = dir => `test-kit: published to ${dir}; the directory contains captured pages.`;
 
-// A temp project: `proj/.test-kit` is the store, `proj/site` is the publish directory.
+// A temp project: `proj/test-kit` is the store, `proj/site` is the publish directory.
 async function fixture(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'test-kit-publish-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const proj = join(root, 'proj');
-  const local = join(proj, '.test-kit');
+  const local = join(proj, 'test-kit');
   const dir = join(proj, 'site');
   await mkdir(local, { recursive: true });
   const base = { local, dir, cwd: root, home: join(root, 'home'), now: new Date('2026-10-20T12:00:00.000Z') };
@@ -311,7 +311,7 @@ test('DIR equal to, inside or a parent of the store is refused', async t => {
   await symlink(f.local, join(f.root, 'store-link'));
   await assert.rejects(publishHistory({ ...f.base, dir: join(f.root, 'store-link') }), /symbolic link/);
   await symlink(f.proj, join(f.root, 'proj-link'));
-  await assert.rejects(publishHistory({ ...f.base, dir: join(f.root, 'proj-link', '.test-kit') }), /history store/);
+  await assert.rejects(publishHistory({ ...f.base, dir: join(f.root, 'proj-link', 'test-kit') }), /history store/);
   // A sibling that equals the store is refused too.
   await assert.rejects(publishHistory({ ...f.base, local: join(f.proj, 'site.test-kit-new'), dir: f.dir }), /history store/);
 });
@@ -321,7 +321,7 @@ test('the root, the home directory, the working directory and its parents are re
   const home = join(f.root, 'home');
   const work = join(f.root, 'work', 'app');
   await mkdir(home); await mkdir(work, { recursive: true });
-  const store = join(f.root, 'elsewhere', '.test-kit');
+  const store = join(f.root, 'elsewhere', 'test-kit');
   await mkdir(store, { recursive: true });
   await assert.rejects(publishHistory({ ...f.base, local: store, dir: '/' }), /Refused/);
   await assert.rejects(publishHistory({ ...f.base, local: store, dir: home, home }), /home directory/);
@@ -372,7 +372,7 @@ test('the CLI refuses a directory outside the rules with exit 1 and no write', a
   const f = await fixture(t);
   await writeFile(join(f.proj, 'test-kit.config.json'), '{}');
   const err = [];
-  const code = await run(['history', '--config', join(f.proj, 'test-kit.config.json'), '--publish', '.test-kit'], { out: { write() {} }, err: { write: v => err.push(v) } });
+  const code = await run(['history', '--config', join(f.proj, 'test-kit.config.json'), '--publish', 'test-kit'], { out: { write() {} }, err: { write: v => err.push(v) } });
   assert.equal(code, 1);
   assert.match(err.join(''), /history store/);
 });
@@ -666,7 +666,7 @@ test('no stage, backup or lock is left after success', async t => {
   await publishHistory(f.base);
   await publishHistory(f.base);
   assert.deepEqual(await siblings(f.dir), none);
-  assert.deepEqual((await readdir(f.proj)).sort(), ['.test-kit', 'site']);
+  assert.deepEqual((await readdir(f.proj)).sort(), ['site', 'test-kit']);
 });
 
 test('S1 re-check failure that cannot release the lock names the retained lock', async t => {

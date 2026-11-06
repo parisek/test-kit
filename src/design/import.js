@@ -6,6 +6,7 @@ import { recordSelection, cellSelected } from '../capture/selection.js';
 import { createRunId } from '../capture/helpers.js';
 import { gitSha } from '../capture/git.js';
 import { designPathProblem } from './paths.js';
+import { ensureDefaultRunsIgnore } from '../config/store.js';
 import { MAX_DESIGN_BYTES, designProvenance } from './png.js';
 
 export const DESIGN_IMPORT_VERSION = '1.0.0';
@@ -35,8 +36,8 @@ export async function readDesignFile(root, source) {
 // R4.6: import the supplied images of one design side into an immutable run.
 // The work is all-or-nothing: any path or file problem fails the import before a run directory exists.
 // Nothing here opens a browser or a network connection.
-export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports }) {
-  const loaded = await loadConfig(configPath);
+export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports, baseDir }) {
+  const loaded = await loadConfig(configPath, { baseDir });
   const config = loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   const design = config.sides[side];
@@ -69,6 +70,7 @@ export async function importDesign({ configPath, side, label = '', runsRoot, tar
   const run = { schemaVersion: 2, id, side, label, at: importedAt, state: 'complete', settings: stored, captureSettings: settings, settingsHash: hash,
     ...(selection ? { selection } : {}), tools: [{ name: 'test-kit-design', version: DESIGN_IMPORT_VERSION, settingsHash: hash }], captures: [] };
   await mkdir(runs, { recursive: true });
+  await ensureDefaultRunsIgnore(loaded.configDir, runs);
   await mkdir(runDir);
   try {
     for (const { target, viewport, bytes, provenance } of images) {
