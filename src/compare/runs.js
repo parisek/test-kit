@@ -18,6 +18,8 @@ import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
 import { isDesignRun, designPairProblem } from '../design/compare.js';
 import { sha256 } from '../design/png.js';
+import { absoluteFingerprints } from '../allowlist/fingerprint.js';
+import { allowlistForReport, normalizeAllowlist } from '../allowlist/model.js';
 
 // The text of a status finding: each differing field with both values, bounded in size.
 // A path is cut around the first character where A and B differ. A chain shows the steps around its first differing step.
@@ -220,8 +222,11 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind: kindInput, rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind: kindInput, rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput, allowlistEntries = [], now = new Date() }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
+	if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new Error('now must be a valid Date.');
+	// R9.12: a bad allowlist fails the run before the output directory exists. It never falls back to an empty list.
+	const allowlist = normalizeAllowlist({ schemaVersion: 1, entries: allowlistEntries }).entries;
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
 	const b = await readRun(runsRoot, bId);
@@ -323,7 +328,9 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.artifacts.content = content.artifact;
 				for (const id of content.artifact.scope.checks) if (!Object.hasOwn(builtinChecks, id)) throw new Error('Unknown content check.'); else checks[id] ??= { basis: builtinChecks[id].basis, layer: 'package', title: builtinChecks[id].title };
 				// An absolute finding names the run it is about. Only side B enters the list today (ADR 0004, "Open points", 1).
-				content.findings.forEach((finding, index) => findings.push({ targetId: finding.targetId, viewportId: finding.viewportId, artifact: 'content', checkId: finding.checkId, layer: 'package', ...(builtinChecks[finding.checkId].basis === 'absolute' ? { runId: b.id } : {}), severity: finding.severity, message: finding.message, id: `content-${target.id}-${viewport.id}-${finding.checkId}-${index}` }));
+				// R9.8: an absolute finding gets its fingerprint here, because the report keeps no evidence of a content finding.
+				const prints = absoluteFingerprints(content.findings.map(finding => builtinChecks[finding.checkId].basis === 'absolute' ? { ...finding, artifact: 'content' } : null));
+				content.findings.forEach((finding, index) => findings.push({ ...prints[index], targetId: finding.targetId, viewportId: finding.viewportId, artifact: 'content', checkId: finding.checkId, layer: 'package', ...(builtinChecks[finding.checkId].basis === 'absolute' ? { runId: b.id } : {}), severity: finding.severity, message: finding.message, id: `content-${target.id}-${viewport.id}-${finding.checkId}-${index}` }));
 			}
 			if (requested.has('behavior')) {
 				const behavior = await compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
@@ -362,7 +369,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });
 	}
-	const report = { schemaVersion: SCHEMA_VERSION, meta: { title: `${a.label} → ${b.label}`, generated: new Date().toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, ...noFixtureField(run), settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
+	const report = { schemaVersion: SCHEMA_VERSION, meta: { title: `${a.label} → ${b.label}`, generated: now.toISOString(), matchBelow: 3, primaryViewport: [...viewports.keys()][0], viewports: [...viewports.values()], noiseFloor: null, tools: [...a.tools, ...b.tools, { name: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash }] }, runs: [a, b].map((run) => ({ id: run.id, side: run.side, label: run.label, at: run.at, state: run.state, ...noFixtureField(run), settings: { sides: { [run.side]: run.settings.sides[run.side] }, viewports: run.settings.viewports, screenshot: run.settings.screenshot,
     targets: run.settings.targets.filter(target => target.settle !== undefined || target.settleBySide?.[run.side] !== undefined).map(target => ({ id: target.id,
       ...(target.settle !== undefined ? { settle: target.settle } : {}),
       ...(target.settleBySide?.[run.side] !== undefined ? { settleBySide: { [run.side]: target.settleBySide[run.side] } } : {}) })) }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, checks, entries, causes: [], findings, rules: {} };
@@ -385,7 +392,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	report.meta.comparisonPolicyHash = policyHash(rules);
 	for (const finding of findings) {
 		if (!['screenshot', 'html', 'status', 'content'].includes(finding.artifact)) continue;
-		// Known differences and fingerprints bind a difference between A and B. An absolute finding has no cause until the allowlist ships (#254).
+		// Known differences and fingerprints bind a difference between A and B. An absolute finding has no cause: it got its fingerprint above and only the allowlist explains it (R9.12).
 		if (finding.runId !== undefined) continue;
 		const entry = entries.find(entry => entry.id === finding.targetId);
 		const row = entry.viewports.find(row => row.id === finding.viewportId);
@@ -407,6 +414,10 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			report.causes.push({ id, title: 'Evidenced HTML normalization', known: true, acceptance: 'normalization' });
 		}
 	}
+	// R9.12: the producer decides the status of each allowlist entry once, with the clock of this run. The classifier reads the result only.
+	const copied = allowlistForReport(allowlist, report, now);
+	if (copied.allowlist.length) report.allowlist = copied.allowlist;
+	if (copied.omitted) report.meta.allowlistOmitted = copied.omitted;
 	const problems = validateReport(report);
 	if (problems.length) throw new Error(problems.join(' '));
 	const reportPath = join(output, 'report.json');

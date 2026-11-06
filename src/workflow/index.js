@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { loadBehaviorSource } from '../behavior/source.js';
 import { normalizeConfig } from '../config/index.js';
 import { selectConfig } from './selection.js';
+import { allowlistPath, readAllowlist } from '../allowlist/file.js';
 import { DEFAULT_STORE, DEFAULT_RUNS_ROOT, ensureStoreIgnore } from '../config/store.js';
 export { selectConfig } from './selection.js';
 const execute = promisify(execFile);
@@ -178,6 +179,8 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     // Check the baseline before any capture runs. Any other ENOENT from compare passes through unchanged.
     if (command === 'after' && !(await present(join(storePath, 'runs', String(profile.before), 'run.json')))) throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`);
+    // R9.12: read the allowlist before any capture. A bad file stops `after` here and never falls back to an empty list.
+    const allowlistEntries = command === 'after' ? (await readAllowlist(allowlistPath({ configPath, override: options.allowlist }))).entries : [];
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
     const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command });
@@ -195,7 +198,7 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     if (command === 'after') {
       const compare = dependencies.compareRuns ?? (await import('../compare/runs.js')).compareRuns;
-      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind, rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage });
+      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind, rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage, allowlistEntries });
       state.report = `reports/${run.id}/report.json`;
       output.reportPath = comparison.reportPath;
     }

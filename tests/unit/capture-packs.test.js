@@ -145,6 +145,20 @@ test('a stored axe result becomes an absolute artifact and findings of the v3 mo
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('an axe finding gets the fingerprint of its own evidence, the same in two stores (R9.8)', async () => {
+  const one = await mkdtemp(join(tmpdir(), 'test-kit-packs-')), two = await mkdtemp(join(tmpdir(), 'test-kit-packs-'));
+  try {
+    const first = await comparePackArtifact(await storedRun(one, { a11y: index() }, axe()));
+    const second = await comparePackArtifact(await storedRun(two, { a11y: index() }, axe()));
+    const prints = result => result.findings.map(finding => finding.evidenceFingerprint);
+    assert.ok(first.findings.length > 0);
+    assert.deepEqual(prints(first), prints(second));
+    assert.ok(prints(first).every(value => /^sha256:[a-f0-9]{64}$/.test(value)));
+    assert.equal(new Set(prints(first)).size, first.findings.length, 'Each finding has its own fingerprint.');
+    assert.ok(first.findings.every(finding => finding.diagnostic === undefined));
+  } finally { await rm(one, { recursive: true, force: true }); await rm(two, { recursive: true, force: true }); }
+});
+
 test('a stored missing or failed result stays missing or failed in the report (R8.7)', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'test-kit-packs-'));
   try {

@@ -5,6 +5,7 @@ import { adaptReport } from '../report/model.js';
 import { readSidecar } from '../artifacts/compare.js';
 import { hasLineLists, safeLines, safeCount } from '../checks/builtin/text-difference.js';
 import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
+import { allowlistCounts } from '../allowlist/model.js';
 import { OUTPUT_BYTE_LIMIT, outputBytes, clip, markCut, wasCut, fitLists } from './bound.js';
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -71,6 +72,9 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
     rules: Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).slice(0, 50).map(([id, rule]) => ({ id: id.slice(0, 64), text: typeof rule.text === 'string' ? rule.text.slice(0, 500) : '', evidence: rule.evidence.slice(0, 1000) })),
     rulesOmitted: Math.max(0, Object.entries(report.rules ?? {}).filter(([, rule]) => ruleApplies(rule, pairContext)).length - 50),
     evidence: { a: index.a?.src ?? null, b: index.b?.src ?? null, normalizedA: index.normalizedA?.src ?? null, normalizedB: index.normalizedB?.src ?? null }, next: 'Open the same target and viewport in the viewer.' };
+  // R9.12: the allowlist entries of this target, counted by status. The key appears only when there is one, so the pinned output stays the same.
+  const allowlisted = allowlistCounts(report, target);
+  if (Object.values(allowlisted).some(count => count > 0)) result.allowlist = allowlisted;
   if (absolute || report.subject) {
     // An absolute index has one piece of evidence and a bounded result. The sidecar format belongs to the pack that wrote it.
     result.evidence = { run: index.evidence?.src ?? null };

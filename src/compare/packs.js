@@ -7,6 +7,7 @@ import { readSidecar } from '../artifacts/compare.js';
 import { builtinPacks } from '../packs/builtin.js';
 import { resolveChecks } from '../packs/layers.js';
 import { runChecks } from '../packs/run.js';
+import { absoluteFingerprints } from '../allowlist/fingerprint.js';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const PACK_OF_ARTIFACT = Object.freeze({ a11y: 'a11y' });
@@ -40,10 +41,13 @@ export async function comparePackArtifact({ kind, b, bc, runsRoot, output, targe
   const result = runChecks(plan, { artifact: kind, value }, { targetId, viewportId });
   const state = STATE[result.state] ?? 'failed';
   const diagnostics = Object.values(result.checks).map(check => check.diagnostic).filter(Boolean);
+  // R9.8: every absolute finding gets its fingerprint from the evidence of the check, which stays out of the report index.
+  const prints = absoluteFingerprints(result.findings.map(finding => catalog[finding.checkId]?.basis === 'absolute'
+    ? { checkId: finding.checkId, targetId, viewportId, artifact: kind, message: finding.message, evidence: finding.evidence } : null));
   const findings = result.findings.map((finding, number) => {
     const selector = finding.evidence?.selector;
     return {
-      id: `${kind}-${targetId}-${viewportId}-${finding.checkId}-${number}`, targetId, viewportId, artifact: kind, checkId: finding.checkId,
+      ...prints[number], id: `${kind}-${targetId}-${viewportId}-${finding.checkId}-${number}`, targetId, viewportId, artifact: kind, checkId: finding.checkId,
       layer: finding.layer, runId: b.id, severity: finding.severity, message: finding.message, evidence: finding.evidence,
       ...(clean(selector, 500) ? { location: { selector } } : {}),
     };

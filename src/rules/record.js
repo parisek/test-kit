@@ -17,9 +17,9 @@ export async function recordKnown({ reportPath, configPath, target, viewport, ar
   const entry = report.entries.find(entry => entry.id === target), row = entry?.viewports.find(row => row.id === viewport);
   if (!report.pair) throw new Error('A subject report has no known differences (R9.7).');
   const scoped = report.findings.filter(finding => finding.targetId === target && finding.viewportId === viewport && finding.artifact === artifact);
-  // R7.3: known differences apply to relative checks only. An absolute finding waits for the allowlist (#254).
+  // R7.3: known differences apply to relative checks only. An absolute finding uses the allowlist (R9.12).
   const finding = scoped.find(finding => findingBasis(report, finding) === 'relative');
-  if (scoped.length && !finding) throw new Error('A known difference applies to a relative check only (R7.3). An absolute finding stays unexplained until the allowlist ships.');
+  if (scoped.length && !finding) throw new Error('A known difference applies to a relative check only (R7.3). Use record-allowed for an absolute finding (R9.12).');
   if (!entry || entry.judge === 'oracle' || !row
     || (row.artifacts?.[artifact]?.state ?? row.state) !== 'complete' || !finding) throw new Error('Record one complete non-oracle finding.');
   if (report.meta.comparisonPolicyHash !== policyHash(config.rules)) throw new Error('Comparison policy changed. Compare again before recording.');

@@ -1,27 +1,33 @@
 import { builtinChecks } from '../checks/index.js';
 import { parseIdList } from '../capture/selection.js';
-export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'perf', 'run', 'before', 'after', 'report', 'history', 'import'].map(name => [name, {}]));
+export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'record-allowed', 'perf', 'run', 'before', 'after', 'report', 'history', 'import'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
+  after [--allowlist FILE]   Also read the allowlist from FILE. The default is test-kit.allowlist.json beside the config.
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID] [--packs]
   import --side ID [--config FILE] [--label TEXT] [--target ID,ID] [--viewport ID,ID]
-  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID]
+  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID] [--allowlist FILE]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
   query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|lighthouse|lint|a11y [--max-lines N]
   record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|status|content --cause ID --reason TEXT
+  record-allowed REPORT --target ID --check ID [--viewport ID] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--config FILE] [--allowlist FILE]
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts', 'packs'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
+const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts', 'packs'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'],
+  'record-allowed': ['config', 'target', 'check', 'viewport', 'reason', 'owner', 'expires', 'allowlist'] };
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
 // R4.5: a separate line, so the FLAGS literal above stays easy to merge.
 for (const name of ['capture', 'diff']) FLAGS[name] = [...FLAGS[name], 'target', 'viewport'];
+// R9.12: `diff` and `after` write a report, so they take the path of the allowlist.
+FLAGS.diff = [...FLAGS.diff, 'allowlist'];
+FLAGS.after = [...workflowFlags, 'allowlist'];
 FLAGS.import = ['config', 'side', 'label', 'target', 'viewport'];
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
 FLAGS.history = ['config', 'store', 'port', 'export', 'publish'];
@@ -45,7 +51,7 @@ export function parseCommand(argv) {
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
-  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0 }[command];
+  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, 'record-allowed': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0 }[command];
   if (options.publish !== undefined && (options.export !== undefined || options.port !== undefined)) throw new Error('Use --publish alone. Do not combine it with --export or --port.');
   if (options.export && options.port !== undefined) throw new Error('Use --export or --port.');
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
@@ -60,6 +66,7 @@ export function parseCommand(argv) {
   // An absolute result (lint, a11y) may sit at target scope, so --viewport is optional for it (R9.9).
   if (command === 'query' && (!options.target || (!options.viewport && !['lint', 'a11y'].includes(options.artifact)) || !['html', 'status', 'content', 'behavior', 'lighthouse', 'lint', 'a11y'].includes(options.artifact))) throw new Error('query requires --target, --artifact html|status|content|behavior|lighthouse|lint|a11y, and --viewport (optional for lint and a11y)');
   if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'status', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
+  if (command === 'record-allowed' && (!options.target || !options.check || !options.reason || !options.owner)) throw new Error('record-allowed requires target, check, reason, and owner');
   // R4.5: `capture` and `diff` take lists of ids. The same parser as the workflow commands checks them.
   if (['capture', 'diff', 'import'].includes(command)) for (const name of ['target', 'viewport']) if (options[name]) parseIdList(options[name], name);
   if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) throw new Error('Unknown capture artifact');
@@ -137,7 +144,10 @@ export async function dispatch({ command, positions, options }, dependencies = {
     const { compareRuns } = await import('../compare/runs.js');
     const { resolve } = await import('node:path');
     const loaded = await loadConfig(options.config ?? 'test-kit.config.json');
-    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind, rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage, failOnBudget: options['fail-on-budget'] ?? false, filter: options.target || options.viewport ? { targets: options.target?.split(','), viewports: options.viewport?.split(',') } : undefined });
+    // R9.12: read the allowlist before the comparison. A bad file fails the run before any report exists.
+    const { allowlistPath, readAllowlist } = await import('../allowlist/file.js');
+    const { entries: allowlistEntries } = await readAllowlist(allowlistPath({ configPath: options.config, override: options.allowlist }));
+    const result = await compareRuns({ allowlistEntries, runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind, rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage, failOnBudget: options['fail-on-budget'] ?? false, filter: options.target || options.viewport ? { targets: options.target?.split(','), viewports: options.viewport?.split(',') } : undefined });
     return { output: { reportPath: result.reportPath }, exitCode: result.exitCode ?? 0 };
   }
   if (command === 'summary') {
@@ -159,6 +169,10 @@ export async function dispatch({ command, positions, options }, dependencies = {
       bytes = buffer.subarray(0, length);
     } finally { await handle.close(); }
     return { output: summarizeReport(JSON.parse(bytes), { maxTargets: options.maxTargets ?? 20, filter: options.filter ?? 'all', target: options.target }), exitCode: 0 };
+  }
+  if (command === 'record-allowed') {
+    const { recordAllowed } = await import('../allowlist/record.js');
+    return { output: await recordAllowed({ reportPath: positions[0], target: options.target, check: options.check, viewport: options.viewport, reason: options.reason, owner: options.owner, expires: options.expires, configPath: options.config, allowlist: options.allowlist }), exitCode: 0 };
   }
   if (command === 'record-known') {
     const { recordKnown } = await import('../rules/record.js');

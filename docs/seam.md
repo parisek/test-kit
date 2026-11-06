@@ -92,7 +92,7 @@ Items inside the configuration that stay open:
 | The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
 | Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. |
 | The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, 2026-11-04 and 2026-11-05; both entries are built | Specification section 17, items 7 and 10, R13.40, R13.46 to R13.50: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). The design is ADR 0006. The build is #26, milestone 1.1. |
-| The allowlist (`reason`, `owner`) | Not frozen, owner decision open | Moved to #254 (ADR 0004, open question 4). No config key exists. |
+| The allowlist (`reason`, `owner`) | Not frozen, decided 2026-11-06 | The file `test-kit.allowlist.json` beside the config, with no config key (R9.12, ADR 0004, open question 4). |
 | Selection of checks or contracts per target | Not frozen, decided 2026-11-04 | `scope.checks` on each artifact index, derived from the run settings (ADR 0004, open question 2; R9.10). |
 | Artifact kinds `a11y` and `lint` in `artifacts` | Not frozen, change planned | Both are glossary artifacts (specification section 2). The code rejects both today. They come with `schemaVersion` 3 in 1.1 (specification section 17, item 8). |
 | `known_diffs` record contents | Frozen as a key, with a caveat | Each record binds `rawA`, `rawB`, `bindingHash` and `policyHash` (`src/rules/model.js`). A change to the comparator policy makes stored records stale with no schema change. A migration note must name any such change. |
@@ -118,13 +118,14 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | --- | --- | --- | --- |
 | `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`, `--packs`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. `--packs` is an addition in 1.1 (R13.51, owner decision of 2026-11-04, #231). It is a flag without a value. It runs the packs of the `packs` key on the open page. It is refused on a remote side. Without it nothing changes. |
 | `import` | `--side` (`--config`, `--label`, `--target`, `--viewport`) | Frozen (decided) | R4.6. Imports the supplied images of a design side into an immutable run. No browser and no network. Output is one line of JSON: `id`, `state`, `images`, `manifestPath`. Exit 0 on a complete run, 1 on any error. The owner confirmed the name on 2026-11-06 (#288). |
-| `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. `--target` and `--viewport` are additions (R4.5): they filter the pair and the report records them in `meta.scope`. |
+| `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`, `--target`, `--viewport`, `--allowlist`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. `--target` and `--viewport` are additions (R4.5): they filter the pair and the report records them in `meta.scope`. `--allowlist` is an addition (R9.12): it names the allowlist file, and the default is `test-kit.allowlist.json` beside the config. Old input still passes. |
 | `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). Addition in 1.1: `droppedRequestCount`, `droppedWarnings`, `droppedWarningsOmitted` and `droppedNotListed`, present only when a `font` or `stylesheet` request was aborted or a list was cut (R3.8). Addition: `skipped`, present only when the report skipped a cell (R4.5). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
 | `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. Addition in 1.1: `--artifact` accepts `status` (R6.13). Old input still passes. |
+| `record-allowed` | `REPORT --target --check --reason --owner` (`--viewport`, `--expires`, `--config`, `--allowlist`) | Experimental, decided 2026-11-06 | R9.12. Adds one entry to `test-kit.allowlist.json`. The counterpart of `record-known` for an absolute finding. It never edits an entry. |
 | `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. On a side with `production: true`, `perf` waits for `--consent` for any number of targets (R6.5, #162). |
-| `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. Addition in 1.2: `before --side A` and `after --side B` may name two sides. The scope hash no longer holds the side, and the report kind follows the pair of sides (R3.11): the same side gives `update`, a remote side then a local side gives `migration`, any other pair stops `after` with an error. No new flag and no new command. Old input passes, but a baseline made before 1.2 never matches and needs `before` again. The owner decided this on 2026-11-06 (#240, option 1). The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). |
+| `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. Addition in 1.2: `before --side A` and `after --side B` may name two sides. The scope hash no longer holds the side, and the report kind follows the pair of sides (R3.11): the same side gives `update`, a remote side then a local side gives `migration`, any other pair stops `after` with an error. No new flag and no new command. Old input passes, but a baseline made before 1.2 never matches and needs `before` again. The owner decided this on 2026-11-06 (#240, option 1). The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). `after` also takes `--allowlist` (R9.12), as `diff` does. |
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 | `history` | none (`--config`, `--store`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 
@@ -160,7 +161,7 @@ Source of truth: `src/behavior/contracts.js`, `src/behavior/README.md`, R7.7, R1
 | The default projects `desktop-1280` and `mobile-390` | Frozen | `DEFAULT_PROJECTS` in `src/behavior/contracts.js`. |
 | The identity of a behavior finding (step ID against contract name) | Not frozen, decided 2026-11-04 | Each step carries `contract`. The catalog key is `behavior.<contract name>`, and the registry records the origin (ADR 0004, open question 1; R9.8). |
 | The behavior snapshot version | Not frozen, decided 2026-11-04 | The version is 2 since `schemaVersion` 3 (it was 1), because each step carries `contract`. A stored version 1 snapshot does not compare with a version 2 snapshot. The pair reads `incompatible` (R8.9). Capture the older side again (#230). |
-| The format of component allowlists | Not frozen, owner decision open | R13.41 puts the format in the package. The allowlist is unspecified and moved to #254. |
+| The format of component allowlists | Not frozen, decided 2026-11-06 | R13.41 puts the format in the package. R9.12 defines it: `test-kit.allowlist.json`, `schemaVersion` 1, entries with `checkId`, `targetId`, `fingerprint`, `reason`, `owner`, optional `expires` and `message`. |
 | Shared contracts `picture`, `gsap`, `lightgallery`, `header-*`, `cookieconsent`, `hygiene`, `render-integrity` | Not in the package | R13.42 plans them as packs. Only `swiper` and the axe pack ship. |
 
 ## 5. Pack API
@@ -181,7 +182,8 @@ Source of truth: `src/packs/define.js`, `src/packs/layers.js`, `src/packs/run.js
 | States: check `complete`, `missing`, `failed`. Run state is the worst one | Experimental | R8.7 defines four states: `complete`, `missing`, `failed`, `incompatible` (ADR 0004, section 7, point 1 uses `incompatible` for absolute checks too). The pack code emits three. The set may gain `incompatible`. An open marker is exactly `evidence.state` of `incomplete` or `unknown`. |
 | The input contract: JSON-like data, one frozen snapshot, one read of each caller field, fail closed | Frozen | `src/packs/snapshot.js`. Nesting limit 256 is a chosen bound. |
 | The mapping of a pack finding to a `report.json` finding | Not frozen, change planned | The report finding has `id` and `causeId`. The pack finding has neither. No code maps one to the other. `schemaVersion` 3 (R9.8). |
-| Threshold overrides and allowlists | Not frozen, owner decision open | `src/packs/README.md` ("Not built yet"). #254 (ADR 0004, open question 4). |
+| Threshold overrides | Not frozen, owner decision open | `src/packs/README.md` ("Not built yet"). |
+| Allowlists for pack findings | Not frozen, decided 2026-11-06 | One allowlist for all absolute findings (R9.12). A pack finding has the fingerprint of an absolute finding. |
 | Findings of completed checks in a mixed artifact | Decided 2026-10-23 | ADR 0004, open question 5 (#178, R8.12). |
 
 Entry points in `package.json` `exports`. The list on `main` has nine entries. v0.5.0 had three. Nothing from v0.5.0 was removed (measured 2026-10-19).
@@ -225,7 +227,7 @@ What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is froze
 - The absolute artifact index with `result: { violations, checks }`.
 - The artifact kinds `a11y` and `lint`, and the reserved target `@project`.
 - `scope.checks` on each artifact index, and the behavior key `behavior.<contract name>` (ADR 0004, open questions 1 and 2).
-- Not yet: the absolute fingerprint and the allowlist (#254, ADR 0004, open questions 3 and 4).
+- The absolute `evidenceFingerprint` and the `allowlist` key with entry statuses (R9.8, R9.12; #254, ADR 0004, open questions 3 and 4). Not frozen. The `lighthouse-budget` finding has no fingerprint yet.
 
 Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1 (`adaptV1` in `src/report/model.js`).
 
@@ -239,8 +241,6 @@ Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and d
 
 | Item | Pointer |
 | --- | --- |
-| The allowlist file, with `reason` and `owner` | #254 (ADR 0004, open question 4). |
-| The absolute fingerprint | #254 (ADR 0004, open question 3). |
 | Pack versioning (one tag or one for each pack) | Vision open decision 10. |
 | Version numbers before the release candidate | Vision open decision 7. |
 
