@@ -46,11 +46,11 @@ export function runProblem(source, current) {
   if (current.declaration?.remote !== true || source.settings.sides[current.side]?.remote !== true) return 'remote';
   if (!same(source.settings.sides[current.side], current.declaration)) return 'declaration';
   if (source.settingsHash !== current.settingsHash) return 'settings';
-  for (const name of ['playwright', 'chromium']) {
-    const mine = current.tools.find(tool => tool.name === name && !tool.artifact);
-    const theirs = Array.isArray(source.tools) ? source.tools.find(tool => tool?.name === name && !tool.artifact) : undefined;
-    if (!mine || !theirs || mine.version !== theirs.version || mine.settingsHash !== theirs.settingsHash) return 'tools';
-  }
+  // The whole tools list must be equal, in any order.
+  if (!Array.isArray(source.tools) || !Array.isArray(current.tools) || source.tools.length !== current.tools.length) return 'tools';
+  const key = tool => JSON.stringify(plain(tool) ? Object.entries(tool).sort(([a], [b]) => a < b ? -1 : 1) : null);
+  const theirs = source.tools.map(key).sort();
+  if (current.tools.map(key).sort().some((item, index) => item !== theirs[index])) return 'tools';
   return null;
 }
 
@@ -81,12 +81,6 @@ export function entryProblem(entry, source, cell) {
     if (kind === 'html' && !text(index.contentType, 200)) return 'artifacts';
   }
   return null;
-}
-
-// The relative paths to copy for a cell, in order.
-export function filesToCopy(entry, requested) {
-  const files = expectedFiles(entry.targetId, entry.viewportId, requested);
-  return Object.values(files);
 }
 
 // The new entry for a cell. Only known keys are copied. `recipe`, `settleHash` and `scopeHash` stay as stored,

@@ -1,15 +1,18 @@
 // R5.13: the file system side of keep-existing. It lists the runs of a store, newest first, reads each manifest with the
 // validated run reader, and copies the stored files of a kept cell into the new run.
 // A path comes from a stored manifest, so it is rebuilt from IDs (`expectedFiles`) and checked again here.
-import { readdir, lstat, open, mkdir, writeFile, unlink, chmod } from 'node:fs/promises';
+import { readdir, lstat, open, mkdir, writeFile, unlink } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { readRun } from '../compare/runs.js';
 import { relativePath } from '../report/safe.js';
-import { runProblem, entryProblem, keptEntry, filesToCopy } from './keep.js';
+import { runProblem, entryProblem, keptEntry, expectedFiles } from './keep.js';
 
 const MAX_FILE_BYTES = 80_000_000;
 const PNG = Buffer.from('89504e470d0a1a0a', 'hex');
+const IHDR = Buffer.from('IHDR');
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 // The run IDs of a store, newest first. A run ID starts with its ISO time, so the order of the names is the order of time.
 export async function listRunIds(root) {
@@ -48,10 +51,18 @@ async function readPlain(base, path, maxBytes) {
 export async function copyKeptFiles({ sourceDir, runDir, entry, requested }) {
   const written = [];
   try {
-    for (const path of filesToCopy(entry, requested)) {
+    const files = expectedFiles(entry.targetId, entry.viewportId, requested);
+    const stored = entry.artifacts ?? {};
+    for (const path of Object.values(files)) {
       const bytes = await readPlain(sourceDir, path, MAX_FILE_BYTES);
-      if (path.endsWith('.png')) {
-        if (bytes.length < 24 || !bytes.subarray(0, 8).equals(PNG) || bytes.readUInt32BE(16) !== entry.width || bytes.readUInt32BE(20) !== entry.height) throw new Error('A stored screenshot does not match its entry.');
+      if (path === files.screenshot) {
+        if (bytes.length < 24 || !bytes.subarray(0, 8).equals(PNG) || !bytes.subarray(12, 16).equals(IHDR) || bytes.readUInt32BE(16) !== entry.width || bytes.readUInt32BE(20) !== entry.height) throw new Error('A stored screenshot does not match its entry.');
+      } else if (path === files.contentBody) {
+        // `bodyBytes` is the size before compression.
+        if (gunzipSync(bytes, { maxOutputLength: MAX_BODY_BYTES + 1 }).length !== stored.content?.bodyBytes) throw new Error('A stored file does not match its entry.');
+      } else {
+        const kind = Object.keys(files).find(name => files[name] === path);
+        if (bytes.length !== stored[kind]?.bytes) throw new Error('A stored file does not match its entry.');
       }
       const target = join(runDir, path);
       await mkdir(dirname(target), { recursive: true });

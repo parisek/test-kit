@@ -25,7 +25,7 @@ const current = { side: 'production', declaration: side, settingsHash: 'sha256:r
 const files = expectedFiles('home', 'desktop', requested);
 const entry = () => ({ targetId: 'home', viewportId: 'desktop', settleHash, state: 'captured', path: files.screenshot, statusCode: 200, finalPath: '/', width: 400, height: 300, deviceScaleFactor: 1,
   scopeHash: settingsHash(recipe.scope), recipe: structuredClone(recipe),
-  artifacts: { status: { kind: 'status', ...provenance.status, state: 'captured', path: files.status, bytes: 40 } } });
+  artifacts: { status: { kind: 'status', ...provenance.status, state: 'captured', path: files.status, bytes: 18 } } });
 const source = (over = {}) => ({ id: SOURCE_ID, at: SOURCE_AT, side: 'production', state: 'complete', settingsHash: 'sha256:run', tools: structuredClone(tools),
   settings: { targets: [structuredClone(target)], viewports: [viewport], sides: { production: structuredClone(side) } }, captures: [entry()], ...over });
 const cell = (over = {}) => ({ target, viewport, requested, provenance, recipe, settleHash, ...over });
@@ -56,6 +56,15 @@ test('rule 2: the settings hash and the Playwright and Chromium versions must be
   playwright.tools[0].version = '1.65.0';
   assert.equal(runProblem(playwright, current), 'tools');
   assert.equal(runProblem(source({ tools: [] }), current), 'tools');
+  const extra = source();
+  extra.tools.push({ name: 'playwright', version: '1.64.0', settingsHash: 'sha256:status', artifact: 'status' });
+  assert.equal(runProblem(extra, current), 'tools', 'an extra entry');
+  assert.equal(runProblem(source({ tools: [tools[0]] }), current), 'tools', 'a missing entry');
+  const changed = source();
+  changed.tools[0].settingsHash = 'sha256:other';
+  assert.equal(runProblem(changed, current), 'tools', 'a changed entry');
+  assert.equal(runProblem(source({ tools: [...structuredClone(tools)].reverse() }), current), null, 'order does not matter');
+  assert.equal(runProblem(source(), { ...current, tools: [...tools, { name: 'x', version: '1', settingsHash: 'h', artifact: 'status' }] }), 'tools', 'an extra current entry');
 });
 
 test('rule 3: the stored target declaration must equal the current one (R5.13)', () => {
@@ -203,6 +212,7 @@ async function fixture(run) {
 function png(width, height) {
   const bytes = Buffer.alloc(33);
   Buffer.from('89504e470d0a1a0a', 'hex').copy(bytes);
+  bytes.write('IHDR', 12);
   bytes.writeUInt32BE(width, 16);
   bytes.writeUInt32BE(height, 20);
   return bytes;
@@ -237,6 +247,34 @@ test('copyKeptFiles refuses a symbolic link, as the file or as a directory, and 
   await symlink(outside, join(asDirectory, 'screenshots'));
   assert.equal(await copyKeptFiles({ sourceDir: asDirectory, runDir: join(root, 'n2'), entry: entry(), requested }), false);
   for (const name of ['n1', 'n2']) assert.deepEqual(await readdir(join(root, name), { recursive: true }).catch(() => []).then(list => list.filter(item => item.endsWith('.png') || item.endsWith('.json'))), []);
+}));
+
+test('copyKeptFiles checks the IHDR tag and the stored byte counts, content files included (R5.13)', async () => fixture(async root => {
+  const { gzipSync } = await import('node:zlib');
+  const noHeader = png(400, 300);
+  noHeader.write('JUNK', 12);
+  const a = join(root, 'a');
+  await writeSource(a, { shot: noHeader });
+  assert.equal(await copyKeptFiles({ sourceDir: a, runDir: join(root, 'n1'), entry: entry(), requested }), false, 'no IHDR');
+  const b = join(root, 'b');
+  await writeSource(b);
+  await writeFile(join(b, files.status), '{"statusCode":200}xx');
+  assert.equal(await copyKeptFiles({ sourceDir: b, runDir: join(root, 'n2'), entry: entry(), requested }), false, 'status size differs');
+  const body = Buffer.from('<html></html>');
+  const json = gzipSync(Buffer.from('{}'));
+  const withContent = () => { const e = entry(); e.artifacts.content = { kind: 'content', state: 'captured', path: expectedFiles('home', 'desktop', ['content']).content, bytes: json.length, bodyPath: expectedFiles('home', 'desktop', ['content']).contentBody, bodyBytes: body.length }; return e; };
+  const all = ['screenshot', 'status', 'content'];
+  const c = join(root, 'c');
+  await writeSource(c);
+  await mkdir(join(c, 'content/home'), { recursive: true });
+  await writeFile(join(c, 'content/home/desktop.json.gz'), json);
+  await writeFile(join(c, 'content/home/desktop.body.html.gz'), gzipSync(body));
+  assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n3'), entry: withContent(), requested: all }), true, 'equal counts copy');
+  await writeFile(join(c, 'content/home/desktop.body.html.gz'), gzipSync(Buffer.from('<html>more</html>')));
+  assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n4'), entry: withContent(), requested: all }), false, 'body size differs');
+  await writeFile(join(c, 'content/home/desktop.body.html.gz'), gzipSync(body));
+  await writeFile(join(c, 'content/home/desktop.json.gz'), Buffer.concat([json, Buffer.from('x')]));
+  assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n5'), entry: withContent(), requested: all }), false, 'content size differs');
 }));
 
 test('copyKeptFiles fails when a file is missing, is not a PNG of the stored size, or the entry holds an unsafe ID (R5.13)', async () => fixture(async root => {
