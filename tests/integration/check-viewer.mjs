@@ -285,6 +285,31 @@ try {
 	} finally {
 		await noFixtureViewer.close();
 	}
+	// #329: capture warnings join the header line and show one line in the cell, with no overflow.
+	const warningPath = join(directory, 'warnings.json');
+	const warned = structuredClone(report);
+	const firstRow = warned.entries.find((entry) => entry.viewports?.length).viewports[0];
+	firstRow.warnings = { a: [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 7 }], b: [] };
+	await writeFile(warningPath, JSON.stringify(warned));
+	const warningViewer = await serve({ reportPath: warningPath });
+	try {
+		for (const width of [390, 1280]) {
+			const context = await browser.newContext({ viewport: { width, height: 900 } });
+			const page = await context.newPage();
+			await page.goto(warningViewer.origin);
+			await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+			for (const view of ['overview', 'evidence', 'findings', 'info']) {
+				await page.locator(`[data-view=${view}]`).click();
+				assert.equal(await page.locator('[data-testid="scope-line"]').innerText(), 'Capture warnings: LAZY_IMAGES_NOT_SWEPT in 1 cell (7 in all).', `${view} warning line at ${width}`);
+				assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${view} overflows at ${width}`);
+			}
+			await page.locator('[data-view=overview]').click();
+			assert.equal(await page.locator('[data-testid="cell-warning"]').first().innerText(), 'A: LAZY_IMAGES_NOT_SWEPT (7) · B: none', `cell warning at ${width}`);
+			await context.close();
+		}
+	} finally {
+		await warningViewer.close();
+	}
 	console.log(
 		'Viewer checks pass at 390, 860, 1100, and 1440 px with blocked storage and strict CSP.',
 	);

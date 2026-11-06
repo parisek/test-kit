@@ -2,6 +2,7 @@
 import { targetClass, targetState, cellClass, cellState } from '../../../src/report/classify.js';
 import Badge from './Badge.vue';
 import { formatRatio } from '../state/format.js';
+import { cellWarningsText } from '../../../src/report/warnings.js';
 const props = defineProps({ report: Object, targetId: String, viewportId: String, source: String, targets: Array });
 const emit = defineEmits(['action']);
 function ratio(row) {
@@ -70,6 +71,7 @@ const availabilityBadges = (row) => {
 							</div>
 							<template v-if="rowFor(target, viewport.id)"
 								><p class="matrix-ratio my-2 text-ui-muted">{{ ratio(rowFor(target, viewport.id)) }}</p>
+								<p v-if="cellWarningsText(rowFor(target, viewport.id))" class="cell-warning" data-testid="cell-warning" aria-label="Capture warnings of this cell">{{ cellWarningsText(rowFor(target, viewport.id)) }}</p>
 								<div v-if="availabilityBadges(rowFor(target, viewport.id)).length" class="flex flex-wrap gap-1">
 									<Badge
 										v-for="text in availabilityBadges(rowFor(target, viewport.id))"
