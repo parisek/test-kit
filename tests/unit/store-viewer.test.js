@@ -298,3 +298,19 @@ test('a foreign file that appears after the ownership check is never overwritten
     assert.ok(out.warnings.some(line => /did not write/.test(line)), name);
   }
 });
+
+test('a symlinked marker is foreign even when its size and target content match (#312)', async t => {
+  const f = await fixture(t);
+  const body = JSON.stringify({ tool: 'test-kit', kind: 'store-viewer', schemaVersion: 1 }) + '\n';
+  // lstat reports a symlink's size as the length of its target path. Make that length equal the marker size.
+  await mkdir(join(f.root, 'm'));
+  const link = '../m/' + 'x'.repeat(Buffer.byteLength(body) - '../m/'.length);
+  assert.equal(Buffer.byteLength(link), Buffer.byteLength(body));
+  await writeFile(join(f.store, link), body);
+  await symlink(link, join(f.store, '.test-kit-viewer'));
+  assert.equal((await lstat(join(f.store, '.test-kit-viewer'))).size, Buffer.byteLength(body));
+  await writeFile(join(f.store, 'index.html'), 'project page');
+  const out = await refreshStoreViewer({ store: f.store, now: NOW });
+  assert.equal(await readFile(join(f.store, 'index.html'), 'utf8'), 'project page');
+  assert.ok(out.warnings.some(line => /did not write/.test(line)));
+});

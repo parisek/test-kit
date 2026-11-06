@@ -56,6 +56,17 @@ async function claimStore(fs, store) {
   return claimStore(fs, store);
 }
 
+// A concurrent refresh that judged the marker valid may write index.json before the claiming call does.
+// Such a file has the index shape; anything else at that name is foreign.
+async function isViewerIndex(fs, path) {
+  try {
+    const info = await fs.lstat(path);
+    if (!info.isFile() || info.size > 64 * 1024 * 1024) return false;
+    const value = JSON.parse(await fs.readFile(path, 'utf8'));
+    return value?.schemaVersion === 1 && typeof value.generatedAt === 'string' && Array.isArray(value.runs) && Array.isArray(value.reports);
+  } catch { return false; }
+}
+
 // Returns false when a fresh claim met a foreign file (nothing of it was replaced), else true.
 async function copyViewer(fs, store, fresh) {
   for (const name of VIEWER_FILES) {
@@ -129,7 +140,7 @@ export async function refreshStoreViewer({ store, now = new Date(), fs: seam } =
   if (claim.warning) return blocked(claim.warning);
   if (!(await copyViewer(fs, root, claim.fresh))) return blocked(foreignWarning(root));
   let result = await build(root, now);
-  if (claim.fresh && !(await writeIfAbsent(join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`, { fs }))) return blocked(foreignWarning(root));
+  if (claim.fresh && !(await writeIfAbsent(join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`, { fs })) && !(await isViewerIndex(fs, join(root, 'index.json')))) return blocked(foreignWarning(root));
   let settled = false;
   for (let round = 0; round < ROUNDS && !settled; round++) {
     await writeAtomic(fs, join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`);
