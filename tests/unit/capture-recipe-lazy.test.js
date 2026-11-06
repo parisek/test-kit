@@ -36,3 +36,12 @@ test('a target can turn off lazy images that its side turned on (R5.9)', () => {
 test('lazyImages accepts only a boolean (R5.9)', () => {
   for (const lazyImages of ['true', 1, null, [], {}]) assert.throws(() => config([{ id: 'home', settle: { lazyImages } }]), /lazyImages/, String(lazyImages));
 });
+
+test('a viewport-only capture records the same lazy-image recipe as a full-page capture (R5.9)', () => {
+  const settings = fullPage => normalizeConfig({ schemaVersion: 1, viewports: [{ id: 'desktop', width: 800, height: 600 }], screenshot: { fullPage },
+    sides: { local: { origin: 'http://localhost:8080' } }, targets: [{ id: 'overlay', kind: 'component', path: '/', settle: { lazyImages: true } }] });
+  const recipe = fullPage => { const s = settings(fullPage); return captureRecipe(s, 'local', s.targets[0]); };
+  assert.equal(settings(false).screenshot.fullPage, false);
+  assert.equal(recipe(false).settle.lazyImages, true);
+  assert.deepEqual(recipe(false), recipe(true), 'fullPage is no recipe key, so the engine version stays the same.');
+});
