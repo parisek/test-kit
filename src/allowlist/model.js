@@ -85,6 +85,15 @@ export function validateReportAllowlist(list, { catalog, targetIds }, problems) 
 	}
 }
 
+// The entries of `report.allowlist` that the viewer lists for one target (R9.12, DESIGN.md "Allowlist list").
+// Run data is untrusted: an entry that fails the producer check, or has an unknown status or a bad diagnostic, is left out.
+// The order of the report stays (active first). At most MAX_REPORT_ENTRIES entries are read.
+export function allowlistEntriesFor(report, targetId) {
+	if (!Array.isArray(report?.allowlist)) return [];
+	return report.allowlist.slice(0, MAX_REPORT_ENTRIES).filter((entry) => isPlain(entry) && entry.targetId === targetId && entryProblem(entry, REPORT_KEYS) === null
+		&& STATUSES.includes(entry.status) && (entry.diagnostic === undefined || text(entry.diagnostic, 1000)));
+}
+
 // R9.12: an absolute finding is explained exactly when the report holds an active entry with the same check, target and fingerprint.
 // A finding with no fingerprint is never explained. The check must be an absolute check of the catalog.
 export function isAllowlisted(report, finding) {

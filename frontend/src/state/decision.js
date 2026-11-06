@@ -5,6 +5,7 @@
 // a plain relative path, so the copied text never needs shell quoting.
 import { buildDeepLink } from './deep-link.js';
 import { relativePath } from '../../../src/report/safe.js';
+import { isHash } from '../../../src/rules/model.js';
 
 const RECORDABLE = ['screenshot', 'html', 'status', 'content'];
 const EVIDENCE = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'];
@@ -49,6 +50,20 @@ export function knownCommand(finding, { source = null, page = '', basis = 'relat
 	return `test-kit record-known ${reportArgument(source, page)} --config FILE --target ${target} --viewport ${viewport} --artifact ${finding.artifact} --cause ID --reason TEXT`;
 }
 
+// R9.12: the command that records an allowlist entry for one unexplained absolute finding. Copying it records nothing (R5.3).
+// `siblings` is the number of absolute findings that share the check, the target and the viewport. `record-allowed` selects
+// a finding by those three values, so it needs exactly one. It has no option to pick one of several yet.
+// Returns { text, reason }: text is null when no command can pick this finding.
+export function allowedCommand(finding, { source = null, page = '', siblings = 1 } = {}) {
+	if (!isHash(finding?.evidenceFingerprint)) return { text: null, reason: 'This finding has no evidence fingerprint, so an allowlist entry cannot match it. A speed budget changes in the config.' };
+	const target = plain(finding?.targetId);
+	const check = plain(finding?.checkId);
+	const viewport = finding?.viewportId == null ? null : plain(finding.viewportId);
+	if (!target || !check || (finding.viewportId != null && !viewport)) return { text: null, reason: 'Only a finding with a plain target, check and viewport id can be recorded.' };
+	if (siblings > 1) return { text: null, reason: `${siblings} findings share this check, target and viewport. record-allowed picks a finding by those three values and needs exactly one.` };
+	return { text: `test-kit record-allowed ${reportArgument(source, page)} --config FILE --target ${target} --check ${check}${viewport ? ` --viewport ${viewport}` : ''} --reason TEXT --owner TEXT`, reason: null };
+}
+
 export function recaptureCommand(finding) {
 	const target = plain(finding?.targetId);
 	const viewport = plain(finding?.viewportId);
@@ -61,12 +76,14 @@ export function decisionActions(finding, options = {}) {
 	const link = findingLink(finding, options);
 	const known = knownCommand(finding, options);
 	const recapture = recaptureCommand(finding);
+	const allowed = options.basis === 'absolute' && !options.explained ? allowedCommand(finding, options) : null;
 	return [
 		{ id: 'fix', label: 'Fix', button: 'Copy link', text: link, reason: link ? null : 'This finding has no valid link.' },
 		{ id: 'known', label: 'Known difference', button: 'Copy command', text: known,
 			reason: known ? null : options.basis === 'absolute'
 				? 'A known difference applies to a relative check only. Allow an absolute finding with the command record-allowed (R9.12).'
 				: 'Only a screenshot, HTML, status or content finding with a target and a viewport can be recorded as known.' },
+		...(allowed ? [{ id: 'allowed', label: 'Allowlist entry', button: 'Copy command', text: allowed.text, reason: allowed.reason }] : []),
 		{ id: 'noise', label: 'Noise or unstable', button: 'Copy re-capture command', text: recapture,
 			reason: recapture ? null : 'A re-capture needs a target and a viewport.' },
 		{ id: 'pass', label: 'Pass on', button: 'Copy link', text: link, reason: link ? null : 'This finding has no valid link.' },

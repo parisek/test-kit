@@ -285,6 +285,40 @@ try {
 	} finally {
 		await noFixtureViewer.close();
 	}
+	// #331: an allowlist entry in the Checks list and the record-allowed command, with no overflow.
+	const allowPath = join(directory, 'allowlist.json');
+	const HASH = `sha256:${'a'.repeat(64)}`;
+	const absolute = {
+		schemaVersion: 3, meta: { matchBelow: 3, viewports: [{ id: 'desktop', width: 1280, height: 800 }] },
+		runs: [{ id: 'run-1', side: 'test', label: 'Checked run' }], subject: { kind: 'single-run', runId: 'run-1' },
+		checks: { 'a11y-axe': { basis: 'absolute', layer: 'package', title: 'Accessibility (axe)' }, 'a11y-contrast': { basis: 'absolute', layer: 'package', title: 'Contrast' } },
+		entries: [{ id: 'button', kind: 'component', title: 'Button', artifacts: {}, viewports: [{ id: 'desktop', state: 'complete', artifacts: { a11y: { state: 'complete', scope: { checks: ['a11y-axe', 'a11y-contrast'] }, evidence: { src: 'runs/run-1/a11y.json', tool: 'example', version: '1', settingsHash: 'sha256:x' }, result: { violations: true, checks: 2 } } } }] }],
+		causes: [], rules: {},
+		findings: [
+			{ id: 'f1', targetId: 'button', viewportId: 'desktop', artifact: 'a11y', checkId: 'a11y-axe', runId: 'run-1', layer: 'package', severity: 'error', message: 'Insufficient color contrast.', evidenceFingerprint: HASH },
+			{ id: 'f2', targetId: 'button', viewportId: 'desktop', artifact: 'a11y', checkId: 'a11y-contrast', runId: 'run-1', layer: 'package', severity: 'error', message: 'Low contrast.', evidenceFingerprint: `sha256:${'b'.repeat(64)}` },
+		],
+		allowlist: [{ checkId: 'a11y-axe', targetId: 'button', fingerprint: HASH, reason: 'Known contrast issue in the example-site button.', owner: 'team-a', status: 'active' }],
+	};
+	await writeFile(allowPath, JSON.stringify(absolute));
+	const allowViewer = await serve({ reportPath: allowPath });
+	try {
+		for (const width of [390, 1280]) {
+			const context = await browser.newContext({ viewport: { width, height: 900 } });
+			const page = await context.newPage();
+			await page.goto(allowViewer.origin);
+			await page.locator('#notice').filter({ hasText: 'Loaded' }).waitFor();
+			await page.locator('[data-view=evidence]').click();
+			const entry = page.locator('[data-testid="allowlist-entry"]');
+			assert.equal(await entry.count(), 1, `allowlist entry at ${width}`);
+			assert.match(await entry.innerText(), /Known contrast issue in the example-site button\. Owner: team-a\./);
+			assert.match(await page.locator('[aria-label="Decision for f2"]').innerText(), /test-kit record-allowed report\.json --config FILE --target button --check a11y-contrast --viewport desktop --reason TEXT --owner TEXT/);
+			assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `allowlist overflows at ${width}`);
+			await context.close();
+		}
+	} finally {
+		await allowViewer.close();
+	}
 	console.log(
 		'Viewer checks pass at 390, 860, 1100, and 1440 px with blocked storage and strict CSP.',
 	);

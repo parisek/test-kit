@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- The viewer lists the allowlist entries of a target in its Checks list, beside the overrides, with status, reason, owner, expiry and a short fingerprint. An unexplained absolute finding gets a fifth action, "Allowlist entry", that copies the `record-allowed` command. Copying records nothing (R9.12, R5.3, #331).
+
 ### Changed
 
 - Overlay parity of lazy-image settlement is defined and tested: a viewport-only capture (`screenshot.fullPage: false`) runs the same sweep as a full-page, element or clip capture (R5.9, #326). The integration check and a unit test cover it. No behavior change and no engine version change. R5.10 states that only `click`, `hover` and `focus` exist until a project needs more.
