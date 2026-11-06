@@ -4,6 +4,7 @@ import { mkdtemp, writeFile, readFile, readdir, rm, mkdir, symlink, chmod } from
 import { tmpdir } from 'node:os';
 import { join, dirname, delimiter } from 'node:path';
 import { loadConfig } from '../../src/config/index.js';
+import { publishHistory } from '../../src/export/publish.js';
 import { runWorkflow, selectConfig, loopbackOrigin, resolveStore, ensureStore, parseDdevDescription } from '../../src/workflow/index.js';
 const config = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8000' } }, targets: [{ id: 'home', kind: 'page', path: '/' }, { id: 'contact', kind: 'page', path: '/contact' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }, { id: 'mobile', width: 390, height: 844 }], artifacts: ['screenshot'], checks: [] };
 async function fixture(t) {
@@ -189,4 +190,62 @@ test('after reports a permission error on the baseline as itself, not as a missi
  try {
   await assert.rejects(runWorkflow('after', options, { capture: () => assert.fail('no capture') }), error => error.code === 'EACCES' && !/before again/i.test(error.message));
  } finally { await chmod(runDir, 0o755); }
+});
+
+// #240, R3.11: `before` and `after` take two sides, and the pair of sides decides the report kind.
+const pairConfig = { ...config, sides: { local: { origin: 'http://127.0.0.1:8000' }, production: { origin: 'https://www.example-site.com', remote: true }, staging: { origin: 'https://staging.example-site.com', remote: true }, other: { origin: 'http://127.0.0.1:8001' } } };
+async function pairFixture(t) {
+ const { dir, options } = await fixture(t);
+ await writeFile(options.config, JSON.stringify(pairConfig));
+ const kinds = [];
+ const sides = [];
+ const dependencies = {
+  summarizeRunFeedback: async () => ({}),
+  capture: async input => {
+   const id = `${input.side}-${sides.length}`; sides.push(input.side);
+   await mkdir(join(dir, 'test-kit/runs', id), { recursive: true });
+   await writeFile(join(dir, 'test-kit/runs', id, 'run.json'), JSON.stringify({ at: '2026-01-01T00:00:00.000Z', settingsHash: 'sha256:' + 'a'.repeat(64), state: 'complete', settings: { targets: [{ id: 'home' }] } }));
+   return { run: { id, state: 'complete' }, manifestPath: join(dir, 'test-kit/runs', id, 'run.json') };
+  },
+  compareRuns: async input => {
+   kinds.push(input.kind);
+   await mkdir(input.outputDir, { recursive: true });
+   const report = { schemaVersion: 2, meta: { generated: '2026-01-03T00:00:00.000Z', matchBelow: 3, viewports: [{ id: 'mobile' }] }, runs: [{ id: input.runA }, { id: input.runB }], pair: { kind: input.kind, aRunId: input.runA, bRunId: input.runB }, entries: [{ id: 'home', viewports: [{ id: 'mobile', ratio: 0, state: 'complete', artifacts: {} }] }], causes: [], findings: [], rules: {} };
+   await writeFile(join(input.outputDir, 'report.json'), JSON.stringify(report));
+   return { reportPath: join(input.outputDir, 'report.json') };
+  },
+ };
+ return { dir, options, kinds, sides, dependencies };
+}
+test('before on a remote side and after on a local side give a migration report that history lists (#240)', async t => {
+ const { dir, options, kinds, sides, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'production' }, dependencies);
+ const result = await runWorkflow('after', { ...options, side: 'local' }, dependencies);
+ assert.equal(result.exitCode, 0); assert.deepEqual(sides, ['production', 'local']); assert.deepEqual(kinds, ['migration']);
+ const published = await publishHistory({ local: join(dir, 'test-kit'), dir: join(dir, 'site'), cwd: dir, home: join(dir, 'home'), now: new Date('2026-10-20T12:00:00.000Z') });
+ assert.equal(published.reportCount, 1);
+ const index = JSON.parse(await readFile(join(dir, 'site/index.json')));
+ assert.deepEqual(index.reports.map(report => report.kind), ['migration']);
+});
+test('before and after with the same side keep the update kind, on a local and on a remote side (#240)', async t => {
+ const { options, kinds, dependencies } = await pairFixture(t);
+ await runWorkflow('before', options, dependencies); await runWorkflow('after', options, dependencies);
+ await runWorkflow('before', { ...options, side: 'production' }, dependencies); await runWorkflow('after', { ...options, side: 'production' }, dependencies);
+ assert.deepEqual(kinds, ['update', 'update']);
+});
+test('a pair of sides with no kind in the specification stops before any capture (#240)', async t => {
+ const { options, dependencies } = await pairFixture(t);
+ const stop = { ...dependencies, capture: () => assert.fail('no capture'), compareRuns: () => assert.fail('no compare') };
+ await runWorkflow('before', { ...options, side: 'production' }, dependencies);
+ await assert.rejects(runWorkflow('after', { ...options, side: 'staging' }, stop), /No pair kind for the baseline side "production" and the side "staging"/);
+ await runWorkflow('before', { ...options, side: 'local' }, dependencies);
+ await assert.rejects(runWorkflow('after', { ...options, side: 'production' }, stop), /No pair kind/);
+ await assert.rejects(runWorkflow('after', { ...options, side: 'other' }, stop), /No pair kind/);
+});
+test('a baseline stored with the side in its scope hash never matches (#240)', async t => {
+ const { dir, options, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'production' }, dependencies);
+ const path = join(dir, 'test-kit/state.json'); const state = JSON.parse(await readFile(path));
+ state.profiles = { ['0'.repeat(64)]: Object.values(state.profiles)[0] }; await writeFile(path, JSON.stringify(state));
+ await assert.rejects(runWorkflow('after', { ...options, side: 'local' }, { ...dependencies, capture: () => assert.fail('no capture') }), /Run before/);
 });

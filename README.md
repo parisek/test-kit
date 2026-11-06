@@ -88,6 +88,17 @@ npx test-kit capture --config test-kit.config.json --side local --label after
 npx test-kit diff <production-run> <local-run> --kind migration --output tests/visual/report
 ```
 
+The scoped workflow does the same with one baseline and one change:
+
+```sh
+npx test-kit before --side production
+npx test-kit after --side local
+```
+
+The report has kind `migration`. A remote side first and a local side second give
+`migration`. The same side twice gives `update`. Any other pair stops `after`
+before it captures. A baseline made before 1.2 needs `before` again.
+
 A remote capture is read-only. It sends GET and HEAD requests to its own origin.
 It aborts frames and subresources of other origins, such as a tag manager, and
 keeps the capture. It fails the capture on a redirect, popup or top-level
