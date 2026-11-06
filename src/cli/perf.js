@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
+import { ensureDefaultRunsIgnore } from '../config/store.js';
 import { loadConfig, settingsHash } from '../config/index.js';
 import { createRunId, ddevMatchesOrigin, ddevStatusProblem } from '../capture/helpers.js';
 import { runPerformance, evaluateBudgets } from '../perf/index.js';
@@ -62,6 +63,7 @@ export async function runPerfCommand(options = {}) {
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   await mkdir(loaded.runsRoot, { recursive: true });
+  await ensureDefaultRunsIgnore(loaded.configDir, loaded.runsRoot);
   const runDir = join(loaded.runsRoot, id);
   await mkdir(runDir);
   const manifestPath = join(runDir, 'run.json');

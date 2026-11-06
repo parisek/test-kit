@@ -10,6 +10,7 @@ import { storeResponse } from '../artifacts/response.js';
 import { mkdir, writeFile, rename, readFile, access, unlink } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
+import { ensureDefaultRunsIgnore } from '../config/store.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readComponents } from '../styleguide/index.js';
@@ -356,6 +357,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   const root = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;
   const runDir = join(root, id);
   await mkdir(root, { recursive: true });
+  await ensureDefaultRunsIgnore(loaded.configDir, root);
   await mkdir(runDir);
   const manifestPath = join(runDir, 'run.json');
   const effectiveSettings = { ...captureSettings(config, side), browser: BROWSER_SETTINGS, ...(behaviorSource ? { behavior: { ...config.behavior, fingerprint: behaviorSource.fingerprint } } : {}) };

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readdir, stat, rm, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_STORE, LEGACY_STORE, DEFAULT_RUNS_ROOT, legacyStoreNotice } from '../../src/config/store.js';
+import { DEFAULT_STORE, LEGACY_STORE, DEFAULT_RUNS_ROOT, legacyStoreNotice, ensureDefaultRunsIgnore } from '../../src/config/store.js';
 import { normalizeConfig } from '../../src/config/index.js';
 import { resolveStore } from '../../src/workflow/index.js';
 
@@ -83,4 +83,39 @@ test('the CLI prints the legacy notice once, and not for an explicit store or ru
   assert.equal((await call(['capture', '--side', 'local', '--config', config])).length, 0);
   assert.equal((await stat(join(dir, '.test-kit'))).mtimeMs, before);
   assert.deepEqual(await readdir(join(dir, '.test-kit')), ['runs']);
+});
+
+test('a low-level command writes the store .gitignore for the default runsRoot only (capture, import, perf)', async t => {
+  const { readFile, access } = await import('node:fs/promises');
+  const dir = await project(t);
+  // The call sits where a low-level command has just run mkdir -p on its runsRoot.
+  await mkdir(join(dir, DEFAULT_RUNS_ROOT), { recursive: true });
+  assert.equal(await ensureDefaultRunsIgnore(dir, DEFAULT_RUNS_ROOT), true);
+  assert.equal(await readFile(join(dir, DEFAULT_STORE, '.gitignore'), 'utf8'), '*\n');
+  await writeFile(join(dir, DEFAULT_STORE, '.gitignore'), 'custom\n');
+  assert.equal(await ensureDefaultRunsIgnore(dir, join(dir, DEFAULT_RUNS_ROOT)), false);
+  assert.equal(await readFile(join(dir, DEFAULT_STORE, '.gitignore'), 'utf8'), 'custom\n');
+  await mkdir(join(dir, 'tests/visual/runs'), { recursive: true });
+  assert.equal(await ensureDefaultRunsIgnore(dir, 'tests/visual/runs'), false);
+  await assert.rejects(access(join(dir, 'tests/visual/.gitignore')));
+  await assert.rejects(access(join(dir, 'tests/visual/runs/.gitignore')));
+});
+
+test('importDesign with the default runsRoot creates the store .gitignore; an explicit runsRoot does not', async t => {
+  const { readFile, access } = await import('node:fs/promises');
+  const { importDesign } = await import('../../src/design/import.js');
+  const dir = await project(t);
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  await mkdir(join(dir, 'design'));
+  await writeFile(join(dir, 'design/home.png'), png);
+  const config = join(dir, 'design.config.json');
+  const design = { schemaVersion: 1, sides: { figma: { kind: 'design', provider: 'files', root: 'design' } }, targets: [{ id: 'home', kind: 'page', path: '/', design: { mobile: 'home.png' } }], viewports: [{ id: 'mobile', width: 1, height: 1 }], artifacts: ['screenshot'], checks: [] };
+  await writeFile(config, JSON.stringify(design));
+  await importDesign({ configPath: config, side: 'figma' });
+  assert.equal(await readFile(join(dir, DEFAULT_STORE, '.gitignore'), 'utf8'), '*\n');
+  assert.ok((await readdir(join(dir, DEFAULT_RUNS_ROOT))).length === 1);
+  await writeFile(config, JSON.stringify({ ...design, runsRoot: 'out/runs' }));
+  await importDesign({ configPath: config, side: 'figma' });
+  await assert.rejects(access(join(dir, 'out/.gitignore')));
+  await assert.rejects(access(join(dir, 'out/runs/.gitignore')));
 });

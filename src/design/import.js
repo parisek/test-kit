@@ -6,6 +6,7 @@ import { recordSelection, cellSelected } from '../capture/selection.js';
 import { createRunId } from '../capture/helpers.js';
 import { gitSha } from '../capture/git.js';
 import { designPathProblem } from './paths.js';
+import { ensureDefaultRunsIgnore } from '../config/store.js';
 import { MAX_DESIGN_BYTES, designProvenance } from './png.js';
 
 export const DESIGN_IMPORT_VERSION = '1.0.0';
@@ -69,6 +70,7 @@ export async function importDesign({ configPath, side, label = '', runsRoot, tar
   const run = { schemaVersion: 2, id, side, label, at: importedAt, state: 'complete', settings: stored, captureSettings: settings, settingsHash: hash,
     ...(selection ? { selection } : {}), tools: [{ name: 'test-kit-design', version: DESIGN_IMPORT_VERSION, settingsHash: hash }], captures: [] };
   await mkdir(runs, { recursive: true });
+  await ensureDefaultRunsIgnore(loaded.configDir, runs);
   await mkdir(runDir);
   try {
     for (const { target, viewport, bytes, provenance } of images) {

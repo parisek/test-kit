@@ -1,5 +1,5 @@
 import { lstat, writeFile, rename, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 // One source for the default store directory (R12.1). The default moved from `.test-kit` to `test-kit` in 1.2.0.
@@ -34,4 +34,15 @@ export async function ensureStoreIgnore(store) {
   try { await writeFile(temporary, '*\n', { flag: 'wx' }); await rename(temporary, target); }
   finally { await rm(temporary, { force: true }); }
   return true;
+}
+
+/**
+ * Low-level commands create `runsRoot` with `mkdir -p`. When `runsRoot` is the default, call this after the
+ * mkdir so the store gets its `.gitignore` too. An explicit `runsRoot` is the project's own folder: leave it alone.
+ * @returns {Promise<boolean>} true when a `.gitignore` was written
+ */
+export async function ensureDefaultRunsIgnore(configDir, runsRoot) {
+  const defaultRoot = resolve(configDir, DEFAULT_RUNS_ROOT);
+  if (resolve(configDir, runsRoot) !== defaultRoot) return false;
+  return ensureStoreIgnore(dirname(defaultRoot));
 }
