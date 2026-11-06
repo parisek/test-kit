@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, symlink, rm, readdir, readFile, realpath, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { planPrune, collectReferences, parseKeep, pruneHistory, assertPlainStorePath } from '../../src/history/prune.js';
+import { MAX_WALK, planPrune, collectReferences, parseKeep, pruneHistory, assertPlainStorePath } from '../../src/history/prune.js';
 import { parseCommand, dispatch, run } from '../../src/cli/run.js';
 import { MARKER_BODY } from '../../src/export/store-viewer.js';
 
@@ -243,7 +243,9 @@ test('a reference container of the wrong shape stops the command', () => {
   ];
   for (const value of bad) assert.throws(() => collectReferences({ reports: [{ id: 'r', value }] }), /cannot read|not readable/, JSON.stringify(value));
   for (const state of [{ profiles: { a: 'x' } }, { profiles: { a: null } }, { profiles: { a: { before: 3 } } }]) assert.throws(() => collectReferences({ state }), /cannot read|not readable/, JSON.stringify(state));
-  assert.equal(collectReferences({ reports: [{ id: 'r', value: {} }], state: { profiles: { a: {} } } }).size, 0);
+  assert.throws(() => collectReferences({ reports: [{ id: 'r', value: {} }] }), /no pair, subject or runs/);
+  assert.throws(() => collectReferences({ reports: [{ id: 'r', value: { meta: {} } }] }), /cannot read/);
+  assert.equal(collectReferences({ reports: [{ id: 'r', value: { runs: [] } }], state: { profiles: { a: {} } } }).size, 0);
 });
 test('a run whose tree holds another device is kept, and the walk is bounded', async t => {
   const f = await fixture(t);
@@ -259,6 +261,30 @@ test('a run whose tree holds another device is kept, and the walk is bounded', a
   assert.deepEqual(output.skipped.map(item => item.id), ['run-1']);
   assert.match(output.skipped[0].reason, /different filesystem/);
   assert.ok((await f.ids()).includes('run-1'));
+});
+test('the walk is bounded: a tree over the limit keeps the run, a tree at the limit passes', async t => {
+  assert.equal(MAX_WALK, 100000);
+  const f = await fixture(t);
+  for (let n = 1; n <= 2; n++) await f.addRun(`run-${n}`, 'local', day(n));
+  await mkdir(join(f.store, 'runs', 'run-1', 'a'));
+  await writeFile(join(f.store, 'runs', 'run-1', 'a', 'x.txt'), 'x');
+  // run-1 holds: the folder, run.json, a/, a/x.txt = 4 entries.
+  const small = await pruneHistory({ local: f.store, keep: 1, yes: true, walkLimit: 3 });
+  assert.deepEqual(small.output.removed, []);
+  assert.match(small.output.skipped[0].reason, /too many entries/);
+  assert.ok((await f.ids()).includes('run-1'));
+  const exact = await pruneHistory({ local: f.store, keep: 1, yes: true, walkLimit: 4 });
+  assert.deepEqual(exact.output.removed, ['run-1']);
+});
+test('--yes on a store with no runs/ succeeds and removes nothing', async t => {
+  const f = await fixture(t);
+  await rm(join(f.store, 'runs'), { recursive: true });
+  const { output, exitCode } = await pruneHistory({ local: f.store, keep: 1, yes: true });
+  assert.equal(exitCode, 0);
+  assert.deepEqual(output.removed, []);
+  assert.equal(output.failed, null);
+  const dry = await pruneHistory({ local: f.store, keep: 1 });
+  assert.deepEqual(dry.output.wouldRemove, []);
 });
 test('parseCommand accepts --prune and refuses a bad --keep or a bad combination', () => {
   const ok = parseCommand(['history', '--prune', '--keep', '5', '--yes']);

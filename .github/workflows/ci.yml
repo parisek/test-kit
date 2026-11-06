@@ -67,6 +67,8 @@ jobs:
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-capture-lazy-images.mjs
       - run: node tests/integration/check-capture-pin.mjs
+      - run: node tests/integration/check-capture-retries.mjs
+      - run: node tests/integration/check-capture-keep.mjs
       - run: node tests/integration/check-history.mjs
       - run: node tests/integration/check-export-guards.mjs
       - run: node tests/integration/check-static-export.mjs

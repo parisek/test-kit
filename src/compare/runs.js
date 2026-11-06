@@ -64,7 +64,7 @@ function noFixtureField(run) {
 	return ids.length ? { noFixture: ids } : {};
 }
 
-async function readRun(root, id) {
+export async function readRun(root, id) {
 	if (!relativePath(id) || id.includes('/')) throw new Error('Run must be a safe ID.');
 	const path = await contained(root, `${id}/run.json`);
 	const handle = await open(path, 'r');

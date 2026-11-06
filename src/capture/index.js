@@ -1,5 +1,5 @@
 import { settlePage, countUnloadedLazyImages } from './settle.js';
-import { captureWarnings, warningFields } from '../report/warnings.js';
+import { captureWarnings, warningFields, withWarning } from '../report/warnings.js';
 import { captureScopedScreenshot } from './scope.js';
 import { captureRecipe, settleRecipe } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
@@ -21,6 +21,8 @@ import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, 
 import { planPackRun } from '../packs/select.js';
 import { runPagePacks } from './packs.js';
 import { gitSha } from './git.js';
+import { createKeepFinder } from './keep-store.js';
+import { deadlineError, isTransientFailure, markTransient, navigationAbortCode, captureWithRetries, parseRetries } from './retry.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -58,6 +60,12 @@ async function playwright() {
   }
 }
 
+// The provenance of the artifacts of one target. The content settings depend on the target.
+function targetProvenance(config, side, target, provenance) {
+  if (!provenance.content) return provenance;
+  return { ...provenance, content: { ...provenance.content, settingsHash: settingsHash({ ...contentSettings(config, side, target), browser: BROWSER_SETTINGS }) } };
+}
+
 async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun = null) {
   const recipe = settleRecipe(config, side, target);
   const identity = { targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(recipe) };
@@ -68,8 +76,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   };
   const remote = config.sides[side].remote === true;
   const allowedUrl = value => remote ? isOwnOrigin(value, config.sides[side].origin) : isLocalUrl(value);
-  if (provenance.content) provenance = { ...provenance, content: { ...provenance.content,
-    settingsHash: settingsHash({ ...contentSettings(config, side, target), browser: BROWSER_SETTINGS }) } };
+  provenance = targetProvenance(config, side, target, provenance);
   let artifacts = {};
   let statusCode;
   let finalPath;
@@ -89,7 +96,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   let timer;
   let expired = false;
   const deadline = new Promise((_, reject) => {
-    timer = setTimeout(() => { expired = true; reject(new Error('Capture deadline exceeded')); }, config.screenshot.timeoutMs);
+    timer = setTimeout(() => { expired = true; reject(deadlineError()); }, config.screenshot.timeoutMs);
   });
   try {
     return await Promise.race([deadline, (async () => {
@@ -101,7 +108,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     });
     // R3.9: a local context ignores certificate errors, so an allowed origin gets a verifying context.
     if (config.sides[side].allowOrigins?.length && ignoreHTTPSErrors(config, side)) verifier = await browser.newContext({ ignoreHTTPSErrors: false });
-    if (expired) { await context.close(); await verifier?.close().catch(() => {}); throw new Error('Capture deadline exceeded'); }
+    if (expired) { await context.close(); await verifier?.close().catch(() => {}); throw deadlineError(); }
     if (typeof context.routeWebSocket !== 'function') throw new Error('Playwright WebSocket routing is unavailable');
     await context.routeWebSocket('**/*', socket => socket.close());
     const page = await context.newPage();
@@ -179,7 +186,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
           // R3.9: any failed fetch of an allowed origin fails the capture, so no page renders in silence without its font.
           const failed = allowedOriginFailure({ url: request.url(), method: request.method(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins, error });
           if (failed) { blocked = true; firstBlocked ??= failed; }
-          await route.abort('failed').catch(() => {});
+          // R5.14: a failed fetch of the page itself reaches Chromium as a named network error, so the retry check can tell a reset from other faults.
+          await route.abort(request.isNavigationRequest() ? navigationAbortCode(error) : 'failed').catch(() => {});
         }
       }
     });
@@ -305,8 +313,10 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     if (context) await context.close().catch(() => {});
     if (verifier) await verifier.close().catch(() => {});
     await unlink(file).catch(() => {});
-    return { ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
-      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : error?.code === 'PIN_NO_MATCH' ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } };
+    // R5.14: the verdict on the real error, before the message is generalized. The mark stays out of run.json.
+    const transient = isTransientFailure({ error, edge, blocked, unexpectedNavigation, phase, statusCode });
+    return markTransient({ ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
+      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : error?.code === 'PIN_NO_MATCH' ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } }, transient);
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
 
@@ -328,11 +338,15 @@ async function readStyleguideTargets(tool, config, side) {
   } finally { await context.dispose().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false, baseDir }, dependencies = {}) {
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false, retries: retryInput, keepExisting = false, baseDir }, dependencies = {}) {
+  // R5.14: the retry bound is checked before anything starts.
+  const retries = parseRetries(retryInput);
   const loaded = await loadConfig(configPath, { baseDir });
   let config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
   if (config.sides[side].kind === 'design') throw new Error(`Side ${side} is a design side. Use import, not capture.`);
+  // R5.13: keep-existing needs a remote side. The command fails before any run directory or browser exists.
+  if (keepExisting && config.sides[side].remote !== true) throw new Error('--keep-existing needs a side with remote: true. A local side captures fresh every time.');
   // R13.51: --packs needs a packs key. Without the flag nothing here runs (R5.1).
   const packPlan = runPacks ? planPackRun(config.packs, { remote: config.sides[side].remote === true }) : null;
   // R4.5: the selection is checked against the full lists before any run directory or browser exists.
@@ -396,6 +410,11 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       settingsHash: settingsHash({ pack: 'a11y', options: {}, browser: BROWSER_SETTINGS }) } : null;
     if (packPlan) run.packs = { selected: packPlan.selected, skipped: packPlan.skipped };
     await writeManifest(manifestPath, run);
+    // R5.13: with --keep-existing, a cell may come from an earlier run of the store. The decision comes after the configuration is checked.
+    const keepFinder = keepExisting ? createKeepFinder({ root, excludeId: id,
+      current: { side, declaration: config.sides[side], settingsHash: hash, tools: run.tools },
+      describe: (target) => ({ requested: config.artifacts, provenance: targetProvenance(config, side, target, provenance),
+        recipe: captureRecipe(config, side, target), settleHash: settingsHash(settleRecipe(config, side, target)) }) }) : null;
     let stopped = false;
     for (const target of config.targets) for (const viewport of config.viewports) {
       if (!cellSelected(selection, target.id, viewport.id)) continue;
@@ -405,7 +424,11 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
           error: { code: 'RUN_STOPPED', message: 'An earlier capture met a remote edge stop. This capture did not run.' } });
         continue;
       }
-      run.captures.push(await captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun));
+      const kept = keepFinder ? await keepFinder({ target, viewport, runDir }) : null;
+      if (kept) { run.captures.push(kept); await writeManifest(manifestPath, run); continue; }
+      // R5.14: with --retries 0 (the default) this is one plain attempt.
+      run.captures.push(await captureWithRetries(() => captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun),
+        { retries, sleep: dependencies.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))), addWarning: withWarning }));
       stopped = run.captures.at(-1).error?.code === 'REMOTE_EDGE_STOP';
       const behaviorIndex = run.captures.at(-1).artifacts?.behavior;
       if (behaviorIndex?.path && !run.tools.some(item => item.settingsHash === behaviorIndex.settingsHash)) run.tools.push({ name: behaviorIndex.tool, version: behaviorIndex.version, settingsHash: behaviorIndex.settingsHash, artifact: 'behavior' });

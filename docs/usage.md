@@ -52,6 +52,32 @@ records `selection` in `run.json`. `diff` compares the cells that every recorded
 rest in `meta.skipped`. A selected cell without a capture stays `missing`. A run made before this option has no
 `selection`, and `diff` treats it as a full run. `diff --target` and `--viewport` narrow the pair again.
 
+## Keep a reference from an earlier run
+
+`capture --keep-existing` fills a cell from an earlier run of the store instead of loading the page (R5.13). It works only on a side with `remote: true`.
+
+```bash
+test-kit capture --side production --label reference --keep-existing
+```
+
+An earlier capture stands for a cell only when it is provably the capture that this run would make: the same side declaration, settings, browser versions, target declaration and recipe, and a `complete` source run. Any difference captures the cell fresh. A cell of a run that selects `behavior` is always fresh. The command copies the files into the new run, so the run stays whole if you delete the old one.
+A kept capture is not a new measurement. Its entry has `kept: { runId, at }`, where `at` is the time of the measurement, and the warning `REFERENCE_KEPT`. The command prints `Warning REFERENCE_KEPT:` on stderr and adds `kept` (a count) to the JSON line when it kept at least one cell.
+There is no age limit and no FORCE flag. To refresh a reference, run `capture` without the flag. `run`, `before` and `after` do not take the flag.
+
+## Retry a flaky capture
+
+`capture --retries N` tries a failed cell again, up to N times. N is 0, 1 or 2. The default is 0 (R5.14).
+
+```bash
+test-kit capture --side production --label after --retries 2
+```
+
+A retry runs for a transient error only: a timeout, or a reset, closed or timed-out connection. A refused connection, a DNS failure, a 4xx or 5xx page, an edge stop (R3.6) and a policy block are never retried.
+The capture waits 1 s before the first retry and 2 s before the second. Each cell has its own count.
+A cell that succeeds on a retry is a normal capture with the warning `CAPTURE_RETRIED`. The command prints `Warning CAPTURE_RETRIED:` on stderr, and the viewer shows the warning (R5.11).
+A cell that fails on its last try stays `failed`, the run stays `partial` and the exit status is 1.
+The flag changes no hash. `run`, `before` and `after` do not take it.
+
 ## Compare with supplied design images
 
 A side of kind `design` holds PNG files that a person or a design tool supplies (R5.5). The files stay local. No network is used.

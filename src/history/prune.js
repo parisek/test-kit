@@ -72,6 +72,8 @@ export function collectReferences({ reports = [], state = null }) {
     if (!isObject(value)) throw new Error(`Report ${id} is not readable. Nothing was removed.`);
     const reason = `named by report ${id}`;
     const where = `Report ${id}`;
+    // A valid report names its runs (R9.7). One with no run reference protects nothing, so it stops the command.
+    if (!['pair', 'subject', 'runs'].some(key => Object.hasOwn(value, key))) bad(`${where} (no pair, subject or runs)`);
     if (Object.hasOwn(value, 'pair')) {
       if (!isObject(value.pair)) bad(`${where} (pair)`);
       add(value.pair, 'aRunId', reason, `${where} (pair.aRunId)`); add(value.pair, 'bRunId', reason, `${where} (pair.bRunId)`);
@@ -164,14 +166,14 @@ async function scanReports(root) {
 
 export const MAX_WALK = 100000;
 // True when every entry of the tree has the device number of `dev`. lstat only, no link followed, bounded.
-async function sameDevice(dir, dev, statFn) {
+async function sameDevice(dir, dev, statFn, limit = MAX_WALK) {
   const queue = [dir];
   let count = 0;
   while (queue.length) {
     const current = queue.pop();
     const info = await statFn(current);
     if (info.dev !== dev) return false;
-    if (++count > MAX_WALK) return false;
+    if (++count > limit) return false;
     if (info.isDirectory() && !info.isSymbolicLink()) for (const name of await readdir(current)) queue.push(join(current, name));
   }
   return true;
@@ -183,7 +185,7 @@ async function sameDevice(dir, dev, statFn) {
  * A failed removal stops the command. The runs after it stay.
  * @returns {Promise<{ output: object, exitCode: number }>}
  */
-export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, beforeRelease, lstatSeam } = {}) {
+export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, beforeRelease, lstatSeam, walkLimit = MAX_WALK } = {}) {
   const statFn = lstatSeam ?? lstat;
   parseKeep(keep);
   const root = await assertStore(local);
@@ -222,7 +224,8 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, be
     if (!yes) { result = { output, exitCode: 0 }; return result; }
     delete output.wouldRemove;
     const runsRoot = join(root, 'runs');
-    const runsDev = (await lstat(runsRoot)).dev;
+    // No runs/ (or nothing to remove) means no device read.
+    const runsDev = plan.remove.length ? (await lstat(runsRoot)).dev : null;
     const refused = [];
     for (const run of plan.remove) {
       const dir = join(runsRoot, run.id);
@@ -230,7 +233,7 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, be
         // Check again right before the delete: still a real directory, and its real path is the expected one.
         if (!(await plainDirectory(dir)) || (await realpath(dir)) !== resolve(runsRoot, run.id) || !inside(runsRoot, dir)) throw new Error('not a real directory inside runs/');
         // A mount point inside the run would let the recursive delete reach another file system. Walk first, link-safe.
-        if (!(await sameDevice(dir, runsDev, statFn))) { refused.push({ id: run.id, reason: 'different filesystem, or too many entries to check' }); continue; }
+        if (!(await sameDevice(dir, runsDev, statFn, walkLimit))) { refused.push({ id: run.id, reason: 'different filesystem, or too many entries to check' }); continue; }
         await rm(dir, { recursive: true });
         output.removed.push(run.id);
       } catch (error) { output.failed = { id: run.id, error: error.message }; break; }
