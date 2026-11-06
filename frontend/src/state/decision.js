@@ -51,17 +51,15 @@ export function knownCommand(finding, { source = null, page = '', basis = 'relat
 }
 
 // R9.12: the command that records an allowlist entry for one unexplained absolute finding. Copying it records nothing (R5.3).
-// `siblings` is the number of absolute findings that share the check, the target and the viewport. `record-allowed` selects
-// a finding by those three values, so it needs exactly one. It has no option to pick one of several yet.
-// Returns { text, reason }: text is null when no command can pick this finding.
-export function allowedCommand(finding, { source = null, page = '', siblings = 1 } = {}) {
+// `--fingerprint` selects exactly this finding when several share the check, the target and the viewport.
+// Returns { text, reason }: text is null when the finding has no fingerprint or an id is not plain.
+export function allowedCommand(finding, { source = null, page = '' } = {}) {
 	if (!isHash(finding?.evidenceFingerprint)) return { text: null, reason: 'This finding has no evidence fingerprint, so an allowlist entry cannot match it. A speed budget changes in the config.' };
 	const target = plain(finding?.targetId);
 	const check = plain(finding?.checkId);
 	const viewport = finding?.viewportId == null ? null : plain(finding.viewportId);
 	if (!target || !check || (finding.viewportId != null && !viewport)) return { text: null, reason: 'Only a finding with a plain target, check and viewport id can be recorded.' };
-	if (siblings > 1) return { text: null, reason: `${siblings} findings share this check, target and viewport. record-allowed picks a finding by those three values and needs exactly one.` };
-	return { text: `test-kit record-allowed ${reportArgument(source, page)} --config FILE --target ${target} --check ${check}${viewport ? ` --viewport ${viewport}` : ''} --reason TEXT --owner TEXT`, reason: null };
+	return { text: `test-kit record-allowed ${reportArgument(source, page)} --config FILE --target ${target} --check ${check}${viewport ? ` --viewport ${viewport}` : ''} --fingerprint ${finding.evidenceFingerprint} --reason TEXT --owner TEXT`, reason: null };
 }
 
 export function recaptureCommand(finding) {

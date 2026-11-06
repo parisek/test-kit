@@ -15,7 +15,7 @@ optional `filter` (`{ targets, viewports }`), is skipped and counted in `meta.sk
 `meta.scope`. A selected cell without a capture stays `missing`. A run without `selection` skips nothing (R4.5).
 
 
-Comparison takes optional validated rules and pair-scoped known differences. It also takes the parsed `allowlistEntries` and the clock `now` (R9.12). It validates the entries before the output directory exists, fingerprints each absolute finding from the evidence of its check (a content finding in `compareRuns`, a pack finding in `packs.js`), and writes `report.allowlist` with the status of each entry before it validates the report. The `lighthouse-budget` finding has no fingerprint yet.
+Comparison takes optional validated rules and pair-scoped known differences. It also takes the parsed `allowlistEntries` and the clock `now` (R9.12). It validates the entries before the output directory exists, fingerprints each absolute finding from the evidence of its check (a content finding in `compareRuns`, a pack finding in `packs.js`), and writes `report.allowlist` with the status of each entry before it validates the report. The `lighthouse-budget` finding has no fingerprint and stays `unexplained` (R9.12).
 It retains raw findings and attaches verified evidence acceptance. Policy does not
 change screenshot capture hashes. See `src/rules/README.md` (R8.4–R8.6).
 

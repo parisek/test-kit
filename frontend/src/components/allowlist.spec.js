@@ -7,7 +7,6 @@ import CheckAudit from './CheckAudit.vue';
 import FindingCards from './FindingCards.vue';
 
 // Owner decision on #331 (2026-11-06): allowlist entries in the Checks list, and a copy of the record-allowed command.
-// The command does not carry --fingerprint yet: that option is not merged (#336).
 const HASH = (char) => `sha256:${char.repeat(64)}`;
 const evidence = (src) => ({ src, tool: 'example', version: '1', settingsHash: 'sha256:x' });
 const source = 'http://localhost/report.json';
@@ -70,14 +69,13 @@ describe('allowlist entries in the Checks list (R9.12, ADR 0004 section 7)', () 
 describe('the record-allowed command for an absolute finding (R5.3, R9.12)', () => {
 	const finding = { id: 'f1', targetId: 'button', viewportId: 'desktop', artifact: 'a11y', checkId: 'a11y-axe', evidenceFingerprint: HASH('a') };
 	it('builds the command with the target, the check and the viewport filled in', () => {
-		expect(allowedCommand(finding, { source, page: 'http://localhost/' })).toEqual({ text: 'test-kit record-allowed report.json --config FILE --target button --check a11y-axe --viewport desktop --reason TEXT --owner TEXT', reason: null });
+		expect(allowedCommand(finding, { source, page: 'http://localhost/' })).toEqual({ text: 'test-kit record-allowed report.json --config FILE --target button --check a11y-axe --viewport desktop --fingerprint ' + HASH('a') + ' --reason TEXT --owner TEXT', reason: null });
 		const noViewport = allowedCommand({ ...finding, targetId: '@project', viewportId: undefined, artifact: 'lint', checkId: 'eslint.no-console' }, { source, page: 'http://localhost/' });
-		expect(noViewport.text).toBe('test-kit record-allowed report.json --config FILE --target @project --check eslint.no-console --reason TEXT --owner TEXT');
+		expect(noViewport.text).toBe('test-kit record-allowed report.json --config FILE --target @project --check eslint.no-console --fingerprint ' + HASH('a') + ' --reason TEXT --owner TEXT');
 	});
-	it('gives no command, and says why, without a fingerprint, with a shared slot or with an unsafe id', () => {
+	it('gives no command, and says why, without a fingerprint or with an unsafe id', () => {
 		expect(allowedCommand({ ...finding, evidenceFingerprint: undefined }, { source })).toMatchObject({ text: null, reason: expect.stringMatching(/no evidence fingerprint.*config/) });
 		expect(allowedCommand({ ...finding, evidenceFingerprint: 'sha256:abc' }, { source }).text).toBeNull();
-		expect(allowedCommand(finding, { source, siblings: 2 })).toMatchObject({ text: null, reason: expect.stringMatching(/2 findings share/) });
 		for (const bad of [{ targetId: 'a b; rm -rf' }, { checkId: '$(x)' }, { viewportId: 'a;b' }]) expect(allowedCommand({ ...finding, ...bad }, { source }).text).toBeNull();
 	});
 	it('adds a fifth action to an unexplained absolute finding only', () => {
@@ -99,21 +97,29 @@ describe('the Allowlist entry action on a finding card', () => {
 		const group = wrapper.get('[role=group]');
 		expect(group.findAll('li').map((item) => item.find('span').text())).toEqual(['Fix', 'Known difference', 'Allowlist entry', 'Noise or unstable', 'Pass on']);
 		expect(group.text()).toContain('record-allowed');
-		expect(group.text()).toContain('--target button --check a11y-axe --viewport desktop --reason TEXT --owner TEXT');
-		expect(group.text()).not.toContain('--fingerprint');
+		expect(group.text()).toContain(`--target button --check a11y-axe --viewport desktop --fingerprint ${HASH('a')} --reason TEXT --owner TEXT`);
 		await group.findAll('button').find((button) => button.attributes('aria-label') === 'Allowlist entry: Copy command').trigger('click');
 		await flushPromises();
 		expect(writeText).toHaveBeenCalledWith(expect.stringContaining('test-kit record-allowed'));
 		expect(wrapper.text()).toContain('Copied.');
 		vi.unstubAllGlobals();
 	});
-	it('shows no fifth action on an explained finding and a reason when two findings share the slot', () => {
+	it('shows no fifth action on an explained finding, and gives two findings of one slot their own text', () => {
 		const explained = report([entry()]);
 		expect(mountCards(explained, [explained.findings[0]]).get('[role=group]').findAll('li').map((item) => item.find('span').text())).not.toContain('Allowlist entry');
 		const twin = report();
 		twin.findings.push({ ...twin.findings[0], id: 'f3', evidenceFingerprint: HASH('d') });
-		const group = mountCards(twin, [twin.findings[0]]).get('[role=group]');
-		expect(group.text()).toContain('2 findings share this check, target and viewport');
+		const first = mountCards(twin, [twin.findings[0]]).get('[role=group]').text();
+		const second = mountCards(twin, [twin.findings[2]]).get('[role=group]').text();
+		expect(first).toContain(`--fingerprint ${HASH('a')} `);
+		expect(second).toContain(`--fingerprint ${HASH('d')} `);
+		expect(first).not.toContain(HASH('d'));
+	});
+	it('gives a finding with no fingerprint a reason and no command', () => {
+		const data = report();
+		delete data.findings[0].evidenceFingerprint;
+		const group = mountCards(data, [data.findings[0]]).get('[role=group]');
+		expect(group.text()).toContain('no evidence fingerprint');
 		expect(group.text()).not.toContain('test-kit record-allowed');
 	});
 });
