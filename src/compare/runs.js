@@ -133,7 +133,7 @@ function available(capture) {
 }
 
 // R8.9: a pair that is incompatible names each differing setting and both values, so a person finds the cause.
-// A value comes from a stored run, so it is cut to a bounded single line. R3.9: the allowOrigins key stays named.
+// A value comes from a stored run, so it is cut to a bounded single line. R3.9, R3.10: the allowOrigins and thirdParty keys stay named.
 const shown = value => {
   const text = value === undefined ? 'unset' : JSON.stringify(value);
   const line = String(text).replace(/[\x00-\x1f\x7f]/g, ' ');
@@ -160,6 +160,7 @@ function settingDiffs(runA, runB, captureA, captureB) {
   } else add('settle', a.settle, b.settle);
   add('screenshot', a.screenshot, b.screenshot);
   add('allowOrigins', a.allowOrigins, b.allowOrigins);
+  add('thirdParty', a.thirdParty, b.thirdParty);
   const tool = run => (run?.tools ?? []).filter(item => !item.artifact || item.artifact === 'screenshot').map(item => [item.name, item.version]);
   add('tool versions', tool(runA), tool(runB));
   return diffs;
