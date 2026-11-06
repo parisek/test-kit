@@ -7,6 +7,7 @@ Usage: test-kit <command> [options]
   after [--allowlist FILE]   Also read the allowlist from FILE. The default is test-kit.allowlist.json beside the config.
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
+  history --prune [--keep N] [--yes] [--config FILE] [--store PATH]   List the runs it would remove. With --yes, remove the oldest runs beyond --keep (default 20) for each side.
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID] [--packs] [--retries 0..2] [--keep-existing]
   import --side ID [--config FILE] [--label TEXT] [--target ID,ID] [--viewport ID,ID]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID] [--allowlist FILE]
@@ -32,7 +33,7 @@ FLAGS.diff = [...FLAGS.diff, 'allowlist'];
 FLAGS.after = [...workflowFlags, 'allowlist'];
 FLAGS.import = ['config', 'side', 'label', 'target', 'viewport'];
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
-FLAGS.history = ['config', 'store', 'port', 'export', 'publish'];
+FLAGS.history = ['config', 'store', 'port', 'export', 'publish', 'prune', 'keep', 'yes'];
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -48,13 +49,17 @@ export function parseCommand(argv) {
     const name = argument.slice(2);
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
-    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs', 'keep-existing'].includes(name)) { options[name] = true; continue; }
+    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs', 'keep-existing', 'prune', 'yes'].includes(name)) { options[name] = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
   const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, 'record-allowed': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0 }[command];
   if (options.publish !== undefined && (options.export !== undefined || options.port !== undefined)) throw new Error('Use --publish alone. Do not combine it with --export or --port.');
+  // R12.5: --prune deletes on request only. --keep and --yes mean nothing without it.
+  if ((options.keep !== undefined || options.yes) && !options.prune) throw new Error('--keep and --yes need --prune.');
+  if (options.prune && (options.publish !== undefined || options.export !== undefined || options.port !== undefined)) throw new Error('Use --prune alone. Do not combine it with --export, --port or --publish.');
+  if (options.keep !== undefined) options.keep = integer(options.keep, '--keep', 1, 100000);
   if (options.export && options.port !== undefined) throw new Error('Use --export or --port.');
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
   if (command === 'perf' && options.targets && options.path) throw new Error('Use --targets or --path.');
@@ -93,6 +98,17 @@ export async function dispatch({ command, positions, options }, dependencies = {
   if (['run', 'before', 'after', 'report'].includes(command)) {
     const { runWorkflow } = await import('../workflow/index.js');
     return runWorkflow(command, options);
+  }
+  if (command === 'history' && options.prune) {
+    // R12.5: read the store, remove only on --yes, and refresh the store viewer after a removal (R10.16).
+    const { resolveStore, refreshViewerAfter } = await import('../workflow/index.js');
+    const { pruneHistory, assertPlainStorePath } = await import('../history/prune.js');
+    const { resolve, dirname } = await import('node:path');
+    const store = resolveStore(options);
+    await assertPlainStorePath(dirname(resolve(options.config ?? 'test-kit.config.json')), store);
+    const result = await pruneHistory({ local: store, keep: options.keep, yes: options.yes === true });
+    if (options.yes !== true || (!result.output.removed.length && !result.output.failed)) return result;
+    return refreshViewerAfter(result, dependencies, result.output.store);
   }
   if (command === 'history' && options.publish !== undefined) {
     // Publish reads the store and writes nothing before its preflight passes (R10.12), so it does not call ensureStore.

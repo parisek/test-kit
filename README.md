@@ -272,6 +272,18 @@ The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. I
 
 A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server. The viewer guards only report links. A run can hold raw HTML (the Lighthouse `<base>.html` from `perf`), and a static server sends it as active content from the viewer's origin. Use the viewer on a local site only. Never deploy the store. The store is web-reachable when the theme folder is under the local document root. It holds page captures and, while a command runs, a 0600 copy of the configuration.
 
+### Remove old runs
+
+`history --prune` removes old runs on request (R12.5, #161). Nothing deletes runs automatically. Without `--yes` the command lists what it would remove and removes nothing.
+
+```sh
+test-kit history --prune                 # list: the 20 newest runs of each side stay
+test-kit history --prune --keep 5        # list: the 5 newest runs of each side stay
+test-kit history --prune --keep 5 --yes  # remove the rest
+```
+
+The command orders runs by the time in their `run.json`, not by file time. A run stays when a report names it (A or B of a pair, a single-run subject, a run in the report run list), when the workflow state holds it as a baseline, or when its time or side is unreadable. The store index does not protect a run. The command does not read a published `index.json`: a published directory holds its own copies. It works only on a store with the `.test-kit-viewer` marker, refuses links in the store path and in `runs/`, and removes only `runs/<id>/`. It stops at the first failed removal and leaves the later runs. Stdout is one JSON line with `removed`, `failed`, `kept` and `skipped`. After a removal it refreshes the store viewer.
+
 ### Publish a stable directory
 
 `history --publish DIR` refreshes one stable directory in place (R10.12, R10.13, ADR 0005). It is opt-in. `DIR` has no default and no config key. It comes from the flag and is relative to the config directory.
