@@ -1,6 +1,8 @@
 // The scope of a report: what the pair compared and what it skipped (R4.5, #287).
 // Pure logic, shared by the viewer. The numbers come from the report alone, so a reader needs no other file.
 // A report without `meta.scope` is a full report: it has no scope and this returns null.
+import { warningTotals, captureWarningsSentence } from './warnings.js';
+
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 // `of` counts are derived. The report keeps the full viewport lists of both runs in `runs[].settings`,
@@ -57,9 +59,9 @@ export function noFixtureLine(ids) {
 	return `Not compared: ${ids.length} ${ids.length === 1 ? 'component has' : 'components have'} no fixture.`;
 }
 
-// The whole header line: the scope sentence first, then the "not compared" sentence. Null when neither applies.
+// The whole header line: the scope sentence, the "not compared" sentence, then the capture warnings (R5.11, #329). Null when none applies.
 export function headerLine(report) {
 	const scope = reportScope(report);
-	const parts = [scope ? scopeLine(scope) : '', noFixtureLine(noFixtureIds(report))].filter(Boolean);
+	const parts = [scope ? scopeLine(scope) : '', noFixtureLine(noFixtureIds(report)), captureWarningsSentence(warningTotals({ entries: report?.entries ?? [] }))].filter(Boolean);
 	return parts.length ? parts.join(' ') : null;
 }

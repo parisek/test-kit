@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- The viewer shows capture warnings (R5.11, #329). The report header line gets a last sentence, "Capture warnings: LAZY_IMAGES_NOT_SWEPT in 3 cells (12 in all).", and each cell shows "A: LAZY_IMAGES_NOT_SWEPT (7) · B: none" in the Overview matrix and on Evidence. The numbers equal the `captureWarnings` of `summary`. A warning adds no badge, no filter and no class.
+
 ### Changed
 
 - A target with a `selector` now gets the `LAZY_IMAGES_NOT_SWEPT` warning too. It counts the lazy images inside the selected elements, each image once, and `run`, `before` and `after` print the same stderr line as `capture` (R5.11, #329). Stdout stays one JSON line. The count is outside every hash.
