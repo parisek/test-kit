@@ -1,6 +1,6 @@
 # ADR 0004: One result model for pair, single-run and lint results
 
-Status: accepted by the owner in chat on 2026-10-18 ("Přijmout C a upravit R7.3"). This was the Tier 3 approval for vision open decision 1. Option C is the result model. It needed an R7.3 edit, and that edit merges with this acceptance. The open design questions below stay open. No code changes in this record.
+Status: accepted by the owner in chat on 2026-10-18 ("Přijmout C a upravit R7.3"). This was the Tier 3 approval for vision open decision 1. Option C is the result model. It needed an R7.3 edit, and that edit merges with this acceptance. The open design questions below were decided later: see each question for its date. No code changes in this record.
 Requirements: R7.1, R7.2, R7.3, R7.7, R8.2 to R8.9, R9.1, R9.4, R10.5, R11.6, R13.9, R13.13, R13.40. Tracked in #99.
 
 ## Context
@@ -663,7 +663,7 @@ The producer copies only entries whose `checkId` is in the catalog and whose `ta
 
 A stale entry never changes a class. An expired entry never deletes itself. Nothing removes an entry automatically. A person removes it, as with snapshots (section 17, item 4).
 
-**How a stale entry is reported.** Each non-`active` entry stays in `report.allowlist` with its status. For `stale` and `expired` the producer adds a diagnostic: for `stale`, the fingerprints (at most 5) of the unexplained findings of the same `checkId` and `targetId`, so a reviewer sees "changed" against "fixed". The summary and the query interface count the entries by status. The viewer lists them beside the overrides in the "Checks" list, with reason and owner (section 7 point 3). The command does not fail on a stale entry and the exit code does not change. Whether a stale or expired entry should fail a strict run is an owner choice (see "Choices for the owner").
+**How a stale entry is reported.** Each non-`active` entry stays in `report.allowlist` with its status. For `stale` and `expired` the producer adds a diagnostic: for `stale`, the fingerprints (at most 5) of the unexplained findings of the same `checkId` and `targetId`, so a reviewer sees "changed" against "fixed". The summary and the query interface count the entries by status. The viewer lists them beside the overrides in the "Checks" list, with reason and owner (section 7 point 3). The command does not fail on a stale entry and the exit code does not change. A stale or expired entry does not fail a run, and this release has no strict flag (owner decision, 2026-11-06, "Choices for the owner" item 2).
 
 **Writing an entry.** A new command, `record-allowed REPORT --target ID --check ID [--viewport ID] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--allowlist FILE]`. It is the counterpart of `record-known` and follows R5.3: it is a command, not a viewer action. It reads the report, finds exactly one absolute finding for the triple, requires a non-empty `evidenceFingerprint`, refuses an oracle target, a relative finding and an artifact that is not `complete`, refuses a duplicate, and writes the file with the same temporary-file and rename step as `commitConfig`. It adds the entry, never edits one. `record-known` keeps refusing an absolute finding (R7.3).
 
@@ -682,7 +682,7 @@ A finding has one basis, so only one list is consulted. In a mixed `content` art
 
 **Alternatives rejected.**
 
-- *A key `allowlist` inside the config.* It would reuse `commitConfig`. It would also grow the config with entries that change often, make `record-allowed` rewrite the whole config and widen the `normalizeConfig` key list, which is a public contract. Rejected for the first release. The owner may still prefer it; the entry shape does not change.
+- *A key `allowlist` inside the config.* It would reuse `commitConfig`. It would also grow the config with entries that change often, make `record-allowed` rewrite the whole config and widen the `normalizeConfig` key list, which is a public contract. Rejected. The owner chose the file with no config key on 2026-11-06 ("Choices for the owner" item 1).
 - *Reuse `known_diffs` with a `subject` key.* R9.7 forbids `known_diffs` in a `subject` report on purpose, and `known_diffs` binds to two run ids. Rejected.
 - *A comment or inline marker in the checked file or page.* It puts the allowance in the evidence that it judges. It also needs no owner and no reason. Rejected.
 - *Enforce expiry in the classifier by reading the clock.* This breaks R4.4 and makes a report depend on the day it is read. The producer decides once, and the report records the decision. Rejected.
