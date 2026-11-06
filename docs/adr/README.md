@@ -28,3 +28,4 @@ Context, Decision, Consequences. One file for each decision: `NNNN-kebab-title.m
 | 0006 | ESLint and Stylelint entry points |
 | 0007 | How run.json records a per-target capture recipe |
 | 0008 | Pin sticky and fixed elements for a capture |
+| 0009 | Reference keep-existing and bounded transient retries |
