@@ -13,6 +13,7 @@ Versions follow semver. Each release uses an immutable git tag.
 - The content-box crop `target.box: "content"` has a requirement (R5.7) and tests that prove it is part of the recorded scope: `recipe.scope.box`, a per-target `incompatible` for a box change, and a diagnostic that names `scope.box` (#49, slice 2, ADR 0007). No behavior change.
 - Per-target settlement (`target.settle`, `target.settleBySide`) has a requirement (R5.8) and tests that prove the merge order, the per-target and per-side `incompatible`, and the bounds, with the merged result stored as `recipe.settle` (#49, slice 3, ADR 0007). No behavior change. R8.16 now says that `content` and `behavior` comparisons do not read `recipe.version` (owner decision of 2026-11-06).
 - Lazy-image settlement (`settle.lazyImages`) has a requirement (R5.9), unit tests, and an integration check (`check-capture-lazy-images.mjs`) that proves a full-page, an element and a clip capture all show an image that a scroll-triggered loader sets, and that the recipe records the key (#49, slice 4, ADR 0007). No behavior change.
+- Reveal steps (`settle.reveal`: `click`, `hover`, `focus`) have a requirement (R5.10), unit tests for the recorded order, replacement and bounds, and an integration case that a step with no match fails only its target (#49, slice 5, ADR 0007). No behavior change. New operations (class changes, modal state, blur) wait for an owner decision.
 
 ### Changed
 
