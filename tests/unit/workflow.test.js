@@ -246,20 +246,32 @@ test('before on a remote side and after on a local side give a migration report 
  const index = JSON.parse(await readFile(join(dir, 'site/index.json')));
  assert.deepEqual(index.reports.map(report => report.kind), ['migration']);
 });
-test('before and after with the same side keep the update kind, on a local and on a remote side (#240)', async t => {
+test('the same local side for before and after keeps the update kind (#324)', async t => {
  const { options, kinds, dependencies } = await pairFixture(t);
  await runWorkflow('before', options, dependencies); await runWorkflow('after', options, dependencies);
- await runWorkflow('before', { ...options, side: 'production' }, dependencies); await runWorkflow('after', { ...options, side: 'production' }, dependencies);
- assert.deepEqual(kinds, ['update', 'update']);
+ assert.deepEqual(kinds, ['update']);
 });
-test('a pair of sides with no kind in the specification stops before any capture (#240)', async t => {
- const { options, dependencies } = await pairFixture(t);
- const stop = { ...dependencies, capture: () => assert.fail('no capture'), compareRuns: () => assert.fail('no compare') };
+test('the same remote side for before and after gives the deploy kind (#324)', async t => {
+ const { options, kinds, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'production' }, dependencies); await runWorkflow('after', { ...options, side: 'production' }, dependencies);
+ assert.deepEqual(kinds, ['deploy']);
+});
+test('a pair of different sides that section 3 does not name gives the adhoc kind, and history lists it (#324)', async t => {
+ const { dir, options, kinds, sides, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'production' }, dependencies); await runWorkflow('after', { ...options, side: 'staging' }, dependencies);
+ await runWorkflow('before', { ...options, side: 'local' }, dependencies); await runWorkflow('after', { ...options, side: 'production' }, dependencies);
+ await runWorkflow('before', { ...options, side: 'local' }, dependencies); await runWorkflow('after', { ...options, side: 'other' }, dependencies);
+ assert.deepEqual(kinds, ['adhoc', 'adhoc', 'adhoc']); assert.equal(sides.length, 6);
+ await publishHistory({ local: join(dir, 'test-kit'), dir: join(dir, 'site'), cwd: dir, home: join(dir, 'home'), now: new Date('2026-10-20T12:00:00.000Z') });
+ const index = JSON.parse(await readFile(join(dir, 'site/index.json')));
+ assert.deepEqual(index.reports.map(report => report.kind), ['adhoc', 'adhoc', 'adhoc']);
+});
+test('a second before with another side replaces the first baseline (#324, R3.11)', async t => {
+ const { options, kinds, dependencies } = await pairFixture(t);
  await runWorkflow('before', { ...options, side: 'production' }, dependencies);
- await assert.rejects(runWorkflow('after', { ...options, side: 'staging' }, stop), /No pair kind for the baseline side "production" and the side "staging"/);
- await runWorkflow('before', { ...options, side: 'local' }, dependencies);
- await assert.rejects(runWorkflow('after', { ...options, side: 'production' }, stop), /No pair kind/);
- await assert.rejects(runWorkflow('after', { ...options, side: 'other' }, stop), /No pair kind/);
+ await runWorkflow('before', { ...options, side: 'staging' }, dependencies);
+ await runWorkflow('after', { ...options, side: 'staging' }, dependencies);
+ assert.deepEqual(kinds, ['deploy']);
 });
 test('a baseline stored with the side in its scope hash never matches (#240)', async t => {
  const { dir, options, dependencies } = await pairFixture(t);

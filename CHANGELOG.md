@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Changed
+
+- `before` and `after` in the scoped workflow give every pair of sides a report kind (R3.11, #324). The same local side gives `update`. The same remote side gives `deploy` (it gave `update`). A remote side then a local side gives `migration`. Any other pair of different sides gives `adhoc` (it stopped `after` with an error). A second `before` with another side replaces the first baseline. Migration: a rule with `kinds: ["update"]` no longer applies to a pair of the same remote side. Add `deploy` to its `kinds`. A `known_diffs` record for such a pair may need to be recorded again, because a rule it names may not apply. The owner decided this on 2026-11-06 (#324).
+
 ## [1.2.0-rc.1] - 2026-11-06
 
 First release candidate for 1.2.0. It is not a stable release. `package.json` says `1.2.0`, so `--version` prints `1.2.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The default store moves from `.test-kit/` to `test-kit/`, and a scoped-workflow baseline made before 1.2.0 never matches: run `before` again. The capture engine version is `1`. A run made before 1.2.0 has no stored `recipe` and still compares.

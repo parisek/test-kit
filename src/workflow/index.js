@@ -92,16 +92,16 @@ async function present(path) {
 }
 
 // R3.11: the pair kind of `before` and `after` follows the pair of sides.
-// The same side gives `update`, and a changed side configuration for it needs a new `before`.
-// A remote side against a local side gives `migration`. Any other pair has no kind in section 3.
+// The same local side gives `update`, the same remote side gives `deploy`. A changed side configuration needs a new `before`.
+// A remote side against a local side gives `migration`. Any other pair of different sides gives `adhoc`.
 export function pairKind({ before, after }) {
   if (!before.id || !Object.hasOwn(before, 'origin')) throw new Error('Run before again. The baseline names a side that the configuration no longer holds.');
   if (before.id === after.id) {
     if (before.digest !== after.digest) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
-    return 'update';
+    return before.remote === true ? 'deploy' : 'update';
   }
   if (before.remote === true && after.remote !== true) return 'migration';
-  throw new Error(`No pair kind for the baseline side "${before.id}" and the side "${after.id}". Use a remote baseline side and a local side, or the same side twice.`);
+  return 'adhoc';
 }
 
 export async function runWorkflow(command, options = {}, dependencies = {}) {
@@ -172,7 +172,7 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     const profile = state.profiles[scope] ?? {};
     if (command === 'after' && !profile.before && !Object.keys(state.profiles).length) throw new Error(NO_BASELINE);
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
-    // The pair of sides decides the report kind (R3.11). A pair with no kind stops before any capture runs.
+    // The pair of sides decides the report kind (R3.11). A changed side configuration stops before any capture runs.
     let kind = 'update';
     if (command === 'after') {
       kind = pairKind({ before: { id: profile.side, ...config.sides[profile.side], digest: profile.sideDigest }, after: { id: side, ...config.sides[side], digest: sideDigest } });
