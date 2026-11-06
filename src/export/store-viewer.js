@@ -92,12 +92,17 @@ export async function refreshStoreViewer({ store, now = new Date(), fs: seam } =
   if (!(await nodeFs.stat(root)).isDirectory()) throw new Error(`The store ${store} is not a directory.`);
   await copyViewer(fs, root);
   let result = await build(root, now);
-  for (let round = 0; round < ROUNDS; round++) {
+  let settled = false;
+  for (let round = 0; round < ROUNDS && !settled; round++) {
     await writeAtomic(fs, join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`);
     const next = await build(root, now);
-    const settled = sameListing(result.index, next.index);
+    settled = sameListing(result.index, next.index);
     result = next;
-    if (settled) break;
+  }
+  if (!settled) {
+    // The store changed on every rescan. Write the last scan so index.json is never older than the last look at the store.
+    await writeAtomic(fs, join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`);
+    result.warnings.push(`test-kit: warning: index.json did not settle after ${ROUNDS} rounds. It lists the store as the last scan saw it.`);
   }
   return { store: root, runCount: result.runCount, reportCount: result.reportCount, unavailable: result.unavailable, warnings: result.warnings };
 }

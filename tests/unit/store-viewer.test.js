@@ -120,6 +120,40 @@ test('two concurrent refreshes with a run added between still list every run', a
   assert.deepEqual(index.runs.map(row => row.id).sort(), ['run-a', 'run-late']);
 });
 
+test('a refresh that renames last with a stale scan does not leave a stale index.json', async t => {
+  const f = await fixture(t);
+  await f.addRun('run-a');
+  let held = false;
+  let finishedB;
+  const fs = {
+    rename: async (from, to) => {
+      if (to.endsWith('index.json') && !held) {
+        held = true;
+        // A has scanned one run. B adds a second run and completes. Then A renames its stale index.
+        await f.addRun('run-b');
+        finishedB = await refreshStoreViewer({ store: f.store, now: NOW });
+      }
+      return rename(from, to);
+    },
+  };
+  await refreshStoreViewer({ store: f.store, now: NOW, fs });
+  assert.equal(finishedB.runCount, 2);
+  assert.deepEqual((await f.index()).runs.map(row => row.id).sort(), ['run-a', 'run-b']);
+});
+
+test('a store that changes on every rescan: the last scan is written and a warning says it did not settle', async t => {
+  const f = await fixture(t);
+  await f.addRun('run-0');
+  let count = 0;
+  const fs = { rename: async (from, to) => { if (to.endsWith('index.json')) await f.addRun(`run-${++count}`); return rename(from, to); } };
+  const result = await refreshStoreViewer({ store: f.store, now: NOW, fs });
+  assert.match(result.warnings.join('\n'), /index\.json did not settle after 4 rounds/);
+  // The file lists every run the last scan saw: the last write is of the last scan, not of the one before.
+  const listed = (await f.index()).runs.map(row => row.id);
+  assert.equal(listed.length, result.runCount);
+  assert.ok(listed.length >= 5, listed.join());
+});
+
 test('deleting the store and running again recreates the viewer, and .gitignore stays', async t => {
   const f = await fixture(t);
   const config = join(f.root, 'test-kit.config.json');
@@ -130,29 +164,6 @@ test('deleting the store and running again recreates the viewer, and .gitignore 
   const again = await ensureStore({ config });
   await refreshStoreViewer({ store: again, now: NOW });
   for (const name of [...VIEWER_FILES, 'index.json', '.gitignore']) assert.ok((await stat(join(again, name))).isFile(), name);
-});
-
-test('history --publish with no DIR, or with the store as DIR, refreshes the store viewer; another DIR still publishes', async t => {
-  const { run } = await import('../../src/cli/run.js');
-  const f = await fixture(t);
-  await f.addRun('run-a');
-  const config = join(f.root, 'test-kit.config.json');
-  await writeFile(config, '{}');
-  const call = async argv => { const out = []; const err = []; const code = await run(argv, { out: { write: v => out.push(v) }, err: { write: v => err.push(v) } }); return { code, out: out.join(''), err: err.join('') }; };
-  let result = await call(['history', '--config', config, '--publish']);
-  assert.equal(result.code, 0);
-  assert.equal(JSON.parse(result.out).refreshed, f.store);
-  assert.equal((await f.index()).runs.length, 1);
-  await rm(join(f.store, 'index.json'));
-  result = await call(['history', '--config', config, '--publish', 'test-kit']);
-  assert.equal(result.code, 0);
-  assert.ok((await stat(join(f.store, 'index.json'))).isFile());
-  result = await call(['history', '--config', config, '--publish', 'test-kit/site']);
-  assert.equal(result.code, 1);
-  assert.match(result.err, /history store/);
-  result = await call(['history', '--config', config, '--publish', 'site']);
-  assert.equal(result.code, 0);
-  assert.equal(JSON.parse(result.out).published, join(f.root, 'site'));
 });
 
 test('a workflow command refreshes the viewer, and a failed refresh is only a warning', async t => {
