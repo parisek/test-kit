@@ -353,8 +353,7 @@ test('--publish does not combine with --export or --port', () => {
     assert.throws(() => parseCommand(['history', ...extra, '--publish', 'site']), /--publish alone/);
   }
   assert.throws(() => parseCommand(['report', '--publish', 'site']), /Unknown option/);
-  assert.equal(parseCommand(['history', '--publish']).options.publish, true);
-  assert.equal(parseCommand(['history', '--publish', '--config', 'x.json']).options.publish, true);
+  assert.throws(() => parseCommand(['history', '--publish']), /Missing value/);
 });
 
 test('the CLI prints the success line on stderr and the result on stdout', async t => {
@@ -373,7 +372,7 @@ test('the CLI refuses a directory outside the rules with exit 1 and no write', a
   const f = await fixture(t);
   await writeFile(join(f.proj, 'test-kit.config.json'), '{}');
   const err = [];
-  const code = await run(['history', '--config', join(f.proj, 'test-kit.config.json'), '--publish', 'test-kit/site'], { out: { write() {} }, err: { write: v => err.push(v) } });
+  const code = await run(['history', '--config', join(f.proj, 'test-kit.config.json'), '--publish', 'test-kit'], { out: { write() {} }, err: { write: v => err.push(v) } });
   assert.equal(code, 1);
   assert.match(err.join(''), /history store/);
 });

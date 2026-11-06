@@ -15,7 +15,7 @@ The seam is everything a project touches: its configuration file, the commands i
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
 - Two exceptions exist. Each sets no precedent for another frozen item.
   - The owner allowed the narrowing of `engines.node` to `>=20.19` in the minor release 1.1.0, with a migration note, on 2026-11-06 (#298). See "Runtime requirement".
-  - The owner allowed the move of the default store from `.test-kit` to `test-kit`, and of the `runsRoot` default from `.test-kit/runs` to `test-kit/runs`, in the minor release 1.2.0, with a migration note, on 2026-11-06 (#312). See the `runsRoot` row in section 2 and the store note in section 3. An explicit `runsRoot` or `--store` keeps working. The old `.test-kit/` is not read, moved or deleted. A project deletes it by hand. Old baselines are not carried over.
+  - The owner allowed the move of the default store from `.test-kit` to `test-kit`, and of the `runsRoot` default from `.test-kit/runs` to `test-kit/runs`, in the minor release 1.2.0, with a migration note, on 2026-11-06 (#312). See the `runsRoot` row in section 2 and the store note in section 3. An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`, `history` and project `perf` (`--store .test-kit`). An explicit `runsRoot` keeps working for `capture`, `import`, `diff` and plain `perf`. The old `.test-kit/` is not read, moved or deleted. A project deletes it by hand. Old baselines are not carried over.
 
 ## Markings
 
@@ -130,7 +130,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 Other command facts:
 
 - The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
-- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam. 
+- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam.
 - `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today. Packs run with `--packs`, not with `--artifacts` (R13.51).
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
 - `COMMANDS` and `run` are also exported from the package root (`src/index.js`). No README documents a project import of them. Experimental.
