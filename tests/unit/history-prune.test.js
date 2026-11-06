@@ -174,6 +174,39 @@ test('a workflow lock stops the prune and stays in place', async t => {
   await access(join(f.store, 'lock'));
   assert.equal((await f.ids()).length, 2);
 });
+test('a normal run removes its own lock and a replaced lock is left untouched', async t => {
+  const f = await fixture(t);
+  for (let n = 1; n <= 3; n++) await f.addRun(`run-${n}`, 'local', day(n));
+  const result = await pruneHistory({ local: f.store, keep: 1, yes: true });
+  assert.equal(result.stderr, undefined);
+  await assert.rejects(access(join(f.store, 'lock')));
+  // Replace the lock while the command removes a run: swap it in when run-1 is gone.
+  const g = await fixture(t);
+  for (let n = 1; n <= 3; n++) await g.addRun(`run-${n}`, 'local', day(n));
+  const pending = pruneHistory({ local: g.store, keep: 1, yes: true });
+  // The command is async: swap the lock on the next turns until the swap lands.
+  let swapped = false;
+  for (let i = 0; i < 200 && !swapped; i++) {
+    try {
+      const { rename } = await import('node:fs/promises');
+      await rename(join(g.store, 'lock'), join(g.root, 'old-lock'));
+      await mkdir(join(g.store, 'lock'));
+      await writeFile(join(g.store, 'lock', 'owner'), 'someone-else');
+      swapped = true;
+    } catch { await new Promise(r => setImmediate(r)); }
+  }
+  const second = await pending;
+  if (!swapped) return t.skip('could not interleave the swap');
+  assert.match(second.stderr[0], /no longer the one this command made/);
+  assert.equal(await readFile(join(g.store, 'lock', 'owner'), 'utf8'), 'someone-else');
+});
+test('a workflow lock without an owner file still blocks and stays', async t => {
+  const f = await fixture(t);
+  for (let n = 1; n <= 2; n++) await f.addRun(`run-${n}`, 'local', day(n));
+  await mkdir(join(f.store, 'lock'));
+  await assert.rejects(pruneHistory({ local: f.store, keep: 1, yes: true }), /already owns/);
+  await access(join(f.store, 'lock'));
+});
 test('a failed removal stops the command, reports it and leaves the rest', async t => {
   const f = await fixture(t);
   for (let n = 1; n <= 4; n++) await f.addRun(`run-${n}`, 'local', day(n));

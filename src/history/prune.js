@@ -1,4 +1,5 @@
-import { lstat, readdir, readFile, realpath, rm, mkdir } from 'node:fs/promises';
+import { lstat, readdir, readFile, realpath, rm, mkdir, writeFile, unlink, rmdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join, relative, isAbsolute, resolve, sep } from 'node:path';
 import { validId } from './valid-id.js';
 import { loadHistoryEvidence } from './index.js';
@@ -152,11 +153,30 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false } =
   parseKeep(keep);
   const root = await assertStore(local);
   // The workflow lock keeps a writer out while the command reads references and removes runs.
+  // The lock holds a file `owner` with a random token. The release removes the lock only while it is still ours.
+  const token = randomUUID();
+  const lockPath = join(root, 'lock');
   let locked = false;
   if (yes) {
-    try { await mkdir(join(root, 'lock')); locked = true; }
+    try { await mkdir(lockPath); }
     catch (error) { if (error.code === 'EEXIST') throw new Error('A workflow already owns this store. Remove its lock only after the process stops. Nothing was removed.'); throw error; }
+    locked = true;
+    try { await writeFile(join(lockPath, 'owner'), token, { flag: 'wx' }); }
+    catch (error) { await rmdir(lockPath).catch(() => {}); throw error; }
   }
+  const release = async () => {
+    if (!locked) return null;
+    try {
+      const info = await lstat(lockPath);
+      if (info.isDirectory() && !info.isSymbolicLink() && (await readFile(join(lockPath, 'owner'), 'utf8')) === token) {
+        await unlink(join(lockPath, 'owner'));
+        await rmdir(lockPath);
+        return null;
+      }
+    } catch { /* fall through to the warning */ }
+    return `test-kit: warning: the lock ${lockPath} is no longer the one this command made. It was left in place.`;
+  };
+  let result;
   try {
     if (!yes && (await lstat(join(root, 'lock')).catch(() => null))) throw new Error('A workflow already owns this store. Nothing was removed.');
     const reports = await scanReports(root);
@@ -164,7 +184,7 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false } =
     const referenced = collectReferences({ reports, state });
     const plan = planPrune({ runs: await scanRuns(root), keep, referenced });
     const output = { store: root, keep, dryRun: !yes, wouldRemove: plan.remove.map(run => run.id), removed: [], failed: null, kept: plan.keptCount + plan.skipped.length, skipped: plan.skipped };
-    if (!yes) return { output, exitCode: 0 };
+    if (!yes) { result = { output, exitCode: 0 }; return result; }
     delete output.wouldRemove;
     const runsRoot = join(root, 'runs');
     for (const run of plan.remove) {
@@ -177,6 +197,10 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false } =
       } catch (error) { output.failed = { id: run.id, error: error.message }; break; }
     }
     output.kept = plan.remove.length - output.removed.length + plan.keptCount + plan.skipped.length;
-    return { output, exitCode: output.failed ? 1 : 0 };
-  } finally { if (locked) await rm(join(root, 'lock'), { recursive: true, force: true }); }
+    result = { output, exitCode: output.failed ? 1 : 0 };
+    return result;
+  } finally {
+    const warning = await release();
+    if (warning && result) result.stderr = [warning];
+  }
 }
