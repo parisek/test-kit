@@ -264,7 +264,10 @@ describe('evidence types (R10.4) and the publish directory', () => {
 			const withFinding = () => {
 				const data = report('update');
 				data.entries[0].viewports[0].artifacts = { screenshot: {} };
-				data.findings = [{ id: 'f1', targetId: 'example', viewportId: 'wide', artifact: 'screenshot' }, { id: 'f2', targetId: 'example', viewportId: 'wide', artifact: 'a11y' }];
+				// An accessibility finding is an absolute result, so the report is a version 3 report with a catalog (R9.8).
+				data.schemaVersion = 3;
+				data.checks = { 'a11y-axe': { basis: 'absolute', layer: 'package', title: 'Accessibility (axe)' } };
+				data.findings = [{ id: 'f1', targetId: 'example', viewportId: 'wide', artifact: 'screenshot' }, { id: 'f2', targetId: 'example', viewportId: 'wide', artifact: 'a11y', checkId: 'a11y-axe', runId: 'b' }];
 				return data;
 			};
 			const files = () => ({ '/site/index.json': response(index()), '/site/reports/example-a/report.json': response(withFinding()) });

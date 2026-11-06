@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
+import { ensureDefaultRunsIgnore } from '../config/store.js';
 import { loadConfig, settingsHash } from '../config/index.js';
 import { createRunId, ddevMatchesOrigin, ddevStatusProblem } from '../capture/helpers.js';
 import { runPerformance, evaluateBudgets } from '../perf/index.js';
@@ -49,8 +50,8 @@ async function gitSha(directory) {
   return '0000000';
 }
 
-export async function runPerfCommand(options = {}) {
-  const loaded = await loadConfig(options.configPath ?? 'test-kit.config.json');
+export async function runPerfCommand(options = {}, dependencies = {}) {
+  const loaded = await loadConfig(options.configPath ?? 'test-kit.config.json', { baseDir: options.baseDir });
   const plan = planPerfCommand(loaded.config, options);
   for (const flag of ['consent', 'allowHighLoad', 'failOnBudget']) {
     if (options[flag] !== undefined && typeof options[flag] !== 'boolean') throw new Error(`Performance ${flag} must be boolean.`);
@@ -62,6 +63,7 @@ export async function runPerfCommand(options = {}) {
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   await mkdir(loaded.runsRoot, { recursive: true });
+  await ensureDefaultRunsIgnore(loaded.configDir, loaded.runsRoot);
   const runDir = join(loaded.runsRoot, id);
   await mkdir(runDir);
   const manifestPath = join(runDir, 'run.json');
@@ -76,7 +78,7 @@ export async function runPerfCommand(options = {}) {
   let findings = [];
   let budgetExit = 0;
   try {
-    const measured = await runPerformance({ targets: plan.urls, runDir,
+    const measured = await (dependencies.runPerformance ?? runPerformance)({ targets: plan.urls, runDir,
       settings: { runs: options.runs, formFactor: options.formFactor, throttling: options.throttling },
       consent: options.consent ?? false, allowHighLoad: options.allowHighLoad ?? false, chromePath: options.chromePath });
     for (const { targetId, artifact } of measured.results) {

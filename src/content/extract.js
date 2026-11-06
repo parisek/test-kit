@@ -4,6 +4,12 @@ import { EXTRACTOR_VERSION, MAX_ITEMS, MAX_TEXT, validateContentSnapshot } from 
 export async function extractContentSnapshot(page) {
   const value = await page.evaluate(({ version, maxItems, maxText }) => {
     const short = (value, max = 2000) => String(value ?? '').slice(0, max);
+    // A heading is hidden by display, visibility, a hidden or aria-hidden ancestor, or a zero box (R7.5).
+    const isHidden = node => {
+      const style = getComputedStyle(node), box = node.getBoundingClientRect();
+      return style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse'
+        || Boolean(node.closest('[hidden],[aria-hidden="true"]')) || box.width === 0 || box.height === 0;
+    };
     const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')];
     const images = [...document.querySelectorAll('img')];
     const links = [...document.querySelectorAll('a[href]')].flatMap(node => {
@@ -16,7 +22,7 @@ export async function extractContentSnapshot(page) {
     const rawText = document.body?.innerText ?? '';
     return { schemaVersion: 1, extractorVersion: version, source: 'settled-dom',
       title: short(document.title), lang: short(document.documentElement.lang, 100), text: short(rawText, maxText),
-      headings: headings.slice(0, maxItems).map(node => ({ level: Number(node.tagName.slice(1)), text: short(node.textContent) })),
+      headings: headings.slice(0, maxItems).map(node => ({ level: Number(node.tagName.slice(1)), text: short(node.textContent), ...(isHidden(node) ? { hidden: true } : {}) })),
       images: images.slice(0, maxItems).map(node => ({ src: short(node.getAttribute('src')), alt: node.hasAttribute('alt') ? short(node.getAttribute('alt')) : null, role: short(node.getAttribute('role'), 100) })),
       links: links.slice(0, maxItems),
       omitted: { headings: Math.max(0, headings.length - maxItems), images: Math.max(0, images.length - maxItems), links: Math.max(0, links.length - maxItems), text: rawText.length > maxText } };

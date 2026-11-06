@@ -1,23 +1,28 @@
 import { builtinChecks } from '../checks/index.js';
-export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'perf', 'run', 'before', 'after', 'report', 'history'].map(name => [name, {}]));
+import { parseIdList } from '../capture/selection.js';
+export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'perf', 'run', 'before', 'after', 'report', 'history', 'import'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
-  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior]
-  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID]
+  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID] [--packs]
+  import --side ID [--config FILE] [--label TEXT] [--target ID,ID] [--viewport ID,ID]
+  diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
-  query REPORT --target ID --viewport ID --artifact html|status|content|behavior|lighthouse [--max-lines N]
-  record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|content --cause ID --reason TEXT
+  query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|lighthouse|lint|a11y [--max-lines N]
+  record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|status|content --cause ID --reason TEXT
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
+const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts', 'packs'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'] };
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
+// R4.5: a separate line, so the FLAGS literal above stays easy to merge.
+for (const name of ['capture', 'diff']) FLAGS[name] = [...FLAGS[name], 'target', 'viewport'];
+FLAGS.import = ['config', 'side', 'label', 'target', 'viewport'];
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
 FLAGS.history = ['config', 'store', 'port', 'export', 'publish'];
 function integer(value, name, min, max) {
@@ -35,12 +40,12 @@ export function parseCommand(argv) {
     const name = argument.slice(2);
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
-    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev'].includes(name)) { options[name] = true; continue; }
+    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs'].includes(name)) { options[name] = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
-  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0 }[command];
+  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0 }[command];
   if (options.publish !== undefined && (options.export !== undefined || options.port !== undefined)) throw new Error('Use --publish alone. Do not combine it with --export or --port.');
   if (options.export && options.port !== undefined) throw new Error('Use --export or --port.');
   if (positions.length !== expected) throw new Error(`${command} requires ${expected} positional arguments`);
@@ -50,9 +55,13 @@ export function parseCommand(argv) {
   if (options['form-factor'] && !['desktop', 'mobile'].includes(options['form-factor'])) throw new Error('Unknown performance form factor');
   if (options.throttling && !['simulated', 'devtools', 'provided'].includes(options.throttling)) throw new Error('Unknown performance throttling');
   if (command === 'capture' && !options.side) throw new Error('capture requires --side');
+  if (command === 'import' && !options.side) throw new Error('import requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
-  if (command === 'query' && (!options.target || !options.viewport || !['html', 'status', 'content', 'behavior', 'lighthouse'].includes(options.artifact))) throw new Error('query requires --target, --viewport, and --artifact html|status|content|behavior|lighthouse');
-  if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
+  // An absolute result (lint, a11y) may sit at target scope, so --viewport is optional for it (R9.9).
+  if (command === 'query' && (!options.target || (!options.viewport && !['lint', 'a11y'].includes(options.artifact)) || !['html', 'status', 'content', 'behavior', 'lighthouse', 'lint', 'a11y'].includes(options.artifact))) throw new Error('query requires --target, --artifact html|status|content|behavior|lighthouse|lint|a11y, and --viewport (optional for lint and a11y)');
+  if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'status', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
+  // R4.5: `capture` and `diff` take lists of ids. The same parser as the workflow commands checks them.
+  if (['capture', 'diff', 'import'].includes(command)) for (const name of ['target', 'viewport']) if (options[name]) parseIdList(options[name], name);
   if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) throw new Error('Unknown capture artifact');
   if (options.checks && !(options.checks === 'none' && ['run', 'before', 'after'].includes(command))) {
     const ids = options.checks.split(',');
@@ -65,7 +74,12 @@ export function parseCommand(argv) {
   if (options.port) options.port = integer(options.port, '--port', 0, 65535);
   return { command, positions, options };
 }
-async function dispatch({ command, positions, options }) {
+// capture, import and plain perf refresh the viewer when they wrote the default store (#312). diff writes only --output.
+async function refreshLowLevel(result, options) {
+  const { refreshDefaultStoreViewer } = await import('../workflow/index.js');
+  return refreshDefaultStoreViewer(result, options.config ?? 'test-kit.config.json');
+}
+export async function dispatch({ command, positions, options }, dependencies = {}) {
   if (['run', 'before', 'after', 'report'].includes(command)) {
     const { runWorkflow } = await import('../workflow/index.js');
     return runWorkflow(command, options);
@@ -101,21 +115,29 @@ async function dispatch({ command, positions, options }) {
     }
     if (options.ddev || options.store || options.path) {
       const { runProjectPerformance } = await import('../workflow/performance.js');
-      return runProjectPerformance(options, budgets);
+      return (dependencies.runProjectPerformance ?? runProjectPerformance)(options, budgets);
     }
-    return runPerfCommand({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false });
+    return refreshLowLevel(await (dependencies.runPerfCommand ?? runPerfCommand)({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false }), options);
   }
   if (command === 'capture') {
-    const { capture } = await import('../capture/index.js');
-    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(',') });
-    return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath }, exitCode: result.run.state === 'complete' ? 0 : 1 };
+    const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
+    const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(','), packs: options.packs === true });
+    // R13.51: the output names a pack that did not run. A skipped pack is never reported as run.
+    const packs = result.run.packs ? { packs: result.run.packs } : {};
+    return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 }, options);
+  }
+  if (command === 'import') {
+    // R4.6: no browser and no network. The images come from the root of a design side.
+    const { importDesign } = await import('../design/import.js');
+    const result = await importDesign({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', targets: options.target?.split(','), viewports: options.viewport?.split(',') });
+    return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, images: result.run.captures.length, manifestPath: result.manifestPath }, exitCode: 0 }, options);
   }
   if (command === 'diff') {
     const { loadConfig } = await import('../config/index.js');
     const { compareRuns } = await import('../compare/runs.js');
     const { resolve } = await import('node:path');
     const loaded = await loadConfig(options.config ?? 'test-kit.config.json');
-    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind ?? 'update', rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage, failOnBudget: options['fail-on-budget'] ?? false });
+    const result = await compareRuns({ runsRoot: loaded.runsRoot, runA: positions[0], runB: positions[1], outputDir: resolve(loaded.configDir, options.output), kind: options.kind, rules: loaded.config.rules, known_diffs: loaded.config.known_diffs, contentChecks: options.checks?.split(','), contentExpectedLanguage: loaded.config.content?.expectedLanguage, failOnBudget: options['fail-on-budget'] ?? false, filter: options.target || options.viewport ? { targets: options.target?.split(','), viewports: options.viewport?.split(',') } : undefined });
     return { output: { reportPath: result.reportPath }, exitCode: result.exitCode ?? 0 };
   }
   if (command === 'summary') {
@@ -150,13 +172,34 @@ async function dispatch({ command, positions, options }) {
   const result = await serve({ reportPath: positions[0], port: options.port ?? 0 });
   return { output: { url: result.origin }, exitCode: 0 };
 }
+const STORE_COMMANDS = ['run', 'before', 'after', 'report', 'history'];
+const RUNSROOT_COMMANDS = ['capture', 'import', 'diff'];
+// One line per invocation when the default store is in use and an old `.test-kit/` sits beside the config (#312).
+async function legacyNotice({ command, options }) {
+  try {
+    const usesStore = STORE_COMMANDS.includes(command) || (command === 'perf' && (options.ddev || options.store || options.path));
+    if (!usesStore && !RUNSROOT_COMMANDS.includes(command) && command !== 'perf') return null;
+    const { resolve, dirname } = await import('node:path');
+    const { readFile } = await import('node:fs/promises');
+    const { legacyStoreNotice } = await import('../config/store.js');
+    const configPath = resolve(options.config ?? 'test-kit.config.json');
+    let explicit = options.store !== undefined;
+    if (!usesStore && !explicit) {
+      try { explicit = Object.hasOwn(JSON.parse(await readFile(configPath, 'utf8')), 'runsRoot'); } catch { return null; }
+    }
+    return await legacyStoreNotice(dirname(configPath), { explicit });
+  } catch { return null; }
+}
 // Unit tests inject dispatch. Dependencies load only for the selected command.
 export async function run(argv, { out, err }, version = '0.0.0', execute = dispatch) {
   if (!argv.length || argv.length === 1 && ['-h', '--help'].includes(argv[0])) { out.write(HELP); return 0; }
   if (argv.length === 1 && ['-v', '--version'].includes(argv[0])) { out.write(`${version}\n`); return 0; }
   if (argv.length === 2 && Object.hasOwn(COMMANDS, argv[0]) && ['-h', '--help'].includes(argv[1])) { out.write(HELP); return 0; }
   try {
-    const result = await execute(parseCommand(argv));
+    const parsed = parseCommand(argv);
+    const notice = await legacyNotice(parsed);
+    if (notice) err.write(`${notice}\n`);
+    const result = await execute(parsed);
     out.write(`${JSON.stringify(result.output)}\n`);
     for (const line of result.stderr ?? []) err.write(`${line}\n`);
     return result.exitCode;

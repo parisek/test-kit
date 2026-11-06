@@ -3,6 +3,8 @@
 `exportReport` writes a portable viewer and its allowed evidence (R10.11).
 `exportHistory` writes relative links to report viewers and standalone feedback.
 Both commands require a new output directory. They start no server.
+`store-viewer.js` holds `refreshStoreViewer({ store, now, fs })` (R10.16). It writes the viewer files and `index.json` at the store root with temp-file renames and reads the store in place. The first refresh writes the marker `.test-kit-viewer`. A store with a viewer file name and no marker is left untouched and the refresh returns a warning. `capture`, `import` and plain `perf` refresh through `refreshDefaultStoreViewer` in `src/workflow/index.js` when `runsRoot` is the default. Tests: `tests/unit/store-viewer.test.js`.
+
 `history --publish DIR` is a separate mode (R10.12, R10.13, ADR 0005). It refreshes one stable directory in place with `publish.js`.
 
 `src/server/files.js` owns the shared allowed-file index. Export gives each

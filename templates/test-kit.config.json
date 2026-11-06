@@ -3,6 +3,12 @@
   "sides": {
     "local": {
       "origin": "http://localhost:8080",
+      "thirdParty": "drop",
+      "settle": { "waitMs": 0, "selectors": [], "disableMotion": true, "masks": [] }
+    },
+    "production": {
+      "origin": "https://www.example.com",
+      "remote": true,
       "settle": { "waitMs": 0, "selectors": [], "disableMotion": true, "masks": [] }
     }
   },

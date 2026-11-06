@@ -8,7 +8,7 @@ Later artifacts keep their specification requirements. They do not run in v0.1.
 
 The project supplies `test-kit.config.json`. Paths resolve from its directory.
 The CLI may accept an explicit config path. The default runs root is
-`.test-kit/runs`. Resolve a side origin only from explicit configuration.
+`test-kit/runs` (`.test-kit/runs` before 1.2.0). Resolve a side origin only from explicit configuration.
 A side origin must be local unless the side sets `"remote": true`. A remote side reads its own
 origin only (see `README.md`, "Compare a deployed site"). Do not infer the CMS from a directory name.
 
@@ -83,8 +83,9 @@ site. A navigation exception is a failed capture.
 
 ## Screenshot report
 
-A report has `schemaVersion: 2`, `meta`, `runs`, `pair`, `entries`, `causes`,
-`findings`, and `rules`. A class is derived, never serialized. `meta.matchBelow`
+A report has `schemaVersion: 3`, `meta`, `runs`, exactly one of `pair` and `subject`,
+`checks`, `entries`, `causes`, `findings`, and `rules` (specification section 9). A
+reader adapts versions 1 and 2. A class is derived, never serialized. `meta.matchBelow`
 is 3 by default, in percent. `meta.noiseFloor` is `null` until measured.
 `meta.tools` lists tool name, version, and capture settings hash.
 Each entry has one row per viewport in the union of requested captures.
@@ -186,8 +187,9 @@ error counts. Redirects have at most 20 steps. Paths have at most 2000 character
 Do not store cookies, request headers, credentials, or query strings.
 The count covers asset requests observed before response-artifact collection.
 A failed capture has availability capture-error. Its retained status sidecar
-still holds the HTTP code. Status is separate from target class. Status-only reports have no comparable
-evidence and must never claim match.
+still holds the HTTP code. A difference between A and B in the final status, the final
+path or the redirect chain is a finding (R6.13). Asset counts are not. `known_diffs` can
+explain it. Status-only reports have no comparable evidence and must never claim match.
 
 A stored capture adds `artifacts.html` and `artifacts.status` indexes when
 requested. Each has `state` (`captured` or `failed`), `path`, `kind`, `tool`,
@@ -212,7 +214,8 @@ No normalization or known-difference recording runs in this slice.
 Requested screenshot and HTML states determine the viewport measurement state.
 Failed or missing HTML never becomes match. A finding from a complete artifact
 remains visible when another requested artifact fails. The aggregate verdict
-remains incomplete. Status alone does not provide a comparable class.
+remains incomplete. Status alone does not provide a comparable class, but a status
+difference is a finding and counts in the class of the target.
 
 The server serves only indexed sidecars. Raw HTML is `text/plain`, with
 `nosniff` and the viewer CSP. It never serves active report HTML.

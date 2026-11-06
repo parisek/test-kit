@@ -12,7 +12,7 @@ The Node engine belongs here. PHP and Twig lint belong to
 
 ## Install
 
-Use Node 20 or later. Install from an exact git tag, not the npm registry.
+Use Node 20.19 or later. Install from an exact git tag, not the npm registry.
 Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
@@ -22,12 +22,16 @@ npm install -D @playwright/test
 npx playwright install chromium
 ```
 
-One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
+One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). A DDEV `post-start` hook that runs `npm install` rewrites it on every `ddev start` (measured on one consumer project on 2026-11-05). The fix is on the project side: run `npm ci` in that hook, or skip the install when `node_modules` already matches the lockfile. Run `git diff package-lock.json` before every commit.
 
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
-Runs go to `.test-kit/runs/` by default. Add `.test-kit/` to the project ignore file. Keep comparison output outside version control too. Set `runsRoot` to use another path.
+Runs go to `test-kit/runs/` by default. The store `test-kit/` is the one folder of test-kit output. Deleting it drops all runs, reports and the viewer. The next command recreates the folder and the viewer. Run `before` again before the next `after`. The default store `test-kit/` and any explicit `--store` get a `.gitignore` with `*` when they lack one. A project that already has an unrelated `test-kit/` folder must rename it, or pass `--store`, before it upgrades. Otherwise new files there become ignored by Git. Git-ignored is not deploy-excluded: the store holds page captures, so exclude `test-kit/` from every deploy (for example an rsync exclude). Set `runsRoot` to use another path.
+
+Up to 1.1 the default store was `.test-kit/`. A command that finds one beside the configuration prints one line on stderr. Delete it by hand. test-kit never reads, moves or deletes it.
+
+An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`, `history` and project `perf` (`--store .test-kit`). An explicit `runsRoot` keeps working for `capture`, `import`, `diff` and plain `perf`. A project that keeps the old store with `--store .test-kit` must also set `"runsRoot": ".test-kit/runs"` in its configuration. Without it, `capture`, `diff` and plain `perf` use `test-kit/runs` and the stores split. Replace `.test-kit/` with `test-kit/` in the project `.gitignore` and in any deploy or rsync exclude list.
 
 ```json
 {
@@ -119,9 +123,53 @@ A remote run stops at the first sign that the edge challenges or limits it: a
 That capture fails with `REMOTE_EDGE_STOP`. The rest of the run fails with
 `RUN_STOPPED` and sends no request, so a challenge does not grow into a ban.
 
-Aborted third-party requests are not recorded as evidence. A page that needs
-such a request to render differs from the same page with it, so read an
-`unexplained` finding with that in mind.
+A remote side aborts a request to another origin (a local side blocks it). A web font from a font host is such a
+request, and the page then renders in the fallback font. `run.json` records the aborted
+requests per resource type and origin (no path or query), and `summary` and the viewer
+warn when a `font` or `stylesheet` request was aborted. To load the font, name its origin:
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true,
+  "allowOrigins": [{"origin": "https://use.example-site.net", "types": ["stylesheet", "font"]}]}
+```
+
+The capture then reads that exact HTTPS origin with GET and HEAD for the named types
+(`stylesheet`, `font`). Name a font host that loads CSS from one origin and fonts from another
+with one entry for each origin. It never uses the list for a navigation, and a redirect from
+an allowed origin to an origin that is not named fails the capture. The capture verifies the
+certificate of a named origin. A local side may set the same key, so a local side can load a
+web font from a named third-party origin. A failed request to a named origin, or an HTTP error answer such as a 404 for a font file, fails the capture. A request to a named origin sends its URL and headers, including the `Referer` of the page, to that origin. The list is part of the capture settings hash. A pair
+with a list on one side only is incompatible, and the diagnostic names `allowOrigins`.
+
+A page can embed content from another origin, for example a video frame. A local side fails the capture
+on such a request, and a remote side aborts it and keeps the capture. To give both sides the same rule,
+set `thirdParty` on both sides (R3.10):
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true, "thirdParty": "drop"},
+"local": {"origin": "http://localhost:8080", "thirdParty": "drop"}
+```
+
+`"drop"` aborts a GET or HEAD request for a frame or subresource of another origin and keeps the capture.
+A local side sends nothing to that origin, unless `allowOrigins` names it. On a local side the key applies to a non-local origin only: a request to another loopback or DDEV host (`localhost`, `127.x.x.x`, `*.ddev.site`) stays allowed, with any port. `"block"` fails the capture, with the error that names the
+request. Without the key, a local side blocks and a remote side drops. A top-level navigation to another
+origin, a redirect that leaves the permitted origins and every other method still fail the capture. The
+value is part of the capture settings hash, so set the same value on both sides. The template sets `"thirdParty": "drop"` on its one side. A project that adds a second side sets the same value there. A pair with different
+values is incompatible, and the diagnostic names `thirdParty`. Each dropped request appears in the
+`dropped` record of the capture, on a local and on a remote side.
+
+Other aborted requests are not evidence. A page that needs such a request to render
+differs from the same page with it, so read an `unexplained` finding with that in mind.
+
+## Lazy images and reveal
+
+An image with `loading="lazy"` below the first screen stays grey in a full-page capture, because the page never scrolls to it. Set `settle.lazyImages` to `true`. The capture then scrolls the page once, loads every lazy image and scrolls back. `settle.reveal` clicks, hovers or focuses named elements before the capture. Both keys are off by default.
+
+Set the same `settle` on both sides. The recipe enters the settings hash. A pair where one side has `lazyImages` and the other has not is `incompatible`, and the other side needs a new capture. The row diagnostic names the setting and both values, for example `settle.lazyImages (A: false, B: true)`. `templates/test-kit.config.json` shows two sides with one `settle` recipe.
+
+```json
+"settle": {"waitMs": 0, "selectors": [], "disableMotion": true, "masks": [], "lazyImages": true}
+```
 
 ## Scoped project workflow
 
@@ -148,8 +196,8 @@ configuration. Run the browser
 on the host. Install dependencies and build inside DDEV. Flush Mutagen before
 capture when the project uses it. `--side` defaults to `local`.
 
-`--store .test-kit` selects a stable directory relative to the config file.
-Ignore that directory in Git. It holds runs, reports, and baseline state.
+`--store PATH` selects a stable directory relative to the config file (default `test-kit`).
+It holds runs, reports, baseline state and the store viewer. A new store ignores itself in Git.
 A selection has its own baseline. A partial capture cannot replace it.
 A standalone run records one capture. It does not invent a comparison verdict.
 History lists all stored evidence and opens existing A/B reports. No automatic
@@ -174,9 +222,9 @@ The package writes data to disk. A static viewer reads it. The Node server (`rep
 Export a comparison or the stored history without starting a Node server:
 
 ```sh
-test-kit report --export test-kit-export/pair-001
-test-kit report --run RUN_ID --export test-kit-export/pair-002
-test-kit history --export test-kit-export/history-001
+test-kit report --export test-kit/export/pair-001
+test-kit report --run RUN_ID --export test-kit/export/pair-002
+test-kit history --export test-kit/export/history-001
 ```
 
 Output paths are relative to the project config directory. The destination must
@@ -186,10 +234,24 @@ A static host can mount the directory at `/` or at a nested URL prefix.
 No hosting, authentication, retention, or deletion is configured by this command.
 Ignore the export directory in the consuming project.
 
+The exports under `test-kit/export/` hold HTML evidence. A local static server serves it as active content. Open the exports only on a local site. Never deploy the folder.
+
 Raw page HTML and Lighthouse HTML use generated text filenames. They cannot
 execute as HTML under normal static MIME handling. Open a downloaded Lighthouse
 report locally if you need its interactive native interface. Exported evidence
 links point to the safe text copies. The source evidence stays unchanged.
+
+### The store viewer
+
+The workflow commands `run`, `before`, `after`, `report` and project `perf` refresh a static viewer at the store root. So do `capture`, `import` and plain `perf`, when they write the default store. `diff` does not. No flag is needed (R10.16, #312). The store then holds `index.html`, `app.js`, `style.css`, `favicon.svg` and `index.json` beside `runs/` and `reports/`. Serve the store from any static server and open it:
+
+```sh
+cd test-kit && python3 -m http.server --bind 127.0.0.1 8080
+```
+
+The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. It copies nothing. Each file is written as a temp file plus a rename, so there is no folder swap and no lock folder. Deleting the store loses the viewer. The next command writes it again. The first refresh writes a marker `.test-kit-viewer`. A store that holds a viewer file name (`index.html`, `app.js`, `style.css`, `favicon.svg`, `index.json`) and no marker is left untouched, and the refresh prints a warning. The guarantee covers files that exist when a refresh checks the store; the store belongs to test-kit, so do not write your own files into it.
+
+A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server. The viewer guards only report links. A run can hold raw HTML (the Lighthouse `<base>.html` from `perf`), and a static server sends it as active content from the viewer's origin. Use the viewer on a local site only. Never deploy the store. The store is web-reachable when the theme folder is under the local document root. It holds page captures and, while a command runs, a 0600 copy of the configuration.
 
 ### Publish a stable directory
 
@@ -314,9 +376,9 @@ under #25 and #45.
 
 ### Local Lighthouse measurements
 
-The engine and pure helpers still support Node 20. Lighthouse 13.5 requires
+The engine and pure helpers support Node 20.19. Lighthouse 13.6 requires
 Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
-is pinned to 13.5.0. Measurement accepts local HTTP page targets only.
+is pinned to 13.6.0. Measurement accepts local HTTP page targets only.
 HTTPS and component targets fail explicitly.
 
 ```bash

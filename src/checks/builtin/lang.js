@@ -1,6 +1,7 @@
 import { snapshot, finding } from './shared.js';
 export const id = 'lang';
 export const title = 'Declared page language';
+export const basis = 'absolute';
 export const applies = { artifacts: ['content'] };
 export function check(value, ctx = {}) {
   const doc = snapshot(value);

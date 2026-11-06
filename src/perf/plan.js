@@ -3,8 +3,11 @@ import { performanceSettings, performanceConsent, evaluateBudgets } from './mode
 
 export function planPerfCommand(config, { side, label = '', targetIds, runs, formFactor, throttling, consent = false, budgets = {} } = {}) {
   if (!Object.hasOwn(config.sides, side)) throw new Error('Performance needs a configured side.');
+  if (config.sides[side].kind === 'design') throw new Error('Performance needs a browser side. A design side holds images.');
   // R3.3: perf never measures a remote side, whatever its origin.
   if (config.sides[side].remote === true) throw new Error('Performance refuses a remote side. Measure a local side.');
+  // R8.7: the styleguide source yields component targets only. Lighthouse measures a full page, so this is an explicit non-pass.
+  if (config.targetSource) throw new Error('Lighthouse measures full pages. Component targets from the styleguide are unsupported.');
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Performance label must be bounded text.');
   if (!Array.isArray(targetIds) || !targetIds.length || targetIds.length > 1000
     || new Set(targetIds).size !== targetIds.length || targetIds.some(id => typeof id !== 'string')) throw new Error('Performance needs explicit unique target IDs.');

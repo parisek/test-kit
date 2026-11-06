@@ -21,12 +21,17 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ matrix.node == '20' && '20.19' || matrix.node }}
 
       - name: package.json is valid JSON
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
 
+      - run: npm ci
+
+      # With the peers installed, a skipped lint test is an error (tests/helpers/lint-peers.js).
       - run: npm test
+        env:
+          TEST_KIT_REQUIRE_LINT_PEERS: '1'
 
       - name: The command line starts
         run: node bin/cli.js --help
@@ -50,15 +55,24 @@ jobs:
       - run: node tests/integration/check-example-site.mjs
       - run: node tests/integration/check-capture-guards.mjs
       - run: node tests/integration/check-capture-remote.mjs
+      - run: node tests/integration/check-capture-allow-origins.mjs
+      - run: node tests/integration/check-capture-third-party.mjs
       - run: node tests/integration/check-capture-scopes.mjs
+      - run: node tests/integration/check-styleguide-targets.mjs
+      - run: node tests/integration/check-design-files.mjs
+      - run: node tests/integration/check-capture-selection.mjs
+      - run: node tests/integration/check-compare-selection.mjs
       - run: node tests/integration/check-a11y-runner.mjs
+      - run: node tests/integration/check-capture-packs.mjs
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-history.mjs
       - run: node tests/integration/check-export-guards.mjs
       - run: node tests/integration/check-static-export.mjs
       - run: node tests/integration/check-pipeline.mjs
       - run: node tests/integration/check-response-artifacts.mjs
+      - run: node tests/integration/check-status-finding.mjs
       - run: node tests/integration/check-content-engine.mjs
+      - run: node tests/integration/check-compare-absolute.mjs
       - run: node tests/integration/check-behavior-engine.mjs
       - run: node tests/integration/check-behavior-artifact.mjs
       - run: node tests/integration/check-behavior-pipeline.mjs

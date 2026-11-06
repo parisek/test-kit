@@ -36,6 +36,47 @@ Other served files have an 80,000,000 byte size limit.
 Stop the command after review. Client evidence stays local.
 
 
+## Compare a subset
+
+`capture` and `diff` take `--target ID,ID` and `--viewport ID,ID` (R4.5). The configuration stays whole.
+
+```sh
+test-kit capture --side local --label before --target home,contact --viewport desktop
+test-kit capture --side local --label after
+test-kit diff <run-a> <run-b> --output tests/visual/report
+test-kit diff <run-a> <run-b> --output tests/visual/report --target home
+```
+
+A selected run captures only the selected cells. It keeps the full lists and the same settings hash, and it
+records `selection` in `run.json`. `diff` compares the cells that every recorded selection holds and counts the
+rest in `meta.skipped`. A selected cell without a capture stays `missing`. A run made before this option has no
+`selection`, and `diff` treats it as a full run. `diff --target` and `--viewport` narrow the pair again.
+
+## Compare with supplied design images
+
+A side of kind `design` holds PNG files that a person or a design tool supplies (R5.5). The files stay local. No network is used.
+
+```json
+"sides": {
+  "design": { "kind": "design", "provider": "files", "root": "design-refs" },
+  "local": { "origin": "https://example-site.ddev.site" }
+},
+"targets": [
+  { "id": "hero", "kind": "component", "path": "/styleguide/render/component/hero?canvas",
+    "design": { "desktop-1280": "hero/desktop-1280.png", "mobile-390": "hero/mobile-390.png" } }
+]
+```
+
+A path in `design` is relative to `root`: this example reads `design-refs/hero/desktop-1280.png`.
+
+```sh
+test-kit capture --side local --label after --artifacts screenshot
+test-kit import --side design --label refs
+test-kit diff <design-run> <local-run> --output tests/visual/report
+```
+
+`import` writes a run with the sha256, size, source path and import time of each image (R4.6). A new import after a design change is a new run. `diff` reads the pair as `convergence`. A viewport with no mapped file is `missing`, never `match`. An image whose width is not the viewport width times the device scale is `incompatible`, and the report names both sizes. The tool never crops or resizes an image (R8.15). Read `diff.regions` first: a design tool and a browser draw text in different ways, so the ratio is a compass.
+
 ## Response evidence
 
 Screenshots remain the default. Enable HTML or HTTP metadata explicitly:
@@ -46,6 +87,7 @@ test-kit capture --side local --label after --artifacts screenshot,html,status
 test-kit diff <run-a> <run-b> --output tests/visual/report
 test-kit query tests/visual/report/report.json --target home --viewport desktop --artifact html --max-lines 40
 test-kit query tests/visual/report/report.json --target home --viewport desktop --artifact status
+test-kit query report.json --target @project --artifact lint   # an absolute result needs no viewport (R9.9)
 ```
 
 One navigation supplies all requested artifacts. HTML holds the server response,
@@ -55,8 +97,10 @@ Normalization runs only from an explicit evidenced rules catalog.
 The query reports displayed and omitted lines for raw and normalized windows.
 The line limit is 1 to 100. Unknown target or viewport identifiers fail.
 
-HTML and status can also run alone. Status never determines target class.
-A status-only report has the verdict no-comparable-evidence. A failed requested
+HTML and status can also run alone. A difference in the final status, the final
+path or the redirect chain is a finding, so the target is not `match` (R6.13).
+Equal status evidence adds no class. A status-only report has the verdict
+no-comparable-evidence. A failed requested
 HTML artifact remains incomplete even when screenshot pixels match.
 See [the response contract](contracts.md#opt-in-response-artifacts-after-v01).
 
@@ -92,9 +136,10 @@ Acceptance uses full raw bytes, not the displayed window.
 
 A fully normalized raw difference remains a finding with the class `explained`.
 A remaining normalized difference is `unexplained`. Failed evidence stays incomplete.
-HTTP status and oracle classification keep their existing contracts.
+Oracle classification keeps its existing contract.
 
-Record an observed screenshot or HTML difference through the CLI:
+Record an observed screenshot, HTML, status or content difference through the CLI. Use
+`--artifact status` for an intended redirect, for example a trailing slash:
 
 ```sh
 test-kit record-known tests/visual/report/report.json --config test-kit.config.json --target home --viewport desktop --artifact html --cause response-token --reason 'The observed token differs in this exact pair.'

@@ -6,8 +6,10 @@ import { promisify } from 'node:util';
 import { loadBehaviorSource } from '../behavior/source.js';
 import { normalizeConfig } from '../config/index.js';
 import { selectConfig } from './selection.js';
+import { DEFAULT_STORE, DEFAULT_RUNS_ROOT, ensureStoreIgnore } from '../config/store.js';
 export { selectConfig } from './selection.js';
 const execute = promisify(execFile);
+const NO_BASELINE = 'No baseline in the store. Run before again, then run after.';
 const digest = value => createHash('sha256').update(value).digest('hex');
 export function loopbackOrigin(description) {
   const value = description?.raw?.services?.web?.host_http_url;
@@ -26,7 +28,7 @@ async function save(path, value) {
 }
 export function resolveStore(options = {}) {
   const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
-  const store = options.store ?? '.test-kit';
+  const store = options.store ?? DEFAULT_STORE;
   if (typeof store !== 'string' || store.startsWith('/') || /[\\\x00-\x1f]/.test(store) || store.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('The store must be a plain relative path.');
   return resolve(configDir, store);
 }
@@ -40,6 +42,7 @@ export async function ensureStore(options = {}) {
     try { if ((await lstat(current)).isSymbolicLink()) throw new Error('The workflow store must not use symbolic links.'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     await mkdir(current, { recursive: true });
   }
+  await ensureStoreIgnore(storePath);
   return await realpath(storePath);
 }
 // Inside the DDEV web container, `ddev` prints a notice instead of JSON.
@@ -53,15 +56,55 @@ export async function describeDdev(cwd) {
   return parseDdevDescription(stdout);
 }
 
+// Every command that writes the store refreshes the static viewer at its root (R10.16, #312).
+// A failed refresh is a warning. It never changes the result or the exit code of the command.
+export async function refreshViewerAfter(result, dependencies = {}, storePath = result.output?.storePath) {
+  if (!storePath) return result;
+  try {
+    const refresh = dependencies.refreshStoreViewer ?? (await import('../export/store-viewer.js')).refreshStoreViewer;
+    const viewer = await refresh({ store: storePath });
+    return { ...result, stderr: [...(result.stderr ?? []), ...(viewer.warnings ?? [])] };
+  } catch (error) {
+    return { ...result, stderr: [...(result.stderr ?? []), `test-kit: warning: the store viewer was not refreshed (${error.message}).`] };
+  }
+}
+
+// `capture`, `import` and plain `perf` refresh the viewer only when they wrote the default store (#312),
+// the same condition as `ensureDefaultRunsIgnore`. An explicit `runsRoot` is the project's own folder.
+// A failed refresh is a warning. It never changes the result or the exit code.
+export async function refreshDefaultStoreViewer(result, configPath, dependencies = {}) {
+  try {
+    const { loadConfig } = await import('../config/index.js');
+    const loaded = await loadConfig(configPath);
+    const defaultRoot = resolve(loaded.configDir, DEFAULT_RUNS_ROOT);
+    if (loaded.runsRoot !== defaultRoot) return result;
+    return await refreshViewerAfter(result, dependencies, dirname(defaultRoot));
+  } catch (error) {
+    return { ...result, stderr: [...(result.stderr ?? []), `test-kit: warning: the store viewer was not refreshed (${error.message}).`] };
+  }
+}
+
+// True when the path exists, false only when it is missing. A permission or I/O error is not "missing":
+// it propagates, so `after` never tells the user to replace a baseline it merely could not read (#312).
+async function present(path) {
+  try { await lstat(path); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
+
 export async function runWorkflow(command, options = {}, dependencies = {}) {
+  return refreshViewerAfter(await executeWorkflow(command, options, dependencies), dependencies);
+}
+
+async function executeWorkflow(command, options = {}, dependencies = {}) {
   if (!['run', 'before', 'after', 'report'].includes(command)) throw new Error('Unknown workflow command.');
   const configPath = resolve(options.config ?? 'test-kit.config.json');
   const configDir = dirname(configPath);
   const storePath = resolveStore(options);
   const offset = relative(configDir, storePath);
   if (!offset || offset.startsWith('..') || offset.startsWith('/') || /[\\\x00-\x1f]/.test(offset)) throw new Error('The store must be a subdirectory of the configuration directory.');
-  await ensureStore(options);
   const statePath = join(storePath, 'state.json');
+  // A deleted store has no baseline. Say so before ensureStore re-creates it (#312).
+  if (command === 'after' && !(await present(statePath))) throw new Error(NO_BASELINE);
+  await ensureStore(options);
   if (command === 'report') {
     const state = await json(statePath, {});
     if (options.run && !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(options.run)) throw new Error('Invalid report ID.');
@@ -83,11 +126,13 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
   }
   const lock = join(storePath, 'lock');
   try { await mkdir(lock); } catch (error) { if (error.code === 'EEXIST') throw new Error('A workflow already owns this store. Remove its lock only after the process stops.'); throw error; }
-  const runtime = join(configDir, `.test-kit.runtime-${randomUUID()}.json`);
+  // The runtime copy lives in the store, so the project root stays free of stray files (#312).
+  const runtime = join(storePath, `.runtime-${randomUUID()}.json`);
   try {
     let config = selectConfig(await json(configPath), options);
     const side = options.side ?? 'local';
     if (!config.sides[side]) throw new Error('Unknown side.');
+    if (config.sides[side].kind === 'design') throw new Error('A design side holds images. Use import for it.');
     if (options.ddev && config.sides[side].remote === true) throw new Error('A remote side has no DDEV origin. Remove --ddev.');
     if (options.ddev) {
       const describe = dependencies.describe ?? (() => describeDdev(configDir));
@@ -107,10 +152,13 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
     const state = await json(statePath, { schemaVersion: 1, profiles: {} });
     if (state.schemaVersion !== 1 || !state.profiles || Array.isArray(state.profiles)) throw new Error('Unsupported workflow state.');
     const profile = state.profiles[scope] ?? {};
+    if (command === 'after' && !profile.before && !Object.keys(state.profiles).length) throw new Error(NO_BASELINE);
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
+    // Check the baseline before any capture runs. Any other ENOENT from compare passes through unchanged.
+    if (command === 'after' && !(await present(join(storePath, 'runs', String(profile.before), 'run.json')))) throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`);
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
-    const result = await capture({ configPath: runtime, side, label: options.label ?? command });
+    const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command });
     const run = result.run;
     const output = { id: run.id, state: run.state, manifestPath: result.manifestPath, storePath, scope };
     const exitCode = run.state === 'complete' ? 0 : 1;

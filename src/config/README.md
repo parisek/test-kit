@@ -25,3 +25,12 @@ An unknown ID, a duplicate or a non-ID entry fails validation.
 The check reads the static list in `src/packs/ids.js` and imports no pack.
 The selection does not enter the capture settings hash.
 `src/packs/builtin.js` maps the IDs to pack objects for `resolveChecks`.
+
+`targetSource` is an optional object that reads component targets from a styleguide (R13.3).
+It holds `source` (`"styleguide"` only), `side` (a local side), `mount` (an origin-relative path, default `/styleguide`), `include` (a list of target IDs; a component ID also selects its variants), and the opt-in booleans `variants` and `pages` (R13.52).
+When it is set, `targets` must be absent or empty.
+Validation is pure: it reads no network and imports no styleguide code (R4.4, R13.4).
+Capture reads the catalogue and writes the resolved list into the run settings (`src/styleguide/README.md`).
+An absent key changes nothing, and the key does not enter the capture settings hash.
+
+A side with `kind: "design"` is a design side (R5.5): `{ kind, provider: "files", root }`, with no origin. A target may set `design`, a map from a viewport ID to a PNG path under `root`. Validation is pure and refuses an absolute path, a `..` segment, a name that is not a plain `.png` path and an unknown viewport. `designSettings` gives the settings a design run hashes (the provider and the viewports). A configuration without a design side changes nothing.

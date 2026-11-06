@@ -3,6 +3,7 @@ import { open, readdir, realpath } from 'node:fs/promises';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { serve } from '../server/serve.js';
 import { validId } from './valid-id.js';
+import { DEFAULT_STORE } from '../config/store.js';
 
 export { validId };
 export function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -64,7 +65,7 @@ export function renderRunFeedback({ id, run, feedback }, { historyUrl = '/' } = 
   const details = feedback ? `<h2>Stored check feedback</h2><p>State: ${text(feedback.state)}. This is a single run. It has no A/B verdict.</p><p>Content: ${counts(feedback.content, ['checksExecuted', 'findings', 'unknown', 'missing'])}</p><p>Behavior: ${counts(feedback.behavior, ['passed', 'failed', 'skipped', 'incompatible', 'missing'])}</p><p>Findings: ${number(feedback.findingCount)}. Omitted: ${Math.max(number(feedback.omittedCount), number(feedback.findingCount) - findings.length)}.</p><ul>${findings.map(finding => `<li>${text(finding?.targetId)} · ${text(finding?.viewportId)} · ${text(finding?.artifact)} · ${text(finding?.checkId || finding?.contractId)} · ${text(finding?.state || finding?.severity)}: ${text(String(finding?.message ?? '').slice(0, 500))}</li>`).join('')}</ul>` : '<p>No standalone check feedback stored.</p>';
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Run feedback</title><style>body{font:16px system-ui;max-width:1000px;margin:2rem auto;padding:0 24px;color:#222;background:#f7f7f8;overflow-wrap:anywhere}li{margin:1rem 0}a{color:#a33322}</style><a href="${text(historyUrl)}">Local history</a><h1>${text(id)}</h1><p>Label: ${text(run?.label)} · Time: ${text(run?.at)} · Capture state: ${text(run?.state)}</p>${details}</html>`;
 }
-export async function startHistory({ root = process.cwd(), local = resolve(root, '.test-kit'), port = 0 } = {}) {
+export async function startHistory({ root = process.cwd(), local = resolve(root, DEFAULT_STORE), port = 0 } = {}) {
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid server port.');
   const viewers = new Map();
   let closing = false;

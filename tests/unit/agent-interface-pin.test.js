@@ -23,7 +23,7 @@ test('summary output is pinned for a filter and a bound', () => {
 });
 
 test('summary keeps its top-level keys', () => {
-	assert.deepEqual(Object.keys(summarizeReport(read('report.json'))), ['pair', 'verdict', 'counts', 'states', 'availabilityCount', 'targets', 'omitted', 'unexplainedTargets', 'unexplainedOmitted', 'availabilityProblems', 'availabilityOmitted', 'next']);
+	assert.deepEqual(Object.keys(summarizeReport(read('report.json'))), ['pair', 'subject', 'verdict', 'counts', 'states', 'availabilityCount', 'targets', 'omitted', 'unexplainedTargets', 'unexplainedOmitted', 'availabilityProblems', 'availabilityOmitted', 'next']);
 });
 
 test('query output is pinned for an artifact without a difference file', async () => {

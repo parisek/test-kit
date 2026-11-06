@@ -16,7 +16,7 @@ The specification is `docs/specification.md`. Read it before any change. Require
 
 ```yaml
 PACKAGE_NAME: "@parisek/test-kit"
-NODE_REQUIRES: ">=20"
+NODE_REQUIRES: ">=20.19"
 TESTS_DIR: "tests"
 PLAN: "docs/specification.md section 14"
 ```
@@ -24,7 +24,7 @@ PLAN: "docs/specification.md section 14"
 ## Development Commands
 
 ```bash
-npm test                        # node --test (finds *.test.js; no dependency, no browser)
+npm test                        # node --test (finds *.test.js; no dependency, no browser; the lint tests skip with a message until npm ci)
 node bin/cli.js --help     # the command line
 ```
 

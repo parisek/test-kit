@@ -11,8 +11,12 @@ The seam is everything a project touches: its configuration file, the commands i
 - From the first release candidate tag, the freeze starts. A change to a frozen item needs a new major version and a migration note. An addition that old input still passes is not a change.
 - The major-version consequence is a proposal. Vision open decision 9 says only "freeze". The form of the release candidate tag is decided: `vMAJOR.MINOR.PATCH-rc.N` (R13.45, owner decision, 2026-10-19). Only the owner tags it.
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
-- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist (2026-11-04).
+- Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7`, the stable tag `v1.0.0` (2026-11-04) and the tag `v1.1.0-rc.1` (2026-11-05) exist.
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
+- Two exceptions exist. Each sets no precedent for another frozen item.
+  - The owner allowed the narrowing of `engines.node` to `>=20.19` in the minor release 1.1.0, with a migration note, on 2026-11-06 (#298). See "Runtime requirement".
+  - The owner allowed the move of the default store from `.test-kit` to `test-kit`, and of the `runsRoot` default from `.test-kit/runs` to `test-kit/runs`, in the minor release 1.2.0, with a migration note, on 2026-11-06 (#312). See the `runsRoot` row in section 2 and the store note in section 3. An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`, `history` and project `perf` (`--store .test-kit`). An explicit `runsRoot` keeps working for `capture`, `import`, `diff` and plain `perf`. The old `.test-kit/` is not read, moved or deleted. A project deletes it by hand. Old baselines are not carried over. A project that keeps the old store with `--store .test-kit` must also set `"runsRoot": ".test-kit/runs"`, or `capture`, `diff` and plain `perf` use `test-kit/runs` and the stores split.
+  - Round 3 (owner decision on #312, 2026-11-06) adds four behaviours to frozen commands: (a) the store `.gitignore` with `*` is also written by `capture`, `import` and plain `perf` when they use the default `runsRoot`. A project with an unrelated `test-kit/` folder must rename it, or pass `--store`, before it upgrades, or new files there become ignored; (b) `run`, `before`, `after`, `report`, `history`, `perf`, `capture`, `import` and `diff` print one stderr line when they find an old `.test-kit/` beside the configuration, only when the default store or the default `runsRoot` is in use (`--store` or a configured `runsRoot` suppresses it); (c) `after` stops early with "Run before again" when the baseline is missing; (d) the runtime copy of the configuration lives in the store. The same decision extends the viewer refresh to `capture`, `import` and plain `perf` when they write the default store, and keeps exports under `test-kit/export/`. The frozen commands `capture`, `import`, `diff`, `perf` and `history` gain these behaviours once. `diff` gains the legacy notice only. This sets no precedent (#312).
 
 ## Markings
 
@@ -39,10 +43,13 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | --- | --- | --- | --- | --- |
 | `schemaVersion` | number | none | yes | Must be `1`. |
 | `sides` | object | none | yes | 1 to 20 entries. A key is a safe ID (`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`). |
-| `sides.<id>.origin` | string | none | yes | An HTTP origin with no path or credentials. Local unless `remote` is `true`. |
+| `sides.<id>.origin` | string | none | yes, for a browser side | An HTTP origin with no path or credentials. Local unless `remote` is `true`. A design side has none (the next row). |
+| `sides.<id>.kind`, `provider`, `root` | string, string, string | none | no | R5.5. `kind: "design"` makes a side of supplied images: `provider` is `files` (the one value) and `root` is a plain relative directory. It takes no other key and has no origin. Not in the capture settings hash. An addition: old input passes. Added after 1.1.0. The owner confirmed it on 2026-11-06 (#288). |
 | `sides.<id>.remote` | boolean | `false` | no | R3.3. Added in 0.5.0. |
 | `sides.<id>.userAgent` | string | the Playwright default | no | R3.4. Only with `remote: true`. 1 to 512 printable ASCII characters. Not in the capture settings hash. Added in 1.0.0-rc.6. |
 | `sides.<id>.challenge` | string | none | no | R3.5. Only with `remote: true`. The one value is `"cloudflare"`. Not in the capture settings hash. Added in 1.0.0-rc.7. |
+| `sides.<id>.allowOrigins` | array | none | no | R3.9. Local or remote side. 1 to 20 entries `{origin, types}`: an HTTPS origin (no path, credentials or wildcard) and 1 or 2 of `stylesheet`, `font`. GET and HEAD only, never a navigation. In the capture settings hash when it is not empty. Added in 1.1. |
+| `sides.<id>.thirdParty` | `"block"` or `"drop"` | local `block`, remote `drop` | no | R3.10. Local or remote side. `drop` aborts a GET or HEAD frame or subresource of another origin and keeps the capture. `block` fails the capture. A top-level navigation and every non-read method still fail. In the capture settings hash when set. Added in 1.1. |
 | `sides.<id>.production` | boolean | `false` | no | R6.5. `perf` on this side waits for `--consent` for any number of targets. The side id does not decide. Added in 1.0.0-rc.4. |
 | `sides.<id>.settle` | object | see below | no | Settle recipe (R5.4). |
 | `targets` | list | none | yes | 1 to 1000 entries. |
@@ -51,16 +58,18 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `targets[].title` | string | the `id` | no | |
 | `targets[].path` | string | none | one of | Origin-relative path. Every side needs `path` or a `paths` entry. |
 | `targets[].paths` | object | none | one of | Path for each side ID. |
+| `targets[].design` | object | none | no | R5.5. Viewport ID to a PNG path under the `root` of a design side. Needs a design side. A design side needs no target path. Not in the capture settings hash. An addition. The owner confirmed it on 2026-11-06 (#288). |
 | `targets[].selector` | string or list | none | no | CSS selector, or 1 to 50 unique selectors. |
 | `targets[].box` | string | none | no | `border` or `content`. Needs `selector`. |
 | `targets[].settle`, `targets[].settleBySide` | object | none | no | Partial settle recipe, for all sides or for one side. |
+| `targetSource` | object | none | no | R13.3. Component targets from a styleguide side. Needs `source: "styleguide"` and `side`. Optional `mount` (default `/styleguide`), `include` (target IDs) and the booleans `variants` and `pages` (R13.52, default off). `targets` must be absent or empty. Not in the capture settings hash. An addition: old input passes. Added after 1.0.0. |
 | `viewports` | list | none | yes | 1 to 20 entries. |
 | `viewports[].id`, `width`, `height` | string, number, number | none | yes | Width and height 1 to 4096. At most 32 million physical pixels. |
 | `viewports[].deviceScaleFactor` | number | `1` | no | 0.5 to 3. |
 | `artifacts` | list | `["screenshot"]` | no | 1 to 5 of `screenshot`, `html`, `status`, `content`, `behavior`. Additive only. |
 | `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
 | `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
-| `runsRoot` | string | `.test-kit/runs` | no | Plain relative path. The default was `tests/visual/runs` before 1.0.0-rc.8 (R12.1). See section 8, gap 6. |
+| `runsRoot` | string | `test-kit/runs` | no | Plain relative path. The default was `.test-kit/runs` before 1.2.0 (one-time exception to the freeze rule, #312) and `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
 | `screenshot.fullPage` | boolean | `true` | no | |
 | `rules` | object | `{}` | no | Evidenced normaliser rules (R8.4, R8.5). Shape in `src/rules/model.js`. |
@@ -82,9 +91,9 @@ Items inside the configuration that stay open:
 | --- | --- | --- |
 | The default set of `artifacts` and `checks` | Decided by the owner on 2026-10-22 | Specification section 17, item 2. The defaults are `["screenshot"]` and `[]`. No check runs by default (R5.1). |
 | Options for a selected pack | Not built before 1.0, decided by the owner on 2026-11-03 | Specification section 17, item 9. The `packs` key takes IDs only (R13.44). The pack API has no options. |
-| The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, not built yet | Specification section 17, item 7, R13.40: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). |
-| The allowlist (`reason`, `owner`) | Not frozen, owner decision open | ADR 0004, open question 4. No config key exists. |
-| Selection of checks or contracts per target | Not frozen, owner decision open | ADR 0004, open question 2. |
+| The ESLint and Stylelint seam | Decided by the owner on 2026-10-22, 2026-11-04 and 2026-11-05; both entries are built | Specification section 17, items 7 and 10, R13.40, R13.46 to R13.50: `@parisek/test-kit/eslint` (flat-config array) and `@parisek/test-kit/stylelint` (config object) with a thin import (#105). The design is ADR 0006. The build is #26, milestone 1.1. |
+| The allowlist (`reason`, `owner`) | Not frozen, owner decision open | Moved to #254 (ADR 0004, open question 4). No config key exists. |
+| Selection of checks or contracts per target | Not frozen, decided 2026-11-04 | `scope.checks` on each artifact index, derived from the run settings (ADR 0004, open question 2; R9.10). |
 | Artifact kinds `a11y` and `lint` in `artifacts` | Not frozen, change planned | Both are glossary artifacts (specification section 2). The code rejects both today. They come with `schemaVersion` 3 in 1.1 (specification section 17, item 8). |
 | `known_diffs` record contents | Frozen as a key, with a caveat | Each record binds `rawA`, `rawB`, `bindingHash` and `policyHash` (`src/rules/model.js`). A change to the comparator policy makes stored records stale with no schema change. A migration note must name any such change. |
 | `rules` operation kinds | Experimental | Only `literal-pair` exists (`src/rules/model.js`). |
@@ -107,12 +116,13 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 
 | Command | Required input | Marking | Reason |
 | --- | --- | --- | --- |
-| `capture` | `--side` (`--config`, `--label`, `--artifacts`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. |
-| `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. |
-| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). |
+| `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`, `--packs`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. `--packs` is an addition in 1.1 (R13.51, owner decision of 2026-11-04, #231). It is a flag without a value. It runs the packs of the `packs` key on the open page. It is refused on a remote side. Without it nothing changes. |
+| `import` | `--side` (`--config`, `--label`, `--target`, `--viewport`) | Frozen (decided) | R4.6. Imports the supplied images of a design side into an immutable run. No browser and no network. Output is one line of JSON: `id`, `state`, `images`, `manifestPath`. Exit 0 on a complete run, 1 on any error. The owner confirmed the name on 2026-11-06 (#288). |
+| `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. `--target` and `--viewport` are additions (R4.5): they filter the pair and the report records them in `meta.scope`. |
+| `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). Addition in 1.1: `droppedRequestCount`, `droppedWarnings`, `droppedWarningsOmitted` and `droppedNotListed`, present only when a `font` or `stylesheet` request was aborted or a list was cut (R3.8). Addition: `skipped`, present only when the report skipped a cell (R4.5). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
 | `query` | `REPORT --target --viewport --artifact` (`--max-lines`) | Frozen for name and flags. `--artifact` list is additive only | Today `html`, `status`, `content`, `behavior`, `lighthouse`. |
-| `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. |
+| `record-known` | `REPORT --config --target --viewport --artifact --cause --reason` | Frozen | R5.3. Writes evidence into `known_diffs`. Addition in 1.1: `--artifact` accepts `status` (R6.13). Old input still passes. |
 | `perf` | `--side` and (`--targets` or `--path`) | Experimental | Needs Node 22.19 and the optional `lighthouse` peer. On a side with `production: true`, `perf` waits for `--consent` for any number of targets (R6.5, #162). |
 | `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). |
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
@@ -121,8 +131,8 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 Other command facts:
 
 - The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
-- The default store directory `.test-kit` is stable (R12.1). Its content layout is not part of the seam.
-- `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today.
+- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam.
+- `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today. Packs run with `--packs`, not with `--artifacts` (R13.51).
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
 - `COMMANDS` and `run` are also exported from the package root (`src/index.js`). No README documents a project import of them. Experimental.
 
@@ -135,7 +145,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 | Item | Marking | Reason |
 | --- | --- | --- |
 | The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
-| The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` joins the required set at `schemaVersion` 3 (specification section 7, first note). |
+| The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` is part of the shape since `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 
 ### Behavior contracts
@@ -148,8 +158,9 @@ Source of truth: `src/behavior/contracts.js`, `src/behavior/README.md`, R7.7, R1
 | Optional `runScoping`, `projects`, `emulate`, `eagerImages`, `library` (`package`, `majors`) | Frozen for the names. Behavior beyond them is experimental | `contractApplicability` reads them. A mismatch gives `skipped` or `incompatible`, never a pass. |
 | Contract files `*.contract.js` under `behavior.source` | Frozen | `loadProjectContracts`. |
 | The default projects `desktop-1280` and `mobile-390` | Frozen | `DEFAULT_PROJECTS` in `src/behavior/contracts.js`. |
-| The identity of a behavior finding (step ID against contract name) | Not frozen, owner decision open | ADR 0004, open question 1. |
-| The format of component allowlists | Not frozen, owner decision open | R13.41 puts the format in the package. ADR 0004, open question 4 leaves the allowlist unspecified. |
+| The identity of a behavior finding (step ID against contract name) | Not frozen, decided 2026-11-04 | Each step carries `contract`. The catalog key is `behavior.<contract name>`, and the registry records the origin (ADR 0004, open question 1; R9.8). |
+| The behavior snapshot version | Not frozen, decided 2026-11-04 | The version is 2 since `schemaVersion` 3 (it was 1), because each step carries `contract`. A stored version 1 snapshot does not compare with a version 2 snapshot. The pair reads `incompatible` (R8.9). Capture the older side again (#230). |
+| The format of component allowlists | Not frozen, owner decision open | R13.41 puts the format in the package. The allowlist is unspecified and moved to #254. |
 | Shared contracts `picture`, `gsap`, `lightgallery`, `header-*`, `cookieconsent`, `hygiene`, `render-integrity` | Not in the package | R13.42 plans them as packs. Only `swiper` and the axe pack ship. |
 
 ## 5. Pack API
@@ -170,8 +181,8 @@ Source of truth: `src/packs/define.js`, `src/packs/layers.js`, `src/packs/run.js
 | States: check `complete`, `missing`, `failed`. Run state is the worst one | Experimental | R8.7 defines four states: `complete`, `missing`, `failed`, `incompatible` (ADR 0004, section 7, point 1 uses `incompatible` for absolute checks too). The pack code emits three. The set may gain `incompatible`. An open marker is exactly `evidence.state` of `incomplete` or `unknown`. |
 | The input contract: JSON-like data, one frozen snapshot, one read of each caller field, fail closed | Frozen | `src/packs/snapshot.js`. Nesting limit 256 is a chosen bound. |
 | The mapping of a pack finding to a `report.json` finding | Not frozen, change planned | The report finding has `id` and `causeId`. The pack finding has neither. No code maps one to the other. `schemaVersion` 3 (R9.8). |
-| Threshold overrides and allowlists | Not frozen, owner decision open | `src/packs/README.md` ("Not built yet"). ADR 0004, open question 4. |
-| Findings of completed checks in a mixed artifact | Not frozen, owner decision open | ADR 0004, open question 5. |
+| Threshold overrides and allowlists | Not frozen, owner decision open | `src/packs/README.md` ("Not built yet"). #254 (ADR 0004, open question 4). |
+| Findings of completed checks in a mixed artifact | Decided 2026-10-23 | ADR 0004, open question 5 (#178, R8.12). |
 
 Entry points in `package.json` `exports`. The list on `main` has nine entries. v0.5.0 had three. Nothing from v0.5.0 was removed (measured 2026-10-19).
 
@@ -185,6 +196,8 @@ Entry points in `package.json` `exports`. The list on `main` has nine entries. v
 | `./packs/a11y/runner` | Frozen (decided) | Decided by the owner, 2026-10-19. `runAxe(page, options)` and its options. It needs the optional `axe-core` peer and Playwright. In-page injection has known limits (`src/packs/a11y/README.md`). |
 | `./packs/swiper` | Experimental | The browser step that collects DOM facts and the version is not built (`src/packs/versioned/README.md`). |
 | `./packs/lint`, `./packs/lint/runner` | Not frozen (decided) | Decided by the owner, 2026-10-19. The pack may change in minor releases. The ESLint and Stylelint seam is decided as entry points with a thin import (specification section 17, item 7; R13.40). It is not built yet. R13.40 fixes only the rule IDs and the `portadesign` namespace. The lint pack reads the output of the project's own linters. It does not move the rules. |
+| `./eslint` | Addition for 1.1, built (decided) | Decided by the owner, 2026-10-22 and 2026-11-04 (issue #26). An ES module that default-exports a flat-config array, with the `portadesign` plugin. The rule IDs, the namespace and the rule options are frozen from the release that ships them (R13.40). Peers are optional (R13.46). A missing required peer throws `LINT_PEER_MISSING`. A missing enhancement peer drops its block with a warning (R13.47). Rule messages carry no project links, and `messageIds` stay (R13.50). Lint needs Node 20.19. A separate change raises `engines`. The config holds no project values (R13.48). Built in #270 (R13.46 to R13.50, ADR 0006). |
+| `./stylelint` | Addition for 1.1, built (decided) | Same decision, with the 2026-11-05 details. A CommonJS file that exports a config object, so `require` and `import` both load it (R13.48). The `portadesign` rule IDs and options are frozen from the release that ships them (R13.40). Peers are optional (R13.46). A missing required peer throws `LINT_PEER_MISSING` (R13.47). |
 
 A new pack that a project selects, a new contract set for a new library major, and a new entry point are additions (vision layers rules 6 to 9). Pack identity lives in stable contract IDs.
 
@@ -195,12 +208,15 @@ Source of truth: the `schemaVersion` literals in `src/` (grep, 2026-10-19), `doc
 | Document | Version in code | Marking | Reason |
 | --- | --- | --- | --- |
 | Config (`src/config/normalize.js`) | 1 | Frozen | See section 1. |
-| Stored run `run.json` (`src/capture/index.js`, `src/cli/perf.js`) | 2 | Frozen | `src/compare/runs.js` and `src/rules/evidence.js` read only version 2. |
-| Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 2 | Not frozen, change planned | R9.1 says version 3 is not additive: `pair` becomes optional. A reader of version 2 rejects version 3. The code still writes 2. |
+| Stored run `run.json` (`src/capture/index.js`, `src/cli/perf.js`) | 2 | Frozen | `src/compare/runs.js` and `src/rules/evidence.js` read only version 2. The optional field `targetSource` (what a styleguide source found) is an addition. |
+| Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 3 | Not frozen | The code writes version 3 (#230). Version 3 is not additive: `pair` becomes optional (R9.1, R9.7). A reader of version 2 rejects version 3. `adaptReport` reads versions 1, 2 and 3. The optional field `runs[].noFixture` (IDs of styleguide components with no fixture) is an addition. |
 | Content snapshot (`src/content/snapshot.js`) and content comparison sidecar (`src/content/compare.js`) | 1 | Frozen | The extractor and check versions guard them (R7.4). |
+| Optional addition to `run.json` capture entries and `report.json` rows, 1.1 | 2 (run), 3 (report) | Frozen | Optional addition to a frozen version (an optional key is not a break). `dropped` (and `droppedOmitted`) on a capture, `dropped: {a, b, omitted?}` on a report row. Absent when no request was aborted. R3.8. |
+| Optional addition to `run.json` capture entries, after 1.1.0 | 2 (run) | Frozen (decided) | Optional addition to a frozen version. `design: { provider, source, importedAt, sha256, width, height }` on a capture of a design run (R4.6). Absent on a browser capture. A design run has `settings.sides.<side>.kind` of `design`. The report schema does not change (R8.15). The owner confirmed it on 2026-11-06 (#288). |
+| Optional addition to `run.json` capture entries, 1.2 | 2 (run) | Frozen (decided) | Optional addition to a frozen version. `recipe: { version, scope, settle }` on each captured entry that `capture` writes (R5.6, ADR 0007). `scopeHash` and `settleHash` stay and hash its parts. An entry with no `recipe` reads as version 1, with its scope and settle from its hashes and the run settings, as before. A design run and a `perf` run have no recipe. The run `settingsHash` does not change. The owner chose this shape on 2026-11-06 (#49). |
 | Workflow state (`src/workflow/index.js`) | 1 | Experimental | It sits in the store. The store belongs to the experimental workflow commands. |
 
-What waits for `schemaVersion` 3 (R9.7 to R9.11, ADR 0004). None of it is frozen:
+What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is frozen:
 
 - `pair` or `subject` (exactly one), and `subject.key`.
 - The `checks` catalog, and `basis` on every check.
@@ -208,34 +224,38 @@ What waits for `schemaVersion` 3 (R9.7 to R9.11, ADR 0004). None of it is frozen
 - The `overrides` list.
 - The absolute artifact index with `result: { violations, checks }`.
 - The artifact kinds `a11y` and `lint`, and the reserved target `@project`.
-- Selection per target, the absolute fingerprint, and the allowlist (ADR 0004, open questions 2 to 4).
+- `scope.checks` on each artifact index, and the behavior key `behavior.<contract name>` (ADR 0004, open questions 1 and 2).
+- Not yet: the absolute fingerprint and the allowlist (#254, ADR 0004, open questions 3 and 4).
 
 Frozen, whatever the version: R9.1. A reader adapts an older `report.json` and drops nothing. A file without `schemaVersion` is version 1 (`adaptV1` in `src/report/model.js`).
+
+## Runtime requirement
+
+| Item | Marking | Reason |
+| --- | --- | --- |
+| `engines.node` in `package.json` | Frozen (decided) | Narrowed to `>=20.19`. The owner approved the narrowing on issue #26 on 2026-11-05, because Stylelint 17 needs Node 20.19 (R13.48, ADR 0006). The value was `>=20`. This is a narrowing of a frozen item. The owner allowed it in the minor release 1.1.0 as a one-time exception to the freeze rule on 2026-11-06 (#298). A project on Node 20.0 to 20.18 must update Node before it updates the pin. Migration: run `node --version`, and install Node 20.19 or newer (22 works too). Capture, compare and report need nothing else. `CHANGELOG.md` records the change. |
 
 ## 7. Not frozen, owner decision open
 
 | Item | Pointer |
 | --- | --- |
-| The allowlist file, with `reason` and `owner` | ADR 0004, open question 4. |
-| Behavior identity | ADR 0004, open question 1. |
-| Selection per target | ADR 0004, open question 2. |
-| The absolute fingerprint | ADR 0004, open question 3. |
-| Findings of completed checks in a mixed artifact | ADR 0004, open question 5. |
+| The allowlist file, with `reason` and `owner` | #254 (ADR 0004, open question 4). |
+| The absolute fingerprint | #254 (ADR 0004, open question 3). |
 | Pack versioning (one tag or one for each pack) | Vision open decision 10. |
 | Version numbers before the release candidate | Vision open decision 7. |
 
 ## 8. Gaps found while writing this
 
 1. Decided by the owner, 2026-10-19: there is no `init` command, and the package does not build one. `AGENTS.md` now says so.
-2. (closed) The `packs` configuration key selects packs (R13.44). No command line flag selects a pack. No command runs the selected packs yet.
-3. The six built-in checks export no `basis`, although R7.2 requires it. Decided by the owner, 2026-10-19: deferred to `schemaVersion` 3. It is not an open question.
+2. (closed) The `packs` configuration key selects packs (R13.44). The selection stays in the key. Since 1.1, `capture --packs` runs the selected packs that have a page step (R13.51, #231). Without the flag no command runs a pack.
+3. (closed) The six built-in checks export `basis` since `schemaVersion` 3 (#230). `text-difference` is `relative`, the other five are `absolute`.
 4. Decided by the owner, 2026-10-19: the release candidate tag is `vMAJOR.MINOR.PATCH-rc.N` (R13.45). The freeze starts at `-rc.1`. Only the owner tags it.
 5. (closed) Question: does a change of the package version make an old run incompatible (R8.9)? Answer, read in the code on 2026-10-19: no. A run does not record the package version. `run.json` `tools` holds the Playwright and Chromium versions and one entry for each other artifact. A comparison needs equal `settingsHash` values and equal Playwright and Chromium entries (`src/compare/runs.js`). The hash covers the viewports, the `settle` recipe, the screenshot settings, the browser settings and the behavior contract fingerprint. It does not cover the `packs` key. A change of the Playwright or Chromium version, or of a capture setting, does make a run incompatible. One consumer project compared runs from `v0.2.1` and `v1.0.0-rc.2` with `incompatible: 0` (verified once, local site). See [migration-guide-tailwind-base.md](migration-guide-tailwind-base.md), Part 1, step 6.
-6. Decided by the owner, 2026-11-04 (issue #250): the default `runsRoot` moves from `tests/visual/runs` to `.test-kit/runs`, inside the ignored store, in `1.0.0-rc.8`. It is a breaking change for a 0.x project that relies on the old default. It lands after `-rc.1`, so it is the last change of this default before 1.0. A project that sets `runsRoot` explicitly sees no change. A project that wants the old place sets `"runsRoot": "tests/visual/runs"`. See [upgrade-from-0.5.md](upgrade-from-0.5.md), "What breaks".
+6. Decided by the owner, 2026-11-04 (issue #250): the default `runsRoot` moves from `tests/visual/runs` to `.test-kit/runs`, inside the ignored store, in `1.0.0`. It is a breaking change for a 0.x project that relies on the old default. It lands after `-rc.1`, so it is the last change of this default before 1.0. A project that sets `runsRoot` explicitly sees no change. A project that wants the old place sets `"runsRoot": "tests/visual/runs"`. See [upgrade-from-0.5.md](upgrade-from-0.5.md), "What breaks".
 
 ## 9. What this document did not check
 
-- The tags `v1.0.0-rc.1` to `v1.0.0-rc.7` exist now. This document was written before them.
+- The tags `v1.0.0-rc.1` to `v1.0.0-rc.7`, `v1.0.0` and `v1.1.0-rc.1` to `v1.1.0-rc.3` exist now. This document was written before them.
 - One consumer project ran `v1.0.0-rc.2` once, on 2026-10-19, against a local site (see the migration guide). No other project ran against the package. Every other statement about a project is derived from this repository.
 - The viewer was not opened. The seam covers files, commands and the JSON that the code reads and writes.
 - The cap values in the pack API are chosen bounds, not measurements.

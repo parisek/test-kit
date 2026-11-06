@@ -15,7 +15,20 @@ export function settingsHash(value) {
 
 export function captureSettings(config, sideId) {
   if (!Object.hasOwn(config.sides, sideId)) throw new Error(`Unknown side: ${sideId}`);
-  return { viewports: config.viewports, settle: config.sides[sideId].settle, screenshot: config.screenshot };
+  const allow = config.sides[sideId].allowOrigins;
+  const thirdParty = config.sides[sideId].thirdParty;
+  // R3.9: the list changes what the page loads, so it enters the hash. Order does not matter.
+  // R3.10: `thirdParty` changes what the page loads, so it enters the hash when set. Equal values give equal hashes.
+  // A side without the key keeps its hash.
+  return { viewports: config.viewports, settle: config.sides[sideId].settle, screenshot: config.screenshot,
+    ...(thirdParty ? { thirdParty } : {}),
+    ...(allow?.length ? { allowOrigins: allow.map(entry => ({ origin: entry.origin, types: [...entry.types].sort() })).sort((a, b) => a.origin < b.origin ? -1 : 1) } : {}) };
+}
+
+// R4.6: a design run has no browser. Its hash binds the provider and the viewports. Paths and roots stay out.
+export function designSettings(config, sideId) {
+  if (config.sides[sideId]?.kind !== 'design') throw new Error(`Side ${sideId} is not a design side.`);
+  return { provider: config.sides[sideId].provider, viewports: config.viewports };
 }
 
 // Response artifacts do not depend on screenshot settlement or image settings.
@@ -26,7 +39,7 @@ export function responseSettings(config, kind) {
 
 export function contentSettings(config, side, target) {
   const { masks, ...settle } = settleRecipe(config, side, target);
-  return { mode: 'settled-dom', extractorVersion: '1.0.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
+  return { mode: 'settled-dom', extractorVersion: '1.1.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
 }
 
 // Paths and titles can differ between sides. The screenshot scope cannot.
@@ -56,6 +69,27 @@ export function settleRecipe(config, side, target) {
   const common = target?.settle === undefined ? {} : normalizeSettlement(target.settle, 'target.settle', true);
   const selected = !Object.hasOwn(target?.settleBySide ?? {}, side) ? {} : normalizeSettlement(target.settleBySide[side], 'target.settleBySide', true);
   return { ...global, ...common, ...selected };
+}
+
+// R5.6: one version for the whole capture engine. Raise it when a change of capture code alters
+// the pixels for an unchanged declaration. A capture entry with no `recipe` reads as version 1.
+export const CAPTURE_ENGINE_VERSION = 1;
+
+// R5.6 (ADR 0007): the effective recipe of one target on one side, as a capture entry stores it.
+export function captureRecipe(config, side, target) {
+  return { version: CAPTURE_ENGINE_VERSION, scope: screenshotScope(target, side), settle: settleRecipe(config, side, target) };
+}
+
+// R5.6: the stored recipe is untrusted. It must be a plain object with a positive integer version,
+// and its parts must hash to the stored `scopeHash` and `settleHash`. Returns the version, or null when invalid.
+// An entry with no `recipe` reads as the default recipe of version 1.
+export function recipeVersion(capture) {
+  const recipe = capture?.recipe;
+  if (recipe === undefined) return 1;
+  const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (!plain(recipe) || !Number.isSafeInteger(recipe.version) || recipe.version < 1 || !plain(recipe.scope) || !plain(recipe.settle)) return null;
+  if (capture.scopeHash !== settingsHash(recipe.scope) || capture.settleHash !== settingsHash(recipe.settle)) return null;
+  return recipe.version;
 }
 
 export function settlementMatches(capture, config, side, target) {
