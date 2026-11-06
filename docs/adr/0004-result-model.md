@@ -162,8 +162,8 @@ These rules follow R8.2 to R8.7 and vision layer rule 1.
 2. A check that has no input gives `missing`. An empty check set for a run gives `missing` (the current behavior).
 3. A narrower layer that switches a rule off writes an override record in the report: `checkId`, scope, reason, owner, layer. The check at that scope has state `missing` with a diagnostic. A disabled check proves nothing (R7.7). The query counts overrides.
 4. An override never hides a failed or missing run, a rule without evidence (R8.4) or an unexplained non-zero difference.
-5. An absolute finding may become `explained` only through an allowlist entry. The entry carries a reason and an owner. It binds to `checkId`, `targetId` and an absolute fingerprint. The absolute fingerprint is an open design (point 6). It does not bind to a run id or a pair key. Run ids change on each run, and an allowlist must outlive a run.
-6. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The fingerprint differs too. Today `evidenceFingerprint` is set only for `screenshot`, `html` and `content` findings, and `evidenceBinding` hashes both run ids (`src/compare/runs.js`, the loop before `validateReport`; `src/rules/record.js`, the binding check). `behavior` and `lighthouse` findings, relative and absolute, have no fingerprint today, so they cannot be `explained` today. This is existing behavior. The record does not change it. An absolute fingerprint must hash the evidence of one run, not two. It must change when that evidence changes. It must not depend on the run id, or an allowlist entry dies with each run. Which bytes it hashes is open (open design question 3). The validator and `findingIsExplained` need a second branch for the allowlist. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
+5. An absolute finding may become `explained` only through an allowlist entry. The entry carries a reason and an owner. It binds to `checkId`, `targetId` and an absolute fingerprint (point 6). The entries live in the file `test-kit.allowlist.json` beside the config, with no config key. `expires` is optional. A `stale` or `expired` entry is reported only. Decided 2026-11-06 (open design question 4). It does not bind to a run id or a pair key. Run ids change on each run, and an allowlist must outlive a run.
+6. The binding in point 5 differs from today's acceptance, which binds to `pair.key`. The fingerprint differs too. Today `evidenceFingerprint` is set only for `screenshot`, `html` and `content` findings, and `evidenceBinding` hashes both run ids (`src/compare/runs.js`, the loop before `validateReport`; `src/rules/record.js`, the binding check). `behavior` and `lighthouse` findings, relative and absolute, have no fingerprint today, so they cannot be `explained` today. This is existing behavior. The record does not change it. An absolute fingerprint must hash the evidence of one run, not two. It must change when that evidence changes. It must not depend on the run id, or an allowlist entry dies with each run. Which bytes it hashes is decided (2026-11-06, open design question 3): the descriptor and the canonical form of the section "Proposal for open questions 3 and 4", with the message in the descriptor. The validator and `findingIsExplained` need a second branch for the allowlist. That work is the first follow-up issue. Until it ships, an absolute finding is never `explained`. It stays `unexplained`. This fails closed.
 
 7. R8.2, R8.3 and R8.5 for absolute checks:
    - R8.2 (a rule outside its scope does not hide a row): normaliser rules are relative-only (section 2). No absolute check has a normaliser, so nothing can hide an absolute finding. An override or allowlist entry outside its scope has no effect.
@@ -523,21 +523,21 @@ Not measured: the effort in hours, and the number of lines.
 
 ## Open design questions (decided in the implementation issue)
 
-The record could not prove the answers from the code. The owner decided questions 1 and 2 on 2026-11-04 (issue #230, comment "Owner decisions, 2026-11-04"). Questions 3 and 4 moved to #254. Question 5 was decided earlier (#178).
+The record could not prove the answers from the code. The owner decided questions 1 and 2 on 2026-11-04 (issue #230, comment "Owner decisions, 2026-11-04"). The owner decided questions 3 and 4 on 2026-11-06 (issue #254 and pull request #267, comment "Owner decision"). Question 5 was decided earlier (#178).
 
 1. Behavior identity. Decided 2026-11-04. The behavior runner writes a `contract` field on each step, so a step id is never parsed back to a contract. A contract name may hold hyphens and digits (`/^[a-z0-9][a-z0-9-]{0,79}$/`), so a step id such as `menu-2` is ambiguous: it is instance 2 of `menu`, or the contract `menu-2`. The catalog key is `behavior.<contract name>`. A dot cannot occur in a pack check id or a content check id, so the key cannot collide with them. A `-detect` or `-scoping` step folds into the entry of its contract. There is one catalog entry for each selected contract, never one for each step. The registry records the origin of each contract: `package`, `project` or `component`. The origin is the `layer` of the catalog entry. Every loader reads the project source directory today, so every contract has the origin `project`. No co-location rule exists for `component`, and the value is reserved. The feedback summary uses the same identity: `contractId` is the contract name, and `checkId` is the catalog key. The behavior version goes from 1 to 2, because the step and the settings gain fields. A stored version 1 run no longer compares with a new run. The pair reads `incompatible` (R8.9), and the project captures again. A version 2 report reader maps its behavior findings to one legacy key `behavior` (R9.1). A new report writes the same key when it compares two stored behavior runs of version 1, because those steps name no contract. The code never guesses a contract name.
 2. Selection per target. Decided 2026-11-04. Each artifact index gets `scope: { checks: [<checkId>, ...] }`, the selected check ids. The producer derives the list from the run settings and the viewer never invents it (R8.7). A check that is in `scope.checks` and has no outcome reads as `missing`. A check that is in the catalog and not in `scope.checks` is not selected for that artifact. The field works in a `subject` report and adds a list of ids to each artifact index, not to each finding (R9.2). Sources: content takes the check list of run B; behavior takes the contracts that apply to the project of the viewport, from the settings that the snapshot stores; speed takes the change check, and the budget check when the run has budgets. A version 2 file has no `scope`, and the adapter adds none.
-3. The absolute fingerprint (section 7, point 6). Moved to #254. Until it ships an absolute finding stays `unexplained`, and the report writes no `evidenceFingerprint` for it.
-4. The allowlist file and its `reason` and `owner` fields (section 7, point 5). Moved to #254. Until it ships `findingIsExplained` returns `false` for an absolute finding, and `record-known` refuses one (R7.3).
+3. The absolute fingerprint (section 7, point 6). Decided 2026-11-06 (issue #254, pull request #267): the descriptor and the canonical form of the section "Proposal for open questions 3 and 4" are accepted, and the message is part of the fingerprint. The code ships in #254. Until it ships an absolute finding stays `unexplained`, and the report writes no `evidenceFingerprint` for it.
+4. The allowlist file and its `reason` and `owner` fields (section 7, point 5). Decided 2026-11-06 (issue #254, pull request #267): the file is `test-kit.allowlist.json` beside the config, with no config key. A `stale` or `expired` entry is reported only. `expires` is optional. The code ships in #254. Until it ships `findingIsExplained` returns `false` for an absolute finding, and `record-known` refuses one (R7.3).
 5. Completed checks in a non-complete artifact. Decided by the owner on 2026-10-23 (issue #178): at target scope they keep counting. At cell and artifact scope the class stays `null`. R8.12 holds the rule.
 
 ## Proposal for open questions 3 and 4 (issue #254)
 
-**Proposed, not decided.** The owner decided on 2026-11-04 that the agent writes this proposal and the owner decides later. Nothing here binds. No code, no specification text and no other section of this record changes. When the owner accepts a part, a later pull request moves it into section 7 and into the specification (see "Edits on acceptance").
+**Accepted by the owner on 2026-11-06** (issue #254 and pull request #267, comment "Owner decision"). The owner decided on 2026-11-04 that the agent writes this proposal and the owner decides later. On 2026-11-06 the owner accepted the descriptor and the canonical form, and gave the four answers listed under "Choices for the owner". This pull request changes the record only. The specification and the code change together in #254 (see "Edits on acceptance").
 
-The proposal fits the data model of schemaVersion 3 as it stands in the open pull request #262: a `subject` report, `checks` catalog, `runId` and `layer` on a finding, `findingIsExplained` with a relative branch only, a validator that rejects `known_diffs` in a `subject` report, and `record-known` that refuses an absolute finding. Today's code on `main` has none of these. The proposal was checked against `src/rules/evidence.js`, `src/rules/classify.js`, `src/rules/record.js`, `src/config/settings.js` and `src/checks/builtin/` on `main`, and against the #262 diff. It was not run.
+The proposal fits the data model of schemaVersion 3 as it stood in pull request #262 (merged after the proposal was written): a `subject` report, `checks` catalog, `runId` and `layer` on a finding, `findingIsExplained` with a relative branch only, a validator that rejects `known_diffs` in a `subject` report, and `record-known` that refuses an absolute finding. The code on `main` at the time of writing had none of these. The merge of #262 was not re-checked against this proposal. The proposal was checked against `src/rules/evidence.js`, `src/rules/classify.js`, `src/rules/record.js`, `src/config/settings.js` and `src/checks/builtin/` on `main`, and against the #262 diff. It was not run.
 
-### Question 3: the absolute fingerprint (Proposed, not decided)
+### Question 3: the absolute fingerprint (accepted 2026-11-06)
 
 **Rule.** The producer sets `evidenceFingerprint` on every absolute finding. It is the same field the relative findings use. Its value is `settingsHash(descriptor)`. That function exists in `src/config/settings.js`: SHA-256 over canonical JSON, written as `sha256:` and 64 lowercase hex digits. The existing `isHash` check accepts it. No new dependency and no new hash format.
 
@@ -603,7 +603,7 @@ The four hashes above were computed with the current `settingsHash` on the descr
 
 **Known cost.** A package release that rewords a message, or a check that changes its evidence, makes old entries stale. This is deliberate and fails closed: the finding returns to `unexplained`, and the stale entry says so (see question 4). Descriptor version `v` makes such a break explicit.
 
-### Question 4: the allowlist file (Proposed, not decided)
+### Question 4: the allowlist file (accepted 2026-11-06)
 
 **Name and place.** A file `test-kit.allowlist.json` in the directory of the config file. There is no config key and no change to `normalizeConfig`. A missing file is an empty allowlist. A flag `--allowlist FILE` on the commands that write a report overrides the path. The file is committed (R12.2). Reason for a separate file: `known_diffs` lives inside the config, and `record-known` rewrites the whole config. The allowlist has no pair, can grow large and changes more often than the config. A separate file keeps its reviews short and keeps a writer from touching the rest of the config.
 
@@ -689,19 +689,21 @@ A finding has one basis, so only one list is consulted. In a mixed `content` art
 
 ### Choices for the owner
 
-1. Name and place: `test-kit.allowlist.json` beside the config with no config key (proposed), or a config key.
-2. Should a `stale` or `expired` entry fail a run under a strict flag? Proposed: report only, and no flag in this release.
-3. Is a missing `expires` allowed? Proposed: yes, because the owner decision of 2026-10-22 keeps data until a person removes it. A project policy may require a date later.
-4. Is the message part of the fingerprint? Proposed: yes (fails closed, costs a stale entry on a reword).
+The owner decided on 2026-11-06 and accepted every proposed answer. Question 3 (the descriptor and the canonical form) is accepted as written.
+
+1. Name and place. Decided: `test-kit.allowlist.json` beside the config, with no config key.
+2. A `stale` or `expired` entry. Decided: the run reports it and does not fail. There is no strict flag in this release.
+3. A missing `expires`. Decided: allowed, because the owner decision of 2026-10-22 keeps data until a person removes it. A project policy may require a date later.
+4. The message. Decided: it is part of the fingerprint. This fails closed and costs a stale entry on a reword.
 
 ### Edits on acceptance
 
-Each follows the pull request pattern used for this record: the specification changes after the owner accepts, not before. Proposed text goes in a later pull request with the code or ahead of it.
+Each follows the pull request pattern used for this record. The specification changes with the code, in #254, not in the pull request that records the decision.
 
-- Section 7 points 5 and 6 of this record: replace "open" with the accepted rules.
+- Section 7 points 5 and 6 of this record: done in this pull request (see below).
 - `docs/specification.md`: R9.8 (the `evidenceFingerprint` of an absolute finding and the `allowlist` key), R9.7 (the `allowlist` key is allowed in a `subject` report), a new requirement for the allowlist file and its fields, R12.2 (the file is committed), R13.41 (the format of the allowlists).
 - `docs/contracts.md` and `docs/seam.md`: the rows that mark the allowlist as "not frozen".
-- This record: a closing note on questions 3 and 4, in the same way as for question 5.
+- This record: the closing note on questions 3 and 4 is in the list of open design questions, in the same way as for question 5. Done in this pull request.
 
 ## Open points
 
