@@ -48,8 +48,8 @@ An earlier capture may stand for a cell only when all of these hold. Each one is
 3. Same target declaration: `path` and every key that changes what the page shows. The settings hash excludes target selectors and paths. So the stored `settings.targets[id]` must equal the current one.
 4. The source entry is `captured`, and every artifact that the new run selects is `captured` in it with equal provenance.
 5. The stored `recipe` equals the recipe that the new capture would write now, `version` included (R5.6, R8.16). A raise of the engine version makes every old capture ineligible, which is the intended effect.
-6. The source run is `complete`. (Open question 4 asks whether a `partial` run may also supply a captured cell.)
-7. The side is `remote: true`. A local side must refuse the option. Local code changes between runs, and a kept local capture would read as `match` against changed code. (Open question 3.)
+6. The source run is `complete`. A `partial` run supplies no cell (decision 4).
+7. The side is `remote: true`. A local side must refuse the option. Local code changes between runs, and a kept local capture would read as `match` against changed code (decision 3).
 
 ### Option K1: point to the earlier capture
 
@@ -82,7 +82,7 @@ Rules for K2:
 2. The package scans the runs of the store, newest first, and takes the first eligible entry for each cell. It reads each manifest with the existing validated reader (`readRun`).
 3. It copies a file only from a validated plain relative path inside the source run directory. It does not follow a symbolic link. A copy that fails makes the cell fresh, not failed. A fresh capture that follows fails like any capture.
 4. A kept entry does not enter any hash. `kept` is outside `recipe`, `settleHash`, `scopeHash` and `settingsHash`.
-5. `capture` prints one line on stderr: `Kept N of M captures from earlier runs.` It never names a page or a URL. The one JSON line on stdout adds `kept` (a count) only above zero.
+5. `capture` prints one line on stderr that starts with `Warning REFERENCE_KEPT:` (decision 10). It never names a page or a URL. The one JSON line on stdout adds `kept` (a count) only above zero.
 6. A project can validate its URLs and recipes before keep runs. An all-kept plan does not skip that check (#50). Keep decisions happen after configuration validation and before the browser context for the cell.
 
 ## Topic 2: bounded transient retries
@@ -107,8 +107,8 @@ Never retried:
 - Any error when `edge`, `blocked` or `unexpectedNavigation` is set, whatever its message says.
 - `PIN_NO_MATCH`, an invalid PNG, a bound error, a configuration error and `PLAYWRIGHT_VERSION_UNSUPPORTED`.
 - A failed `content`, `behavior` or pack artifact inside an entry whose screenshot was captured. Those states have their own meaning and are not retried.
-- A browser or page crash, and a refused connection (`ERR_CONNECTION_REFUSED`) or a DNS failure (`ERR_NAME_NOT_RESOLVED`). A crash must mark the run incomplete and exit nonzero (#50). A refused connection or a DNS failure usually means a stopped server or a wrong origin, which a person must fix. (Open question 6 asks about the refused connection.)
-- A 5xx page response. Today it is stored as a result with a status code (the `status` artifact shows it). The proposal does not change that. (Open question 7.)
+- A browser or page crash, and a refused connection (`ERR_CONNECTION_REFUSED`) or a DNS failure (`ERR_NAME_NOT_RESOLVED`). A crash must mark the run incomplete and exit nonzero (#50). A refused connection or a DNS failure usually means a stopped server or a wrong origin, which a person must fix. Decision 6 closes this: `ERR_CONNECTION_REFUSED` is not transient.
+- A 5xx page response. Today it is stored as a result with a status code (the `status` artifact shows it). This does not change (decision 7).
 
 ### Option T1: no retry in the package
 
@@ -133,7 +133,7 @@ A key such as `screenshot.retries` or `sides.<id>.retries`.
 
 ### Max attempts and backoff
 
-Options for max attempts: 2 (one retry), 3 (two retries), or a larger configured bound. Recommended: the flag accepts 0, 1 or 2 retries. A bound of 2 retries limits the load on a remote origin and the worst case run time. The legacy value is unknown here (open question 5).
+Options for max attempts: 2 (one retry), 3 (two retries), or a larger configured bound. Recommended: the flag accepts 0, 1 or 2 retries. A bound of 2 retries limits the load on a remote origin and the worst case run time. The owner accepted 0 to 2 (decision 5).
 
 Options for backoff: none, a fixed wait, or exponential with jitter. Recommended: a fixed wait of 1000 ms × the attempt number (1 s, then 2 s), no jitter. A capture is sequential, so there is no herd to spread. A fixed wait is deterministic and the test injects the sleep function, so no test waits in real time. The wait is not stored.
 
@@ -205,7 +205,7 @@ The viewer and `summary` show `warnings` today. A new warning code needs no new 
 
 This record does not change the specification. The slice adds this text with its code (see "Decision", answer 10 for the stderr line).
 
-- R5.13 `capture` takes the flag `--keep-existing`. Without it nothing changes (R5.1). The flag needs a side with `remote: true`, else the command fails before any run directory or browser exists. With the flag, `capture` must take a cell from an earlier run of the store instead of capturing it, when all of these hold: the earlier run has the state `complete`, the same side id and an equal stored side declaration, the same `settingsHash` and tools, an equal stored declaration of the target, a `captured` entry with every selected artifact `captured`, and a `recipe` equal to the recipe that the new capture would write. The newest eligible run wins. The package copies the stored files to the same relative paths in the new run, and the new entry keeps `recipe`, `settleHash` and `scopeHash` unchanged and adds `kept: { runId, at }`, with `at` the time of the source run. It copies only from a plain relative path inside the source run directory, and it must not follow a symbolic link. A cell with no eligible entry, or whose copy fails, is captured fresh. The entry also gets the warning `REFERENCE_KEPT` with `count` 1 (R5.11). `kept` and the warning enter no hash, not `recipe`, `settleHash`, `scopeHash` or `settingsHash`. A reader accepts `kept` only as an object with exactly the keys `runId` (a valid run id) and `at` (an ISO time), else it ignores the key as a whole. `capture` prints `Kept N of M captures from earlier runs.` on stderr and adds `kept` to the JSON line on stdout only above zero. A run with no `--keep-existing` stores the same bytes as before. The command offers no FORCE: a person captures fresh by omitting the flag.
+- R5.13 `capture` takes the flag `--keep-existing`. Without it nothing changes (R5.1). The flag needs a side with `remote: true`, else the command fails before any run directory or browser exists. With the flag, `capture` must take a cell from an earlier run of the store instead of capturing it, when all of these hold: the earlier run has the state `complete`, the same side id and an equal stored side declaration, the same `settingsHash` and tools, an equal stored declaration of the target, a `captured` entry with every selected artifact `captured`, and a `recipe` equal to the recipe that the new capture would write. The newest eligible run wins. The package copies the stored files to the same relative paths in the new run, and the new entry keeps `recipe`, `settleHash` and `scopeHash` unchanged and adds `kept: { runId, at }`, with `at` the time of the source run. It copies only from a plain relative path inside the source run directory, and it must not follow a symbolic link. A cell with no eligible entry, or whose copy fails, is captured fresh. The entry also gets the warning `REFERENCE_KEPT` with `count` 1 (R5.11). `kept` and the warning enter no hash, not `recipe`, `settleHash`, `scopeHash` or `settingsHash`. A reader accepts `kept` only as an object with exactly the keys `runId` (a valid run id) and `at` (an ISO time), else it ignores the key as a whole. `capture` prints a line that starts with `Warning REFERENCE_KEPT:` on stderr (decision 10) and adds `kept` to the JSON line on stdout only above zero. A run with no `--keep-existing` stores the same bytes as before. The command offers no FORCE: a person captures fresh by omitting the flag.
 - R5.14 `capture` takes the flag `--retries N`, an integer from 0 to 2. Without it, or with 0, nothing changes (R5.1). With N above 0, `capture` must try a failed cell again up to N times, only for a transient error. An error is transient only when it is a Playwright `TimeoutError`, the capture deadline, or a Chromium network error from the list in this record: `ERR_CONNECTION_RESET`, `ERR_CONNECTION_CLOSED`, `ERR_CONNECTION_TIMED_OUT`, `ERR_TIMED_OUT`, `ERR_EMPTY_RESPONSE`, `ERR_NETWORK_CHANGED`. It must never retry `REMOTE_EDGE_STOP` or `RUN_STOPPED` (R3.6), a request-policy block (R3.7, R3.9), a page response with status 4xx, a failure of the content, behavior or pack artifacts, a crash of the browser or the page, or any error when an edge stop, a block or an unexpected navigation is set. Before attempt n + 1 the capture must wait 1000 ms × n. Each attempt uses a fresh context. A cell that succeeds on a retry is stored as a normal `captured` entry with the warning `CAPTURE_RETRIED` and `count` = the retries used (R5.11). A cell that fails on its last attempt is stored as `failed`, its `error.message` states the number of attempts, the run state is `partial` and the exit status is 1 (R8.7). A retry and the flag enter no hash and no `recipe`. A run with no retry stores the same bytes as before.
 
 R8.7 and R8.16 need no change. The state `kept` does not exist: a kept cell is `captured`, and the proof of equal recipes (R8.16) is part of eligibility.
@@ -215,7 +215,7 @@ R8.7 and R8.16 need no change. The state `kept` does not exist: a kept cell is `
 If accepted:
 
 - `run.json` gains one optional entry key, `kept`, and two warning codes. `schemaVersion` stays 2. `docs/seam.md` gets a row.
-- `capture` gets two opt-in flags. `run`, `before` and `after` stay as they are until the owner says otherwise (open question 8).
+- `capture` gets two opt-in flags. `run`, `before` and `after` stay as they are until the owner says otherwise (decision 8).
 - The slice needs these tests, each failing without the change: eligibility (one miss for each of the seven rules), a kept entry equals a fresh entry in `recipe` and hashes, an A/A pair with a kept side is `complete` and `match`, a raise of `recipe.version` makes the cell fresh, a copy refuses a path outside the source directory and a symbolic link, each transient class retries, each never-retried class does not, no retry after an edge stop, the exit status and run state after the last failed attempt, and no hash change in any case.
 - The slice runs on local synthetic pages only (`example-site`), as #49 states. The refusal on a local side (rule 7) makes the keep tests use a `remote: true` side that points to a local synthetic origin. This is allowed by R3.3, and the slice must show that it works.
 - Not measured: the disk cost of K2, and the run time added by a retry on a real remote origin. Both are estimates until a slice ships.

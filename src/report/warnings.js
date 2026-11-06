@@ -4,6 +4,9 @@
 export const WARNING_LIMIT = 10;
 export const WARNING_COUNT_LIMIT = 1000;
 export const LAZY_IMAGES_NOT_SWEPT = 'LAZY_IMAGES_NOT_SWEPT';
+// R5.13, R5.14: the warnings that record which run exists, not how a capture is made.
+export const REFERENCE_KEPT = 'REFERENCE_KEPT';
+export const CAPTURE_RETRIED = 'CAPTURE_RETRIED';
 
 const CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
@@ -17,6 +20,12 @@ export function captureWarnings({ lazyImages, unloaded }) {
 // The fields to spread into a capture result. No warning adds nothing.
 export function warningFields(warnings) {
 	return warnings.length ? { warnings } : {};
+}
+
+// A copy of the entry with one more warning. A warning with the same code is replaced. The entry's valid warnings stay.
+export function withWarning(entry, warning) {
+	const kept = sanitizeWarnings(entry.warnings).filter((item) => item.code !== warning.code);
+	return { ...entry, warnings: [...kept, { code: warning.code, count: Math.min(warning.count, WARNING_COUNT_LIMIT) }] };
 }
 
 // The valid warnings of a stored capture. Any bad shape gives an empty list: the field is not a list,
@@ -72,6 +81,24 @@ export function warningLine(run) {
 		images += item.count;
 	}
 	return cells ? `Warning ${LAZY_IMAGES_NOT_SWEPT}: ${cells} ${cells === 1 ? 'capture holds' : 'captures hold'} lazy images that did not load (${images} in all). Set settle.lazyImages to true to load them.` : null;
+}
+
+// The stderr lines of the `capture` command, one for each code that the run holds (R5.11, R5.13, R5.14).
+// Each starts with `Warning <CODE>:`. No line names a page or a URL.
+export function captureWarningLines(run) {
+	const lines = [];
+	const lazy = warningLine(run);
+	if (lazy) lines.push(lazy);
+	const captures = run?.captures ?? [];
+	const count = (code) => captures.reduce((sum, capture) => sum + (sanitizeWarnings(capture.warnings).some((item) => item.code === code) ? 1 : 0), 0);
+	const kept = count(REFERENCE_KEPT);
+	if (kept) lines.push(`Warning ${REFERENCE_KEPT}: ${kept} of ${captures.length} captures come from earlier runs. They are not new measurements.`);
+	const retried = captures.filter((capture) => sanitizeWarnings(capture.warnings).some((item) => item.code === CAPTURE_RETRIED));
+	if (retried.length) {
+		const tries = retried.reduce((sum, capture) => sum + sanitizeWarnings(capture.warnings).find((item) => item.code === CAPTURE_RETRIED).count, 0);
+		lines.push(`Warning ${CAPTURE_RETRIED}: ${retried.length} ${retried.length === 1 ? 'capture needed' : 'captures needed'} a retry (${tries} ${tries === 1 ? 'retry' : 'retries'} in all). The page may be flaky.`);
+	}
+	return lines;
 }
 
 // The header sentence of the viewer (DESIGN.md "Scope line", #329). It takes the list of `warningTotals`, the same

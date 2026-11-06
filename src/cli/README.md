@@ -13,5 +13,6 @@ Output is JSON. Errors go to stderr. The binary reads its package version.
 Dependencies load only when dispatch runs the selected command.
 
 `capture --packs` (R13.51) is a flag without a value. It runs the packs of the `packs` key on the open page. The output adds `packs` (`selected`, `skipped`) when the flag is set. See `src/capture/README.md`.
+`capture --retries N` (R5.14) takes an integer from 0 to 2 (default 0). It tries a failed cell again, only for a transient error (`src/capture/retry.js`). `run`, `before` and `after` do not take it.
 
 `import --side <id>` (R4.6) imports the supplied images of a design side into a run. It takes `--config`, `--label`, `--target` and `--viewport`, prints one line with `id`, `state`, `images` and `manifestPath`, and opens no browser and no network connection. See `src/design/README.md`.
