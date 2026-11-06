@@ -3,7 +3,7 @@ import { resolve, dirname } from 'node:path';
 import { normalizeConfig } from './normalize.js';
 
 export { normalizeConfig } from './normalize.js';
-export { captureSettings, settingsHash } from './settings.js';
+export { captureSettings, designSettings, settingsHash } from './settings.js';
 
 export async function loadConfig(path) {
   const configPath = resolve(path);

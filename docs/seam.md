@@ -40,7 +40,8 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | --- | --- | --- | --- | --- |
 | `schemaVersion` | number | none | yes | Must be `1`. |
 | `sides` | object | none | yes | 1 to 20 entries. A key is a safe ID (`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`). |
-| `sides.<id>.origin` | string | none | yes | An HTTP origin with no path or credentials. Local unless `remote` is `true`. |
+| `sides.<id>.origin` | string | none | yes, for a browser side | An HTTP origin with no path or credentials. Local unless `remote` is `true`. A design side has none (the next row). |
+| `sides.<id>.kind`, `provider`, `root` | string, string, string | none | no | R5.5. `kind: "design"` makes a side of supplied images: `provider` is `files` (the one value) and `root` is a plain relative directory. It takes no other key and has no origin. Not in the capture settings hash. An addition: old input passes. Added after 1.1.0. The owner confirmed it on 2026-11-06 (#288). |
 | `sides.<id>.remote` | boolean | `false` | no | R3.3. Added in 0.5.0. |
 | `sides.<id>.userAgent` | string | the Playwright default | no | R3.4. Only with `remote: true`. 1 to 512 printable ASCII characters. Not in the capture settings hash. Added in 1.0.0-rc.6. |
 | `sides.<id>.challenge` | string | none | no | R3.5. Only with `remote: true`. The one value is `"cloudflare"`. Not in the capture settings hash. Added in 1.0.0-rc.7. |
@@ -54,6 +55,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `targets[].title` | string | the `id` | no | |
 | `targets[].path` | string | none | one of | Origin-relative path. Every side needs `path` or a `paths` entry. |
 | `targets[].paths` | object | none | one of | Path for each side ID. |
+| `targets[].design` | object | none | no | R5.5. Viewport ID to a PNG path under the `root` of a design side. Needs a design side. A design side needs no target path. Not in the capture settings hash. An addition. The owner confirmed it on 2026-11-06 (#288). |
 | `targets[].selector` | string or list | none | no | CSS selector, or 1 to 50 unique selectors. |
 | `targets[].box` | string | none | no | `border` or `content`. Needs `selector`. |
 | `targets[].settle`, `targets[].settleBySide` | object | none | no | Partial settle recipe, for all sides or for one side. |
@@ -112,6 +114,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | Command | Required input | Marking | Reason |
 | --- | --- | --- | --- |
 | `capture` | `--side` (`--config`, `--label`, `--artifacts`, `--target`, `--viewport`, `--packs`) | Frozen | R4.1. Shipped in 0.1.0. Exit 0 when the run is `complete`, otherwise 1. `--target` and `--viewport` are additions (R4.5): they select cells, record `selection` in `run.json` and change no hash. `--packs` is an addition in 1.1 (R13.51, owner decision of 2026-11-04, #231). It is a flag without a value. It runs the packs of the `packs` key on the open page. It is refused on a remote side. Without it nothing changes. |
+| `import` | `--side` (`--config`, `--label`, `--target`, `--viewport`) | Frozen (decided) | R4.6. Imports the supplied images of a design side into an immutable run. No browser and no network. Output is one line of JSON: `id`, `state`, `images`, `manifestPath`. Exit 0 on a complete run, 1 on any error. The owner confirmed the name on 2026-11-06 (#288). |
 | `diff` | `RUN_A RUN_B --output` (`--config`, `--kind`, `--checks`, `--fail-on-budget`, `--target`, `--viewport`) | Frozen | R4.1. Shipped in 0.1.0. `--kind` takes the six pair kinds of specification section 3. `--target` and `--viewport` are additions (R4.5): they filter the pair and the report records them in `meta.scope`. |
 | `summary` | `REPORT` (`--max-targets`, `--filter`, `--target`) | Frozen for name and flags. Output shape not frozen | R11.1 to R11.6. R11.6 returns `pair` today. It adds the `subject` key only when subject reports exist (`schemaVersion` 3). Addition in 1.1: `droppedRequestCount`, `droppedWarnings`, `droppedWarningsOmitted` and `droppedNotListed`, present only when a `font` or `stylesheet` request was aborted or a list was cut (R3.8). Addition: `skipped`, present only when the report skipped a cell (R4.5). |
 | `serve` | `REPORT` (`--port`) | Frozen | Shipped in 0.1.0. Loopback server (`docs/usage.md`). |
@@ -206,6 +209,7 @@ Source of truth: the `schemaVersion` literals in `src/` (grep, 2026-10-19), `doc
 | Report `report.json` (`src/compare/runs.js`, `src/report/model.js`) | 3 | Not frozen | The code writes version 3 (#230). Version 3 is not additive: `pair` becomes optional (R9.1, R9.7). A reader of version 2 rejects version 3. `adaptReport` reads versions 1, 2 and 3. The optional field `runs[].noFixture` (IDs of styleguide components with no fixture) is an addition. |
 | Content snapshot (`src/content/snapshot.js`) and content comparison sidecar (`src/content/compare.js`) | 1 | Frozen | The extractor and check versions guard them (R7.4). |
 | Optional addition to `run.json` capture entries and `report.json` rows, 1.1 | 2 (run), 3 (report) | Frozen | Optional addition to a frozen version (an optional key is not a break). `dropped` (and `droppedOmitted`) on a capture, `dropped: {a, b, omitted?}` on a report row. Absent when no request was aborted. R3.8. |
+| Optional addition to `run.json` capture entries, after 1.1.0 | 2 (run) | Frozen (decided) | Optional addition to a frozen version. `design: { provider, source, importedAt, sha256, width, height }` on a capture of a design run (R4.6). Absent on a browser capture. A design run has `settings.sides.<side>.kind` of `design`. The report schema does not change (R8.15). The owner confirmed it on 2026-11-06 (#288). |
 | Workflow state (`src/workflow/index.js`) | 1 | Experimental | It sits in the store. The store belongs to the experimental workflow commands. |
 
 What `schemaVersion` 3 adds (R9.7 to R9.11, ADR 0004, #230). None of it is frozen:

@@ -2,7 +2,7 @@
 
 The command line and the exit codes. One table of commands. Spec section 4, section 11.
 
-Commands are capture, diff, summary and serve. Help lists their flags.
+Commands are capture, import, diff, summary and serve. Help lists their flags.
 Capture and diff default to `test-kit.config.json` in the working directory.
 Diff requires an explicit output directory, relative to the config directory.
 Summary and serve accept an explicit report path.
@@ -13,3 +13,5 @@ Output is JSON. Errors go to stderr. The binary reads its package version.
 Dependencies load only when dispatch runs the selected command.
 
 `capture --packs` (R13.51) is a flag without a value. It runs the packs of the `packs` key on the open page. The output adds `packs` (`selected`, `skipped`) when the flag is set. See `src/capture/README.md`.
+
+`import --side <id>` (R4.6) imports the supplied images of a design side into a run. It takes `--config`, `--label`, `--target` and `--viewport`, prints one line with `id`, `state`, `images` and `manifestPath`, and opens no browser and no network connection. See `src/design/README.md`.
