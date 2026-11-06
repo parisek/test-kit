@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { loadBehaviorSource } from '../behavior/source.js';
 import { normalizeConfig } from '../config/index.js';
 import { selectConfig } from './selection.js';
+import { DEFAULT_STORE } from '../config/store.js';
 export { selectConfig } from './selection.js';
 const execute = promisify(execFile);
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -26,7 +27,7 @@ async function save(path, value) {
 }
 export function resolveStore(options = {}) {
   const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
-  const store = options.store ?? '.test-kit';
+  const store = options.store ?? DEFAULT_STORE;
   if (typeof store !== 'string' || store.startsWith('/') || /[\\\x00-\x1f]/.test(store) || store.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('The store must be a plain relative path.');
   return resolve(configDir, store);
 }

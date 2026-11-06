@@ -10,6 +10,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- The default store is `test-kit/` (was `.test-kit/`) and the `runsRoot` default is `test-kit/runs` (was `.test-kit/runs`). The owner allowed this as a one-time exception to the freeze rule in the minor release 1.2.0 (`docs/seam.md`, R12.1, #312). The folder has no leading dot, so a web server that denies dot-directories can serve it. Migration: delete the old `.test-kit/` by hand. A command never reads, moves or deletes it. An explicit `runsRoot` or `--store` keeps working unchanged. Old baselines are not carried over, so run `before` again. A command prints one line on stderr when it uses the default store and finds an old `.test-kit/` beside the configuration.
 - The content extractor stores `hidden: true` on each hidden heading, and the `heading-outline` message names hidden headings. The finding set stays the full DOM outline, so nothing is suppressed (R7.5, #83). The extractor version rises to `1.1.0` (R7.4). A content snapshot from an earlier extractor is refused, so capture the content again before you compare.
 
 ## [1.1.0] - 2026-11-06

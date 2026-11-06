@@ -32,7 +32,7 @@ test('DDEV rejects remote origins and store rejects traversal', () => {
 });
 test('run retains partial evidence without making a comparison', async t => {
  const { dir, options } = await fixture(t); let runtime;
- const result = await runWorkflow('run', options, { capture: async input => { runtime = input.configPath; assert.equal(join(dir, '.test-kit', 'runs'), join(dir, JSON.parse(await readFile(runtime)).runsRoot)); return { run: { id: 'partial-1', state: 'partial' }, manifestPath: 'evidence' }; }, summarizeRunFeedback: async () => ({ state: 'incomplete' }), compareRuns: () => assert.fail('No fabricated pair') });
+ const result = await runWorkflow('run', options, { capture: async input => { runtime = input.configPath; assert.equal(join(dir, 'test-kit', 'runs'), join(dir, JSON.parse(await readFile(runtime)).runsRoot)); return { run: { id: 'partial-1', state: 'partial' }, manifestPath: 'evidence' }; }, summarizeRunFeedback: async () => ({ state: 'incomplete' }), compareRuns: () => assert.fail('No fabricated pair') });
  assert.equal(result.exitCode, 1); assert.equal(result.output.id, 'partial-1'); assert.equal((await readdir(dir)).some(name => name.includes('runtime')), false);
 });
 test('baseline scopes and lockfile policy prevent an unrelated after run', async t => {
@@ -50,12 +50,12 @@ test('partial baseline keeps the old baseline and partial after retains report',
  let a;
  const result = await runWorkflow('after', options, { capture: async () => ({ run: { id: 'after-1', state: 'partial' } }), compareRuns: async input => { a = input.runA; return { reportPath: join(input.outputDir, 'report.json') }; } });
  assert.equal(a, 'before-1'); assert.equal(result.exitCode, 1);
- const state = JSON.parse(await readFile(join(dir, '.test-kit/state.json'))); assert.equal(state.report, 'reports/after-1/report.json');
+ const state = JSON.parse(await readFile(join(dir, 'test-kit/state.json'))); assert.equal(state.report, 'reports/after-1/report.json');
 });
 test('store lock rejects another writer and is preserved', async t => {
- const { dir, options } = await fixture(t); await mkdir(join(dir, '.test-kit/lock'), { recursive: true });
+ const { dir, options } = await fixture(t); await mkdir(join(dir, 'test-kit/lock'), { recursive: true });
  await assert.rejects(runWorkflow('run', options), /already owns/);
- assert.ok((await readdir(join(dir, '.test-kit'))).includes('lock'));
+ assert.ok((await readdir(join(dir, 'test-kit'))).includes('lock'));
 });
 test('DDEV is opt-in and runtime preserves relative source paths', async t => {
  const { dir, options } = await fixture(t);
@@ -75,11 +75,11 @@ test('--ddev inside the DDEV container explains where to run it (#238)', { skip:
 });
 test('report does not start capture and rejects a path as a report ID', async t => {
  const { dir, options } = await fixture(t);
- await mkdir(join(dir, '.test-kit/reports/run-1'), { recursive: true });
- await writeFile(join(dir, '.test-kit/reports/run-1/report.json'), '{}');
+ await mkdir(join(dir, 'test-kit/reports/run-1'), { recursive: true });
+ await writeFile(join(dir, 'test-kit/reports/run-1/report.json'), '{}');
  let path;
  const result = await runWorkflow('report', { ...options, run: 'run-1' }, { serve: async input => { path = input.reportPath; return { origin: 'http://127.0.0.1:4567' }; } });
- assert.equal(path, join(dir, '.test-kit/reports/run-1/report.json')); assert.equal(result.exitCode, 0);
+ assert.equal(path, join(dir, 'test-kit/reports/run-1/report.json')); assert.equal(result.exitCode, 0);
  await assert.rejects(runWorkflow('report', { ...options, run: '../outside' }), /Invalid report ID/);
 });
 
@@ -89,23 +89,23 @@ test('history store and report reject symlink escapes', async t => {
  t.after(() => rm(outside, { recursive: true, force: true }));
  await symlink(outside, join(dir, 'linked'));
  await assert.rejects(ensureStore({ ...options, store: 'linked/data' }), /symbolic links/);
- await mkdir(join(dir, '.test-kit/reports'), { recursive: true });
+ await mkdir(join(dir, 'test-kit/reports'), { recursive: true });
  await writeFile(join(outside, 'report.json'), '{}');
- await symlink(outside, join(dir, '.test-kit/reports/run-1'));
+ await symlink(outside, join(dir, 'test-kit/reports/run-1'));
  await assert.rejects(runWorkflow('report', { ...options, run: 'run-1' }), /escapes/);
 });
 
 test('report export calls the exporter without starting a server', async t => {
  const { dir, options } = await fixture(t);
- await mkdir(join(dir, '.test-kit/reports/run-1'), { recursive: true });
- await writeFile(join(dir, '.test-kit/reports/run-1/report.json'), '{}');
+ await mkdir(join(dir, 'test-kit/reports/run-1'), { recursive: true });
+ await writeFile(join(dir, 'test-kit/reports/run-1/report.json'), '{}');
  let exported;
  const result = await runWorkflow('report', { ...options, run: 'run-1', export: 'test-kit-export' }, {
    serve: async () => { throw new Error('A server must not start.'); },
    exportReport: async input => { exported = input; return { outputPath: input.outputDir, files: ['index.html'] }; },
  });
  assert.equal(exported.outputDir, join(dir, 'test-kit-export'));
- assert.equal(exported.reportPath, join(dir, '.test-kit/reports/run-1/report.json'));
+ assert.equal(exported.reportPath, join(dir, 'test-kit/reports/run-1/report.json'));
  assert.equal(result.exitCode, 0);
  assert.equal(result.output.url, undefined);
 });
