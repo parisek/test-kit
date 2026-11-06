@@ -76,10 +76,23 @@ export async function settlePage({ page, recipe, active = () => true }) {
 }
 
 // R5.11: the count of visible lazy images that are not loaded. Read only: it changes nothing on the page.
+// With a `selector` (a string or a list), it counts the images inside the first match of each selector, each image once.
 // A read that fails gives 0, so a warning never fails a capture.
-export async function countUnloadedLazyImages(page) {
+export async function countUnloadedLazyImages(page, selector) {
+  const handles = [];
   try {
-    const count = await page.evaluate(() => [...document.images].filter(image => image.loading === 'lazy' && !image.complete && image.getClientRects().length > 0).length);
+    let count;
+    if (selector === undefined) count = await page.evaluate(() => [...document.images].filter(image => image.loading === 'lazy' && !image.complete && image.getClientRects().length > 0).length);
+    else {
+      for (const value of Array.isArray(selector) ? selector : [selector]) handles.push(await page.locator(value).first().elementHandle({ timeout: 1000 }));
+      count = await page.evaluate(elements => {
+        const found = new Set();
+        for (const element of elements) for (const image of element.localName === 'img' ? [element] : element.querySelectorAll('img')) {
+          if (image.loading === 'lazy' && !image.complete && image.getClientRects().length > 0) found.add(image);
+        }
+        return found.size;
+      }, handles);
+    }
     return Number.isSafeInteger(count) && count > 0 ? count : 0;
-  } catch { return 0; }
+  } catch { return 0; } finally { for (const handle of handles) await handle.dispose().catch(() => {}); }
 }
