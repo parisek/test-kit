@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- `test-kit history --prune [--keep N] [--yes]` removes old runs on request (R12.5, #161). The default `--keep` is 20 runs for each side. Without `--yes` it lists what it would remove and removes nothing. It orders runs by the time in `run.json`. It keeps a run that a report or a baseline names, and a run with no readable time or side. It works only in a store with the `.test-kit-viewer` marker, refuses symbolic links, removes only `runs/<id>/`, stops at the first failed removal, prints one JSON line and refreshes the store viewer. It does not read a published `index.json` (open question 11). Nothing deletes automatically. The owner approved the flag on the frozen command `history` on 2026-11-06.
+
 ### Changed
 
 - `before` and `after` in the scoped workflow give every pair of sides a report kind (R3.11, #324). The same local side gives `update`. The same remote side gives `deploy` (it gave `update`). A remote side then a local side gives `migration`. Any other pair of different sides gives `adhoc` (it stopped `after` with an error). A second `before` with another side replaces the first baseline. Migration: a rule with `kinds: ["update"]` no longer applies to a pair of the same remote side. Add `deploy` to its `kinds`. A `known_diffs` record for such a pair may need to be recorded again, because a rule it names may not apply. The owner decided this on 2026-11-06 (#324).
