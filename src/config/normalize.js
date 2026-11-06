@@ -111,7 +111,7 @@ function freeze(value) {
 // R13.3: `targetSource` reads component targets from the styleguide catalogue of one side.
 // Validation is pure: it reads no network and imports no styleguide code (R4.4, R13.4).
 function normalizeTargetSource(value, sides) {
-  object(value, 'targetSource', ['source', 'side', 'mount', 'include']);
+  object(value, 'targetSource', ['source', 'side', 'mount', 'include', 'variants', 'pages']);
   if (value.source !== 'styleguide') fail('targetSource.source must be "styleguide"');
   const side = id(value.side, 'targetSource.side');
   if (!Object.hasOwn(sides, side)) fail(`targetSource.side has unknown side ${side}`);
@@ -123,6 +123,12 @@ function normalizeTargetSource(value, sides) {
     const include = dense(list(value.include, 'targetSource.include', MAX_COMPONENTS, 1), 'targetSource.include').map(item => id(item, 'targetSource.include ID'));
     unique(include, 'targetSource.include');
     result.include = include;
+  }
+  // R13.52: the variants of an entry and the page previews are opt-in. Absent means false.
+  for (const key of ['variants', 'pages']) {
+    if (value[key] === undefined) continue;
+    if (typeof value[key] !== 'boolean') fail(`targetSource.${key} must be a boolean`);
+    if (value[key]) result[key] = true;
   }
   return result;
 }
