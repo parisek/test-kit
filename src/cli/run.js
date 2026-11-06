@@ -167,13 +167,34 @@ async function dispatch({ command, positions, options }) {
   const result = await serve({ reportPath: positions[0], port: options.port ?? 0 });
   return { output: { url: result.origin }, exitCode: 0 };
 }
+const STORE_COMMANDS = ['run', 'before', 'after', 'report', 'history'];
+const RUNSROOT_COMMANDS = ['capture', 'import', 'diff'];
+// One line per invocation when the default store is in use and an old `.test-kit/` sits beside the config (#312).
+async function legacyNotice({ command, options }) {
+  try {
+    const usesStore = STORE_COMMANDS.includes(command) || (command === 'perf' && (options.ddev || options.store || options.path));
+    if (!usesStore && !RUNSROOT_COMMANDS.includes(command) && command !== 'perf') return null;
+    const { resolve, dirname } = await import('node:path');
+    const { readFile } = await import('node:fs/promises');
+    const { legacyStoreNotice } = await import('../config/store.js');
+    const configPath = resolve(options.config ?? 'test-kit.config.json');
+    let explicit = options.store !== undefined;
+    if (!usesStore && !explicit) {
+      try { explicit = Object.hasOwn(JSON.parse(await readFile(configPath, 'utf8')), 'runsRoot'); } catch { return null; }
+    }
+    return await legacyStoreNotice(dirname(configPath), { explicit });
+  } catch { return null; }
+}
 // Unit tests inject dispatch. Dependencies load only for the selected command.
 export async function run(argv, { out, err }, version = '0.0.0', execute = dispatch) {
   if (!argv.length || argv.length === 1 && ['-h', '--help'].includes(argv[0])) { out.write(HELP); return 0; }
   if (argv.length === 1 && ['-v', '--version'].includes(argv[0])) { out.write(`${version}\n`); return 0; }
   if (argv.length === 2 && Object.hasOwn(COMMANDS, argv[0]) && ['-h', '--help'].includes(argv[1])) { out.write(HELP); return 0; }
   try {
-    const result = await execute(parseCommand(argv));
+    const parsed = parseCommand(argv);
+    const notice = await legacyNotice(parsed);
+    if (notice) err.write(`${notice}\n`);
+    const result = await execute(parsed);
     out.write(`${JSON.stringify(result.output)}\n`);
     for (const line of result.stderr ?? []) err.write(`${line}\n`);
     return result.exitCode;

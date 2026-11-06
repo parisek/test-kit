@@ -65,3 +65,22 @@ test('a fresh store gets a .gitignore with * and an existing one stays untouched
   assert.equal(await readFile(join(store, '.gitignore'), 'utf8'), 'custom\n');
   assert.deepEqual((await readdir(store)).filter(name => name.endsWith('.tmp')), []);
 });
+
+test('the CLI prints the legacy notice once, and not for an explicit store or runsRoot', async t => {
+  const { run } = await import('../../src/cli/run.js');
+  const dir = await project(t);
+  const config = join(dir, 'test-kit.config.json');
+  await writeFile(config, JSON.stringify(base));
+  await mkdir(join(dir, '.test-kit', 'runs'), { recursive: true });
+  const past = new Date('2020-01-01T00:00:00Z');
+  await utimes(join(dir, '.test-kit'), past, past);
+  const before = (await stat(join(dir, '.test-kit'))).mtimeMs;
+  const call = async argv => { const err = []; await run(argv, { out: { write() {} }, err: { write: v => err.push(v) } }, '0', async () => ({ output: {}, exitCode: 0 })); return err; };
+  assert.equal((await call(['before', '--config', config])).filter(line => /no longer used/.test(line)).length, 1);
+  assert.equal((await call(['history', '--config', config, '--store', '.test-kit'])).length, 0);
+  assert.equal((await call(['before', '--config', config, '--store', 'other'])).length, 0);
+  await writeFile(config, JSON.stringify({ ...base, runsRoot: '.test-kit/runs' }));
+  assert.equal((await call(['capture', '--side', 'local', '--config', config])).length, 0);
+  assert.equal((await stat(join(dir, '.test-kit'))).mtimeMs, before);
+  assert.deepEqual(await readdir(join(dir, '.test-kit')), ['runs']);
+});
