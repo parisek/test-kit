@@ -2,6 +2,7 @@
 // A synthetic styleguide (example-site data only) serves a component list and one render page for each component.
 // It checks R13.3: one target for each component, a self-baseline pair, a removed component, an unknown component
 // and a component with no fixture (skipped, listed, no request).
+// It also checks the opt-in variant and page targets (R13.52): one target for each variant and page, the variant query in the render URL.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { mkdtemp, writeFile, readFile, readdir, rm } from 'node:fs/promises';
@@ -14,14 +15,21 @@ import { summarizeReport } from '../../src/query/summary.js';
 const colors = { button: '#c00', card: '#0a0', banner: '#00c' };
 let catalogue = [];
 let colorOf = { ...colors };
+let pageCatalogue = [];
+const variantColor = { 'button/dark': '#222', 'home/': '#eee', 'home/empty': '#ddd' };
 const requests = [];
 const site = createServer((request, response) => {
   const url = new URL(request.url, 'http://localhost');
   requests.push(url.pathname);
   const send = (status, type, body) => { response.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' }); response.end(body); };
   if (url.pathname === '/styleguide/api/components') return send(200, 'application/json', JSON.stringify(catalogue));
+  if (url.pathname === '/styleguide/api/pages') return send(200, 'application/json', JSON.stringify(pageCatalogue));
+  const pageMatch = /^\/styleguide\/render\/page\/([a-z-]+)$/.exec(url.pathname);
+  if (pageMatch && variantColor[`${pageMatch[1]}/${url.searchParams.get('variant') ?? ''}`]) return send(200, 'text/html', `<!doctype html><title>${pageMatch[1]}</title><style>html,body{margin:0}div{width:200px;height:90px;background:${variantColor[`${pageMatch[1]}/${url.searchParams.get('variant') ?? ''}`]}}</style><div></div>`);
   const match = /^\/styleguide\/render\/component\/([a-z-]+)$/.exec(url.pathname);
-  if (match && colorOf[match[1]]) return send(200, 'text/html', `<!doctype html><title>${match[1]}</title><style>html,body{margin:0}div{width:160px;height:80px;background:${colorOf[match[1]]}}</style><div></div>`);
+  const variant = url.searchParams.get('variant');
+  const color = match && (variant ? variantColor[`${match[1]}/${variant}`] : colorOf[match[1]]);
+  if (color) return send(200, 'text/html', `<!doctype html><title>${match[1]}</title><style>html,body{margin:0}div{width:160px;height:80px;background:${color}}</style><div></div>`);
   send(404, 'text/plain', 'Not found');
 });
 await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
@@ -100,6 +108,39 @@ try {
   await writeFile(configPath, config());
   catalogue = [entry('card'), { id: '../x' }];
   await assert.rejects(capture({ configPath, side: 'styleguide' }), /no usable ID/);
+
+  // R13.52: variants and pages are opt-in. Without the keys the run above stays as it was.
+  colorOf = { ...colors };
+  catalogue = [{ ...entry('button'), has_default_variant: true, variants: [{ id: 'dark', title: 'Dark' }] }, entry('card')];
+  pageCatalogue = [{ id: 'home', name: 'Home', has_styleguide: true, has_default_variant: true, variants: [{ id: 'empty', title: 'Empty' }] }, { id: 'blog', name: 'Blog', has_styleguide: false }];
+  await writeFile(configPath, config());
+  assert.deepEqual((await capture({ configPath, side: 'styleguide' })).run.settings.targets.map(target => target.id), ['button', 'card'], 'No variants and no pages without the keys.');
+  await writeFile(configPath, config({ variants: true, pages: true }));
+  requests.length = 0;
+  const v = await capture({ configPath, side: 'styleguide' });
+  assert.deepEqual(v.run.settings.targets.map(target => [target.id, target.kind]), [['button', 'component'], ['button--dark', 'component'], ['card', 'component'], ['page--home', 'page'], ['page--home--empty', 'page']]);
+  assert.equal(v.run.state, 'complete');
+  assert.equal(v.run.captures.length, 10);
+  for (const row of v.run.captures) assert.equal(row.state, 'captured', JSON.stringify(row));
+  assert.deepEqual(v.run.targetSource.noFixture, ['page--blog']);
+  assert.equal(requests.some(url => url.includes('/blog')), false, 'No request goes to a page with no fixture.');
+  assert.deepEqual(v.run.settings.targets.find(target => target.id === 'button--dark').path, '/styleguide/render/component/button?canvas&variant=dark');
+  const w = await capture({ configPath, side: 'styleguide' });
+  const withVariants = await compareRuns({ runsRoot, runA: v.run.id, runB: w.run.id, outputDir: join(directory, 'variants'), kind: 'self-baseline' });
+  assert.deepEqual(withVariants.report.entries.map(entry => entry.id), ['button', 'button--dark', 'card', 'page--home', 'page--home--empty']);
+  assert.deepEqual(withVariants.report.entries.map(entry => entry.kind), ['component', 'component', 'component', 'page', 'page']);
+  assert.equal(summarizeReport(withVariants.report).verdict, 'match');
+  // A variant renders its own file: a changed variant changes only that target.
+  variantColor['button/dark'] = '#900';
+  const x = await capture({ configPath, side: 'styleguide' });
+  const changedVariant = await compareRuns({ runsRoot, runA: v.run.id, runB: x.run.id, outputDir: join(directory, 'variant-changed'), kind: 'self-baseline' });
+  const ratio = id => changedVariant.report.entries.find(entry => entry.id === id).viewports.map(row => row.artifacts.screenshot.diff.ratio);
+  assert.ok(ratio('button--dark').every(value => value > 0));
+  assert.ok(ratio('button').every(value => value === 0));
+  // --target selects one variant, and an unknown variant stops the capture before a run exists.
+  assert.deepEqual((await capture({ configPath, side: 'styleguide', targets: ['button--dark'] })).run.selection, { targets: ['button--dark'] });
+  await writeFile(configPath, config({ variants: true, pages: true, include: ['button--gone'] }));
+  await assert.rejects(capture({ configPath, side: 'styleguide' }), /no component "button--gone"/);
 
   const stored = JSON.parse(await readFile(a.manifestPath, 'utf8'));
   assert.equal(stored.settings.targets.length, 3);
