@@ -6,9 +6,12 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- The viewer lists the allowlist entries of a target in its Checks list, beside the overrides, with status, reason, owner, expiry and a short fingerprint. An unexplained absolute finding gets a fifth action, "Allowlist entry", that copies the `record-allowed` command with `--fingerprint` set to the finding's `evidenceFingerprint`. A finding with no fingerprint gets no text. Copying records nothing (R9.12, R5.3, #331).
 - The viewer shows capture warnings (R5.11, #329). The report header line gets a last sentence, "Capture warnings: LAZY_IMAGES_NOT_SWEPT in 3 cells (12 in all).", and each cell shows "A: LAZY_IMAGES_NOT_SWEPT (7) · B: none" in the Overview matrix and on Evidence. The numbers equal the `captureWarnings` of `summary`. A warning adds no badge, no filter and no class.
 - `record-allowed --fingerprint HASH` selects the one finding with this `evidenceFingerprint` when several match. It refuses a value that is not a hash and a value that matches no finding. The error for several matches names the option (R9.12, #331).
 - `record-allowed` refuses the check `lighthouse-budget`. A budget finding has no fingerprint, stays `unexplained`, and a budget changes in the config. The rule is now in R9.8 and R9.12 (owner decision, #331).
+
+- The `figma` provider of a design side: `{ kind: "design", provider: "figma", fileKey }`, with a node ID for each viewport in `targets[].design`. `import` exports each node as PNG at the viewport device scale and writes the same run as the `files` provider, with `fileKey` and `scale` in the provenance. It is opt-in and an exception to N3, G5 and vision principle 4. The token comes from `FIGMA_TOKEN` only. The network is used only during `import`, only to the Figma API and its image storage. A missing token fails before any request. Image URLs must be https on a Figma host. No redirect, no retry, bounded time and size. Tests use a local mock server only; nothing was run against Figma yet (R4.6, R5.5, #288).
 
 ### Changed
 

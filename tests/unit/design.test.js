@@ -47,12 +47,12 @@ test('config: a design side and a design map normalize, and the result is frozen
   assert.throws(() => { config.targets[0].design.desktop = 'x.png'; }, TypeError);
 });
 
-test('config: a design side has no origin and no browser keys, and only the files provider (R8.15)', () => {
+test('config: a design side has no origin and no browser keys, and only a known provider (R8.15)', () => {
   const side = extra => ({ ...designConfig(), sides: { design: { kind: 'design', provider: 'files', root: 'refs', ...extra }, local: { origin: 'http://localhost:8080' } } });
   assert.throws(() => normalizeConfig(side({ origin: 'http://localhost:8080' })), /origin is unsupported/);
   assert.throws(() => normalizeConfig(side({ remote: true })), /remote is unsupported/);
-  assert.throws(() => normalizeConfig(side({ provider: 'figma' })), /provider must be "files"/);
-  assert.throws(() => normalizeConfig(side({ provider: undefined })), /provider must be "files"/);
+  assert.throws(() => normalizeConfig(side({ provider: 'other' })), /provider must be "files" or "figma"/);
+  assert.throws(() => normalizeConfig(side({ provider: undefined })), /provider must be "files" or "figma"/);
   assert.throws(() => normalizeConfig(side({ root: undefined })), /root/);
   assert.throws(() => normalizeConfig(side({ root: '../outside' })), /root must be a plain relative path/);
   assert.throws(() => normalizeConfig(side({ root: '/abs' })), /root must be a plain relative path/);
