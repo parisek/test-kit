@@ -3,6 +3,7 @@ import { dirname, join, relative, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { historyEvidencePath, scanHistory } from '../history/index.js';
+import { writeIfAbsent } from '../config/store.js';
 import { boundedRead } from '../server/files.js';
 import { buildPublishIndex } from './index-file.js';
 import { prepareReportEvidence } from './report.js';
@@ -13,6 +14,8 @@ import { prepareReportEvidence } from './report.js';
 const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
 export const VIEWER_FILES = ['index.html', 'app.js', 'style.css', 'favicon.svg'];
 // A static server sends these as active content. Publish renames them to inert names. The store viewer cannot.
+export const VIEWER_MARKER = '.test-kit-viewer';
+const MARKER_BODY = `${JSON.stringify({ tool: 'test-kit', kind: 'store-viewer', schemaVersion: 1 })}\n`;
 const ACTIVE = /\.(?:html?|xhtml|svg|js|mjs)$/i;
 const ROUNDS = 4;
 
@@ -28,6 +31,18 @@ async function writeAtomic(fs, path, bytes) {
     await fs.writeFile(temporary, bytes, { flag: 'wx' });
     await fs.rename(temporary, path);
   } finally { await fs.rm(temporary, { force: true }).catch(() => {}); }
+}
+
+// The marker says the viewer wrote the files here. A store with a viewer file name and no marker is not ours:
+// write nothing. Returns a warning in that case, else null. The marker is written before the first viewer file.
+async function claimStore(fs, store) {
+  try { await fs.lstat(join(store, VIEWER_MARKER)); return null; } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  for (const name of [...VIEWER_FILES, 'index.json']) {
+    try { await fs.lstat(join(store, name)); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+    return `test-kit: warning: store ${store} holds files the viewer did not write; the viewer was not written.`;
+  }
+  await writeIfAbsent(join(store, VIEWER_MARKER), MARKER_BODY, { fs });
+  return null;
 }
 
 async function copyViewer(fs, store) {
@@ -90,6 +105,8 @@ export async function refreshStoreViewer({ store, now = new Date(), fs: seam } =
   const fs = { ...nodeFs, ...seam };
   const root = await nodeFs.realpath(store);
   if (!(await nodeFs.stat(root)).isDirectory()) throw new Error(`The store ${store} is not a directory.`);
+  const foreign = await claimStore(fs, root);
+  if (foreign) return { store: root, runCount: 0, reportCount: 0, unavailable: [], warnings: [foreign] };
   await copyViewer(fs, root);
   let result = await build(root, now);
   let settled = false;

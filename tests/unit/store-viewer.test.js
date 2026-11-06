@@ -179,3 +179,86 @@ test('a workflow command refreshes the viewer, and a failed refresh is only a wa
   assert.equal(broken.exitCode, 0);
   assert.match(broken.stderr.join(''), /not refreshed \(boom\)/);
 });
+
+test('a report command refreshes the viewer (#312)', async t => {
+  const { runWorkflow } = await import('../../src/workflow/index.js');
+  const f = await fixture(t);
+  const config = join(f.root, 'test-kit.config.json');
+  await writeFile(config, JSON.stringify({ schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8000' } }, targets: [{ id: 'home', kind: 'page', path: '/' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }] }));
+  await f.addRun('run-a'); await f.addReport('rep-1');
+  const result = await runWorkflow('report', { config, run: 'rep-1' }, { serve: async () => ({ origin: 'http://127.0.0.1:4567' }) });
+  assert.equal(result.exitCode, 0);
+  const listing = await f.index();
+  assert.deepEqual(listing.runs.map(row => row.id), ['run-a']);
+  assert.deepEqual(listing.reports.map(row => row.id), ['rep-1']);
+});
+
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+async function designProject(t, extra = {}) {
+  const f = await fixture(t);
+  await mkdir(join(f.root, 'design'));
+  await writeFile(join(f.root, 'design/home.png'), PNG);
+  const config = join(f.root, 'test-kit.config.json');
+  await writeFile(config, JSON.stringify({ schemaVersion: 1, sides: { figma: { kind: 'design', provider: 'files', root: 'design' } }, targets: [{ id: 'home', kind: 'page', path: '/', design: { mobile: 'home.png' } }], viewports: [{ id: 'mobile', width: 1, height: 1 }], artifacts: ['screenshot'], checks: [], ...extra }));
+  return { ...f, config };
+}
+
+test('import with the default runsRoot lists the new run in index.json; an explicit runsRoot writes no viewer files (#312)', async t => {
+  const { dispatch } = await import('../../src/cli/run.js');
+  const f = await designProject(t);
+  const imported = await dispatch({ command: 'import', positions: [], options: { config: f.config, side: 'figma' } });
+  assert.equal(imported.exitCode, 0);
+  assert.deepEqual((await f.index()).runs.map(row => row.id), [imported.output.id]);
+  for (const name of VIEWER_FILES) assert.ok((await stat(join(f.store, name))).isFile(), name);
+  const own = await designProject(t, { runsRoot: 'out/runs' });
+  await dispatch({ command: 'import', positions: [], options: { config: own.config, side: 'figma' } });
+  assert.deepEqual(await readdir(join(own.root, 'out')), ['runs']);
+  assert.deepEqual(await readdir(join(own.root, 'test-kit')), []);
+});
+
+test('capture and plain perf results refresh the viewer for the default runsRoot only, and a failed refresh is a warning (#312)', async t => {
+  const { refreshDefaultStoreViewer } = await import('../../src/workflow/index.js');
+  const f = await designProject(t);
+  await f.addRun('run-a');
+  const result = { output: { id: 'run-a' }, exitCode: 1 };
+  const done = await refreshDefaultStoreViewer(result, f.config);
+  assert.deepEqual(done.output, result.output);
+  assert.equal(done.exitCode, 1);
+  assert.deepEqual((await f.index()).runs.map(row => row.id), ['run-a']);
+  const own = await designProject(t, { runsRoot: 'out/runs' });
+  assert.deepEqual(await refreshDefaultStoreViewer(result, own.config), result);
+  await assert.rejects(stat(join(own.root, 'test-kit', 'index.json')));
+  const broken = await refreshDefaultStoreViewer(result, f.config, { refreshStoreViewer: async () => { throw new Error('boom'); } });
+  assert.equal(broken.exitCode, 1);
+  assert.deepEqual(broken.output, result.output);
+  assert.match(broken.stderr.join(''), /not refreshed \(boom\)/);
+});
+
+test('a store with a foreign viewer file and no marker is left untouched; a store the viewer made keeps refreshing (#312)', async t => {
+  const f = await fixture(t);
+  await f.addRun('run-a');
+  await writeFile(join(f.store, 'index.html'), 'foreign page');
+  const result = await refreshStoreViewer({ store: f.store, now: NOW });
+  assert.match(result.warnings.join(''), /store .* holds files the viewer did not write; the viewer was not written/);
+  assert.equal(await readFile(join(f.store, 'index.html'), 'utf8'), 'foreign page');
+  assert.deepEqual((await readdir(f.store)).sort(), ['index.html', 'runs']);
+  await rm(join(f.store, 'index.html'));
+  const first = await refreshStoreViewer({ store: f.store, now: NOW });
+  assert.deepEqual(first.warnings, []);
+  assert.deepEqual(JSON.parse(await readFile(join(f.store, '.test-kit-viewer'), 'utf8')), { tool: 'test-kit', kind: 'store-viewer', schemaVersion: 1 });
+  await f.addRun('run-b', '2026-01-02T00:00:00.000Z');
+  assert.deepEqual((await refreshStoreViewer({ store: f.store, now: NOW })).warnings, []);
+  assert.deepEqual((await f.index()).runs.map(row => row.id).sort(), ['run-a', 'run-b']);
+});
+
+test('a foreign index.json alone also blocks the viewer, and deleting the store recreates marker and viewer (#312)', async t => {
+  const f = await fixture(t);
+  await writeFile(join(f.store, 'index.json'), '{"mine":true}');
+  const blocked = await refreshStoreViewer({ store: f.store, now: NOW });
+  assert.equal(blocked.warnings.length, 1);
+  assert.equal(await readFile(join(f.store, 'index.json'), 'utf8'), '{"mine":true}');
+  await rm(f.store, { recursive: true });
+  await mkdir(f.store);
+  await refreshStoreViewer({ store: f.store, now: NOW });
+  for (const name of [...VIEWER_FILES, 'index.json', '.test-kit-viewer']) assert.ok((await stat(join(f.store, name))).isFile(), name);
+});

@@ -74,7 +74,12 @@ export function parseCommand(argv) {
   if (options.port) options.port = integer(options.port, '--port', 0, 65535);
   return { command, positions, options };
 }
-async function dispatch({ command, positions, options }) {
+// capture, import and plain perf refresh the viewer when they wrote the default store (#312). diff writes only --output.
+async function refreshLowLevel(result, options) {
+  const { refreshDefaultStoreViewer } = await import('../workflow/index.js');
+  return refreshDefaultStoreViewer(result, options.config ?? 'test-kit.config.json');
+}
+export async function dispatch({ command, positions, options }) {
   if (['run', 'before', 'after', 'report'].includes(command)) {
     const { runWorkflow } = await import('../workflow/index.js');
     return runWorkflow(command, options);
@@ -112,20 +117,20 @@ async function dispatch({ command, positions, options }) {
       const { runProjectPerformance } = await import('../workflow/performance.js');
       return runProjectPerformance(options, budgets);
     }
-    return runPerfCommand({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false });
+    return refreshLowLevel(await runPerfCommand({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false }), options);
   }
   if (command === 'capture') {
     const { capture } = await import('../capture/index.js');
     const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(','), packs: options.packs === true });
     // R13.51: the output names a pack that did not run. A skipped pack is never reported as run.
     const packs = result.run.packs ? { packs: result.run.packs } : {};
-    return { output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 };
+    return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 }, options);
   }
   if (command === 'import') {
     // R4.6: no browser and no network. The images come from the root of a design side.
     const { importDesign } = await import('../design/import.js');
     const result = await importDesign({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', targets: options.target?.split(','), viewports: options.viewport?.split(',') });
-    return { output: { id: result.run.id, state: result.run.state, images: result.run.captures.length, manifestPath: result.manifestPath }, exitCode: 0 };
+    return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, images: result.run.captures.length, manifestPath: result.manifestPath }, exitCode: 0 }, options);
   }
   if (command === 'diff') {
     const { loadConfig } = await import('../config/index.js');

@@ -24,20 +24,27 @@ export async function legacyStoreNotice(configDir, { explicit, fs = { lstat } } 
 }
 
 /**
- * Write `<store>/.gitignore` with `*` when none exists, so git ignores the store even in a project that
- * forgot the ignore line. An existing file is never touched, also when one appears while this runs: the
- * content goes to a temp file, and `link` publishes it only if the name is still free (EEXIST means leave it).
+ * Write `<store>/.gitignore` with `*` when the store has none, so git ignores the store even in a project that
+ * forgot the ignore line. An existing file is never touched, also when one appears while this runs.
  * Git-ignored is not deploy-excluded: the store holds page captures, so a deploy must exclude it too.
  * `fs` overrides single `node:fs/promises` functions (a test seam).
  * @returns {Promise<boolean>} true when this call wrote the file
  */
-export async function ensureStoreIgnore(store, { fs: seam } = {}) {
+export async function ensureStoreIgnore(store, { fs } = {}) {
+  return writeIfAbsent(join(store, '.gitignore'), '*\n', { fs });
+}
+
+/**
+ * Write `content` to `target` only when the name is free, also when it becomes taken while this runs:
+ * the content goes to a temp file, and `link` publishes it only if the name is still free (EEXIST means leave it).
+ * @returns {Promise<boolean>} true when this call wrote the file
+ */
+export async function writeIfAbsent(target, content, { fs: seam } = {}) {
   const fs = { ...nodeFs, ...seam };
-  const target = join(store, '.gitignore');
   try { await fs.lstat(target); return false; } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const temporary = `${target}.${randomUUID()}.tmp`;
   try {
-    await fs.writeFile(temporary, '*\n', { flag: 'wx' });
+    await fs.writeFile(temporary, content, { flag: 'wx' });
     try { await fs.link(temporary, target); } catch (error) { if (error.code === 'EEXIST') return false; throw error; }
     return true;
   } finally { await fs.rm(temporary, { force: true }); }

@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { loadBehaviorSource } from '../behavior/source.js';
 import { normalizeConfig } from '../config/index.js';
 import { selectConfig } from './selection.js';
-import { DEFAULT_STORE, ensureStoreIgnore } from '../config/store.js';
+import { DEFAULT_STORE, DEFAULT_RUNS_ROOT, ensureStoreIgnore } from '../config/store.js';
 export { selectConfig } from './selection.js';
 const execute = promisify(execFile);
 const NO_BASELINE = 'No baseline in the store. Run before again, then run after.';
@@ -64,6 +64,21 @@ export async function refreshViewerAfter(result, dependencies = {}, storePath = 
     const refresh = dependencies.refreshStoreViewer ?? (await import('../export/store-viewer.js')).refreshStoreViewer;
     const viewer = await refresh({ store: storePath });
     return { ...result, stderr: [...(result.stderr ?? []), ...(viewer.warnings ?? [])] };
+  } catch (error) {
+    return { ...result, stderr: [...(result.stderr ?? []), `test-kit: warning: the store viewer was not refreshed (${error.message}).`] };
+  }
+}
+
+// `capture`, `import` and plain `perf` refresh the viewer only when they wrote the default store (#312),
+// the same condition as `ensureDefaultRunsIgnore`. An explicit `runsRoot` is the project's own folder.
+// A failed refresh is a warning. It never changes the result or the exit code.
+export async function refreshDefaultStoreViewer(result, configPath, dependencies = {}) {
+  try {
+    const { loadConfig } = await import('../config/index.js');
+    const loaded = await loadConfig(configPath);
+    const defaultRoot = resolve(loaded.configDir, DEFAULT_RUNS_ROOT);
+    if (loaded.runsRoot !== defaultRoot) return result;
+    return await refreshViewerAfter(result, dependencies, dirname(defaultRoot));
   } catch (error) {
     return { ...result, stderr: [...(result.stderr ?? []), `test-kit: warning: the store viewer was not refreshed (${error.message}).`] };
   }
