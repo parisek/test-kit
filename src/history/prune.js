@@ -149,7 +149,7 @@ async function scanReports(root) {
  * A failed removal stops the command. The runs after it stay.
  * @returns {Promise<{ output: object, exitCode: number }>}
  */
-export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false } = {}) {
+export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, beforeRelease } = {}) {
   parseKeep(keep);
   const root = await assertStore(local);
   // The workflow lock keeps a writer out while the command reads references and removes runs.
@@ -200,6 +200,7 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false } =
     result = { output, exitCode: output.failed ? 1 : 0 };
     return result;
   } finally {
+    if (beforeRelease) await beforeRelease(lockPath); // test seam
     const warning = await release();
     if (warning && result) result.stderr = [warning];
   }
