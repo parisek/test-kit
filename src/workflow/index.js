@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { loadBehaviorSource } from '../behavior/source.js';
 import { normalizeConfig } from '../config/index.js';
 import { selectConfig } from './selection.js';
-import { DEFAULT_STORE } from '../config/store.js';
+import { DEFAULT_STORE, ensureStoreIgnore } from '../config/store.js';
 export { selectConfig } from './selection.js';
 const execute = promisify(execFile);
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -41,6 +41,7 @@ export async function ensureStore(options = {}) {
     try { if ((await lstat(current)).isSymbolicLink()) throw new Error('The workflow store must not use symbolic links.'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     await mkdir(current, { recursive: true });
   }
+  await ensureStoreIgnore(storePath);
   return await realpath(storePath);
 }
 // Inside the DDEV web container, `ddev` prints a notice instead of JSON.

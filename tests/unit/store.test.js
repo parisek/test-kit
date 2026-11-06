@@ -52,3 +52,16 @@ test('no notice for an explicit store, a missing folder, or a file', async t => 
   await writeFile(join(other, '.test-kit'), 'x');
   assert.equal(await legacyStoreNotice(other, { explicit: false }), null);
 });
+
+test('a fresh store gets a .gitignore with * and an existing one stays untouched', async t => {
+  const { ensureStore } = await import('../../src/workflow/index.js');
+  const { readFile } = await import('node:fs/promises');
+  const dir = await project(t);
+  const config = join(dir, 'test-kit.config.json');
+  const store = await ensureStore({ config });
+  assert.equal(await readFile(join(store, '.gitignore'), 'utf8'), '*\n');
+  await writeFile(join(store, '.gitignore'), 'custom\n');
+  await ensureStore({ config });
+  assert.equal(await readFile(join(store, '.gitignore'), 'utf8'), 'custom\n');
+  assert.deepEqual((await readdir(store)).filter(name => name.endsWith('.tmp')), []);
+});
