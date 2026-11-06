@@ -6,6 +6,7 @@ import {
 	LEGACY_BEHAVIOR_CHECK, LEGACY_BEHAVIOR_ID, LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS, PROJECT_TARGET,
 	TARGET_SCOPE_ARTIFACTS, findingBasis, isPlain,
 } from './catalog.js';
+import { validateReportAllowlist } from '../allowlist/model.js';
 
 export const SCHEMA_VERSION = 3;
 export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'];
@@ -186,6 +187,8 @@ export function validateReport(report) {
 	validCatalog(report.checks, problems, subject);
 	const catalog = isPlain(report.checks) ? report.checks : {};
 	validOverrides(report.overrides, catalog, problems);
+	// R9.12: the allowlist copy. A subject report may hold it. Its entries name a check of the catalog and a target of the report.
+	validateReportAllowlist(report.allowlist, { catalog, targetIds: new Set(Array.isArray(report.entries) ? report.entries.map((entry) => entry?.id) : []) }, problems);
 	if (problems.length) return problems;
 	const ids = (rows, field) => {
 		const out = new Set();
@@ -256,6 +259,7 @@ export function validateReport(report) {
 			const allowed = subject ? [report.subject.runId] : [report.pair.aRunId, report.pair.bRunId];
 			if (typeof finding.runId !== 'string' || !allowed.includes(finding.runId)) problems.push('An absolute finding needs a runId that names a run of the report.');
 		}
+		if (finding.evidenceFingerprint !== undefined && !isHash(finding.evidenceFingerprint)) problems.push('A finding fingerprint must be a sha256 hash.');
 		if (finding.layer !== undefined && !LAYERS.includes(finding.layer)) problems.push('Unknown finding layer.');
 		if (finding.location !== undefined && !validLocation(finding.location)) problems.push('Invalid finding location.');
 		// R9.11: a lint finding has a location and no viewport. Its target is a component or the project entry.

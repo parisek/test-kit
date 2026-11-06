@@ -55,6 +55,25 @@ test('partial baseline keeps the old baseline and partial after retains report',
  assert.equal(a, 'before-1'); assert.equal(result.exitCode, 1);
  const state = JSON.parse(await readFile(join(dir, 'test-kit/state.json'))); assert.equal(state.report, 'reports/after-1/report.json');
 });
+test('after reads the allowlist beside the config before it captures, and a bad file stops it (R9.12)', async t => {
+ const { dir, options } = await fixture(t);
+ const before = async () => { await mkdir(join(dir, 'test-kit/runs/before-1'), { recursive: true }); await writeFile(join(dir, 'test-kit/runs/before-1/run.json'), '{}'); return { run: { id: 'before-1', state: 'complete' } }; };
+ await runWorkflow('before', options, { capture: before });
+ const compare = async input => { entries = input.allowlistEntries; return { reportPath: join(input.outputDir, 'report.json') }; };
+ let entries;
+ await runWorkflow('after', options, { capture: async () => ({ run: { id: 'after-1', state: 'complete' } }), compareRuns: compare });
+ assert.deepEqual(entries, [], 'A missing file is an empty allowlist.');
+ const entry = { checkId: 'empty-title', targetId: 'home', fingerprint: `sha256:${'a'.repeat(64)}`, reason: 'Accepted.', owner: 'example-team' };
+ await writeFile(join(dir, 'test-kit.allowlist.json'), JSON.stringify({ schemaVersion: 1, entries: [entry] }));
+ await runWorkflow('after', options, { capture: async () => ({ run: { id: 'after-2', state: 'complete' } }), compareRuns: compare });
+ assert.deepEqual(entries, [entry]);
+ await writeFile(join(dir, 'other.json'), JSON.stringify({ schemaVersion: 1, entries: [] }));
+ await runWorkflow('after', { ...options, allowlist: join(dir, 'other.json') }, { capture: async () => ({ run: { id: 'after-3', state: 'complete' } }), compareRuns: compare });
+ assert.deepEqual(entries, [], '--allowlist overrides the path.');
+ await writeFile(join(dir, 'test-kit.allowlist.json'), '{"schemaVersion":1,"entries":[{"checkId":"empty-title"}]}');
+ await assert.rejects(runWorkflow('after', options, { capture: () => assert.fail('no capture'), compareRuns: () => assert.fail('no compare') }), /Invalid allowlist/);
+ assert.equal((await readdir(join(dir, 'test-kit'))).includes('lock'), false, 'The lock is released.');
+});
 test('store lock rejects another writer and is preserved', async t => {
  const { dir, options } = await fixture(t); await mkdir(join(dir, 'test-kit/lock'), { recursive: true });
  await assert.rejects(runWorkflow('run', options), /already owns/);

@@ -10,7 +10,7 @@ Classification uses one pure per-finding acceptance evaluator (R11.6).
 `normalizeHtml` applies bounded literal spans from the original strings.
 Distinct reserved tokens preserve occurrence count and order. A collision or
 an overlap skips that rule with a diagnostic. A residual change stays unexplained.
-`findingIsExplained` returns `false` for a finding of an absolute check, whatever its cause, until the allowlist ships (#254, R7.3). `record.js` refuses an absolute finding and a `subject` report. For a relative finding it checks the accepted finding, ordered run IDs, scope,
+`findingIsExplained` has two branches. A finding of a relative check uses the cause and the known difference below. A finding of an absolute check is explained only when `report.allowlist` holds an active entry with the same check, target and fingerprint, whatever its cause (R9.12, R7.3). `record.js` refuses an absolute finding and a `subject` report. `record-allowed` writes the allowlist (`src/allowlist/`). For a relative finding it checks the accepted finding, ordered run IDs, scope,
 policy, fingerprint, and associated artifact audit. A known cause alone does not
 explain a scoped finding. Legacy unscoped report causes retain their contract.
 

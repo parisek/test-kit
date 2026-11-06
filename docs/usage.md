@@ -153,3 +153,19 @@ and changed policy need new evidence. It does not rewrite an existing report.
 The configuration update uses an atomic rename and an optimistic original-byte
 check. A concurrent change detected before rename fails without overwriting it.
 This check is not a lock across other writers.
+
+## Allowlist for absolute findings
+
+A known difference (above) covers a relative finding. An absolute finding, such as a missing `h1` or an axe violation, has no pair. Allow it with an entry in `test-kit.allowlist.json` beside the config (R9.12). The entry names the check, the target, a fingerprint of the finding evidence, a reason and an owner.
+
+Read the fingerprint from `report.json` and add the entry with the command:
+
+```sh
+test-kit record-allowed tests/visual/reviewed/report.json --target home --check heading-outline --viewport desktop \
+  --reason 'The home page shows a logo, not a text heading.' --owner example-team --expires 2027-03-31
+test-kit diff <run-a> <run-b> --config test-kit.config.json --output tests/visual/reviewed-2
+```
+
+Commit the file. `diff` and `after` read it. The new report marks a matching finding `explained`. If the evidence changes, the fingerprint changes. The finding is `unexplained` again, and the old entry shows as `stale` in `report.allowlist`, `summary` and `query`. An entry past its `expires` date shows as `expired` and explains nothing. A stale or an expired entry does not fail the run. Nothing removes an entry: a person edits the file.
+
+`record-allowed` refuses an oracle target, a relative check, an artifact that is not `complete` and a duplicate. It needs exactly one finding for the check, target and viewport. With two findings of one check, copy one fingerprint from the report into the file by hand. The flag `--allowlist FILE` sets another path.
