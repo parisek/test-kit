@@ -3,16 +3,49 @@
 // It never throws for a bad run or bad options. It returns a `missing` or `failed` artifact (R8.7).
 //
 // Limits:
+// - Frames: axe goes into frames of the page origin and about:blank / srcdoc frames below them, never into another origin (R13.51).
+//   A frame that axe cannot enter is counted in `frames.unreachable`. The busy claim stays per page: the top document holds it.
 // - After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed`.
 // - Axe runs inside the page. A hostile page can replace `window.axe` and fake a clean result. Run it on pages you control.
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { reduceAxeResults, gapArtifact } from './axe.js';
+import { classifyFrames } from './frames.js';
 
 const require = createRequire(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 30000;
 const BUSY = '__testKitAxeBusy';
+const SKIP_ATTR = 'data-test-kit-axe-skip';
+// Axe waits this long for a frame that does not answer. The default is 60 s, longer than the run timeout.
+const FRAME_WAIT_MS = 5000;
 const isPlain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+
+// Gives axe to each frame of the page origin and to about:blank / srcdoc frames below them. Never to another origin (R13.51).
+// A frame that injection fails on counts as unreachable. A frame of another origin is excluded from the run by an attribute on its element.
+async function injectFrames(page, source) {
+  const children = page.frames().filter(frame => frame !== page.mainFrame());
+  const parents = children.map(frame => (frame.parentFrame() === page.mainFrame() ? -1 : children.indexOf(frame.parentFrame())));
+  const plan = classifyFrames(page.url(), children.map((frame, index) => ({ url: frame.url(), parent: parents[index], detached: frame.isDetached() })));
+  const ok = [];
+  for (let index = 0; index < children.length; index += 1) {
+    let done = false;
+    if (plan.reachable[index] && (parents[index] === -1 || ok[parents[index]])) {
+      try { await children[index].evaluate(source); done = true; } catch { done = false; } // sandboxed, navigating or detached
+    }
+    ok.push(done);
+  }
+  const marked = [];
+  for (let index = 0; index < children.length; index += 1) {
+    if (ok[index] || (parents[index] !== -1 && !ok[parents[index]])) continue; // only the top-most frame that axe skips
+    try {
+      const element = await children[index].frameElement();
+      await element.evaluate((node, attr) => node.setAttribute(attr, ''), SKIP_ATTR);
+      marked.push(element);
+    } catch { /* a detached frame has no element */ }
+  }
+  const injected = ok.filter(Boolean).length;
+  return { frames: { injected, unreachable: children.length - injected }, marked };
+}
 
 async function loadSource(axePath) {
   try {
@@ -54,12 +87,18 @@ export async function runAxe(page, options) {
       if (!claimed) throw new Error('An axe run is active on this page, or an earlier one did not finish. Use a new page.');
       try {
         await page.evaluate(source);
-        const raw = await page.evaluate(async runTags => {
-          if (typeof globalThis.axe?.run !== 'function') throw new Error('axe did not load in the page.');
-          for (const tag of runTags ?? []) if (globalThis.axe.getRules([tag]).length === 0) throw new Error(`No axe rule has the tag ${tag}.`);
-          return globalThis.axe.run(document, runTags ? { runOnly: { type: 'tag', values: runTags } } : {});
-        }, tags ?? null);
-        return reduceAxeResults(raw);
+        const { frames, marked } = await injectFrames(page, source);
+        try {
+          const raw = await page.evaluate(async ({ runTags, attr, wait }) => {
+            if (typeof globalThis.axe?.run !== 'function') throw new Error('axe did not load in the page.');
+            for (const tag of runTags ?? []) if (globalThis.axe.getRules([tag]).length === 0) throw new Error(`No axe rule has the tag ${tag}.`);
+            const options = { frameWaitTime: wait, ...(runTags ? { runOnly: { type: 'tag', values: runTags } } : {}) };
+            return globalThis.axe.run({ exclude: [[`[${attr}]`]] }, options);
+          }, { runTags: tags ?? null, attr: SKIP_ATTR, wait: FRAME_WAIT_MS });
+          return reduceAxeResults(raw, frames);
+        } finally {
+          for (const element of marked) await element.evaluate((node, attr) => node.removeAttribute(attr), SKIP_ATTR).catch(() => {});
+        }
       } finally {
         // Only the run that claimed the page releases it. After a timeout the page stays claimed.
         if (!timedOut) await page.evaluate(busy => { delete globalThis[busy]; }, BUSY).catch(() => {});

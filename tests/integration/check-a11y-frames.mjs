@@ -1,0 +1,86 @@
+// Frame test for the a11y runner (R13.51, #316). It skips when Playwright, a browser or axe-core is not installed.
+// A top page holds a same-origin frame, a srcdoc frame and a frame of a second local origin (another port).
+// Axe must find the violations of the first two and must not enter the third.
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { resolveChecks, runChecks } from '../../src/packs/index.js';
+import { a11yPack } from '../../src/packs/a11y/index.js';
+import { runAxe } from '../../src/packs/a11y/runner.js';
+
+const skip = reason => { console.log(`check-a11y-frames skipped: ${reason}`); process.exit(0); };
+const require = createRequire(import.meta.url);
+try { require.resolve('axe-core/axe.min.js'); } catch { skip('axe-core is not installed.'); }
+let chromium;
+try { ({ chromium } = await import('@playwright/test')); } catch { skip('@playwright/test is not installed.'); }
+let browser;
+try { browser = await chromium.launch(); } catch { skip('no Chromium browser is installed.'); }
+
+const child = await readFile(fileURLToPath(new URL('../fixtures/a11y/frame-child.html', import.meta.url)), 'utf8');
+const serve = routes => new Promise(resolve => {
+  const server = http.createServer((req, res) => {
+    const body = routes(req.url);
+    res.writeHead(body === null ? 404 : 200, { 'content-type': 'text/html' });
+    res.end(body ?? '');
+  });
+  server.listen(0, '127.0.0.1', () => resolve(server));
+});
+const foreign = await serve(() => child); // second origin: another port
+const foreignPort = foreign.address().port;
+const srcdoc = '<img id="srcdoc-no-alt" src="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=">'.replace(/"/g, '&quot;');
+let home;
+const top = await serve(url => (url === '/child' ? child : `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>
+<iframe title="same origin" src="/child"></iframe>
+<iframe title="srcdoc" srcdoc="${srcdoc}"></iframe>
+<iframe title="other origin" src="http://127.0.0.1:${foreignPort}/"></iframe>
+</main></body></html>`));
+home = `http://127.0.0.1:${top.address().port}/`;
+
+const plan = resolveChecks({ available: [a11yPack], packs: ['a11y'] });
+try {
+  const page = await browser.newPage();
+  await page.goto(home, { waitUntil: 'load' });
+  assert.equal(page.frames().length, 4, 'the page holds three child frames');
+
+  const started = Date.now();
+  const artifact = await runAxe(page);
+  assert.equal(artifact.status, 'complete');
+  assert.deepEqual(artifact.frames, { injected: 2, unreachable: 1 });
+  assert.ok(Date.now() - started < 20000, 'the foreign frame does not stall the run');
+
+  const result = runChecks(plan, { artifact: 'a11y', value: artifact }, { targetId: 'example-site' });
+  const selectors = result.findings.filter(finding => finding.evidence.ruleId === 'image-alt').map(finding => finding.evidence.selector);
+  assert.ok(selectors.some(selector => selector.includes('#frame-no-alt')), `same-origin frame violation found: ${selectors}`);
+  assert.ok(selectors.some(selector => selector.includes('#srcdoc-no-alt')), `srcdoc frame violation found: ${selectors}`);
+  assert.equal(selectors.length, 2, 'the foreign frame gives no violation');
+  const review = result.findings.filter(finding => finding.evidence.unreachableFrames !== undefined);
+  assert.equal(review.length, 1);
+  assert.equal(review[0].severity, 'warning');
+  assert.equal(review[0].evidence.needsReview, true);
+  assert.equal(review[0].evidence.unreachableFrames, 1);
+  assert.equal(result.state, 'complete');
+
+  // Axe never entered the foreign frame, and the run leaves no mark on the page.
+  const foreignFrame = page.frames().find(frame => frame.url().includes(`:${foreignPort}`));
+  assert.equal(await foreignFrame.evaluate(() => typeof globalThis.axe), 'undefined');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('[data-test-kit-axe-skip]').length), 0);
+
+  // A page with no frame has no frame warning.
+  const plain = await browser.newPage();
+  await plain.setContent('<!doctype html><html lang="en"><head><title>x</title></head><body><main><h1>x</h1></main></body></html>');
+  const none = await runAxe(plain);
+  assert.deepEqual(none.frames, { injected: 0, unreachable: 0 });
+  assert.equal(runChecks(plan, { artifact: 'a11y', value: none }, { targetId: 'example-site' }).findings.some(finding => finding.evidence.unreachableFrames !== undefined), false);
+
+  // The busy claim still works with frames: a second run at once fails, the page is released after.
+  const both = await Promise.all([runAxe(page), runAxe(page)]);
+  assert.deepEqual(both.map(item => item.status).sort(), ['complete', 'failed']);
+  assert.equal((await runAxe(page)).status, 'complete');
+  console.log('check-a11y-frames passed');
+} finally {
+  await browser.close();
+  foreign.close();
+  top.close();
+}

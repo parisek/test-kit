@@ -11,6 +11,7 @@ Automated rules find only part of the accessibility problems. This pack does not
 | --- | --- | --- |
 | `axe.js` | Pure. Reduces an axe result to an artifact. Maps an artifact to findings. | Nothing (R4.4) |
 | `index.js` | Entry point `@parisek/test-kit/packs/a11y`. Exports `a11yPack`, `reduceAxeResults`, `gapArtifact`. | Nothing |
+| `frames.js` | Pure. Decides which frames of a page axe may enter. | Nothing (R4.4) |
 | `runner.js` | Entry point `@parisek/test-kit/packs/a11y/runner`. Exports `runAxe(page, options)`. | A Playwright page and `axe-core` |
 
 `axe-core` is an optional peer dependency. Install it in the project that uses the runner. The pure files never import it.
@@ -29,11 +30,12 @@ const result = runChecks(plan, { artifact: 'a11y', value: artifact }, { targetId
 
 `runAxe` options: `tags` (a list of axe rule tags; the default is the axe default rule set), `timeoutMs` (a finite number from 1 to 2147483647; the default is 30000), `axePath` (path to `axe.min.js`). A bad option gives a `failed` artifact. It never throws.
 `runAxe` checks each tag with `axe.getRules`. A tag that matches no rule gives `failed`.
-The runner checks the top document. It does not inject axe into frames of other origins.
+The runner checks the top document and the frames that axe may enter (R13.51, owner decision on #316, 2026-11-06). It injects axe into a frame of the page origin, and into an `about:blank` or `srcdoc` frame whose parent chain is reachable. It never injects axe into a frame of another origin. A detached frame, a sandboxed frame that refuses the script, and every frame beyond the first 50 count as unreachable. The runner hides a skipped frame from axe with a temporary attribute on its element and removes the attribute after the run. The artifact records `frames: { injected, unreachable }`.
 
 Limits of the runner:
 
 - Every step of `runAxe` that touches the page runs inside the timer, so a busy page cannot hang the caller.
+- `runAxe` claims the page with one atomic step on the top document. Frames get no claim of their own: the page claim covers the whole run, and the timeout acts on the whole run, not on a frame.
 - `runAxe` claims the page with one atomic step and releases it only if it claimed it. Two runs at once on one page: one runs and the other returns `failed`.
 - After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed` with the message "An axe run is active on this page, or an earlier one did not finish. Use a new page."
 - Axe runs inside the page. A hostile page can lock or replace `window.axe` and fake a clean result. This is inherent to in-page injection. Run the pack on pages you control.
@@ -45,6 +47,7 @@ The artifact is JSON-like data:
 - `tool`: `axe-core`.
 - `status`: `complete`, `missing` or `failed`.
 - With `complete`: `version`, `counts` (`passes`, `violations`, `incomplete`, `inapplicable`: numbers of rules), `violations`, `incomplete` and `omittedNodes`. A rule has `id`, `impact`, `help`, `helpUrl`, `nodeCount`, `omitted` and `nodes` (`selector`, `html`). For a violation rule, `nodeCount` equals the kept nodes plus `omitted`. `omittedNodes` equals the sum of `omitted`.
+- With `complete`, `frames` is optional: `injected` and `unreachable`, the numbers of child frames axe entered and did not enter. An artifact with no `frames` field reads as no unreachable frame.
 - With `missing` or `failed`: `reason`.
 
 The reducer keeps at most 500 nodes, 300 characters of HTML and 300 characters of selector. It counts the violation nodes it leaves out in `omittedNodes`. For an incomplete rule it keeps at most 5 nodes and records `nodeCount`. Node text is cut so that its JSON-escaped form stays small (600 characters for review nodes), so one odd node cannot push the evidence over its cap. The caps are chosen safety bounds, not measured numbers.
@@ -65,6 +68,14 @@ The check `a11y-axe` has basis `absolute` and layer `package`. Each violation no
 
 An impact outside this list makes the check `failed`.
 
+A frame that axe did not enter gives one finding, even for many frames (R8.14, R13.51):
+
+| Field | Value |
+| --- | --- |
+| `severity` | `warning` |
+| `message` | `<count> frames were not checked: ...` |
+| `evidence` | `needsReview: true`, `unreachableFrames`, `injectedFrames`. No `state`. |
+
 An axe `incomplete` rule (axe could not decide) gives one finding for each rule, even a rule with no node:
 
 | Field | Value |
@@ -81,6 +92,7 @@ An axe `incomplete` rule (axe could not decide) gives one finding for each rule,
 | `status: missing` (for example axe-core is not installed) | `missing` |
 | `status: failed` (axe threw, timed out, bad options, or a malformed result) | `failed` |
 | No rule ran (all counts zero, or tags match no rule) | `failed` |
+| Frames that axe did not enter | `complete`. One `warning` finding with `needsReview: true` and `unreachableFrames` says how many (R8.14). |
 | Violation nodes left out by the caps | `complete`. Kept violations stay. One `warning` finding with `truncated: true` and `omittedNodes` says the list is cut. |
 | A malformed or tampered artifact, or counts that do not match | `failed` |
 | Run complete, with violations or review warnings | `complete`. The findings carry the result. |
@@ -94,11 +106,13 @@ Consequence, as R8.14 states: these warnings have no `evidence.state`. A consume
 ## Tests
 
 - `tests/unit/a11y-pack.test.js` tests the mapping with fixtures. It needs no browser and no axe-core.
+- `tests/unit/a11y-frames.test.js` tests the frame decision and the frame warning.
+- `tests/integration/check-a11y-frames.mjs` runs axe on a page with a same-origin frame, a `srcdoc` frame and a frame of a second local origin. The first two give violations. The third gets no axe and gives the warning with count 1. It skips like the runner check.
 - `tests/integration/check-a11y-runner.mjs` runs axe on `tests/fixtures/a11y/page.html`. It skips when Playwright, Chromium or axe-core is missing.
 
 ## Not built yet
 
-Component-level axe contracts, per-state runs (ADR 0004, accessibility per component state) and frame injection.
+Component-level axe contracts. There are no per-state runs and no state axis: a state is its own target, reached with `settle.reveal` (ADR 0004; owner decision on #316, 2026-11-06). Accessibility per component state is a target with a `reveal` list.
 
 ## Command line
 

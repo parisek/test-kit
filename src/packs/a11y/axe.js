@@ -92,7 +92,8 @@ function reduceRules(rules, name, state, kind) {
 
 // Reduces one axe-core result. It never throws: a malformed result gives a `failed` artifact (R8.7).
 // It reads each caller field once. It keeps at most LIMITS.nodes violation nodes and counts the rest.
-export function reduceAxeResults(raw) {
+// The optional second argument `frames` is { injected, unreachable }, the frame counts of the runner (R13.51).
+export function reduceAxeResults(raw, frames) {
   try {
     if (!isPlain(raw)) throw new Error('The axe result must be an object.');
     const { violations, incomplete, passes, inapplicable, testEngine } = raw; // one read of each field
@@ -104,7 +105,14 @@ export function reduceAxeResults(raw) {
     const counts = { passes: count(passes, 'passes'), violations: reducedViolations.length, incomplete: reducedIncomplete.length, inapplicable: count(inapplicable, 'inapplicable') };
     // A run in which no rule ran is not a pass (R8.7). Typical cause: tags that match no rule.
     if (counts.passes + counts.violations + counts.incomplete + counts.inapplicable === 0) throw new Error('No axe rule ran.');
-    return { tool: 'axe-core', version, status: 'complete', counts, violations: reducedViolations, incomplete: reducedIncomplete, omittedNodes: state.omitted };
+    const artifact = { tool: 'axe-core', version, status: 'complete', counts, violations: reducedViolations, incomplete: reducedIncomplete, omittedNodes: state.omitted };
+    if (frames !== undefined) {
+      if (!isPlain(frames)) throw new Error('The frame counts must be an object.');
+      const { injected, unreachable } = frames; // one read of each field
+      if (!safeCount(injected) || !safeCount(unreachable)) throw new Error('The frame counts must be safe counts.');
+      artifact.frames = { injected, unreachable };
+    }
+    return artifact;
   } catch (error) {
     return gapArtifact('failed', error?.message ?? error);
   }
@@ -148,10 +156,11 @@ function storedRules(rules, name, review) {
 // A `missing` artifact gives one open finding, so the check state is missing (R8.7).
 // A `failed` or malformed artifact throws, so the check state is failed (R8.7).
 // An axe `incomplete` rule gives one `warning` finding with `needsReview: true`.
+// Frames that axe did not enter give one `warning` finding with `needsReview: true` and `unreachableFrames`.
 // Cut evidence gives one `warning` finding with `truncated: true`. Neither opens the check (see README).
 export function axeFindings(value) {
   if (!isPlain(value)) throw new Error('The a11y artifact must be an object.');
-  const { tool, status, reason, version, counts, violations, incomplete, omittedNodes } = value; // one read of each field
+  const { tool, status, reason, version, counts, violations, incomplete, omittedNodes, frames } = value; // one read of each field
   if (tool !== 'axe-core') throw new Error('The a11y artifact is not from axe-core.');
   if (!STATUSES.includes(status)) throw new Error('The a11y artifact has an unknown status.');
   if (status === 'failed') throw new Error(`The axe run failed: ${reasonText(reason ?? 'no reason given')}`);
@@ -162,6 +171,7 @@ export function axeFindings(value) {
   if (!isPlain(counts) || COUNTS.some(key => !safeCount(counts[key]))) throw new Error('The a11y artifact needs rule counts as safe integers.');
   if (counts.passes + counts.violations + counts.incomplete + counts.inapplicable === 0) throw new Error('No axe rule ran.');
   if (!safeCount(omittedNodes)) throw new Error('The a11y artifact needs omittedNodes.');
+  if (frames !== undefined && (!isPlain(frames) || !safeCount(frames.injected) || !safeCount(frames.unreachable))) throw new Error('The a11y artifact has unusable frame counts.');
   const bad = storedRules(violations, 'violations', false);
   const review = storedRules(incomplete, 'incomplete', true);
   if (counts.violations !== bad.length || counts.incomplete !== review.length) throw new Error('The rule counts do not match the stored rules.');
@@ -178,6 +188,10 @@ export function axeFindings(value) {
   // An axe "incomplete" rule is a result that axe could not decide. It needs a human review. It is one finding for each rule, even with no node.
   for (const rule of review) {
     out.push({ severity: 'warning', message: `${rule.id} needs review: ${rule.help || 'No description.'}`, evidence: { ruleId: rule.id, needsReview: true, impact: rule.impact, nodeCount: rule.nodeCount, nodes: rule.nodes, helpUrl: rule.helpUrl } });
+  }
+  // A frame that axe did not enter is not checked. It is one warning with the count, never a clean page (R8.14, R13.51).
+  if (frames !== undefined && frames.unreachable > 0) {
+    out.push({ severity: 'warning', message: `${frames.unreachable} frames were not checked: axe enters only frames of the page origin, about:blank and srcdoc frames.`, evidence: { needsReview: true, unreachableFrames: frames.unreachable, injectedFrames: frames.injected } });
   }
   // Cut evidence never reads as a clean page: the kept violations stay, and one warning says the list is cut.
   if (omittedNodes > 0) out.push({ severity: 'warning', message: `${omittedNodes} violation nodes were left out of the artifact, so the list is not complete.`, evidence: { truncated: true, omittedNodes } });
