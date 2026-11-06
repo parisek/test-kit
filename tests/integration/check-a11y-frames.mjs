@@ -34,6 +34,7 @@ let home;
 const shell = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>${body}</main></body></html>`;
 const top = await serve(url => (url === '/child' ? child
   : url === '/many' ? shell(Array.from({ length: 55 }, (_, index) => `<iframe title="f${index}" srcdoc="&lt;p&gt;x&lt;/p&gt;"></iframe>`).join(''))
+  : url === "/spoof" ? shell(`<iframe title="spoof" sandbox="allow-scripts" srcdoc="&lt;script&gt;Object.defineProperty(window, 'origin', { value: 'http://127.0.0.1:${top.address().port}' })&lt;/script&gt;&lt;p&gt;x&lt;/p&gt;"></iframe>`)
   : url === '/nested' ? shell(`<iframe title="nested" src="/nested-inner"></iframe>`)
   : url === '/nested-inner' ? `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Inner</title></head><body><main><h1>Inner</h1><iframe title="foreign" src="http://127.0.0.1:${foreignPort}/"></iframe></main></body></html>`
   : `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>
@@ -103,6 +104,16 @@ try {
   assert.deepEqual(nestedArtifact.frames, { injected: 1, unreachable: 1 });
   assert.ok(Date.now() - nestedStart < 4000, 'the nested foreign frame costs no wait');
   assert.equal(await nested.frames().find(frame => frame.url().includes(`:${foreignPort}`)).evaluate(() => typeof globalThis.axe), 'undefined');
+
+  // A sandboxed frame (opaque origin) whose script redefines window.origin to the page origin still gets no axe.
+  const spoof = await browser.newPage();
+  await spoof.goto(`${home}spoof`, { waitUntil: 'load' });
+  const spoofFrame = spoof.frames().find(frame => frame !== spoof.mainFrame());
+  assert.equal(await spoofFrame.evaluate(() => self.origin), home.replace(/\/$/, ''), 'the frame spoofs its origin');
+  const spoofed = await runAxe(spoof);
+  assert.equal(spoofed.status, 'complete');
+  assert.deepEqual(spoofed.frames, { injected: 0, unreachable: 1 });
+  assert.equal(await spoofFrame.evaluate(() => typeof globalThis.axe), 'undefined', 'the spoofing frame has no axe');
 
   // Race: a frame that navigates to the second origin after classification gets no axe.
   const racePage = await browser.newPage();

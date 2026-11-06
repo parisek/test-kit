@@ -40,3 +40,27 @@ export function classifyFrames(topUrl, frames) {
   const injected = reachable.filter(Boolean).length;
   return { reachable, injected, unreachable: frames.length - injected };
 }
+
+const MAX_DOM_NODES = 500000; // chosen safety bound for the walk of an untrusted DOM tree
+
+// Pure. Reads the browser's own DOM tree (CDP `DOM.getDocument` with `pierce`) and returns a Map from the value of the mark attribute
+// to the frame ID that the browser gives the iframe element. The runner marks each candidate frame element with its index, so the match is exact
+// and a page cannot change it. An element that the page marked itself with the same attribute name is a different name, because the name is random.
+// A tree beyond the bound throws, and the runner then treats every frame as unreachable.
+export function frameIdsByMark(root, attr) {
+  const ids = new Map();
+  let seen = 0;
+  const stack = [root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node === null || typeof node !== 'object') continue;
+    if (++seen > MAX_DOM_NODES) throw new Error('The DOM tree is too large.');
+    if (Array.isArray(node.attributes) && typeof node.frameId === 'string') {
+      for (let at = 0; at + 1 < node.attributes.length; at += 2) if (node.attributes[at] === attr) ids.set(node.attributes[at + 1], node.frameId);
+    }
+    for (const child of Array.isArray(node.children) ? node.children : []) stack.push(child);
+    if (node.contentDocument) stack.push(node.contentDocument);
+    for (const child of Array.isArray(node.shadowRoots) ? node.shadowRoots : []) stack.push(child);
+  }
+  return ids;
+}

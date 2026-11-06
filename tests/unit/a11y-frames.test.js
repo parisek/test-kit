@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveChecks, runChecks } from '../../src/packs/index.js';
 import { a11yPack, reduceAxeResults } from '../../src/packs/a11y/index.js';
-import { classifyFrames, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
+import { classifyFrames, frameIdsByMark, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
 
 const raw = () => JSON.parse(readFileSync(new URL('../fixtures/a11y/axe-result.json', import.meta.url), 'utf8'));
 const run = value => runChecks(resolveChecks({ available: [a11yPack], packs: ['a11y'] }), { artifact: 'a11y', value }, { targetId: 'example-site' });
@@ -113,4 +113,36 @@ test('a malformed frame result throws and leaves the base unchanged', async () =
 test('the warning reads in the singular for one frame', () => {
   const warn = run(reduceAxeResults(raw(), { injected: 0, unreachable: 1 })).findings.find(finding => finding.evidence.unreachableFrames === 1);
   assert.match(warn.message, /^1 frame was not checked/);
+});
+
+test('frame IDs come from the marks in the browser DOM tree, through nested documents (R13.51)', () => {
+  const frame = (value, frameId, ...children) => ({ attributes: ['title', 'x', 'data-m', value], frameId, children: [], contentDocument: { children } });
+  const root = { children: [{ children: [frame('0', 'A', frame('1', 'B')), { attributes: ['data-m', '2'], children: [] }, frame('3', 'C')] }] };
+  const ids = frameIdsByMark(root, 'data-m');
+  assert.deepEqual([...ids].sort(), [['0', 'A'], ['1', 'B'], ['3', 'C']]); // a node with no frame ID gives no entry
+  assert.equal(frameIdsByMark(root, 'other').size, 0);
+  assert.equal(frameIdsByMark(null, 'data-m').size, 0);
+});
+
+test('a DOM tree beyond the bound throws', () => {
+  let root = { children: [] };
+  const wide = { children: Array.from({ length: 600000 }, () => ({})) };
+  root = wide;
+  assert.throws(() => frameIdsByMark(root, 'x'), /too large/);
+});
+
+test('a failed frame gets its own warning and the counts are validated', () => {
+  const artifact = reduceAxeResults(raw(), { injected: 1, unreachable: 1, failed: 2 });
+  assert.deepEqual(artifact.frames, { injected: 1, unreachable: 1, failed: 2 });
+  const result = run(artifact);
+  assert.equal(result.state, 'complete');
+  const warn = result.findings.find(finding => finding.evidence.failedFrames !== undefined);
+  assert.equal(warn.severity, 'warning');
+  assert.equal(warn.evidence.needsReview, true);
+  assert.match(warn.message, /^2 frames could not be checked: axe failed in the frame, or its result did not merge/);
+  assert.doesNotMatch(warn.message, /page origin/);
+  assert.equal(result.findings.filter(finding => finding.evidence.unreachableFrames !== undefined).length, 1);
+  assert.equal(reduceAxeResults(raw(), { injected: 1, unreachable: 0, failed: -1 }).status, 'failed');
+  assert.equal(run({ ...artifact, frames: { injected: 1, unreachable: 0, failed: 1.5 } }).state, 'failed');
+  assert.equal(reduceAxeResults(raw(), { injected: 1, unreachable: 0, failed: 0 }).frames.failed, undefined);
 });

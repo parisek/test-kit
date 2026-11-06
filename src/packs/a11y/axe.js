@@ -132,7 +132,8 @@ export function mergeFrameResult(base, target, result) {
 
 // Reduces one axe-core result. It never throws: a malformed result gives a `failed` artifact (R8.7).
 // It reads each caller field once. It keeps at most LIMITS.nodes violation nodes and counts the rest.
-// The optional second argument `frames` is { injected, unreachable }, the frame counts of the runner (R13.51).
+// The optional second argument `frames` is { injected, unreachable, failed? }, the frame counts of the runner (R13.51).
+// `failed` counts frames that passed the origin gates but where axe or the merge broke.
 export function reduceAxeResults(raw, frames) {
   try {
     if (!isPlain(raw)) throw new Error('The axe result must be an object.');
@@ -148,9 +149,9 @@ export function reduceAxeResults(raw, frames) {
     const artifact = { tool: 'axe-core', version, status: 'complete', counts, violations: reducedViolations, incomplete: reducedIncomplete, omittedNodes: state.omitted };
     if (frames !== undefined) {
       if (!isPlain(frames)) throw new Error('The frame counts must be an object.');
-      const { injected, unreachable } = frames; // one read of each field
-      if (!safeCount(injected) || !safeCount(unreachable)) throw new Error('The frame counts must be safe counts.');
-      artifact.frames = { injected, unreachable };
+      const { injected, unreachable, failed = 0 } = frames; // one read of each field
+      if (!safeCount(injected) || !safeCount(unreachable) || !safeCount(failed)) throw new Error('The frame counts must be safe counts.');
+      artifact.frames = failed > 0 ? { injected, unreachable, failed } : { injected, unreachable };
     }
     return artifact;
   } catch (error) {
@@ -211,7 +212,7 @@ export function axeFindings(value) {
   if (!isPlain(counts) || COUNTS.some(key => !safeCount(counts[key]))) throw new Error('The a11y artifact needs rule counts as safe integers.');
   if (counts.passes + counts.violations + counts.incomplete + counts.inapplicable === 0) throw new Error('No axe rule ran.');
   if (!safeCount(omittedNodes)) throw new Error('The a11y artifact needs omittedNodes.');
-  if (frames !== undefined && (!isPlain(frames) || !safeCount(frames.injected) || !safeCount(frames.unreachable))) throw new Error('The a11y artifact has unusable frame counts.');
+  if (frames !== undefined && (!isPlain(frames) || !safeCount(frames.injected) || !safeCount(frames.unreachable) || (frames.failed !== undefined && !safeCount(frames.failed)))) throw new Error('The a11y artifact has unusable frame counts.');
   const bad = storedRules(violations, 'violations', false);
   const review = storedRules(incomplete, 'incomplete', true);
   if (counts.violations !== bad.length || counts.incomplete !== review.length) throw new Error('The rule counts do not match the stored rules.');
@@ -232,6 +233,9 @@ export function axeFindings(value) {
   // A frame that axe did not enter is not checked. It is one warning with the count, never a clean page (R8.14, R13.51).
   if (frames !== undefined && frames.unreachable > 0) {
     out.push({ severity: 'warning', message: `${frames.unreachable} ${frames.unreachable === 1 ? 'frame was' : 'frames were'} not checked: axe runs only in frames of the page origin, about:blank and srcdoc frames.`, evidence: { needsReview: true, unreachableFrames: frames.unreachable, injectedFrames: frames.injected } });
+  }
+  if (frames !== undefined && frames.failed > 0) {
+    out.push({ severity: 'warning', message: `${frames.failed} ${frames.failed === 1 ? 'frame' : 'frames'} could not be checked: axe failed in the frame, or its result did not merge.`, evidence: { needsReview: true, failedFrames: frames.failed, injectedFrames: frames.injected } });
   }
   // Cut evidence never reads as a clean page: the kept violations stay, and one warning says the list is cut.
   if (omittedNodes > 0) out.push({ severity: 'warning', message: `${omittedNodes} violation nodes were left out of the artifact, so the list is not complete.`, evidence: { truncated: true, omittedNodes } });

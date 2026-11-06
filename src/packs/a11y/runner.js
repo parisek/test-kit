@@ -9,8 +9,9 @@
 // - Axe runs inside the page. A hostile page can replace `window.axe` and fake a clean result. Run it on pages you control.
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { reduceAxeResults, mergeFrameResult, gapArtifact } from './axe.js';
-import { classifyFrames, originOf } from './frames.js';
+import { classifyFrames, frameIdsByMark, originOf } from './frames.js';
 
 const require = createRequire(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -28,35 +29,75 @@ const RUN_BODY = `(async tags => {
 const frameCode = (topOrigin, source, tags) => `if (self.origin !== ${JSON.stringify(topOrigin)}) throw new Error('TEST_KIT_FRAME_ORIGIN');\n${source}\n;${RUN_BODY}(${JSON.stringify(tags ?? null)})`;
 
 // Runs axe once in each reachable frame (at most MAX_FRAMES) and merges the results into `raw`. Never in another origin (R13.51).
-// A frame that cannot run, or whose result does not merge, counts as unreachable. A frame below such a frame is not run.
+// A frame that a gate refuses counts as unreachable. A frame where axe or the merge breaks counts as failed. A frame below either is not run.
 async function runFrames(page, source, tags, raw, stopped) {
   const children = page.frames().filter(frame => frame !== page.mainFrame());
-  const parents = children.map(frame => (frame.parentFrame() === page.mainFrame() ? -1 : children.indexOf(frame.parentFrame())));
+  const index = new Map(children.map((frame, at) => [frame, at]));
+  const parents = children.map(frame => (frame.parentFrame() === page.mainFrame() ? -1 : (index.get(frame.parentFrame()) ?? -2)));
   const urls = children.map(frame => frame.url());
   const topOrigin = originOf(page.url());
   const plan = classifyFrames(page.url(), children.map((frame, index) => ({ url: urls[index], parent: parents[index], detached: frame.isDetached() })));
   const ok = [];
   const chains = [];
+  let failed = 0;
   let merged = raw;
-  for (let index = 0; index < children.length; index += 1) {
-    let done = false;
-    if (!stopped() && plan.reachable[index] && (parents[index] === -1 || ok[parents[index]])) {
+  // The origin of each frame comes from the browser, not from the frame's own script, which can redefine `self.origin` (R13.51).
+  // Each candidate frame element gets a mark with a random name for this run. One read of the browser DOM tree then gives the frame ID
+  // of each element. The origin is read in an isolated world of the frame: a property that the page sets on its own `window` is not visible there.
+  let cdp = null;
+  try { cdp = await page.context().newCDPSession(page); } catch { cdp = null; } // no session: no frame is reachable
+  const attr = `data-test-kit-axe-frame-${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  const marked = [];
+  let frameIds = new Map();
+  if (cdp !== null) {
+    for (let at = 0; at < children.length; at += 1) {
+      if (!plan.reachable[at]) continue;
       try {
-        if (children[index].url() !== urls[index]) throw new Error('TEST_KIT_FRAME_MOVED');
-        // The selector of the frame element in its parent document. The parent already has axe.
-        const element = await children[index].frameElement();
-        const selector = await element.evaluate(node => { const { axe } = globalThis; axe.setup(node.ownerDocument.documentElement); try { return axe.utils.getSelector(node); } finally { axe.teardown(); } });
-        const chain = [...(parents[index] === -1 ? [] : chains[parents[index]]), selector];
-        const result = await children[index].evaluate(frameCode(topOrigin, source, tags));
-        merged = mergeFrameResult(merged, chain, result);
-        chains[index] = chain;
-        done = true;
-      } catch { done = false; }
+        const element = await children[at].frameElement();
+        await element.evaluate((node, [name, value]) => node.setAttribute(name, value), [attr, String(at)]);
+        marked.push(element);
+      } catch { /* a detached frame has no element */ }
     }
-    ok.push(done);
+    try {
+      const { root } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+      frameIds = frameIdsByMark(root, attr);
+    } catch { frameIds = new Map(); }
+    for (const element of marked) await element.evaluate((node, name) => node.removeAttribute(name), attr).catch(() => {});
+  }
+  const browserOrigin = async at => {
+    const frameId = frameIds.get(String(at));
+    if (cdp === null || frameId === undefined) return null;
+    const { executionContextId } = await cdp.send('Page.createIsolatedWorld', { frameId, worldName: 'test-kit-origin-gate' });
+    const { result } = await cdp.send('Runtime.evaluate', { contextId: executionContextId, expression: 'self.origin', returnByValue: true });
+    return typeof result.value === 'string' ? result.value : null;
+  };
+  try {
+    for (let at = 0; at < children.length; at += 1) {
+      let done = false;
+      if (!stopped() && plan.reachable[at] && (parents[at] === -1 || ok[parents[at]])) {
+        try {
+          if (children[at].url() !== urls[at]) throw new Error('TEST_KIT_FRAME_MOVED');
+          if (await browserOrigin(at) !== topOrigin) throw new Error('TEST_KIT_FRAME_ORIGIN');
+          // The selector of the frame element in its parent document. The parent already has axe.
+          const element = await children[at].frameElement();
+          const selector = await element.evaluate(node => { const { axe } = globalThis; axe.setup(node.ownerDocument.documentElement); try { return axe.utils.getSelector(node); } finally { axe.teardown(); } });
+          const chain = [...(parents[at] === -1 ? [] : chains[parents[at]]), selector];
+          const result = await children[at].evaluate(frameCode(topOrigin, source, tags));
+          merged = mergeFrameResult(merged, chain, result);
+          chains[at] = chain;
+          done = true;
+        } catch (error) {
+          // A gate that says no, or a detached frame, is unreachable. Any other break is a failed frame and gets its own warning.
+          if (!/TEST_KIT_FRAME_/.test(String(error?.message)) && !children[at].isDetached()) failed += 1;
+        }
+      }
+      ok.push(done);
+    }
+  } finally {
+    await cdp?.detach().catch(() => {});
   }
   const injected = ok.filter(Boolean).length;
-  return { merged, frames: { injected, unreachable: children.length - injected } };
+  return { merged, frames: { injected, unreachable: children.length - injected - failed, failed } };
 }
 
 async function loadSource(axePath) {
