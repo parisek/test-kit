@@ -143,7 +143,8 @@ export async function refreshStoreViewer({ store, now = new Date(), fs: seam } =
   // the next refresh judges the store as foreign again instead of trusting a marker over a file it never wrote.
   const written = [];
   const withdraw = async () => {
-    for (const name of [...written, VIEWER_MARKER]) await fs.rm(join(root, name), { force: true });
+    // The marker goes first: if removing a viewer file fails, a leftover file without a marker still reads as foreign.
+    for (const name of [VIEWER_MARKER, ...written]) await fs.rm(join(root, name), { force: true });
     return blocked(foreignWarning(root));
   };
   if (!(await copyViewer(fs, root, claim.fresh, written))) return withdraw();

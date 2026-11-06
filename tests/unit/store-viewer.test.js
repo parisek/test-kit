@@ -319,3 +319,22 @@ test('a symlinked marker is foreign even when its size and target content match 
   assert.equal(await readFile(join(f.store, 'index.html'), 'utf8'), 'project page');
   assert.ok(out.warnings.some(line => /did not write/.test(line)));
 });
+
+test('a withdraw that fails to remove a viewer file still removes the marker first (#312)', async t => {
+  const f = await fixture(t);
+  let injected = false;
+  const fs = {
+    lstat: async path => {
+      const result = await lstat(path).then(info => ({ info }), error => ({ error }));
+      if (!injected && path === join(f.store, 'index.json') && result.error?.code === 'ENOENT') { injected = true; await writeFile(join(f.store, 'style.css'), 'project css'); }
+      if (result.error) throw result.error;
+      return result.info;
+    },
+    rm: async (path, options) => { if (path.endsWith('app.js')) throw Object.assign(new Error('busy'), { code: 'EBUSY' }); return rm(path, options); },
+  };
+  await assert.rejects(refreshStoreViewer({ store: f.store, now: NOW, fs }), /busy/);
+  assert.equal((await readdir(f.store)).includes('.test-kit-viewer'), false);
+  const again = await refreshStoreViewer({ store: f.store, now: NOW });
+  assert.equal(await readFile(join(f.store, 'style.css'), 'utf8'), 'project css');
+  assert.ok(again.warnings.some(line => /did not write/.test(line)));
+});
