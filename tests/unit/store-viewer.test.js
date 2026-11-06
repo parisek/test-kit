@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile, symlink, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile, symlink, stat, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { refreshStoreViewer, VIEWER_FILES } from '../../src/export/store-viewer.js';
@@ -277,5 +277,24 @@ test('only an exact, regular marker file proves ownership; any other marker bloc
     const result = await refreshStoreViewer({ store: f.store, now: NOW });
     assert.equal(await readFile(join(f.store, 'index.html'), 'utf8'), 'project page', label);
     assert.ok(result.warnings.some(line => /did not write/.test(line)), label);
+  }
+});
+
+test('a foreign file that appears after the ownership check is never overwritten (#312)', async t => {
+  for (const name of ['index.html', 'index.json']) {
+    const f = await fixture(t);
+    await f.addRun('run-a');
+    let injected = false;
+    // The claim checks index.json last; the foreign file appears right after that check said "missing".
+    const fs = { lstat: async path => {
+      const result = await lstat(path).then(info => ({ info }), error => ({ error }));
+      if (!injected && path === join(f.store, 'index.json') && result.error?.code === 'ENOENT') { injected = true; await writeFile(join(f.store, name), 'project file'); }
+      if (result.error) throw result.error;
+      return result.info;
+    } };
+    const out = await refreshStoreViewer({ store: f.store, now: NOW, fs });
+    assert.equal(injected, true, name);
+    assert.equal(await readFile(join(f.store, name), 'utf8'), 'project file', name);
+    assert.ok(out.warnings.some(line => /did not write/.test(line)), name);
   }
 });

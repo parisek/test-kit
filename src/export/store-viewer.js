@@ -34,33 +34,44 @@ async function writeAtomic(fs, path, bytes) {
 }
 
 // The marker says the viewer wrote the files here. A store with a viewer file name and no marker is not ours:
-// write nothing. Returns a warning in that case, else null. The marker is written before the first viewer file.
-// Only a regular file (not a link, not a folder) with exactly MARKER_BODY counts. Any other marker is foreign.
+// write nothing. Only a regular file (not a link, not a folder) with exactly MARKER_BODY counts; any other
+// marker is foreign. Returns { warning } when the store is foreign, else { fresh }: `fresh` is true when this
+// call created the marker. A fresh claim then writes every viewer file and the first index.json without
+// replacing anything, so a foreign file that appears after the check is never overwritten (#312).
+const foreignWarning = store => `test-kit: warning: store ${store} holds files the viewer did not write; the viewer was not written.`;
 async function claimStore(fs, store) {
-  const foreign = `test-kit: warning: store ${store} holds files the viewer did not write; the viewer was not written.`;
   const marker = join(store, VIEWER_MARKER);
   let info = null;
   try { info = await fs.lstat(marker); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   if (info) {
-    if (!info.isFile() || info.size !== Buffer.byteLength(MARKER_BODY)) return foreign;
-    return (await fs.readFile(marker, 'utf8')) === MARKER_BODY ? null : foreign;
+    if (!info.isFile() || info.size !== Buffer.byteLength(MARKER_BODY)) return { warning: foreignWarning(store) };
+    return (await fs.readFile(marker, 'utf8')) === MARKER_BODY ? { fresh: false } : { warning: foreignWarning(store) };
   }
   for (const name of [...VIEWER_FILES, 'index.json']) {
     try { await fs.lstat(join(store, name)); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-    return foreign;
+    return { warning: foreignWarning(store) };
   }
-  await writeIfAbsent(join(store, VIEWER_MARKER), MARKER_BODY, { fs });
-  return null;
+  if (await writeIfAbsent(marker, MARKER_BODY, { fs })) return { fresh: true };
+  // Another process created a marker meanwhile: judge it like any existing marker.
+  return claimStore(fs, store);
 }
 
-async function copyViewer(fs, store) {
+// Returns false when a fresh claim met a foreign file (nothing of it was replaced), else true.
+async function copyViewer(fs, store, fresh) {
   for (const name of VIEWER_FILES) {
     const bytes = await boundedRead(join(packageRoot, 'viewer', name));
+    if (fresh) {
+      if (await writeIfAbsent(join(store, name), bytes, { fs })) continue;
+      const current = await fs.readFile(join(store, name)).catch(() => null);
+      if (current && current.equals(bytes)) continue;
+      return false;
+    }
     let current = null;
     try { current = await fs.readFile(join(store, name)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (current && current.equals(bytes)) continue;
     await writeAtomic(fs, join(store, name), bytes);
   }
+  return true;
 }
 
 // A report is listed with a path only when the viewer can read its evidence in place without active content.
@@ -113,10 +124,12 @@ export async function refreshStoreViewer({ store, now = new Date(), fs: seam } =
   const fs = { ...nodeFs, ...seam };
   const root = await nodeFs.realpath(store);
   if (!(await nodeFs.stat(root)).isDirectory()) throw new Error(`The store ${store} is not a directory.`);
-  const foreign = await claimStore(fs, root);
-  if (foreign) return { store: root, runCount: 0, reportCount: 0, unavailable: [], warnings: [foreign] };
-  await copyViewer(fs, root);
+  const blocked = warning => ({ store: root, runCount: 0, reportCount: 0, unavailable: [], warnings: [warning] });
+  const claim = await claimStore(fs, root);
+  if (claim.warning) return blocked(claim.warning);
+  if (!(await copyViewer(fs, root, claim.fresh))) return blocked(foreignWarning(root));
   let result = await build(root, now);
+  if (claim.fresh && !(await writeIfAbsent(join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`, { fs }))) return blocked(foreignWarning(root));
   let settled = false;
   for (let round = 0; round < ROUNDS && !settled; round++) {
     await writeAtomic(fs, join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`);
