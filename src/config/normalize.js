@@ -143,7 +143,7 @@ export function normalizeConfig(input) {
   if (!sideEntries.length || sideEntries.length > 20) fail('sides must have 1..20 entries');
   const sides = Object.fromEntries(sideEntries.map(([sideId, side]) => {
     id(sideId, 'side ID');
-    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins']);
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins', 'thirdParty']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
     // R6.5: the flag, not the side id, marks a production side.
     if (Object.hasOwn(side, 'production') && typeof side.production !== 'boolean') fail(`sides.${sideId}.production must be a boolean`);
@@ -152,11 +152,14 @@ export function normalizeConfig(input) {
     // R3.5: one known CDN challenge. A local side never meets one.
     if (Object.hasOwn(side, 'challenge') && !remote) fail(`sides.${sideId}.challenge requires remote true`);
     if (Object.hasOwn(side, 'challenge') && side.challenge !== 'cloudflare') fail(`sides.${sideId}.challenge must be "cloudflare"`);
+    // R3.10: the mode for a frame or subresource of another origin. Both sides accept it.
+    if (Object.hasOwn(side, 'thirdParty') && !['block', 'drop'].includes(side.thirdParty)) fail(`sides.${sideId}.thirdParty must be "block" or "drop"`);
     return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`, remote),
       ...(remote ? { remote: true } : {}),
       ...(Object.hasOwn(side, 'userAgent') ? { userAgent: userAgent(side.userAgent, `sides.${sideId}.userAgent`) } : {}),
       ...(Object.hasOwn(side, 'challenge') ? { challenge: side.challenge } : {}),
       ...(Object.hasOwn(side, 'allowOrigins') ? { allowOrigins: allowOrigins(side.allowOrigins, `sides.${sideId}.allowOrigins`) } : {}),
+      ...(Object.hasOwn(side, 'thirdParty') ? { thirdParty: side.thirdParty } : {}),
       ...(side.production === true ? { production: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));

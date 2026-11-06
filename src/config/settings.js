@@ -16,9 +16,12 @@ export function settingsHash(value) {
 export function captureSettings(config, sideId) {
   if (!Object.hasOwn(config.sides, sideId)) throw new Error(`Unknown side: ${sideId}`);
   const allow = config.sides[sideId].allowOrigins;
+  const thirdParty = config.sides[sideId].thirdParty;
   // R3.9: the list changes what the page loads, so it enters the hash. Order does not matter.
+  // R3.10: `thirdParty` changes what the page loads, so it enters the hash when set. Equal values give equal hashes.
   // A side without the key keeps its hash.
   return { viewports: config.viewports, settle: config.sides[sideId].settle, screenshot: config.screenshot,
+    ...(thirdParty ? { thirdParty } : {}),
     ...(allow?.length ? { allowOrigins: allow.map(entry => ({ origin: entry.origin, types: [...entry.types].sort() })).sort((a, b) => a.origin < b.origin ? -1 : 1) } : {}) };
 }
 

@@ -137,8 +137,35 @@ certificate of a named origin. A local side may set the same key, so a local sid
 web font from a named third-party origin. A failed request to a named origin, or an HTTP error answer such as a 404 for a font file, fails the capture. A request to a named origin sends its URL and headers, including the `Referer` of the page, to that origin. The list is part of the capture settings hash. A pair
 with a list on one side only is incompatible, and the diagnostic names `allowOrigins`.
 
+A page can embed content from another origin, for example a video frame. A local side fails the capture
+on such a request, and a remote side aborts it and keeps the capture. To give both sides the same rule,
+set `thirdParty` on both sides (R3.10):
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true, "thirdParty": "drop"},
+"local": {"origin": "http://localhost:8080", "thirdParty": "drop"}
+```
+
+`"drop"` aborts a GET or HEAD request for a frame or subresource of another origin and keeps the capture.
+A local side sends nothing to that origin, unless `allowOrigins` names it. On a local side the key applies to a non-local origin only: a request to another loopback or DDEV host (`localhost`, `127.x.x.x`, `*.ddev.site`) stays allowed, with any port. `"block"` fails the capture, with the error that names the
+request. Without the key, a local side blocks and a remote side drops. A top-level navigation to another
+origin, a redirect that leaves the permitted origins and every other method still fail the capture. The
+value is part of the capture settings hash, so set the same value on both sides. The template sets `"thirdParty": "drop"` on its one side. A project that adds a second side sets the same value there. A pair with different
+values is incompatible, and the diagnostic names `thirdParty`. Each dropped request appears in the
+`dropped` record of the capture, on a local and on a remote side.
+
 Other aborted requests are not evidence. A page that needs such a request to render
 differs from the same page with it, so read an `unexplained` finding with that in mind.
+
+## Lazy images and reveal
+
+An image with `loading="lazy"` below the first screen stays grey in a full-page capture, because the page never scrolls to it. Set `settle.lazyImages` to `true`. The capture then scrolls the page once, loads every lazy image and scrolls back. `settle.reveal` clicks, hovers or focuses named elements before the capture. Both keys are off by default.
+
+Set the same `settle` on both sides. The recipe enters the settings hash. A pair where one side has `lazyImages` and the other has not is `incompatible`, and the other side needs a new capture. The row diagnostic names the setting and both values, for example `settle.lazyImages (A: false, B: true)`. `templates/test-kit.config.json` shows two sides with one `settle` recipe.
+
+```json
+"settle": {"waitMs": 0, "selectors": [], "disableMotion": true, "masks": [], "lazyImages": true}
+```
 
 ## Scoped project workflow
 
@@ -331,9 +358,9 @@ under #25 and #45.
 
 ### Local Lighthouse measurements
 
-The engine and pure helpers support Node 20.19. Lighthouse 13.5 requires
+The engine and pure helpers support Node 20.19. Lighthouse 13.6 requires
 Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
-is pinned to 13.5.0. Measurement accepts local HTTP page targets only.
+is pinned to 13.6.0. Measurement accepts local HTTP page targets only.
 HTTPS and component targets fail explicitly.
 
 ```bash

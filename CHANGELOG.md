@@ -4,9 +4,23 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-06
+
+Stable release of 1.1. It holds `1.1.0-rc.3` and the change below. Read the migration notes of the candidates before you update from 1.0.0: `[1.1.0-rc.1]` (report `schemaVersion` 3, behavior version 2), `[1.1.0-rc.2]` (Node 20.19 or newer, status and redirect differences no longer read `match`) and `[1.1.0-rc.3]` (new text of an `incompatible` diagnostic). The owner released it without a pilot on a project.
+
+### Changed
+
+- The development dependency `lighthouse` moves from 13.5.0 to 13.6.0 (#247). The README names the pinned version. The optional peer range is unchanged.
+
+## [1.1.0-rc.3] - 2026-11-06
+
+Third release candidate for 1.1.0. It is not a stable release. `package.json` stays at `1.1.0`, so `--version` prints `1.1.0`; `npm ls @parisek/test-kit` shows the commit. Nothing new runs by default. The diagnostic text of an `incompatible` row changes: it now lists each differing setting with both values. A script that matches the old text must match the new form.
+
 ### Added
 
 - `targetSource` takes two opt-in booleans, `variants` and `pages` (R13.52, #94). `variants: true` makes one `component` target for each `styleguide.<variant>.twig` of an entry: ID `<component>--<variant>`, path `<mount>/render/component/<id>?canvas&variant=<variant>`. `pages: true` reads `<mount>/api/pages` and makes one `page` target for each page: ID `page--<id>`, path `<mount>/render/page/<id>?canvas`, variants as `page--<id>--<variant>`. `include` now names target IDs, and a component ID also selects its variants. A page with `has_styleguide: false` is listed as no fixture, like a component. Without the keys nothing changes.
+- An `incompatible` row names each differing capture setting and both values, for example `settle.lazyImages (A: false, B: true)` (R8.9, #279). The README has a section "Lazy images and reveal", and the template config has two sides with one `settle` recipe.
+- A side, local or remote, may set `thirdParty` to `"drop"` or `"block"` (R3.10, #252). `"drop"` makes a local side abort a GET or HEAD frame or subresource of another origin and keep the capture, as a remote side does. Both sides record the aborted request in `dropped`. The value enters the capture settings hash, and a pair with different values is incompatible. A top-level navigation and every non-read request still fail. Unset keeps today's behavior.
 
 ### Changed
 
