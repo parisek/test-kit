@@ -20,6 +20,7 @@ const site = createServer((request, response) => {
   response.setHeader('Content-Type', 'text/html');
   if (request.url === '/stalled') response.end('<!doctype html><style>body{height:2000px}img{position:absolute;top:1600px;width:40px;height:40px}</style><img loading="lazy" src="/stalled.svg">');
   else if (request.url === '/far') response.end('<!doctype html><title>Far</title><style>body{margin:0;height:6000px}img{position:absolute;top:5000px;width:40px;height:40px}</style><img id="far" loading="lazy" src="/image.svg">');
+  else if (request.url === '/scoped') response.end('<!doctype html><title>Scoped</title><style>body{margin:0;height:7000px}div{position:absolute;left:0;width:60px;height:60px}img{width:40px;height:40px}#a{top:4000px}#b{top:4800px}#c{top:5600px}</style><div id="a"><img loading="lazy" src="/image.svg"></div><div id="b"><img loading="lazy" src="/image.svg"><img loading="lazy" src="/image.svg"></div><div id="c"><img loading="lazy" src="/image.svg"></div>');
   else if (request.url === '/tall') response.end('<!doctype html><style>body{height:30001px}</style>');
   else if (request.url === '/growing') response.end('<!doctype html><style>body{margin:0;height:1500px}</style><script>addEventListener("scroll",()=>{if(scrollY>0)document.body.style.height="2500px";});</script>');
   else response.end(`<!doctype html><title>Example site</title><style>body{margin:0;height:2000px}#shown,#focus-result,#hover-result{display:none}#focus:focus+#focus-result{display:block}#hover:hover #hover-result{display:block}img{position:absolute;top:1600px;width:40px;height:40px}</style><button id="open" onclick="document.querySelector('#shown').style.display='block'">Open</button><h1 id="shown">Revealed</h1><button id="focus">Focus</button><span id="focus-result">Focused</span><div id="hover">Hover<span id="hover-result">Hovered</span></div><a id="navigate" href="/other">Other page</a><a id="popup" target="_blank" href="/other">Popup</a><button id="blank" onclick="window.open('about:blank')">Blank popup</button><button id="submit" onclick="fetch('/submit',{method:'POST'}).catch(()=>{})">Submit</button><img id="lazy" loading="lazy" src="/image.svg"><img loading="lazy" src="/broken.svg">`);
@@ -124,6 +125,23 @@ try {
   assert.match(siblingBody, /id="lazy" loading="lazy"/, 'Sibling does not inherit target lazy-image mutation.');
   assert.equal(Object.hasOwn(a.run.captures[0], 'warnings'), false, 'A target with lazyImages on stores no warning.');
   assert.deepEqual(a.run.captures[2].warnings, [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 1 }], 'A target with lazyImages off stores the count of unloaded lazy images.');
+  // R5.11, #329: a selector target counts only the lazy images inside the selected elements, each image once.
+  const scopedConfig = { ...config, targets: [
+    { id: 'page', kind: 'page', path: '/scoped', settle: { selectors: [], reveal: [] } },
+    { id: 'one', kind: 'page', path: '/scoped', selector: '#a', settle: { selectors: [], reveal: [] } },
+    { id: 'list', kind: 'page', path: '/scoped', selector: ['#a', '#b'], settle: { selectors: [], reveal: [] } },
+    { id: 'overlap', kind: 'page', path: '/scoped', selector: ['#b', '#b img'], settle: { selectors: [], reveal: [] } },
+    { id: 'swept', kind: 'page', path: '/scoped', selector: '#a', settle: { selectors: [], reveal: [], lazyImages: true } }], artifacts: ['screenshot'], checks: [] };
+  await writeFile(configPath, JSON.stringify(scopedConfig));
+  const scoped = await capture({ configPath, side: 'local' });
+  const warningsOf = id => scoped.run.captures.find(entry => entry.targetId === id).warnings;
+  assert.equal(scoped.run.state, 'complete');
+  assert.deepEqual(warningsOf('page'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 4 }], 'A page target counts every lazy image.');
+  assert.deepEqual(warningsOf('one'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 1 }], 'A selector target counts only the images inside the selected element.');
+  assert.deepEqual(warningsOf('list'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 3 }], 'A selector list counts the images of every selected element.');
+  assert.deepEqual(warningsOf('overlap'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 2 }], 'An image inside two matches counts once.');
+  assert.equal(warningsOf('swept'), undefined, 'A selector target with lazyImages on stores no warning.');
+  await writeFile(configPath, JSON.stringify(config));
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);
   const contentQuery = await queryArtifact(same.reportPath, { target: 'revealed', viewport: 'wide', artifact: 'content' });

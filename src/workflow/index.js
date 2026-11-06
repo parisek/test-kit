@@ -187,12 +187,16 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     const run = result.run;
     const output = { id: run.id, state: run.state, manifestPath: result.manifestPath, storePath, scope };
     const exitCode = run.state === 'complete' ? 0 : 1;
+    // R5.11: the same stderr line as `capture`. Stdout stays one JSON line.
+    const { warningLine } = await import('../report/warnings.js');
+    const line = warningLine(run);
+    const warned = line ? { stderr: [line] } : {};
     if (command === 'run') {
       const feedback = dependencies.summarizeRunFeedback ?? (await import('./feedback.js')).summarizeRunFeedback;
       output.feedback = await feedback(run, join(storePath, 'runs'));
     }
     if (command === 'before') {
-      if (exitCode) return { output: { ...output, baselineUpdated: false }, exitCode };
+      if (exitCode) return { output: { ...output, baselineUpdated: false }, exitCode, ...warned };
       state.profiles[scope] = { before: run.id, policy, side, sideDigest };
       delete state.report;
     }
@@ -203,6 +207,6 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
       output.reportPath = comparison.reportPath;
     }
     await save(statePath, state);
-    return { output, exitCode };
+    return { output, exitCode, ...warned };
   } finally { await rm(runtime, { force: true }); await rm(lock, { recursive: true, force: true }); }
 }

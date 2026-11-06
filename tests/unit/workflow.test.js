@@ -37,6 +37,20 @@ test('run retains partial evidence without making a comparison', async t => {
  const result = await runWorkflow('run', options, { capture: async input => { runtime = input.configPath; assert.equal(join(dir, 'test-kit', 'runs'), join(dir, JSON.parse(await readFile(runtime)).runsRoot)); return { run: { id: 'partial-1', state: 'partial' }, manifestPath: 'evidence' }; }, summarizeRunFeedback: async () => ({ state: 'incomplete' }), compareRuns: () => assert.fail('No fabricated pair') });
  assert.equal(result.exitCode, 1); assert.equal(result.output.id, 'partial-1'); assert.equal((await readdir(dir)).some(name => name.includes('runtime')), false);
 });
+test('run, before and after print the lazy-image warning line on stderr and keep stdout clean (R5.11)', async t => {
+ const { dir, options } = await fixture(t);
+ const captures = [{ warnings: [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 3 }] }];
+ const feedback = async () => ({ state: 'complete' });
+ const ran = await runWorkflow('run', options, { capture: async () => ({ run: { id: 'run-1', state: 'complete', captures }, manifestPath: 'evidence' }), summarizeRunFeedback: feedback });
+ assert.equal(ran.stderr.length, 1); assert.match(ran.stderr[0], /^Warning LAZY_IMAGES_NOT_SWEPT: 1 capture holds .*\(3 in all\)/);
+ assert.equal(JSON.stringify(ran.output).includes('Warning'), false);
+ const quiet = await runWorkflow('run', options, { capture: async () => ({ run: { id: 'run-2', state: 'complete', captures: [{}] } }), summarizeRunFeedback: feedback });
+ assert.equal((quiet.stderr ?? []).some(line => line.startsWith('Warning ')), false);
+ const before = await runWorkflow('before', options, { capture: async () => { await mkdir(join(dir, 'test-kit/runs/before-1'), { recursive: true }); await writeFile(join(dir, 'test-kit/runs/before-1/run.json'), '{}'); return { run: { id: 'before-1', state: 'complete', captures } }; } });
+ assert.match(before.stderr[0], /^Warning LAZY_IMAGES_NOT_SWEPT:/);
+ const after = await runWorkflow('after', options, { capture: async () => ({ run: { id: 'after-1', state: 'complete', captures } }), compareRuns: async input => ({ reportPath: join(input.outputDir, 'report.json') }) });
+ assert.match(after.stderr[0], /^Warning LAZY_IMAGES_NOT_SWEPT:/);
+});
 test('baseline scopes and lockfile policy prevent an unrelated after run', async t => {
  const { dir, options } = await fixture(t);
  const capture = async () => ({ run: { id: 'before-1', state: 'complete' }, manifestPath: 'evidence' });
