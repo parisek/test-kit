@@ -4,6 +4,8 @@ One comparator per artifact kind, normalisers with evidence, the noise floor. Sp
 
 `compareRuns` reads two stored runs and writes a screenshot report. It preserves originals. It rejects incompatible settings and tool versions. It limits manifest and PNG input sizes. The explicit browser integration checks verify repeated captures and a changed target.
 
+`compareRuns` copies the valid `warnings` of each capture to `row.warnings` as `{ a, b }` (R5.11). A bad stored value is ignored as a whole and adds nothing.
+
 Response artifacts use bounded sidecars and a linear HTML replacement window.
 A status pair creates a finding when the final status, the final path or the redirect chain differs (R6.13). Asset counts do not.
 Requested artifact failures keep measurement incomplete, a `status` failure too (R8.7).

@@ -8,7 +8,7 @@ import { compareRuns } from '../../src/compare/runs.js';
 import { queryArtifact } from '../../src/query/artifact.js';
 import { createServer } from 'node:http';
 import { chromium } from '@playwright/test';
-import { settlePage } from '../../src/capture/settle.js';
+import { settlePage, countUnloadedLazyImages } from '../../src/capture/settle.js';
 let imageRequests = 0, otherRequests = 0;
 const requests = new Map();
 const site = createServer((request, response) => {
@@ -19,6 +19,7 @@ const site = createServer((request, response) => {
   if (request.url === '/broken.svg') { response.writeHead(404); response.end(); return; }
   response.setHeader('Content-Type', 'text/html');
   if (request.url === '/stalled') response.end('<!doctype html><style>body{height:2000px}img{position:absolute;top:1600px;width:40px;height:40px}</style><img loading="lazy" src="/stalled.svg">');
+  else if (request.url === '/far') response.end('<!doctype html><title>Far</title><style>body{margin:0;height:6000px}img{position:absolute;top:5000px;width:40px;height:40px}</style><img id="far" loading="lazy" src="/image.svg">');
   else if (request.url === '/tall') response.end('<!doctype html><style>body{height:30001px}</style>');
   else if (request.url === '/growing') response.end('<!doctype html><style>body{margin:0;height:1500px}</style><script>addEventListener("scroll",()=>{if(scrollY>0)document.body.style.height="2500px";});</script>');
   else response.end(`<!doctype html><title>Example site</title><style>body{margin:0;height:2000px}#shown,#focus-result,#hover-result{display:none}#focus:focus+#focus-result{display:block}#hover:hover #hover-result{display:block}img{position:absolute;top:1600px;width:40px;height:40px}</style><button id="open" onclick="document.querySelector('#shown').style.display='block'">Open</button><h1 id="shown">Revealed</h1><button id="focus">Focus</button><span id="focus-result">Focused</span><div id="hover">Hover<span id="hover-result">Hovered</span></div><a id="navigate" href="/other">Other page</a><a id="popup" target="_blank" href="/other">Popup</a><button id="blank" onclick="window.open('about:blank')">Blank popup</button><button id="submit" onclick="fetch('/submit',{method:'POST'}).catch(()=>{})">Submit</button><img id="lazy" loading="lazy" src="/image.svg"><img loading="lazy" src="/broken.svg">`);
@@ -31,6 +32,11 @@ try {
   const context = await browser.newContext({ viewport: { width: 500, height: 300 } });
   const page = await context.newPage(); page.setDefaultTimeout(500);
   await page.goto(origin);
+  // R5.11: lazy images below the viewport are unloaded until the sweep runs. A count changes nothing on the page.
+  await page.goto(`${origin}/far`);
+  assert.equal(await countUnloadedLazyImages(page), 1, 'A lazy image far below the viewport is unloaded before the sweep.');
+  assert.equal(await page.locator('#far').evaluate(image => image.loading), 'lazy', 'The count does not change the page.');
+  await page.goto(origin);
   await settlePage({ page, recipe: { reveal: [{ action: 'hover', selector: '#hover' }], selectors: ['#hover-result'] } });
   await settlePage({ page, recipe: { reveal: [{ action: 'click', selector: '#open' }, { action: 'focus', selector: '#focus' }], selectors: ['#shown', '#focus-result'], waitMs: 0 } });
   assert.equal(await page.locator('#shown').isVisible(), true);
@@ -41,6 +47,7 @@ try {
   assert.deepEqual(await page.evaluate(() => ({ x: scrollX, y: scrollY })), scrollBefore);
   assert.equal(await page.locator('#lazy').evaluate(image => image.complete && image.naturalWidth === 40), true);
   assert.ok(imageRequests >= 1);
+  assert.equal(await countUnloadedLazyImages(page), 0, 'The sweep leaves no unloaded lazy image.');
   await assert.rejects(settlePage({ page, recipe: { reveal: [{ action: 'click', selector: '#missing' }] } }));
   await assert.rejects(settlePage({ page, recipe: { selectors: ['#missing'] } }));
   await assert.rejects(settlePage({ page, recipe: {}, active: () => false }), /no longer active/);
@@ -66,7 +73,7 @@ try {
     const save = () => writeFile(configPath, JSON.stringify(config));
     await save();
     const a = await capture({ configPath, side: 'local' }), b = await capture({ configPath, side: 'local' });
-    assert.equal(a.run.state, 'complete'); assert.equal(b.run.state, 'complete');
+  assert.equal(a.run.state, 'complete'); assert.equal(b.run.state, 'complete');
     const compare = (second, name) => compareRuns({ runsRoot: join(settlementDirectory, 'runs'), runA: a.run.id, runB: second.run.id, outputDir: join(settlementDirectory, name) });
     const same = await compare(b, 'same');
     assert.ok(same.report.entries.every(entry => entry.viewports[0].state === 'complete'));
@@ -100,7 +107,8 @@ try {
   const configPath = join(directory, 'config.json');
   const config = { schemaVersion: 1, sides: { local: { origin, settle: { waitMs: 1, selectors: ['body'], reveal: [{ action: 'hover', selector: '#hover' }] } } },
     targets: [{ id: 'revealed', kind: 'page', path: '/', settle: { selectors: ['#shown'], reveal: [{ action: 'click', selector: '#open' }], waitMs: 2, lazyImages: true }, settleBySide: { local: { waitMs: 3 } } },
-      { id: 'sibling', kind: 'page', path: '/', settle: { selectors: [], reveal: [] } }],
+      { id: 'sibling', kind: 'page', path: '/', settle: { selectors: [], reveal: [] } },
+      { id: 'far', kind: 'page', path: '/far', settle: { selectors: [], reveal: [] } }],
     viewports: [{ id: 'wide', width: 500, height: 300 }], artifacts: ['screenshot', 'content'], checks: ['heading-outline', 'empty-alt'], runsRoot: 'runs' };
   await writeFile(configPath, JSON.stringify(config));
   const a = await capture({ configPath, side: 'local' });
@@ -114,6 +122,8 @@ try {
   assert.match(settledBody, /id="lazy" loading="eager"/);
   const siblingBody = gunzipSync(await readFile(join(a.runDir, a.run.captures[1].artifacts.content.bodyPath))).toString();
   assert.match(siblingBody, /id="lazy" loading="lazy"/, 'Sibling does not inherit target lazy-image mutation.');
+  assert.equal(Object.hasOwn(a.run.captures[0], 'warnings'), false, 'A target with lazyImages on stores no warning.');
+  assert.deepEqual(a.run.captures[2].warnings, [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 1 }], 'A target with lazyImages off stores the count of unloaded lazy images.');
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);
   const contentQuery = await queryArtifact(same.reportPath, { target: 'revealed', viewport: 'wide', artifact: 'content' });

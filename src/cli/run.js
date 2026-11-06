@@ -124,7 +124,11 @@ export async function dispatch({ command, positions, options }, dependencies = {
     const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(','), packs: options.packs === true });
     // R13.51: the output names a pack that did not run. A skipped pack is never reported as run.
     const packs = result.run.packs ? { packs: result.run.packs } : {};
-    return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 }, options);
+    // R5.11: one stderr line when a capture stored lazy images that did not load. Stdout stays one JSON line.
+    const { warningLine } = await import('../report/warnings.js');
+    const line = warningLine(result.run);
+    const refreshed = await refreshLowLevel({ output: { id: result.run.id, state: result.run.state, manifestPath: result.manifestPath, ...packs }, exitCode: result.run.state === 'complete' ? 0 : 1 }, options);
+    return line ? { ...refreshed, stderr: [...(refreshed.stderr ?? []), line] } : refreshed;
   }
   if (command === 'import') {
     // R4.6: no browser and no network. The images come from the root of a design side.
