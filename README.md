@@ -182,6 +182,12 @@ Set the same `settle` on both sides. The recipe enters the settings hash. A pair
 "settle": {"waitMs": 0, "selectors": [], "disableMotion": true, "masks": [], "lazyImages": true}
 ```
 
+## Sticky and fixed headers
+
+A `position: sticky` or `position: fixed` header can show again, lower in a full-page screenshot, when the page scrolls before the capture. Two captures of one page then differ in a band as tall as the header. Set `settle.pin` to a list of at most 20 selectors, for example `["header.site-header"]`. For the capture only, each match gets `position: static`. The key is off by default and sends no request, so it works on a `remote` side.
+
+A `fixed` header takes no space in the flow, so the content below it moves down by the header height. Set the same `pin` on both sides. A selector with no match fails the capture of that target. A change of `pin` makes only that target `incompatible`.
+
 ## Scoped project workflow
 
 The package owns command routing, selections, baselines, and local history.

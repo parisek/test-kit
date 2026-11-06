@@ -83,7 +83,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `behavior.trace` | boolean | `false` | no | |
 | `behavior.emulate` | object | `{}` | no | `reducedMotion`, `colorScheme`. |
 | `behavior.enabled` | list | all contracts | no | Contract names. Added in 0.3.0. An empty list selects none. |
-| `sides.<id>.settle` fields | | `waitMs` 0, `selectors` `[]`, `disableMotion` `true`, `masks` `[]` | no | Optional `reveal` (list of `click`, `hover` or `focus` steps) and `lazyImages` (boolean). |
+| `sides.<id>.settle` fields | | `waitMs` 0, `selectors` `[]`, `disableMotion` `true`, `masks` `[]` | no | Optional `reveal` (list of `click`, `hover` or `focus` steps), `lazyImages` (boolean) and `pin` (list of at most 20 selectors, R5.12). |
 
 Items inside the configuration that stay open:
 

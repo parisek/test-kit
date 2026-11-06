@@ -85,7 +85,7 @@ function targetPath(value, name) {
   return value;
 }
 export function normalizeSettlement(value, name = 'settle', partial = false) {
-  const source = object(value, name, ['waitMs', 'selectors', 'disableMotion', 'masks', 'reveal', 'lazyImages']);
+  const source = object(value, name, ['waitMs', 'selectors', 'disableMotion', 'masks', 'reveal', 'lazyImages', 'pin']);
   const result = {};
   for (const key of ['waitMs', 'selectors', 'disableMotion', 'masks']) {
     if (partial && !Object.hasOwn(source, key)) continue;
@@ -99,6 +99,8 @@ export function normalizeSettlement(value, name = 'settle', partial = false) {
     return { action: step.action, selector: text(step.selector, `${name}.reveal selector`, 2048) };
   });
   if (Object.hasOwn(source, 'lazyImages')) result.lazyImages = bool(source.lazyImages, `${name}.lazyImages`);
+  // R5.12: plain selectors only. The capture sets one fixed declaration on the matches and runs no script.
+  if (Object.hasOwn(source, 'pin')) result.pin = list(source.pin, `${name}.pin`, 20).map(value => text(value, `${name}.pin selector`, 2048));
   return result;
 }
 
