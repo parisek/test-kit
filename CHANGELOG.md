@@ -7,6 +7,8 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Added
 
 - `test-kit history --prune [--keep N] [--yes]` removes old runs on request (R12.5, #161). The default `--keep` is 20 runs for each side. Without `--yes` it lists what it would remove and removes nothing. It orders runs by the time in `run.json`. It keeps a run that a report or a baseline names, and a run with no readable time or side. It works only in a store with the `.test-kit-viewer` marker, refuses symbolic links, removes only `runs/<id>/`, stops at the first failed removal, prints one JSON line and refreshes the store viewer. It does not read a published `index.json` (open question 11). Nothing deletes automatically. The owner approved the flag on the frozen command `history` on 2026-11-06.
+- `record-allowed --fingerprint HASH` selects the one finding with this `evidenceFingerprint` when several match. It refuses a value that is not a hash and a value that matches no finding. The error for several matches names the option (R9.12, #331).
+- `record-allowed` refuses the check `lighthouse-budget`. A budget finding has no fingerprint, stays `unexplained`, and a budget changes in the config. The rule is now in R9.8 and R9.12 (owner decision, #331).
 
 ### Changed
 

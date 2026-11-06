@@ -168,4 +168,6 @@ test-kit diff <run-a> <run-b> --config test-kit.config.json --output tests/visua
 
 Commit the file. `diff` and `after` read it. The new report marks a matching finding `explained`. If the evidence changes, the fingerprint changes. The finding is `unexplained` again, and the old entry shows as `stale` in `report.allowlist`, `summary` and `query`. An entry past its `expires` date shows as `expired` and explains nothing. A stale or an expired entry does not fail the run. Nothing removes an entry: a person edits the file.
 
-`record-allowed` refuses an oracle target, a relative check, an artifact that is not `complete` and a duplicate. It needs exactly one finding for the check, target and viewport. With two findings of one check, copy one fingerprint from the report into the file by hand. The flag `--allowlist FILE` sets another path.
+`record-allowed` refuses an oracle target, a relative check, an artifact that is not `complete` and a duplicate. It needs exactly one finding for the check, target and viewport. With two findings of one check, the error lists their fingerprints. Add `--fingerprint HASH` to pick the one finding that has this fingerprint. The command refuses a value that is not a hash and a value that matches no finding. The flag `--allowlist FILE` sets another path.
+
+A speed budget finding (`lighthouse-budget`) has no fingerprint and takes no entry. `record-allowed` refuses it. Change the budget in the config instead.
