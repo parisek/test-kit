@@ -264,3 +264,34 @@ test('download: the API request goes to the fixed host by default and follows no
 test('cli: no option sets an endpoint or a token, and the command reads the token from the environment (R5.5)', () => {
   for (const flag of ['--api-base', '--token', '--figma-token', '--endpoint']) assert.throws(() => parseCommand(['import', '--side', 'design', flag, 'x']), /Unknown option/, flag);
 });
+
+test('download: one deadline covers the whole import, and the total byte cap holds (R5.5)', async () => {
+  // The first image answers at once. The second hangs. The deadline is 300 ms and the per-request timeout is 60 s,
+  // so only the shared deadline can stop the second download.
+  const slow = await mock({ image: (req, res, id) => { if (id === '1:2') { res.setHeader('content-type', 'image/png'); return res.end(png(4, 4, [1, 1, 1])); } } });
+  const started = Date.now();
+  try {
+    await assert.rejects(downloadFigmaImages({ fileKey: KEY, requests: [{ nodeId: '1:2', scale: 1 }, { nodeId: '1:3', scale: 1 }], token: TOKEN, apiBase: slow.base(), imageUrlProblem: () => null, deadlineMs: 300, apiTimeoutMs: 60_000, imageTimeoutMs: 60_000 }), error => error.code === 'FIGMA_TIMEOUT');
+    assert.ok(Date.now() - started < 5000, 'The deadline stopped the hanging request.');
+  } finally { await slow.close(); }
+  // A deadline that is already past fails before a request.
+  const none = await mock();
+  try {
+    await assert.rejects(downloadFigmaImages({ fileKey: KEY, requests: [{ nodeId: '1:2', scale: 1 }], token: TOKEN, apiBase: none.base(), imageUrlProblem: () => null, deadlineMs: -1 }), error => error.code === 'FIGMA_TIMEOUT');
+    assert.equal(none.log.length, 0);
+  } finally { await none.close(); }
+  // The total cap (a hook lowers it from 256 MiB).
+  const total = await mock();
+  try {
+    await assert.rejects(downloadFigmaImages({ fileKey: KEY, requests: [{ nodeId: '1:2', scale: 1 }, { nodeId: '1:3', scale: 1 }], token: TOKEN, apiBase: total.base(), imageUrlProblem: () => null, maxTotalBytes: total.images['1:2'].length + 1 }), error => error.code === 'FIGMA_TOO_LARGE' && /together/.test(error.message));
+  } finally { await total.close(); }
+});
+
+test('import: a deadline failure leaves no run directory (R5.5)', async () => {
+  const server = await mock({ image: () => {} });
+  const { dir, configPath } = await project();
+  try {
+    await assert.rejects(importDesign({ configPath, side: 'design', env: { FIGMA_TOKEN: TOKEN }, figma: { ...server.hooks, deadlineMs: 200 } }), error => error.code === 'FIGMA_TIMEOUT' && !error.message.includes(TOKEN));
+    assert.equal((await readdir(join(dir, 'runs')).catch(() => [])).length, 0);
+  } finally { await server.close(); await rm(dir, { recursive: true, force: true }); }
+});

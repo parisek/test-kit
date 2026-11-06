@@ -49,21 +49,23 @@ async function readBounded(response, limit, what) {
 
 // One request. No redirect is followed: a redirect could send the request to a host the policy did not check.
 // No retry: a rate limit (429) fails with the Retry-After value, and the person runs import again.
-async function request(fetchImpl, url, { headers, timeoutMs, token, what }) {
+async function request(fetchImpl, url, { headers, timeoutMs, token, what, deadline }) {
+  // One clock for the whole import: a request never runs past the deadline (R5.5).
+  assertTime(deadline);
+  timeoutMs = Math.max(1, Math.min(timeoutMs, deadline - Date.now()));
   let response;
   try {
     response = await fetchImpl(url, { method: 'GET', headers, redirect: 'manual', credentials: 'omit', signal: AbortSignal.timeout(timeoutMs) });
   } catch (error) {
     const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
-    throw new FigmaError(timeout ? 'FIGMA_TIMEOUT' : 'FIGMA_NETWORK', timeout ? `${what} timed out after ${timeoutMs} ms.` : `${what} failed (${clean(error?.cause?.code ?? error?.code ?? 'network error', token)}).`);
+    throw new FigmaError(timeout ? 'FIGMA_TIMEOUT' : 'FIGMA_NETWORK', timeout ? `${what} timed out (limit ${timeoutMs} ms).` : `${what} failed (${clean(error?.cause?.code ?? error?.code ?? 'network error', token)}).`);
   }
   if (response.status >= 300 && response.status < 400) { await response.body?.cancel?.().catch(() => {}); throw new FigmaError('FIGMA_REDIRECT', `${what} answered with a redirect (${response.status}). The import does not follow redirects.`); }
   return response;
 }
 
 async function apiJson(fetchImpl, url, token, deadline, timeoutMs) {
-  assertTime(deadline);
-  const response = await request(fetchImpl, url, { headers: { 'X-Figma-Token': token, Accept: 'application/json' }, timeoutMs, token, what: 'The Figma API request' });
+  const response = await request(fetchImpl, url, { headers: { 'X-Figma-Token': token, Accept: 'application/json' }, timeoutMs, token, deadline, what: 'The Figma API request' });
   const bytes = await readBounded(response, MAX_API_BYTES, 'The Figma API response').catch(error => {
     if (error instanceof FigmaError) throw error;
     throw new FigmaError('FIGMA_NETWORK', 'The Figma API response could not be read.');
@@ -81,14 +83,14 @@ async function apiJson(fetchImpl, url, token, deadline, timeoutMs) {
 }
 
 function assertTime(deadline) {
-  if (Date.now() > deadline) throw new FigmaError('FIGMA_TIMEOUT', `The import took longer than ${IMPORT_DEADLINE_MS / 1000} s and stopped.`);
+  if (Date.now() > deadline) throw new FigmaError('FIGMA_TIMEOUT', 'The import ran past its time limit and stopped.');
 }
 
 // Download the image of each `{ nodeId, scale }`. Returns a Map keyed by `${scale}|${nodeId}` to the PNG bytes.
 // All-or-nothing: one failure throws and the caller writes no run. Test hooks (`apiBase`, `fetchImpl`, `imageUrlProblem`)
 // and the two timeouts come from the caller of `importDesign` in a test. The command line and the configuration cannot set them.
-export async function downloadFigmaImages({ fileKey, requests, token, apiBase = FIGMA_API_BASE, fetchImpl = globalThis.fetch, imageUrlProblem = defaultImageUrlProblem, apiTimeoutMs = API_TIMEOUT_MS, imageTimeoutMs = IMAGE_TIMEOUT_MS }) {
-  const deadline = Date.now() + IMPORT_DEADLINE_MS;
+export async function downloadFigmaImages({ fileKey, requests, token, apiBase = FIGMA_API_BASE, fetchImpl = globalThis.fetch, imageUrlProblem = defaultImageUrlProblem, apiTimeoutMs = API_TIMEOUT_MS, imageTimeoutMs = IMAGE_TIMEOUT_MS, deadlineMs = IMPORT_DEADLINE_MS, maxTotalBytes = MAX_TOTAL_BYTES }) {
+  const deadline = Date.now() + deadlineMs;
   const unique = [...new Map(requests.map(item => [`${item.scale}|${item.nodeId}`, item])).values()];
   if (unique.length > MAX_IMAGES) throw new FigmaError('FIGMA_TOO_MANY', `The import would download ${unique.length} images. The limit is ${MAX_IMAGES}. Select fewer with --target or --viewport.`);
   const byScale = new Map();
@@ -107,16 +109,15 @@ export async function downloadFigmaImages({ fileKey, requests, token, apiBase = 
         if (typeof link !== 'string') throw new FigmaError('FIGMA_RESPONSE', `Figma rendered no image for node ${nodeId}. Check the node ID and that the token can read the file.`);
         const problem = imageUrlProblem(link);
         if (problem) throw new FigmaError('FIGMA_IMAGE_URL', `The image URL for node ${nodeId} ${problem}. The import refuses it.`);
-        assertTime(deadline);
         // No token and no cookie go to the image storage.
-        const response = await request(fetchImpl, link, { headers: { Accept: 'image/png' }, timeoutMs: imageTimeoutMs, token, what: `The image download for node ${nodeId}` });
+        const response = await request(fetchImpl, link, { headers: { Accept: 'image/png' }, timeoutMs: imageTimeoutMs, token, deadline, what: `The image download for node ${nodeId}` });
         if (!response.ok) { await response.body?.cancel?.().catch(() => {}); throw new FigmaError('FIGMA_HTTP', `The image download for node ${nodeId} answered ${response.status}.`); }
         const bytes = await readBounded(response, MAX_DESIGN_BYTES, `The image for node ${nodeId}`).catch(error => {
           if (error instanceof FigmaError) throw error;
           throw new FigmaError('FIGMA_NETWORK', `The image download for node ${nodeId} failed.`);
         });
         total += bytes.length;
-        if (total > MAX_TOTAL_BYTES) throw new FigmaError('FIGMA_TOO_LARGE', `The images together exceed ${MAX_TOTAL_BYTES} bytes.`);
+        if (total > maxTotalBytes) throw new FigmaError('FIGMA_TOO_LARGE', `The images together exceed ${maxTotalBytes} bytes.`);
         result.set(`${scale}|${nodeId}`, bytes);
       }
     }
