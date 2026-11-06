@@ -96,8 +96,10 @@ npx test-kit after --side local
 ```
 
 The report has kind `migration`. A remote side first and a local side second give
-`migration`. The same side twice gives `update`. Any other pair stops `after`
-before it captures. A baseline made before 1.2 needs `before` again.
+`migration`. The same local side twice gives `update`. The same remote side twice
+gives `deploy`. Any other pair of different sides gives `adhoc`. A second `before`
+with another side replaces the first baseline. A baseline made before 1.2 needs
+`before` again.
 
 A remote capture is read-only. It sends GET and HEAD requests to its own origin.
 It aborts frames and subresources of other origins, such as a tag manager, and
