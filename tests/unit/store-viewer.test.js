@@ -262,3 +262,20 @@ test('a foreign index.json alone also blocks the viewer, and deleting the store 
   await refreshStoreViewer({ store: f.store, now: NOW });
   for (const name of [...VIEWER_FILES, 'index.json', '.test-kit-viewer']) assert.ok((await stat(join(f.store, name))).isFile(), name);
 });
+
+test('only an exact, regular marker file proves ownership; any other marker blocks the write (#312)', async t => {
+  for (const [label, make] of [
+    ['empty', store => writeFile(join(store, '.test-kit-viewer'), '')],
+    ['malformed', store => writeFile(join(store, '.test-kit-viewer'), '{not json')],
+    ['wrong version', store => writeFile(join(store, '.test-kit-viewer'), JSON.stringify({ tool: 'test-kit', kind: 'store-viewer', schemaVersion: 2 }) + '\n')],
+    ['directory', store => mkdir(join(store, '.test-kit-viewer'))],
+    ['symlink', async store => { const real = join(store, '..', 'real-marker'); await writeFile(real, JSON.stringify({ tool: 'test-kit', kind: 'store-viewer', schemaVersion: 1 }) + '\n'); await symlink(real, join(store, '.test-kit-viewer')); }],
+  ]) {
+    const f = await fixture(t);
+    await make(f.store);
+    await writeFile(join(f.store, 'index.html'), 'project page');
+    const result = await refreshStoreViewer({ store: f.store, now: NOW });
+    assert.equal(await readFile(join(f.store, 'index.html'), 'utf8'), 'project page', label);
+    assert.ok(result.warnings.some(line => /did not write/.test(line)), label);
+  }
+});

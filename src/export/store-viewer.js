@@ -35,11 +35,19 @@ async function writeAtomic(fs, path, bytes) {
 
 // The marker says the viewer wrote the files here. A store with a viewer file name and no marker is not ours:
 // write nothing. Returns a warning in that case, else null. The marker is written before the first viewer file.
+// Only a regular file (not a link, not a folder) with exactly MARKER_BODY counts. Any other marker is foreign.
 async function claimStore(fs, store) {
-  try { await fs.lstat(join(store, VIEWER_MARKER)); return null; } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const foreign = `test-kit: warning: store ${store} holds files the viewer did not write; the viewer was not written.`;
+  const marker = join(store, VIEWER_MARKER);
+  let info = null;
+  try { info = await fs.lstat(marker); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (info) {
+    if (!info.isFile() || info.size !== Buffer.byteLength(MARKER_BODY)) return foreign;
+    return (await fs.readFile(marker, 'utf8')) === MARKER_BODY ? null : foreign;
+  }
   for (const name of [...VIEWER_FILES, 'index.json']) {
     try { await fs.lstat(join(store, name)); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-    return `test-kit: warning: store ${store} holds files the viewer did not write; the viewer was not written.`;
+    return foreign;
   }
   await writeIfAbsent(join(store, VIEWER_MARKER), MARKER_BODY, { fs });
   return null;
