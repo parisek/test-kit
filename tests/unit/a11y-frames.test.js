@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveChecks, runChecks } from '../../src/packs/index.js';
 import { a11yPack, reduceAxeResults } from '../../src/packs/a11y/index.js';
-import { classifyFrames, flattenFrameTree, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
+import { classifyFrames, flattenFrameTree, isLostFrameError, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
 
 const raw = () => JSON.parse(readFileSync(new URL('../fixtures/a11y/axe-result.json', import.meta.url), 'utf8'));
 const run = value => runChecks(resolveChecks({ available: [a11yPack], packs: ['a11y'] }), { artifact: 'a11y', value }, { targetId: 'example-site' });
@@ -118,18 +118,22 @@ test('the warning reads in the singular for one frame', () => {
 test('the browser frame tree flattens in document order, parents first (R13.51)', () => {
   const node = (id, url, ...childFrames) => ({ frame: { id, url }, childFrames });
   const flat = flattenFrameTree(node('T', 'http://a.test/', node('A', 'http://a.test/a', node('B', 'about:srcdoc')), node('C', 'about:blank')));
-  assert.deepEqual(flat, [
+  assert.deepEqual(flat.frames, [
     { id: 'A', parent: -1, url: 'http://a.test/a' },
     { id: 'B', parent: 0, url: 'about:srcdoc' },
     { id: 'C', parent: -1, url: 'about:blank' }
   ]);
-  assert.deepEqual(flattenFrameTree(null), []);
-  assert.deepEqual(flattenFrameTree({ childFrames: [{ frame: {} }, 'x'] }).map(item => item.id), [null, null]);
+  assert.deepEqual(flattenFrameTree(null), { frames: [], dropped: 0 });
+  assert.deepEqual(flattenFrameTree({ childFrames: [{ frame: {} }, 'x'] }).frames.map(item => item.id), [null, null]);
 });
 
-test('a frame tree beyond the bound is cut', () => {
+test('a frame tree beyond the bound is cut and the rest is counted', () => {
   const wide = { frame: { id: 'T', url: 'x' }, childFrames: Array.from({ length: 12000 }, (_, index) => ({ frame: { id: String(index), url: 'about:blank' } })) };
-  assert.equal(flattenFrameTree(wide).length, 10000);
+  const out = flattenFrameTree(wide);
+  assert.equal(out.frames.length, 10000);
+  assert.equal(out.dropped, 2000);
+  const nested = { frame: { id: 'T' }, childFrames: [{ frame: { id: 'P' }, childFrames: wide.childFrames }] };
+  assert.deepEqual([flattenFrameTree(nested).frames.length, flattenFrameTree(nested).dropped], [10000, 2001]);
 });
 
 test('a failed frame gets its own warning and the counts are validated', () => {
@@ -146,4 +150,9 @@ test('a failed frame gets its own warning and the counts are validated', () => {
   assert.equal(reduceAxeResults(raw(), { injected: 1, unreachable: 0, failed: -1 }).status, 'failed');
   assert.equal(run({ ...artifact, frames: { injected: 1, unreachable: 0, failed: 1.5 } }).state, 'failed');
   assert.equal(reduceAxeResults(raw(), { injected: 1, unreachable: 0, failed: 0 }).frames.failed, undefined);
+});
+
+test('a frame lost to a gate or a navigation is unreachable, any other break is failed (R13.51)', () => {
+  for (const message of ['TEST_KIT_FRAME_ORIGIN', 'Execution context was destroyed, most likely because of a navigation.', 'Cannot find context with specified id', 'Frame with the given id was not found.']) assert.equal(isLostFrameError(message), true, message);
+  for (const message of ['axe did not load.', 'No axe rule has the tag x.', 'violations has a bad rule.', undefined]) assert.equal(isLostFrameError(message), false, String(message));
 });

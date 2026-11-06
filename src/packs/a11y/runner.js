@@ -4,14 +4,15 @@
 //
 // Limits:
 // - Frames: axe runs in an isolated world (Chromium, CDP) of the top document and of each frame of the page origin and each about:blank / srcdoc frame below them,
-//   at most 50 frames, with no axe frame messaging. It never runs in another origin (R13.51). A frame that it does not run in is counted in `frames.unreachable`.
+//   at most 50 frames, with no axe frame messaging. It never runs in another origin (R13.51). A frame that it does not run in is counted in `frames.unreachable`. A frame lost during its run (it navigated) counts as unreachable. Frames added during the run are counted by one more read of the tree at the end.
 //   The busy claim stays per page. The runner writes nothing to the page, apart from the busy flag. Without CDP axe runs in the main world of the top document only.
 // - After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed`.
-// - Axe runs in an isolated world, so page script cannot replace `window.axe` there. A hostile page can still change the DOM that axe reads. Run it on pages you control.
+// - With CDP (Chromium) axe runs in an isolated world, so page script cannot replace `window.axe` there. Without CDP the top document runs in the main world and a hostile page can fake a result.
+//   In both cases a hostile page can still change the DOM that axe reads. Run it on pages you control.
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { reduceAxeResults, mergeFrameResult, gapArtifact } from './axe.js';
-import { classifyFrames, flattenFrameTree } from './frames.js';
+import { classifyFrames, flattenFrameTree, isLostFrameError } from './frames.js';
 
 const require = createRequire(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -69,7 +70,7 @@ async function runWorlds(page, source, tags, stopped) {
     const topContext = await createWorld(cdp, frameTree.frame.id);
     const topOrigin = await evaluateIn(cdp, topContext, 'self.origin');
     let merged = await evaluateIn(cdp, topContext, worldCode(null, source, tags));
-    const children = flattenFrameTree(frameTree);
+    const { frames: children, dropped } = flattenFrameTree(frameTree);
     // A URL pre-filter and the bound. The origin of each frame is then read in its own isolated world, just before axe runs there.
     const plan = classifyFrames(topOrigin, children.map(child => ({ url: child.url, parent: child.parent, detached: child.id === null })));
     const contexts = [];
@@ -92,13 +93,19 @@ async function runWorlds(page, source, tags, stopped) {
           done = true;
         } catch (error) {
           // A gate that says no, or a frame that went away, is unreachable. Any other break is a failed frame and gets its own warning.
-          if (!/TEST_KIT_FRAME_|Cannot find context|No frame|Target closed|not found|detached/i.test(String(error?.message))) failed += 1;
+          if (!isLostFrameError(error?.message)) failed += 1;
         }
       }
       ok.push(done);
     }
     const injected = ok.filter(Boolean).length;
-    return { merged, frames: { injected, unreachable: children.length - injected - failed, failed } };
+    // The list is one snapshot. One more read of the tree counts frames that were added during the run as unreachable. A removed frame is not subtracted.
+    let added = 0;
+    try {
+      const again = flattenFrameTree((await cdp.send('Page.getFrameTree')).frameTree);
+      added = Math.max(0, again.frames.length + again.dropped - children.length - dropped);
+    } catch { added = 0; }
+    return { merged, frames: { injected, unreachable: children.length + dropped + added - injected - failed, failed } };
   } finally {
     await cdp.detach().catch(() => {});
   }

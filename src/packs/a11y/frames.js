@@ -45,18 +45,25 @@ export function classifyFrames(topUrl, frames) {
 const MAX_TREE = 10000; // chosen safety bound for the walk of the browser frame tree
 
 // Pure. Flattens the browser frame tree (CDP `Page.getFrameTree`) below the top frame into a list in document order, parents before children:
-// { id, parent, url }, where `parent` is the index in the list, or -1 for a child of the top frame. It reads at most MAX_TREE frames.
+// { id, parent, url }, where `parent` is the index in the list, or -1 for a child of the top frame. It lists at most MAX_TREE frames.
+// Returns { frames, dropped }. `dropped` counts the frames beyond the bound, so the caller can count them as unreachable.
 export function flattenFrameTree(tree) {
   const frames = [];
+  let dropped = 0;
   const stack = [];
   const push = (node, parent) => { for (const child of (Array.isArray(node?.childFrames) ? node.childFrames : []).slice().reverse()) stack.push({ node: child, parent }); };
   push(tree, -1);
-  while (stack.length && frames.length < MAX_TREE) {
+  while (stack.length) {
     const { node, parent } = stack.pop();
+    if (frames.length >= MAX_TREE) { dropped += 1; push(node, -1); continue; } // counted, not listed
     const id = node?.frame?.id;
     const at = frames.length;
     frames.push({ id: typeof id === 'string' ? id : null, parent, url: typeof node?.frame?.url === 'string' ? node.frame.url : '' });
     push(node, at);
   }
-  return frames;
+  return { frames, dropped };
 }
+
+// Pure. True when a frame error means that the frame is gone or refused the gate: the origin gate, a lost or destroyed world (a navigation),
+// a detached frame. The runner counts such a frame as unreachable. Any other error counts as failed.
+export const isLostFrameError = message => /TEST_KIT_FRAME_|Cannot find context|Execution context was destroyed|No frame|Target closed|not found|detached/i.test(String(message));
