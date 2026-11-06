@@ -50,7 +50,7 @@ async function gitSha(directory) {
   return '0000000';
 }
 
-export async function runPerfCommand(options = {}) {
+export async function runPerfCommand(options = {}, dependencies = {}) {
   const loaded = await loadConfig(options.configPath ?? 'test-kit.config.json', { baseDir: options.baseDir });
   const plan = planPerfCommand(loaded.config, options);
   for (const flag of ['consent', 'allowHighLoad', 'failOnBudget']) {
@@ -78,7 +78,7 @@ export async function runPerfCommand(options = {}) {
   let findings = [];
   let budgetExit = 0;
   try {
-    const measured = await runPerformance({ targets: plan.urls, runDir,
+    const measured = await (dependencies.runPerformance ?? runPerformance)({ targets: plan.urls, runDir,
       settings: { runs: options.runs, formFactor: options.formFactor, throttling: options.throttling },
       consent: options.consent ?? false, allowHighLoad: options.allowHighLoad ?? false, chromePath: options.chromePath });
     for (const { targetId, artifact } of measured.results) {

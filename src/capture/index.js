@@ -319,7 +319,7 @@ async function readStyleguideTargets(tool, config, side) {
   } finally { await context.dispose().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false, baseDir }) {
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false, baseDir }, dependencies = {}) {
   const loaded = await loadConfig(configPath, { baseDir });
   let config = requested ? normalizeConfig({ ...loaded.config, artifacts: requested }) : loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
@@ -347,7 +347,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     try { await execute('ddev', ['mutagen', 'sync'], { cwd, timeout: 60000 }); }
     catch { throw new Error('ddev mutagen sync fails. Fix DDEV synchronization before capture.'); }
   }
-  const tool = await playwright();
+  const tool = await (dependencies.playwright ?? playwright)();
   // The catalogue is read before any run directory exists, so a bad catalogue leaves no partial run.
   let found;
   if (config.targetSource) ({ config, found } = await readStyleguideTargets(tool, config, side));

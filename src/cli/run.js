@@ -79,7 +79,7 @@ async function refreshLowLevel(result, options) {
   const { refreshDefaultStoreViewer } = await import('../workflow/index.js');
   return refreshDefaultStoreViewer(result, options.config ?? 'test-kit.config.json');
 }
-export async function dispatch({ command, positions, options }) {
+export async function dispatch({ command, positions, options }, dependencies = {}) {
   if (['run', 'before', 'after', 'report'].includes(command)) {
     const { runWorkflow } = await import('../workflow/index.js');
     return runWorkflow(command, options);
@@ -115,12 +115,12 @@ export async function dispatch({ command, positions, options }) {
     }
     if (options.ddev || options.store || options.path) {
       const { runProjectPerformance } = await import('../workflow/performance.js');
-      return runProjectPerformance(options, budgets);
+      return (dependencies.runProjectPerformance ?? runProjectPerformance)(options, budgets);
     }
-    return refreshLowLevel(await runPerfCommand({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false }), options);
+    return refreshLowLevel(await (dependencies.runPerfCommand ?? runPerfCommand)({ configPath: options.config, side: options.side, targetIds: options.targets.split(','), label: options.label, runs: options.runs, formFactor: options['form-factor'], throttling: options.throttling, budgets, consent: options.consent ?? false, allowHighLoad: options['allow-high-load'] ?? false, failOnBudget: options['fail-on-budget'] ?? false }), options);
   }
   if (command === 'capture') {
-    const { capture } = await import('../capture/index.js');
+    const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
     const result = await capture({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', artifacts: options.artifacts?.split(','), targets: options.target?.split(','), viewports: options.viewport?.split(','), packs: options.packs === true });
     // R13.51: the output names a pack that did not run. A skipped pack is never reported as run.
     const packs = result.run.packs ? { packs: result.run.packs } : {};
