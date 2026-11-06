@@ -4,6 +4,11 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- `record-allowed --fingerprint HASH` selects the one finding with this `evidenceFingerprint` when several match. It refuses a value that is not a hash and a value that matches no finding. The error for several matches names the option (R9.12, #331).
+- `record-allowed` refuses the check `lighthouse-budget`. A budget finding has no fingerprint, stays `unexplained`, and a budget changes in the config. The rule is now in R9.8 and R9.12 (owner decision, #331).
+
 ## [1.2.0-rc.1] - 2026-11-06
 
 First release candidate for 1.2.0. It is not a stable release. `package.json` says `1.2.0`, so `--version` prints `1.2.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The default store moves from `.test-kit/` to `test-kit/`, and a scoped-workflow baseline made before 1.2.0 never matches: run `before` again. The capture engine version is `1`. A run made before 1.2.0 has no stored `recipe` and still compares.
