@@ -64,6 +64,13 @@ export function flattenFrameTree(tree) {
   return { frames, dropped };
 }
 
+// Pure. The frames of the second tree read that the first read did not hold, counted by frame id, so a frame added while another
+// one went away still counts. A frame with no id counts as new. Frames past the bound in the second read count when there are more than before.
+export function addedFrames(before, after) {
+  const known = new Set(before.frames.map(frame => frame.id).filter(Boolean));
+  return after.frames.filter(frame => !frame.id || !known.has(frame.id)).length + Math.max(0, after.dropped - before.dropped);
+}
+
 // Pure. True when a frame error means that the frame is gone or refused the gate: the origin gate, a lost or destroyed world (a navigation),
 // a detached frame. The runner counts such a frame as unreachable. Any other error counts as failed.
 export const isLostFrameError = message => /TEST_KIT_FRAME_|Cannot find context|Execution context was destroyed|No frame|Target closed|not found|detached/i.test(String(message));

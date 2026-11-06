@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveChecks, runChecks } from '../../src/packs/index.js';
 import { a11yPack, reduceAxeResults } from '../../src/packs/a11y/index.js';
-import { classifyFrames, flattenFrameTree, isLostFrameError, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
+import { addedFrames, classifyFrames, flattenFrameTree, isLostFrameError, MAX_FRAMES } from '../../src/packs/a11y/frames.js';
 
 const raw = () => JSON.parse(readFileSync(new URL('../fixtures/a11y/axe-result.json', import.meta.url), 'utf8'));
 const run = value => runChecks(resolveChecks({ available: [a11yPack], packs: ['a11y'] }), { artifact: 'a11y', value }, { targetId: 'example-site' });
@@ -155,4 +155,11 @@ test('a failed frame gets its own warning and the counts are validated', () => {
 test('a frame lost to a gate or a navigation is unreachable, any other break is failed (R13.51)', () => {
   for (const message of ['TEST_KIT_FRAME_ORIGIN', 'Execution context was destroyed, most likely because of a navigation.', 'Cannot find context with specified id', 'Frame with the given id was not found.']) assert.equal(isLostFrameError(message), true, message);
   for (const message of ['axe did not load.', 'No axe rule has the tag x.', 'violations has a bad rule.', undefined]) assert.equal(isLostFrameError(message), false, String(message));
+});
+
+test('addedFrames counts by frame id, so a replaced frame at an unchanged total still counts', () => {
+  const before = { frames: [{ id: 'a' }, { id: 'b' }], dropped: 0 };
+  assert.equal(addedFrames(before, { frames: [{ id: 'a' }, { id: 'c' }], dropped: 0 }), 1);
+  assert.equal(addedFrames(before, { frames: [{ id: 'a' }], dropped: 0 }), 0);
+  assert.equal(addedFrames(before, { frames: [{ id: 'a' }, { id: 'b' }, { id: null }], dropped: 2 }), 3);
 });

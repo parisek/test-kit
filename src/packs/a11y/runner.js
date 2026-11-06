@@ -12,7 +12,7 @@
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { reduceAxeResults, mergeFrameResult, gapArtifact } from './axe.js';
-import { classifyFrames, flattenFrameTree, isLostFrameError } from './frames.js';
+import { addedFrames, classifyFrames, flattenFrameTree, isLostFrameError } from './frames.js';
 
 const require = createRequire(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -103,7 +103,7 @@ async function runWorlds(page, source, tags, stopped) {
     let added = 0;
     try {
       const again = flattenFrameTree((await cdp.send('Page.getFrameTree')).frameTree);
-      added = Math.max(0, again.frames.length + again.dropped - children.length - dropped);
+      added = addedFrames({ frames: children, dropped }, again);
     } catch { added = 0; }
     return { merged, frames: { injected, unreachable: children.length + dropped + added - injected - failed, failed } };
   } finally {
