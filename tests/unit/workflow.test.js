@@ -266,6 +266,12 @@ test('a pair of different sides that section 3 does not name gives the adhoc kin
  const index = JSON.parse(await readFile(join(dir, 'site/index.json')));
  assert.deepEqual(index.reports.map(report => report.kind), ['adhoc', 'adhoc', 'adhoc']);
 });
+test('the same side with a changed configuration stops after before any capture (#324)', async t => {
+ const { dir, options, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'production' }, dependencies);
+ await writeFile(options.config, JSON.stringify({ ...pairConfig, sides: { ...pairConfig.sides, production: { ...pairConfig.sides.production, origin: 'https://other.example-site.com' } } }));
+ await assert.rejects(runWorkflow('after', { ...options, side: 'production' }, { ...dependencies, capture: () => assert.fail('no capture') }), /Run before/);
+});
 test('a second before with another side replaces the first baseline (#324, R3.11)', async t => {
  const { options, kinds, dependencies } = await pairFixture(t);
  await runWorkflow('before', { ...options, side: 'production' }, dependencies);
