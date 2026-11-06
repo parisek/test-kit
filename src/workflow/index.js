@@ -90,6 +90,19 @@ async function present(path) {
   try { await lstat(path); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; }
 }
 
+// R3.11: the pair kind of `before` and `after` follows the pair of sides.
+// The same side gives `update`, and a changed side configuration for it needs a new `before`.
+// A remote side against a local side gives `migration`. Any other pair has no kind in section 3.
+export function pairKind({ before, after }) {
+  if (!before.id || !Object.hasOwn(before, 'origin')) throw new Error('Run before again. The baseline names a side that the configuration no longer holds.');
+  if (before.id === after.id) {
+    if (before.digest !== after.digest) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
+    return 'update';
+  }
+  if (before.remote === true && after.remote !== true) return 'migration';
+  throw new Error(`No pair kind for the baseline side "${before.id}" and the side "${after.id}". Use a remote baseline side and a local side, or the same side twice.`);
+}
+
 export async function runWorkflow(command, options = {}, dependencies = {}) {
   return refreshViewerAfter(await executeWorkflow(command, options, dependencies), dependencies);
 }
@@ -140,7 +153,11 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     config.runsRoot = `${offset.split('\\').join('/')}/runs`;
     config = normalizeConfig(config);
-    const scope = digest(JSON.stringify({ side, config }));
+    // The scope holds the selection and the shared configuration, not the side (R13.13, #240).
+    // `before` and `after` may name two sides. The side travels in the profile instead.
+    const { sides: allSides, ...shared } = config;
+    const sideDigest = digest(JSON.stringify(allSides[side]));
+    const scope = digest(JSON.stringify({ config: shared }));
     let sourceFingerprint = null;
     if (config.artifacts.includes('behavior')) {
       const source = await (dependencies.loadBehaviorSource ?? loadBehaviorSource)({ projectRoot: configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled });
@@ -148,12 +165,17 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     let lockfile = '';
     try { lockfile = await readFile(join(configDir, 'package-lock.json')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    const policy = digest(JSON.stringify({ config, side, sourceFingerprint }) + digest(lockfile));
+    const policy = digest(JSON.stringify({ config: shared, sourceFingerprint }) + digest(lockfile));
     const state = await json(statePath, { schemaVersion: 1, profiles: {} });
     if (state.schemaVersion !== 1 || !state.profiles || Array.isArray(state.profiles)) throw new Error('Unsupported workflow state.');
     const profile = state.profiles[scope] ?? {};
     if (command === 'after' && !profile.before && !Object.keys(state.profiles).length) throw new Error(NO_BASELINE);
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
+    // The pair of sides decides the report kind (R3.11). A pair with no kind stops before any capture runs.
+    let kind = 'update';
+    if (command === 'after') {
+      kind = pairKind({ before: { id: profile.side, ...config.sides[profile.side], digest: profile.sideDigest }, after: { id: side, ...config.sides[side], digest: sideDigest } });
+    }
     // Check the baseline before any capture runs. Any other ENOENT from compare passes through unchanged.
     if (command === 'after' && !(await present(join(storePath, 'runs', String(profile.before), 'run.json')))) throw new Error(`The baseline run ${profile.before} is gone from the store. Run before again, then run after.`);
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
@@ -168,12 +190,12 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     if (command === 'before') {
       if (exitCode) return { output: { ...output, baselineUpdated: false }, exitCode };
-      state.profiles[scope] = { before: run.id, policy };
+      state.profiles[scope] = { before: run.id, policy, side, sideDigest };
       delete state.report;
     }
     if (command === 'after') {
       const compare = dependencies.compareRuns ?? (await import('../compare/runs.js')).compareRuns;
-      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind: 'update', rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage });
+      const comparison = await compare({ runsRoot: join(storePath, 'runs'), runA: profile.before, runB: run.id, outputDir: join(storePath, 'reports', run.id), kind, rules: config.rules, known_diffs: config.known_diffs, contentChecks: config.checks, contentExpectedLanguage: config.content?.expectedLanguage });
       state.report = `reports/${run.id}/report.json`;
       output.reportPath = comparison.reportPath;
     }
