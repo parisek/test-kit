@@ -70,28 +70,35 @@ export function parseAllowlist(bytes) {
 	return normalizeAllowlist(value);
 }
 
+// The first problem of one entry of `report.allowlist`, or null. The report validator and the viewer both call this
+// function, so they cannot drift (R9.12). `catalog` is `report.checks`, `targetIds` a Set of the target ids of the report.
+export function reportEntryProblem(entry, { catalog, targetIds }) {
+	if (entryProblem(entry, REPORT_KEYS)) return 'Invalid allowlist entry.';
+	if (!STATUSES.includes(entry.status)) return 'An allowlist entry needs a known status.';
+	if (entry.diagnostic !== undefined && !text(entry.diagnostic, 1000)) return 'An allowlist diagnostic must be bounded text.';
+	if (!Object.hasOwn(catalog, entry.checkId)) return 'An allowlist entry names a check that is not in the catalog.';
+	if (!targetIds.has(entry.targetId)) return 'An allowlist entry names an unknown target.';
+	if (entry.status === 'active' && catalog[entry.checkId]?.basis !== 'absolute') return 'An active allowlist entry needs an absolute check.';
+	return null;
+}
+
 // The entries of `report.allowlist`, checked by the report validator (R9.12). Pushes problems.
-export function validateReportAllowlist(list, { catalog, targetIds }, problems) {
+export function validateReportAllowlist(list, context, problems) {
 	if (list === undefined) return;
 	if (!Array.isArray(list) || list.length > MAX_REPORT_ENTRIES) { problems.push('allowlist must be an array of at most 100 entries.'); return; }
 	for (const entry of list) {
-		const problem = entryProblem(entry, REPORT_KEYS);
-		if (problem) { problems.push('Invalid allowlist entry.'); continue; }
-		if (!STATUSES.includes(entry.status)) problems.push('An allowlist entry needs a known status.');
-		else if (entry.diagnostic !== undefined && !text(entry.diagnostic, 1000)) problems.push('An allowlist diagnostic must be bounded text.');
-		else if (!Object.hasOwn(catalog, entry.checkId)) problems.push('An allowlist entry names a check that is not in the catalog.');
-		else if (!targetIds.has(entry.targetId)) problems.push('An allowlist entry names an unknown target.');
-		else if (entry.status === 'active' && catalog[entry.checkId]?.basis !== 'absolute') problems.push('An active allowlist entry needs an absolute check.');
+		const problem = reportEntryProblem(entry, context);
+		if (problem) problems.push(problem);
 	}
 }
 
 // The entries of `report.allowlist` that the viewer lists for one target (R9.12, DESIGN.md "Allowlist list").
-// Run data is untrusted: an entry that fails the producer check, or has an unknown status or a bad diagnostic, is left out.
+// Run data is untrusted: an entry that fails `reportEntryProblem`, with the catalog and the targets of this report, is left out.
 // The order of the report stays (active first). At most MAX_REPORT_ENTRIES entries are read.
 export function allowlistEntriesFor(report, targetId) {
 	if (!Array.isArray(report?.allowlist)) return [];
-	return report.allowlist.slice(0, MAX_REPORT_ENTRIES).filter((entry) => isPlain(entry) && entry.targetId === targetId && entryProblem(entry, REPORT_KEYS) === null
-		&& STATUSES.includes(entry.status) && (entry.diagnostic === undefined || text(entry.diagnostic, 1000)));
+	const context = { catalog: isPlain(report.checks) ? report.checks : {}, targetIds: new Set(Array.isArray(report.entries) ? report.entries.map((entry) => entry?.id) : []) };
+	return report.allowlist.slice(0, MAX_REPORT_ENTRIES).filter((entry) => isPlain(entry) && entry.targetId === targetId && reportEntryProblem(entry, context) === null);
 }
 
 // R9.12: an absolute finding is explained exactly when the report holds an active entry with the same check, target and fingerprint.

@@ -53,6 +53,17 @@ describe('allowlist entries in the Checks list (R9.12, ADR 0004 section 7)', () 
 			expect(wrapper.find('[data-testid="allowlist"]').exists()).toBe(false);
 		}
 	});
+	it('leaves out an entry with a check that is not in the catalog, an unknown target and an active entry for a relative check', () => {
+		const data = report();
+		// adaptReport refuses a relative check in a subject report, so it is added after loading.
+		data.checks['text-difference'] = { basis: 'relative', layer: 'package', title: 'Text difference' };
+		data.allowlist = [entry({ checkId: 'not-in-catalog' }), entry({ targetId: 'ghost' }), entry({ checkId: 'text-difference', fingerprint: HASH('c') }), entry({ checkId: 'text-difference', status: 'wrong-basis', fingerprint: HASH('d') })];
+		const wrapper = mount(CheckAudit, { props: { report: data, targetId: 'button', viewportId: 'desktop', kinds: ['a11y'] } });
+		const items = wrapper.findAll('[data-testid="allowlist-entry"]');
+		expect(items).toHaveLength(1);
+		expect(items[0].text()).toContain('wrong-basis');
+		expect(wrapper.text()).not.toContain('not-in-catalog');
+	});
 	it('writes entry text as text, never as markup', () => {
 		const wrapper = mount(CheckAudit, { props: { report: report([entry({ reason: '<img src=x onerror=alert(1)>', owner: '<b>me</b>' })]), targetId: 'button', viewportId: 'desktop', kinds: ['a11y'] } });
 		expect(wrapper.find('[data-testid="allowlist"] img').exists()).toBe(false);
