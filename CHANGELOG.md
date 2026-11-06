@@ -7,9 +7,12 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Added
 
 - The viewer shows capture warnings (R5.11, #329). The report header line gets a last sentence, "Capture warnings: LAZY_IMAGES_NOT_SWEPT in 3 cells (12 in all).", and each cell shows "A: LAZY_IMAGES_NOT_SWEPT (7) · B: none" in the Overview matrix and on Evidence. The numbers equal the `captureWarnings` of `summary`. A warning adds no badge, no filter and no class.
+- `record-allowed --fingerprint HASH` selects the one finding with this `evidenceFingerprint` when several match. It refuses a value that is not a hash and a value that matches no finding. The error for several matches names the option (R9.12, #331).
+- `record-allowed` refuses the check `lighthouse-budget`. A budget finding has no fingerprint, stays `unexplained`, and a budget changes in the config. The rule is now in R9.8 and R9.12 (owner decision, #331).
 
 ### Changed
 
+- `before` and `after` in the scoped workflow give every pair of sides a report kind (R3.11, #324). The same local side gives `update`. The same remote side gives `deploy` (it gave `update`). A remote side then a local side gives `migration`. Any other pair of different sides gives `adhoc` (it stopped `after` with an error). A second `before` with another side replaces the first baseline. Migration: a rule with `kinds: ["update"]` no longer applies to a pair of the same remote side. Add `deploy` to its `kinds`. A `known_diffs` record for such a pair may need to be recorded again, because a rule it names may not apply. The owner decided this on 2026-11-06 (#324).
 - Overlay parity of lazy-image settlement is defined and tested: a viewport-only capture (`screenshot.fullPage: false`) runs the same sweep as a full-page, element or clip capture (R5.9, #326). The integration check and a unit test cover it. No behavior change and no engine version change. R5.10 states that only `click`, `hover` and `focus` exist until a project needs more.
 - A target with a `selector` now gets the `LAZY_IMAGES_NOT_SWEPT` warning too. It counts the lazy images inside the selected elements, each image once, and `run`, `before` and `after` print the same stderr line as `capture` (R5.11, #329). Stdout stays one JSON line. The count is outside every hash.
 
