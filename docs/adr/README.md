@@ -26,3 +26,4 @@ Context, Decision, Consequences. One file for each decision: `NNNN-kebab-title.m
 | 0004 | One result model for pair, single-run and lint results |
 | 0005 | Static data first, viewer without a server |
 | 0006 | ESLint and Stylelint entry points |
+| 0007 | How run.json records a per-target capture recipe |

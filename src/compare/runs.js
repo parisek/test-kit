@@ -132,15 +132,49 @@ function available(capture) {
 	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
 
-// R3.9: a pair whose sides list different origins names the key, so a person finds the cause.
-export function incompatibleDiagnostic(runA, runB, a, b) {
+// R8.9: a pair that is incompatible names each differing setting and both values, so a person finds the cause.
+// A value comes from a stored run, so it is cut to a bounded single line. R3.9: the allowOrigins key stays named.
+const shown = value => {
+  const text = value === undefined ? 'unset' : JSON.stringify(value);
+  const line = String(text).replace(/[\x00-\x1f\x7f]/g, ' ');
+  return line.length > 60 ? line.slice(0, 57) + '...' : line;
+};
+
+// The settle recipe that comparisonState uses for one cell: run-wide, then target, then target for this side.
+function effectiveSettle(run, capture) {
+  const fallback = run?.captureSettings?.settle;
+  if (!capture || !run?.settings?.sides) return fallback;
+  try { return settleRecipe(run.settings, run.side, run.settings.targets?.find(target => target.id === capture.targetId)); } catch { return fallback; }
+}
+
+function settingDiffs(runA, runB, captureA, captureB) {
+  const a = { ...runA?.captureSettings, settle: effectiveSettle(runA, captureA) }, b = { ...runB?.captureSettings, settle: effectiveSettle(runB, captureB) };
+  const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const differs = (x, y) => JSON.stringify(x) !== JSON.stringify(y);
+  const diffs = [];
+  const add = (name, x, y) => { if (differs(x, y)) diffs.push(`${name} (A: ${shown(x)}, B: ${shown(y)})`); };
+  add('viewports', a.viewports, b.viewports);
+  if (plain(a.settle) || plain(b.settle)) {
+    const keys = [...new Set([...Object.keys(plain(a.settle) ? a.settle : {}), ...Object.keys(plain(b.settle) ? b.settle : {})])].sort();
+    for (const key of keys) add(`settle.${key}`, a.settle?.[key], b.settle?.[key]);
+  } else add('settle', a.settle, b.settle);
+  add('screenshot', a.screenshot, b.screenshot);
+  add('allowOrigins', a.allowOrigins, b.allowOrigins);
+  const tool = run => (run?.tools ?? []).filter(item => !item.artifact || item.artifact === 'screenshot').map(item => [item.name, item.version]);
+  add('tool versions', tool(runA), tool(runB));
+  return diffs;
+}
+
+export function incompatibleDiagnostic(runA, runB, captureA, captureB) {
   // R8.15: a pair with a design run names the size or viewport problem.
-  if (a && b && (isDesignRun(runA) || isDesignRun(runB))) {
-    const problem = designPairProblem(runA, runB, a, b);
+  if (captureA && captureB && (isDesignRun(runA) || isDesignRun(runB))) {
+    const problem = designPairProblem(runA, runB, captureA, captureB);
     if (problem) return problem;
   }
-  const list = run => JSON.stringify(run?.captureSettings?.allowOrigins ?? null);
-  return list(runA) !== list(runB) ? 'Capture settings differ: allowOrigins is not the same on both sides.' : 'Capture settings or tool versions differ.';
+  const diffs = settingDiffs(runA, runB, captureA, captureB);
+  if (!diffs.length) return 'Capture settings or tool versions differ.';
+  const listed = diffs.slice(0, 5).join('; ') + (diffs.length > 5 ? `; and ${diffs.length - 5} more` : '');
+  return `Capture settings differ: ${listed}.`;
 }
 
 export function comparisonState(a, b, runA, runB) {
