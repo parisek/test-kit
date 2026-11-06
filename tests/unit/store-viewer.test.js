@@ -296,6 +296,11 @@ test('a foreign file that appears after the ownership check is never overwritten
     assert.equal(injected, true, name);
     assert.equal(await readFile(join(f.store, name), 'utf8'), 'project file', name);
     assert.ok(out.warnings.some(line => /did not write/.test(line)), name);
+    // The blocked claim withdrew its marker and its files, so the next refresh still sees a foreign store.
+    assert.deepEqual((await readdir(f.store)).filter(entry => entry === '.test-kit-viewer' || entry === 'app.js'), [], name);
+    const again = await refreshStoreViewer({ store: f.store, now: NOW });
+    assert.equal(await readFile(join(f.store, name), 'utf8'), 'project file', name);
+    assert.ok(again.warnings.some(line => /did not write/.test(line)), name);
   }
 });
 

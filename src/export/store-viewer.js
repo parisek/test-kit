@@ -68,11 +68,12 @@ async function isViewerIndex(fs, path) {
 }
 
 // Returns false when a fresh claim met a foreign file (nothing of it was replaced), else true.
-async function copyViewer(fs, store, fresh) {
+// `written` collects the files a fresh claim created, so a blocked claim can remove exactly those.
+async function copyViewer(fs, store, fresh, written = []) {
   for (const name of VIEWER_FILES) {
     const bytes = await boundedRead(join(packageRoot, 'viewer', name));
     if (fresh) {
-      if (await writeIfAbsent(join(store, name), bytes, { fs })) continue;
+      if (await writeIfAbsent(join(store, name), bytes, { fs })) { written.push(name); continue; }
       const current = await fs.readFile(join(store, name)).catch(() => null);
       if (current && current.equals(bytes)) continue;
       return false;
@@ -138,9 +139,16 @@ export async function refreshStoreViewer({ store, now = new Date(), fs: seam } =
   const blocked = warning => ({ store: root, runCount: 0, reportCount: 0, unavailable: [], warnings: [warning] });
   const claim = await claimStore(fs, root);
   if (claim.warning) return blocked(claim.warning);
-  if (!(await copyViewer(fs, root, claim.fresh))) return blocked(foreignWarning(root));
+  // A fresh claim that meets a foreign file undoes itself: it removes the files it created and the marker, so
+  // the next refresh judges the store as foreign again instead of trusting a marker over a file it never wrote.
+  const written = [];
+  const withdraw = async () => {
+    for (const name of [...written, VIEWER_MARKER]) await fs.rm(join(root, name), { force: true });
+    return blocked(foreignWarning(root));
+  };
+  if (!(await copyViewer(fs, root, claim.fresh, written))) return withdraw();
   let result = await build(root, now);
-  if (claim.fresh && !(await writeIfAbsent(join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`, { fs })) && !(await isViewerIndex(fs, join(root, 'index.json')))) return blocked(foreignWarning(root));
+  if (claim.fresh && !(await writeIfAbsent(join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`, { fs })) && !(await isViewerIndex(fs, join(root, 'index.json')))) return withdraw();
   let settled = false;
   for (let round = 0; round < ROUNDS && !settled; round++) {
     await writeAtomic(fs, join(root, 'index.json'), `${JSON.stringify(result.index, null, 2)}\n`);
