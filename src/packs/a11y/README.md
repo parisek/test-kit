@@ -30,7 +30,7 @@ const result = runChecks(plan, { artifact: 'a11y', value: artifact }, { targetId
 
 `runAxe` options: `tags` (a list of axe rule tags; the default is the axe default rule set), `timeoutMs` (a finite number from 1 to 2147483647; the default is 30000), `axePath` (path to `axe.min.js`). A bad option gives a `failed` artifact. It never throws.
 `runAxe` checks each tag with `axe.getRules`. A tag that matches no rule gives `failed`.
-The runner checks the top document and the frames that axe may enter (R13.51, owner decision on #316, 2026-11-06). It injects axe into a frame of the page origin, and into an `about:blank` or `srcdoc` frame whose parent chain is reachable. It never injects axe into a frame of another origin. The runner checks the origin twice: from the frame URL before injection, and again inside the frame in the same evaluation that loads axe (`self.origin` must equal the page origin). A frame that navigated in between, or a sandboxed frame without `allow-same-origin` (opaque origin), fails that check and gets no axe. A page with an opaque origin (`setContent`, `data:`) reaches no frame. A detached frame, a frame where injection throws, and every frame beyond the first 50 count as unreachable. The runner hides a skipped frame from axe with a temporary attribute on its element and removes the attribute after the run. The artifact records `frames: { injected, unreachable }`.
+The runner checks the top document and the frames that axe may enter (R13.51, owner decision on #316, 2026-11-06). It injects axe into a frame of the page origin, and into an `about:blank` or `srcdoc` frame whose parent chain is reachable. It never injects axe into a frame of another origin. The runner checks the origin twice: from the frame URL before injection, and again inside the frame in the same evaluation that loads axe (`self.origin` must equal the page origin). A frame that navigated in between, or a sandboxed frame without `allow-same-origin` (opaque origin), fails that check and gets no axe. A page with an opaque origin (`setContent`, `data:`) reaches no frame. A detached frame, a frame where injection throws, and every frame beyond the first 50 count as unreachable. The runner hides a skipped frame from axe with a temporary attribute on its element and removes the attribute after the run. The attribute name is random for each run, so an attribute of the page is never touched. The artifact records `frames: { injected, unreachable }`.
 
 Limits of the runner:
 
@@ -107,7 +107,7 @@ Consequence, as R8.14 states: these warnings have no `evidence.state`. A consume
 
 - `tests/unit/a11y-pack.test.js` tests the mapping with fixtures. It needs no browser and no axe-core.
 - `tests/unit/a11y-frames.test.js` tests the frame decision and the frame warning.
-- `tests/integration/check-a11y-frames.mjs` runs axe on a page with a same-origin frame, a `srcdoc` frame and a frame of a second local origin. The first two give violations. The third gets no axe and gives the warning with count 1. It skips like the runner check.
+- `tests/integration/check-a11y-frames.mjs` runs axe on a page with a same-origin frame, a `srcdoc` frame and a frame of a second local origin. The first two give violations. The two sandboxed frames and the foreign frame get no axe, and the warning counts 3. A page-owned `data-test-kit-axe-skip` attribute survives the run. It skips like the runner check.
 - `tests/integration/check-a11y-runner.mjs` runs axe on `tests/fixtures/a11y/page.html`. It skips when Playwright, Chromium or axe-core is missing.
 
 ## Not built yet

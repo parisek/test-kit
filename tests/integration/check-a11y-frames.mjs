@@ -32,11 +32,11 @@ const foreignPort = foreign.address().port;
 const srcdoc = '<img id="srcdoc-no-alt" src="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=">'.replace(/"/g, '&quot;');
 let home;
 const top = await serve(url => (url === '/child' ? child : `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>
-<iframe title="same origin" src="/child"></iframe>
+<iframe title="same origin" src="/child" data-test-kit-axe-skip="mine"></iframe>
 <iframe title="srcdoc" srcdoc="${srcdoc}"></iframe>
 <iframe title="sandbox srcdoc" sandbox srcdoc="${srcdoc}"></iframe>
 <iframe title="sandbox url" sandbox src="/child"></iframe>
-<iframe title="other origin" src="http://127.0.0.1:${foreignPort}/"></iframe>
+<iframe title="other origin" data-test-kit-axe-skip="foreign" src="http://127.0.0.1:${foreignPort}/"></iframe>
 </main></body></html>`));
 home = `http://127.0.0.1:${top.address().port}/`;
 
@@ -67,7 +67,9 @@ try {
   // Axe never entered the foreign frame, and the run leaves no mark on the page.
   const foreignFrame = page.frames().find(frame => frame.url().includes(`:${foreignPort}`));
   assert.equal(await foreignFrame.evaluate(() => typeof globalThis.axe), 'undefined');
-  assert.equal(await page.evaluate(() => document.querySelectorAll('[data-test-kit-axe-skip]').length), 0);
+  // A page-owned attribute of the old fixed name survives with its value, and no random mark is left.
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('iframe')].map(node => node.getAttribute('data-test-kit-axe-skip'))), ['mine', null, null, null, 'foreign']);
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll('iframe')].flatMap(node => node.getAttributeNames()).filter(name => name.startsWith('data-test-kit-axe-skip-')).length), 0);
 
   // Sandboxed frames (opaque origin) got no axe, although their URLs look reachable.
   for (const frame of page.frames().filter(item => item !== page.mainFrame() && !item.url().includes(`:${foreignPort}`))) {

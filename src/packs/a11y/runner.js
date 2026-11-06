@@ -9,13 +9,15 @@
 // - Axe runs inside the page. A hostile page can replace `window.axe` and fake a clean result. Run it on pages you control.
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { reduceAxeResults, gapArtifact } from './axe.js';
-import { classifyFrames, originOf } from './frames.js';
+import { classifyFrames, originOf, MAX_FRAMES } from './frames.js';
 
 const require = createRequire(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 30000;
 const BUSY = '__testKitAxeBusy';
-const SKIP_ATTR = 'data-test-kit-axe-skip';
+// The mark name is random for each run, so a page attribute of any fixed name is never touched.
+const newSkipAttr = () => `data-test-kit-axe-skip-${randomUUID().replace(/-/g, '').slice(0, 12)}`;
 // Axe waits this long for a frame that does not answer. The default is 60 s, longer than the run timeout.
 const FRAME_WAIT_MS = 5000;
 const isPlain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
@@ -42,17 +44,19 @@ async function injectFrames(page, source) {
     }
     ok.push(done);
   }
+  const attr = newSkipAttr();
   const marked = [];
-  for (let index = 0; index < children.length; index += 1) {
+  // Frames beyond the bound stay unmarked (they count as unreachable) so a huge page costs a bounded number of calls.
+  for (let index = 0; index < Math.min(children.length, MAX_FRAMES); index += 1) {
     if (ok[index] || (parents[index] !== -1 && !ok[parents[index]])) continue; // only the top-most frame that axe skips
     try {
       const element = await children[index].frameElement();
-      await element.evaluate((node, attr) => node.setAttribute(attr, ''), SKIP_ATTR);
+      await element.evaluate((node, attr) => node.setAttribute(attr, ''), attr);
       marked.push(element);
     } catch { /* a detached frame has no element */ }
   }
   const injected = ok.filter(Boolean).length;
-  return { frames: { injected, unreachable: children.length - injected }, marked };
+  return { frames: { injected, unreachable: children.length - injected }, marked, attr };
 }
 
 async function loadSource(axePath) {
@@ -95,17 +99,17 @@ export async function runAxe(page, options) {
       if (!claimed) throw new Error('An axe run is active on this page, or an earlier one did not finish. Use a new page.');
       try {
         await page.evaluate(source);
-        const { frames, marked } = await injectFrames(page, source);
+        const { frames, marked, attr } = await injectFrames(page, source);
         try {
           const raw = await page.evaluate(async ({ runTags, attr, wait }) => {
             if (typeof globalThis.axe?.run !== 'function') throw new Error('axe did not load in the page.');
             for (const tag of runTags ?? []) if (globalThis.axe.getRules([tag]).length === 0) throw new Error(`No axe rule has the tag ${tag}.`);
             const options = { frameWaitTime: wait, ...(runTags ? { runOnly: { type: 'tag', values: runTags } } : {}) };
             return globalThis.axe.run({ exclude: [[`[${attr}]`]] }, options);
-          }, { runTags: tags ?? null, attr: SKIP_ATTR, wait: FRAME_WAIT_MS });
+          }, { runTags: tags ?? null, attr, wait: FRAME_WAIT_MS });
           return reduceAxeResults(raw, frames);
         } finally {
-          for (const element of marked) await element.evaluate((node, attr) => node.removeAttribute(attr), SKIP_ATTR).catch(() => {});
+          for (const element of marked) await element.evaluate((node, attr) => node.removeAttribute(attr), attr).catch(() => {});
         }
       } finally {
         // Only the run that claimed the page releases it. After a timeout the page stays claimed.
