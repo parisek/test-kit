@@ -1,6 +1,6 @@
 # ADR 0007: How `run.json` records a per-target capture recipe
 
-Status: accepted. The owner chose option A on 2026-11-06 (comment 6679581659 on #49). See "Decision". No code or specification change comes with this record. The first code slice adds the requirement text.
+Status: accepted. The owner chose option A on 2026-11-06 (comment 6679581659 on #49). See "Decision". No code or specification change came with this record. The first code slice of #49 added the requirement text as R5.6 and R8.16.
 Requirements: R5.1, R5.4, R8.7, R8.9, R12.4. Tracked in #49. The decision gates #50, #51, #52, #53 and #54 (parent #45), and #294 (`settle.pin`).
 
 ## Context
@@ -151,7 +151,7 @@ Not measured: the size of `recipe` in a real run, and the effect on `run.json` w
 
 ## Requirement text this record would add
 
-This record does not change the specification. The owner accepted option A, so the first slice adds this text. The numbers are tentative. #307 takes R5.5 and R8.15 (owner decision on #288), so this record uses the next free numbers:
+This record does not change the specification. The first slice of #49 added this text to the specification as R5.6 and R8.16, with small additions: a design run has no recipe, an entry with no recipe reads as version 1, and an invalid stored recipe reads `incompatible`. The specification wins. The proposed text was:
 
 - R5.6 Each capture entry of a run may carry `recipe`: `{ version, scope, settle }`. `scope` holds the effective `selector` and `box`. `settle` holds the effective settle recipe after the merge of the side, `target.settle` and `target.settleBySide` (R5.4). `version` is one integer for the whole capture engine. The package raises it when a change of capture code alters the pixels for an unchanged declaration. A new run must write `recipe` in each captured entry, also when the recipe is the default. The recipe must not enter the run `settingsHash`. An entry with no `recipe` (a run made before the first slice) reads as the default recipe.
 - R8.16 Two captures of one target compare only when their `recipe` values are equal. A pair of captures that differ in `scope`, `settle` or `version` has the state `incompatible` (R8.7, R8.9). The diagnostic names the differing part and shows both stored values. This state does not change the state of another target.

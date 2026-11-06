@@ -1,6 +1,6 @@
 import { settlePage } from './settle.js';
 import { captureScopedScreenshot } from './scope.js';
-import { screenshotScope, settleRecipe } from '../config/settings.js';
+import { CAPTURE_ENGINE_VERSION, screenshotScope, settleRecipe } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
 import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
@@ -59,6 +59,11 @@ async function playwright() {
 async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun = null) {
   const recipe = settleRecipe(config, side, target);
   const identity = { targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(recipe) };
+  // R5.6: a captured entry stores its effective recipe, also when it is the default. Its parts hash to `scopeHash` and `settleHash`.
+  const stored = () => {
+    const scope = screenshotScope(target, side);
+    return { scopeHash: settingsHash(scope), recipe: { version: CAPTURE_ENGINE_VERSION, scope, settle: recipe } };
+  };
   const remote = config.sides[side].remote === true;
   const allowedUrl = value => remote ? isOwnOrigin(value, config.sides[side].origin) : isLocalUrl(value);
   if (provenance.content) provenance = { ...provenance, content: { ...provenance.content,
@@ -187,7 +192,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
     if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior') && !packRun?.ids.length) {
       if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
-      return { ...identity, state: 'captured', statusCode, finalPath, artifacts, ...droppedFields(droppedLog) };
+      return { ...identity, state: 'captured', statusCode, finalPath, ...stored(), artifacts, ...droppedFields(droppedLog) };
     }
     phase = 'settlement';
     await settlePage({ page, recipe, active: () => !expired && !edge && !blocked && !unexpectedNavigation });
@@ -254,7 +259,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       await runPackStep();
       await captureBehavior();
       if (edge) throw new Error('Remote edge stop');
-      return { ...identity, state: 'captured', statusCode, finalPath, artifacts, ...droppedFields(droppedLog) };
+      return { ...identity, state: 'captured', statusCode, finalPath, ...stored(), artifacts, ...droppedFields(droppedLog) };
     }
     phase = 'screenshot';
     let locator;
@@ -289,7 +294,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     // R3.6: a behavior step can also meet the edge.
     if (edge) throw new Error('Remote edge stop');
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
-      width, height, deviceScaleFactor: viewport.deviceScaleFactor, scopeHash: settingsHash(screenshotScope(target, side)), artifacts, ...droppedFields(droppedLog) };
+      width, height, deviceScaleFactor: viewport.deviceScaleFactor, ...stored(), artifacts, ...droppedFields(droppedLog) };
     })()]);
   } catch {
     if (context) await context.close().catch(() => {});

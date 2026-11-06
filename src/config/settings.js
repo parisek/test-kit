@@ -71,6 +71,27 @@ export function settleRecipe(config, side, target) {
   return { ...global, ...common, ...selected };
 }
 
+// R5.6: one version for the whole capture engine. Raise it when a change of capture code alters
+// the pixels for an unchanged declaration. A capture entry with no `recipe` reads as version 1.
+export const CAPTURE_ENGINE_VERSION = 1;
+
+// R5.6 (ADR 0007): the effective recipe of one target on one side, as a capture entry stores it.
+export function captureRecipe(config, side, target) {
+  return { version: CAPTURE_ENGINE_VERSION, scope: screenshotScope(target, side), settle: settleRecipe(config, side, target) };
+}
+
+// R5.6: the stored recipe is untrusted. It must be a plain object with a positive integer version,
+// and its parts must hash to the stored `scopeHash` and `settleHash`. Returns the version, or null when invalid.
+// An entry with no `recipe` reads as the default recipe of version 1.
+export function recipeVersion(capture) {
+  const recipe = capture?.recipe;
+  if (recipe === undefined) return 1;
+  const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (!plain(recipe) || !Number.isSafeInteger(recipe.version) || recipe.version < 1 || !plain(recipe.scope) || !plain(recipe.settle)) return null;
+  if (capture.scopeHash !== settingsHash(recipe.scope) || capture.settleHash !== settingsHash(recipe.settle)) return null;
+  return recipe.version;
+}
+
 export function settlementMatches(capture, config, side, target) {
   const recipe = settleRecipe(config, side, target);
   if (capture.settleHash !== undefined) return capture.settleHash === settingsHash(recipe);

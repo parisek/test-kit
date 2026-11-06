@@ -130,3 +130,53 @@ test('the diagnostic lists at most 5 settings and counts the rest (R8.9)', async
   assert.equal(text.match(/settle\./g).length, 5);
   assert.match(text, /; and 2 more\.$/);
 });
+
+test('a stored recipe carries the engine version, and a version mismatch blocks only its target (R5.6, R8.16)', async () => {
+  const { captureRecipe, recipeVersion, settingsHash, CAPTURE_ENGINE_VERSION } = await import('../../src/config/settings.js');
+  const { incompatibleDiagnostic } = await import('../../src/compare/runs.js');
+  const settle = { waitMs: 0, selectors: [], masks: [], disableMotion: true };
+  const targets = [{ id: 'union', selector: ['#one', '#two'] }, { id: 'plain' }];
+  const settings = { sides: { local: { settle } }, targets };
+  const run = { side: 'local', settingsHash: 'same', tools: [{ name: 'playwright', version: '1' }], captureSettings: { settle }, settings };
+  const entry = (target, version = CAPTURE_ENGINE_VERSION) => {
+    const recipe = { ...captureRecipe(settings, 'local', target), version };
+    return { targetId: target.id, state: 'captured', scopeHash: settingsHash(recipe.scope), settleHash: settingsHash(recipe.settle), recipe };
+  };
+  assert.deepEqual(captureRecipe(settings, 'local', targets[0]), { version: 1, scope: { selector: ['#one', '#two'], box: 'border' }, settle });
+  // An A/A pair with a union reads complete.
+  assert.equal(comparisonState(entry(targets[0]), entry(targets[0]), run, run), 'complete');
+  // A pair that differs only in the version is incompatible for that target. The other target stays complete.
+  assert.equal(comparisonState(entry(targets[0]), entry(targets[0], 2), run, run), 'incompatible');
+  assert.equal(comparisonState(entry(targets[1]), entry(targets[1]), run, run), 'complete');
+  assert.match(incompatibleDiagnostic(run, run, entry(targets[0]), entry(targets[0], 2)), /recipe\.version \(A: 1, B: 2\)/);
+  // An entry with no recipe (a run made before R5.6) reads as the default recipe of version 1.
+  const { recipe, ...old } = entry(targets[1]);
+  assert.equal(recipeVersion(old), 1);
+  assert.equal(comparisonState(old, entry(targets[1]), run, run), 'complete');
+  assert.equal(comparisonState(old, entry(targets[1], 2), run, run), 'incompatible');
+  // A stored recipe is untrusted: a part that does not hash to its stored hash, or a bad version, is incompatible.
+  const forged = entry(targets[0]);
+  assert.equal(comparisonState(entry(targets[0]), { ...forged, recipe: { ...forged.recipe, scope: { selector: ['#one'], box: 'border' } } }, run, run), 'incompatible');
+  for (const version of [0, -1, 1.5, '1', null]) assert.equal(recipeVersion({ ...forged, recipe: { ...forged.recipe, version } }), null);
+  assert.equal(recipeVersion({ ...forged, recipe: [] }), null);
+});
+
+test('an incompatible union names the differing scope part with both stored values (R8.16)', async () => {
+  const { captureRecipe, settingsHash } = await import('../../src/config/settings.js');
+  const { incompatibleDiagnostic } = await import('../../src/compare/runs.js');
+  const settle = { waitMs: 0, selectors: [], masks: [], disableMotion: true };
+  const side = selector => {
+    const targets = [{ id: 'union', selector }, { id: 'plain' }];
+    const settings = { sides: { local: { settle } }, targets };
+    return { side: 'local', settingsHash: 'same', tools: [{ name: 'playwright', version: '1' }], captureSettings: { settle }, settings };
+  };
+  const entry = (run, id) => {
+    const recipe = captureRecipe(run.settings, 'local', run.settings.targets.find(target => target.id === id));
+    return { targetId: id, state: 'captured', scopeHash: settingsHash(recipe.scope), settleHash: settingsHash(recipe.settle), recipe };
+  };
+  const a = side(['#one', '#two']), b = side(['#one']);
+  assert.equal(comparisonState(entry(a, 'union'), entry(b, 'union'), a, b), 'incompatible');
+  assert.equal(comparisonState(entry(a, 'plain'), entry(b, 'plain'), a, b), 'complete');
+  assert.equal(incompatibleDiagnostic(a, b, entry(a, 'union'), entry(b, 'union')),
+    'Capture settings differ: scope.selector (A: ["#one","#two"], B: ["#one"]).');
+});
