@@ -30,7 +30,7 @@ export function responseSettings(config, kind) {
 
 export function contentSettings(config, side, target) {
   const { masks, ...settle } = settleRecipe(config, side, target);
-  return { mode: 'settled-dom', extractorVersion: '1.0.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
+  return { mode: 'settled-dom', extractorVersion: '1.1.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
 }
 
 // Paths and titles can differ between sides. The screenshot scope cannot.

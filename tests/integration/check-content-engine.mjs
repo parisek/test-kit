@@ -21,7 +21,7 @@ const site = createServer((request, response) => {
   if (request.url === '/linked') response.end('<!doctype html><html lang="en"><title>Linked page</title><body><h1>Linked page</h1></body></html>');
   else response.end(variant === 'before'
     ? '<!doctype html><html lang="en"><title>Example site</title><body><h1>Example site</h1><p>Before text</p><a href="/linked">Linked page</a></body></html>'
-    : '<!doctype html><html lang="fr"><title> </title><body><h2>Example site</h2><h4>Skipped heading</h4><p>After text</p><img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E"><a href="/linked">Linked page</a><a href="/unmeasured">Unknown link</a></body></html>');
+    : '<!doctype html><html lang="fr"><title> </title><body><nav hidden><h3>Hidden menu</h3></nav><h2>Example site</h2><h4>Skipped heading</h4><p>After text</p><img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E"><a href="/linked">Linked page</a><a href="/unmeasured">Unknown link</a></body></html>');
 });
 await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
 try {
@@ -49,6 +49,7 @@ try {
   assert.ok(query.diff.findingsOmitted > 0); assert.ok(query.diff.checks.reduce((sum, check) => sum + check.a.findings.length + check.b.findings.length, 0) <= 3);
   const detail = JSON.parse(await readFile(join(directory, 'report', home.viewports[0].artifacts.content.diff.src)));
   for (const id of ['heading-outline', 'lang', 'empty-alt', 'empty-title', 'internal-links', 'text-difference']) assert.ok(detail.findings.some(finding => finding.checkId === id), `${id} reads actual captured evidence.`);
+  assert.ok(detail.findings.some(finding => finding.checkId === 'heading-outline' && finding.evidence.hidden === true && finding.evidence.text === 'Hidden menu' && /hidden/.test(finding.message)), 'A hidden navigation heading is flagged by the extractor and named by the check (R7.5, #83).');
   assert.ok(detail.checks.find(check => check.id === 'internal-links').b.findings.some(finding => finding.evidence.path === '/linked' && finding.evidence.statusCode === 404));
   // R7.3: an absolute finding carries its run and stays unexplained, so record-known refuses it (#254).
   const absolute = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'absolute'), contentChecks: ['empty-title'] });

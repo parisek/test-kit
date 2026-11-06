@@ -8,6 +8,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 - `targetSource` takes two opt-in booleans, `variants` and `pages` (R13.52, #94). `variants: true` makes one `component` target for each `styleguide.<variant>.twig` of an entry: ID `<component>--<variant>`, path `<mount>/render/component/<id>?canvas&variant=<variant>`. `pages: true` reads `<mount>/api/pages` and makes one `page` target for each page: ID `page--<id>`, path `<mount>/render/page/<id>?canvas`, variants as `page--<id>--<variant>`. `include` now names target IDs, and a component ID also selects its variants. A page with `has_styleguide: false` is listed as no fixture, like a component. Without the keys nothing changes.
 
+### Changed
+
+- The content extractor stores `hidden: true` on each hidden heading, and the `heading-outline` message names hidden headings. The finding set stays the full DOM outline, so nothing is suppressed (R7.5, #83). The extractor version rises to `1.1.0` (R7.4). A content snapshot from an earlier extractor is refused, so capture the content again before you compare.
+
 ### Fixed
 
 - A target ID that equals a no-fixture ID, for example a component `page--x` and a page `x` with `has_styleguide: false`, now stops the `targetSource` read with `STYLEGUIDE_CATALOGUE_INVALID`. Before, both IDs entered the run (R13.52, #94).

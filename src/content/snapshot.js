@@ -1,4 +1,4 @@
-export const EXTRACTOR_VERSION = '1.0.0';
+export const EXTRACTOR_VERSION = '1.1.0';
 export const MAX_ITEMS = 1000;
 export const MAX_TEXT = 100000;
 const text = (value, max) => typeof value === 'string' && value.length <= max;
@@ -13,8 +13,9 @@ export function validateContentSnapshot(value) {
   }
   if (typeof value.omitted.text !== 'boolean') bad();
   const headings = value.headings.map(item => {
-    if (!item || !Number.isInteger(item.level) || item.level < 1 || item.level > 6 || !text(item.text, 2000)) bad();
-    return { level: item.level, text: item.text };
+    if (!item || !Number.isInteger(item.level) || item.level < 1 || item.level > 6 || !text(item.text, 2000)
+      || !(item.hidden === undefined || item.hidden === true)) bad();
+    return item.hidden ? { level: item.level, text: item.text, hidden: true } : { level: item.level, text: item.text };
   });
   const images = value.images.map(item => {
     if (!item || !text(item.src, 2000) || !(item.alt === null || text(item.alt, 2000))
