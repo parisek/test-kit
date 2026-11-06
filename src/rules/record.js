@@ -3,6 +3,7 @@ import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { normalizeConfig } from '../config/normalize.js';
 import { adaptReport } from '../report/model.js';
+import { findingBasis } from '../report/catalog.js';
 import { readSidecar } from '../artifacts/compare.js';
 import { evidenceBinding, policyHash, comparatorIndex } from './evidence.js';
 export async function recordKnown({ reportPath, configPath, target, viewport, artifact, cause, reason }) {
@@ -14,7 +15,11 @@ export async function recordKnown({ reportPath, configPath, target, viewport, ar
   const reportFile = resolve(reportPath);
   const report = adaptReport(JSON.parse(await readSidecar(dirname(reportFile), reportFile.split('/').at(-1), 16_000_000)));
   const entry = report.entries.find(entry => entry.id === target), row = entry?.viewports.find(row => row.id === viewport);
-  const finding = report.findings.find(finding => finding.targetId === target && finding.viewportId === viewport && finding.artifact === artifact);
+  if (!report.pair) throw new Error('A subject report has no known differences (R9.7).');
+  const scoped = report.findings.filter(finding => finding.targetId === target && finding.viewportId === viewport && finding.artifact === artifact);
+  // R7.3: known differences apply to relative checks only. An absolute finding waits for the allowlist (#254).
+  const finding = scoped.find(finding => findingBasis(report, finding) === 'relative');
+  if (scoped.length && !finding) throw new Error('A known difference applies to a relative check only (R7.3). An absolute finding stays unexplained until the allowlist ships.');
   if (!entry || entry.judge === 'oracle' || !row
     || (row.artifacts?.[artifact]?.state ?? row.state) !== 'complete' || !finding) throw new Error('Record one complete non-oracle finding.');
   if (report.meta.comparisonPolicyHash !== policyHash(config.rules)) throw new Error('Comparison policy changed. Compare again before recording.');

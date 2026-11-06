@@ -95,7 +95,7 @@ The pack API fixes `checkId` to the check id, so the rule id sits in `evidence.r
 ## Open or not built
 
 - The `lint` index entry of the report and `settingsHash` (R9.9). Both need `schemaVersion` 3 (R13.9).
-- Allowlist `reason` and `owner`, and findings of completed checks in mixed artifacts. Both are open questions of ADR 0004.
+- Allowlist `reason` and `owner`, and findings of completed checks in mixed artifacts. The allowlist moved to #254. Completed checks in a mixed artifact are decided (R8.12).
 - Fix suggestions of the tools. The pack ignores them.
 
 ## Sources and verification (2026-10-18)

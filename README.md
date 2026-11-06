@@ -12,7 +12,7 @@ The Node engine belongs here. PHP and Twig lint belong to
 
 ## Install
 
-Use Node 20 or later. Install from an exact git tag, not the npm registry.
+Use Node 20.19 or later. Install from an exact git tag, not the npm registry.
 Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
@@ -22,7 +22,7 @@ npm install -D @playwright/test
 npx playwright install chromium
 ```
 
-One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
+One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). A DDEV `post-start` hook that runs `npm install` rewrites it on every `ddev start` (measured on one consumer project on 2026-11-05). The fix is on the project side: run `npm ci` in that hook, or skip the install when `node_modules` already matches the lockfile. Run `git diff package-lock.json` before every commit.
 
 ## Configure
 
@@ -119,9 +119,53 @@ A remote run stops at the first sign that the edge challenges or limits it: a
 That capture fails with `REMOTE_EDGE_STOP`. The rest of the run fails with
 `RUN_STOPPED` and sends no request, so a challenge does not grow into a ban.
 
-Aborted third-party requests are not recorded as evidence. A page that needs
-such a request to render differs from the same page with it, so read an
-`unexplained` finding with that in mind.
+A remote side aborts a request to another origin (a local side blocks it). A web font from a font host is such a
+request, and the page then renders in the fallback font. `run.json` records the aborted
+requests per resource type and origin (no path or query), and `summary` and the viewer
+warn when a `font` or `stylesheet` request was aborted. To load the font, name its origin:
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true,
+  "allowOrigins": [{"origin": "https://use.example-site.net", "types": ["stylesheet", "font"]}]}
+```
+
+The capture then reads that exact HTTPS origin with GET and HEAD for the named types
+(`stylesheet`, `font`). Name a font host that loads CSS from one origin and fonts from another
+with one entry for each origin. It never uses the list for a navigation, and a redirect from
+an allowed origin to an origin that is not named fails the capture. The capture verifies the
+certificate of a named origin. A local side may set the same key, so a local side can load a
+web font from a named third-party origin. A failed request to a named origin, or an HTTP error answer such as a 404 for a font file, fails the capture. A request to a named origin sends its URL and headers, including the `Referer` of the page, to that origin. The list is part of the capture settings hash. A pair
+with a list on one side only is incompatible, and the diagnostic names `allowOrigins`.
+
+A page can embed content from another origin, for example a video frame. A local side fails the capture
+on such a request, and a remote side aborts it and keeps the capture. To give both sides the same rule,
+set `thirdParty` on both sides (R3.10):
+
+```json
+"production": {"origin": "https://www.example.com", "remote": true, "thirdParty": "drop"},
+"local": {"origin": "http://localhost:8080", "thirdParty": "drop"}
+```
+
+`"drop"` aborts a GET or HEAD request for a frame or subresource of another origin and keeps the capture.
+A local side sends nothing to that origin, unless `allowOrigins` names it. On a local side the key applies to a non-local origin only: a request to another loopback or DDEV host (`localhost`, `127.x.x.x`, `*.ddev.site`) stays allowed, with any port. `"block"` fails the capture, with the error that names the
+request. Without the key, a local side blocks and a remote side drops. A top-level navigation to another
+origin, a redirect that leaves the permitted origins and every other method still fail the capture. The
+value is part of the capture settings hash, so set the same value on both sides. The template sets `"thirdParty": "drop"` on its one side. A project that adds a second side sets the same value there. A pair with different
+values is incompatible, and the diagnostic names `thirdParty`. Each dropped request appears in the
+`dropped` record of the capture, on a local and on a remote side.
+
+Other aborted requests are not evidence. A page that needs such a request to render
+differs from the same page with it, so read an `unexplained` finding with that in mind.
+
+## Lazy images and reveal
+
+An image with `loading="lazy"` below the first screen stays grey in a full-page capture, because the page never scrolls to it. Set `settle.lazyImages` to `true`. The capture then scrolls the page once, loads every lazy image and scrolls back. `settle.reveal` clicks, hovers or focuses named elements before the capture. Both keys are off by default.
+
+Set the same `settle` on both sides. The recipe enters the settings hash. A pair where one side has `lazyImages` and the other has not is `incompatible`, and the other side needs a new capture. The row diagnostic names the setting and both values, for example `settle.lazyImages (A: false, B: true)`. `templates/test-kit.config.json` shows two sides with one `settle` recipe.
+
+```json
+"settle": {"waitMs": 0, "selectors": [], "disableMotion": true, "masks": [], "lazyImages": true}
+```
 
 ## Scoped project workflow
 
@@ -314,7 +358,7 @@ under #25 and #45.
 
 ### Local Lighthouse measurements
 
-The engine and pure helpers still support Node 20. Lighthouse 13.6 requires
+The engine and pure helpers support Node 20.19. Lighthouse 13.6 requires
 Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
 is pinned to 13.6.0. Measurement accepts local HTTP page targets only.
 HTTPS and component targets fail explicitly.

@@ -1,8 +1,13 @@
 import { isHash, ruleApplies } from './model.js';
+import { findingBasis } from '../report/catalog.js';
 export function findingIsExplained(report, finding) {
+  // ADR 0004, section 7: an absolute finding becomes explained only through an allowlist entry.
+  // The allowlist is not built (#254), so an absolute finding stays unexplained. This fails closed.
+  if (findingBasis(report, finding) === 'absolute') return false;
   const cause = report.causes.find(cause => cause.id === finding.causeId);
   if (cause?.known !== true) return false;
   if (!Object.hasOwn(cause, 'acceptance')) return report.meta?.comparisonPolicyHash === undefined; // Legacy unscoped causes retain their contract.
+  if (!report.pair) return false;
   const accepted = finding.acceptance;
   if (!accepted || !isHash(accepted.fingerprint) || accepted.fingerprint !== finding.evidenceFingerprint || accepted.aRunId !== report.pair.aRunId || accepted.bRunId !== report.pair.bRunId || accepted.pairKey !== report.pair.key
     || accepted.targetId !== finding.targetId || accepted.viewportId !== finding.viewportId || accepted.artifact !== finding.artifact) return false;

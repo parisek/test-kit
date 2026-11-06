@@ -1,4 +1,5 @@
 import { findingIsExplained } from '../rules/classify.js';
+import { TARGET_SCOPE_ARTIFACTS } from './catalog.js';
 export { findingIsExplained } from '../rules/classify.js';
 // Shared pure classification for the viewer and queries (R4.4, R11.6).
 export const CLASSES = ['unexplained', 'explained', 'oracle', 'match'];
@@ -8,8 +9,17 @@ export const WORST_FIRST = ['unexplained', 'explained', 'oracle', 'unclassified'
 export function findingsFor(report, targetId, { viewportId = null, artifact = null } = {}) {
 	return report.findings.filter((finding) => finding.targetId === targetId
 		&& (artifact === null || finding.artifact === artifact)
-		&& (viewportId === null || finding.viewportId == null || finding.viewportId === viewportId));
+		&& (viewportId === null || (finding.viewportId == null ? !TARGET_SCOPE_ARTIFACTS.includes(finding.artifact) : finding.viewportId === viewportId)));
 }
+
+// The artifact index at viewport scope, or at target scope when `viewportId` is null (R9.9).
+export function artifactIndex(target, viewportId, artifact) {
+	if (viewportId === null || viewportId === undefined) return target.artifacts?.[artifact];
+	return target.viewports.find(row => row.id === viewportId)?.artifacts?.[artifact];
+}
+
+// The number of executed checks of an artifact: `diff.checks` for a pair artifact, `result.checks` for an absolute one.
+const executedChecks = (index) => index?.diff?.checks ?? index?.result?.checks;
 
 export function causeIsKnown(report, causeId) {
 	return report.causes.some((cause) => cause.id === causeId && cause.known === true);
@@ -18,13 +28,14 @@ export function causeIsKnown(report, causeId) {
 export function cellState(target, viewportId) {
 	const cell = target.viewports.find((row) => row.id === viewportId);
 	const stored = cell?.state ?? (cell?.error ? 'failed' : cell ? 'complete' : 'missing');
-	const states = [stored, cell?.artifacts?.html?.state, cell?.artifacts?.screenshot?.state, cell?.artifacts?.content?.state, cell?.artifacts?.behavior?.state, cell?.artifacts?.lighthouse?.state].filter(Boolean);
-	if (cell?.artifacts?.status && !cell.artifacts.html && !cell.artifacts.screenshot && !cell.artifacts.content && !cell.artifacts.behavior && !cell.artifacts.lighthouse) states.push(cell.artifacts.status.state);
+	// R8.7: every selected artifact counts, status included (#295).
+	const states = [stored, ...Object.keys(cell?.artifacts ?? {}).map(kind => cell.artifacts[kind]?.state)].filter(Boolean);
 	return ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? stored;
 }
 
 // A selected artifact keeps its state when another artifact fails (R11.6).
 export function artifactState(target, viewportId, artifact) {
+	if (viewportId === null || viewportId === undefined) return target.artifacts?.[artifact]?.state ?? 'missing';
 	const cell = target.viewports.find(row => row.id === viewportId);
 	if (!cell) return 'missing';
 	const selected = cell.artifacts?.[artifact];
@@ -37,37 +48,42 @@ export function artifactState(target, viewportId, artifact) {
 }
 
 export function artifactClass(report, target, viewportId, artifact) {
-	if (artifact === 'status' || artifactState(target, viewportId, artifact) !== 'complete') return null;
-	const selected = target.viewports.find(row => row.id === viewportId)?.artifacts?.[artifact];
-	if (artifact === 'content' && !(selected?.diff?.checks > 0)) return null;
+	if (artifactState(target, viewportId, artifact) !== 'complete') return null;
+	const selected = artifactIndex(target, viewportId, artifact);
+	if ((artifact === 'content' || selected?.result) && !(executedChecks(selected) > 0)) return null;
 	if (target.judge === 'oracle') return 'oracle';
 	const findings = findingsFor(report, target.id, { viewportId, artifact });
 	if (findings.length) return findings.every(finding => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';
-	return 'match';
+	// Equal status evidence is not proof of a match (R6.1): without a finding it stays unclassified.
+	return artifact === 'status' ? null : 'match';
 }
 
 export function cellClass(report, target, viewportId) {
 	if (cellState(target, viewportId) !== 'complete') return null;
 	const contentCell = target.viewports.find(row => row.id === viewportId);
-	if (contentCell?.artifacts?.content && !contentCell.artifacts.screenshot && !contentCell.artifacts.html && !contentCell.artifacts.behavior && !contentCell.artifacts.content.diff?.checks) return null;
+	if (contentCell?.artifacts?.content && !contentCell.artifacts.screenshot && !contentCell.artifacts.html && !contentCell.artifacts.behavior && !(executedChecks(contentCell.artifacts.content) > 0)) return null;
 	const cell = target.viewports.find((row) => row.id === viewportId);
-	if (cell?.artifacts?.status && !cell.artifacts.screenshot && !cell.artifacts.html && !cell.artifacts.content && !cell.artifacts.behavior && !cell.artifacts.lighthouse) return null;
-	if (target.judge === 'oracle') return 'oracle';
-	const findings = findingsFor(report, target.id, { viewportId }).filter(finding => finding.artifact !== 'status');
+	const statusOnly = cell?.artifacts?.status && Object.keys(cell.artifacts).every(kind => kind === 'status');
+	if (target.judge === 'oracle') return statusOnly ? null : 'oracle';
+	// State first (R8.7): a status finding counts only while its artifact is complete.
+	const findings = findingsFor(report, target.id, { viewportId }).filter(finding => finding.artifact !== 'status' || cell?.artifacts?.status?.state === 'complete');
 	if (findings.length) return findings.every((finding) => findingIsExplained(report, finding)) ? 'explained' : 'unexplained';
-	return 'match';
+	// A cell with status evidence only never reads match (R6.1).
+	return statusOnly ? null : 'match';
 }
 
 export function targetState(target) {
-	const states = target.viewports.map((row) => cellState(target, row.id));
+	// An artifact at target scope (a lint result) counts like a cell (R9.9).
+	const states = [...target.viewports.map((row) => cellState(target, row.id)),
+		...Object.values(target.artifacts ?? {}).map((artifact) => artifact?.state).filter(Boolean)];
 	return ['failed', 'incompatible', 'missing'].find((state) => states.includes(state)) ?? (states.length ? 'complete' : 'missing');
 }
 
 export function targetClass(report, target) {
-	const values = target.viewports.map((row) => cellClass(report, target, row.id)).filter((value) => value !== null);
+	const values = [...target.viewports.map((row) => cellClass(report, target, row.id)),
+		...Object.keys(target.artifacts ?? {}).map((kind) => artifactClass(report, target, null, kind))].filter((value) => value !== null);
 	const findings = findingsFor(report, target.id).filter((finding) => {
-		if (finding.artifact === 'status') return false;
-		if (!['screenshot', 'html'].includes(finding.artifact)) return true;
+		if (!['screenshot', 'html', 'status'].includes(finding.artifact)) return true;
 		if (finding.artifact === 'html' && finding.viewportId == null) return true;
 		const row = target.viewports.find(row => row.id === finding.viewportId);
 		return row?.artifacts?.[finding.artifact]?.state === 'complete';

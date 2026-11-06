@@ -1,4 +1,9 @@
 // The project contract seam matches the component contract registry (R13.41).
+import { BEHAVIOR_ORIGINS } from '../report/catalog.js';
+// The registry records where a contract comes from: the package, the project or a component.
+// Every contract that a loader reads today comes from the project source directory (docs/vision.md).
+// A loader sets the origin. A contract file cannot claim another one.
+export const withOrigin = (contract, origin = 'project') => ({ ...contract, origin });
 export const DEFAULT_PROJECTS = ['desktop-1280', 'mobile-390'];
 export function collectContracts(module) {
   const isContract = value => value && typeof value.detect === 'function' && typeof value.run === 'function';
@@ -12,6 +17,7 @@ export function validateContracts(contracts) {
     names.add(contract.name);
     if (typeof contract.detect !== 'function' || typeof contract.run !== 'function') throw new Error('A contract must export detect and run.');
     if (contract.runScoping !== undefined && typeof contract.runScoping !== 'function') throw new Error('runScoping must be a function.');
+    if (contract.origin !== undefined && !BEHAVIOR_ORIGINS.includes(contract.origin)) throw new Error('Contract origin must be package, project or component.');
     if (contract.projects !== undefined && (!Array.isArray(contract.projects) || !contract.projects.every(v => typeof v === 'string'))) throw new Error('Contract projects must be strings.');
   }
   return contracts;

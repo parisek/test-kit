@@ -76,3 +76,9 @@ test('comparison binding describes tool and normalization pipeline versions', ()
   assert.equal(comparatorDescriptor('screenshot').version, '8.0.0');
   assert.notDeepEqual(html, { ...html, pipelineVersion: 2 });
 });
+
+test('R8.5: the artifacts axis of a rule scope names every artifact kind, and the kinds axis takes single-run', async () => {
+  const { normalizeScope } = await import('../../src/rules/model.js');
+  assert.deepEqual(normalizeScope({ artifacts: ['behavior', 'lighthouse', 'lint', 'a11y'], kinds: ['single-run'] }), { artifacts: ['behavior', 'lighthouse', 'lint', 'a11y'], kinds: ['single-run'] });
+  assert.throws(() => normalizeScope({ artifacts: ['speed'] }), /Invalid evidenced comparison policy/);
+});

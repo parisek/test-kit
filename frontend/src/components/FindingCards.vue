@@ -2,6 +2,8 @@
 import { computed, inject, ref } from 'vue';
 import Badge from './Badge.vue';
 import { findingIsExplained } from '../../../src/report/classify.js';
+import { findingBasis } from '../../../src/report/catalog.js';
+import { checkLabel, locationText } from '../state/checks-model.js';
 import { sameOriginUrl } from '../../../src/report/safe.js';
 import { decisionActions } from '../state/decision.js';
 const props = defineProps({ findings: Array, report: Object, source: String });
@@ -10,7 +12,8 @@ const cause = finding => props.report?.causes?.find(item => item.id === finding.
 const evidence = finding => sameOriginUrl(typeof finding.evidence === 'string' ? finding.evidence : finding.evidence?.src, props.source);
 const reportId = inject('reportId', computed(() => null));
 const page = () => { try { return globalThis.location?.href ?? ''; } catch { return ''; } };
-const actions = finding => decisionActions(finding, { reportId: reportId.value, page: page(), source: props.source });
+const actions = finding => decisionActions(finding, { reportId: reportId.value, page: page(), source: props.source, basis: findingBasis(props.report, finding) });
+const where = finding => finding.viewportId ?? (finding.location ? 'Target' : 'All viewports');
 // The viewer cannot run a command. Copying text stores nothing (R5.3, R11.5).
 const copied = ref({});
 async function copy(key, text) {
@@ -29,7 +32,7 @@ async function copy(key, text) {
         <div v-else class="mt-3 grid gap-3">
             <article v-for="(finding, index) in items" :key="finding.id ?? index" class="min-w-0 rounded-ui-panel border border-ui-border bg-ui-toolbar p-4">
                 <div class="flex flex-wrap items-start justify-between gap-2"><p class="min-w-0 flex-1 break-words text-sm font-medium">{{ finding.message ?? finding.title ?? (finding.artifact === 'screenshot' ? 'Screenshot pixels differ.' : `${finding.artifact ?? 'Evidence'} differs.`) }}</p><Badge :text="findingIsExplained(report, finding) ? 'explained' : 'unexplained'" /></div>
-                <p class="mt-2 break-words text-xs text-ui-muted">{{ finding.artifact ?? 'Evidence' }} · {{ finding.viewportId ?? 'All viewports' }}<span v-if="cause(finding)"> · {{ cause(finding).title ?? cause(finding).id }}</span><span v-else> · No cause is recorded</span></p>
+                <p class="mt-2 break-words text-xs text-ui-muted">{{ finding.artifact ?? 'Evidence' }} · {{ where(finding) }}<span v-if="checkLabel(report, finding)"> · {{ checkLabel(report, finding).title }} ({{ checkLabel(report, finding).id }}, {{ checkLabel(report, finding).layer }} layer)</span><span v-if="locationText(finding.location)"> · <code>{{ locationText(finding.location) }}</code></span><span v-if="cause(finding)"> · {{ cause(finding).title ?? cause(finding).id }}</span><span v-else> · No cause is recorded</span></p>
                 <p v-if="cause(finding)?.detail" class="mt-2 break-words text-sm">{{ cause(finding).detail }}</p>
                 <a v-if="evidence(finding)" :href="evidence(finding)" target="_blank" rel="noreferrer" class="mt-2 inline-block text-xs underline">Open finding evidence</a>
                 <div class="mt-3 border-t border-ui-border pt-3" role="group" :aria-label="`Decision for ${finding.id ?? 'this finding'}`">

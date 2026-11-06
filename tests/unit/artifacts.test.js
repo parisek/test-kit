@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lineWindow, boundedDifference } from '../../src/artifacts/diff.js';
 import { artifactState } from '../../src/artifacts/state.js';
-import { comparisonDetail } from '../../src/artifacts/schema.js';
+import { comparisonDetail, statusDifference } from '../../src/artifacts/schema.js';
 import { cellClass, cellState, targetClass } from '../../src/report/classify.js';
+import { statusMessage } from '../../src/compare/runs.js';
 import { summarizeReport } from '../../src/query/summary.js';
 import { validateReport } from '../../src/report/model.js';
 import { normalizeConfig } from '../../src/config/index.js';
@@ -30,7 +31,7 @@ function data(artifacts) {
     artifacts[kind] = { ...artifacts[kind], a: { ...index, src: kind === 'html' ? 'a.txt' : 'a.json' },
       b: { ...index, src: kind === 'html' ? 'b.txt' : 'b.json' }, diff: { ...index, src: 'diff.json', changed: false } };
   }
-  return { schemaVersion: 2, meta: { matchBelow: 3, viewports: [{ id: 'wide' }] },
+  return { schemaVersion: 3, checks: {}, meta: { matchBelow: 3, viewports: [{ id: 'wide' }] },
     runs: [{ id: 'a' }, { id: 'b' }], pair: { kind: 'update', aRunId: 'a', bRunId: 'b' },
     entries: [{ id: 'home', viewports: [{ id: 'wide', state: 'complete', ratio: 0, availability: { a: 'ok', b: 'ok' }, artifacts }] }],
     findings: [], causes: [], rules: {} };
@@ -102,4 +103,23 @@ test('raw and normalized windows share the serialized sidecar budget', () => {
     assert.ok(window.omittedLines > 100);
   }
   assert.doesNotThrow(() => comparisonDetail('html', detail));
+});
+
+test('statusDifference names status, final path and redirect chain and ignores asset counts (R6.13)', () => {
+  const side = (over = {}) => ({ statusCode: 200, finalPath: '/page', redirects: [], assets: { requests: 4, failed: 0, httpErrors: 0 }, ...over });
+  assert.deepEqual(statusDifference(side(), side({ assets: { requests: 40, failed: 3, httpErrors: 2 } })), []);
+  assert.deepEqual(statusDifference(side(), side({ statusCode: 404 })), ['statusCode']);
+  assert.deepEqual(statusDifference(side(), side({ finalPath: '/page/', redirects: ['/page'] })), ['finalPath', 'redirects']);
+  assert.deepEqual(statusDifference(side({ redirects: ['/a'] }), side({ redirects: ['/b'] })), ['redirects']);
+});
+
+test('a status message keeps the differing part of a long path and of a long chain', () => {
+  const side = (over = {}) => ({ statusCode: 200, finalPath: '/p', redirects: [], assets: { requests: 1, failed: 0, httpErrors: 0 }, ...over });
+  const long = '/' + 'x'.repeat(300);
+  const path = statusMessage({ a: side({ finalPath: long + 'a' }), b: side({ finalPath: long + 'b' }) });
+  assert.match(path, /final path A .*xa, B .*xb\./);
+  const steps = ['/1', '/2', '/3', '/4', '/5', '/6'];
+  const chain = statusMessage({ a: side({ redirects: [...steps, '/old'] }), b: side({ redirects: [...steps, '/new'] }) });
+  assert.match(chain, /\/old/); assert.match(chain, /\/new/);
+  assert.equal(statusMessage({ a: side(), b: side({ assets: { requests: 9, failed: 0, httpErrors: 0 } }) }), null);
 });

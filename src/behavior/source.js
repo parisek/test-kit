@@ -2,7 +2,7 @@ import { readdir, realpath, lstat, readFile } from 'node:fs/promises';
 import { resolve, relative, join, basename, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { collectContracts, validateContracts, selectContracts, validateContractSelection } from './contracts.js';
+import { collectContracts, validateContracts, selectContracts, validateContractSelection, withOrigin } from './contracts.js';
 import { relativePath } from '../report/safe.js';
 
 const loadedFingerprints = new Map();
@@ -53,7 +53,7 @@ export async function loadBehaviorSource({ projectRoot, directory, lockfile = 'p
   const fingerprint = createHash('sha256').update(JSON.stringify(hashes.sort((a, b) => a.path.localeCompare(b.path)))).digest('hex');
   if (loadedFingerprints.has(sourceRoot) && loadedFingerprints.get(sourceRoot) !== fingerprint) throw new Error('Behavior source changes after import. Start a new process to avoid cached helper code.');
   const contracts = [];
-  for (const file of files.filter(path => basename(path).endsWith('.contract.js')).sort()) contracts.push(...collectContracts(await import(pathToFileURL(file).href)));
+  for (const file of files.filter(path => basename(path).endsWith('.contract.js')).sort()) contracts.push(...collectContracts(await import(pathToFileURL(file).href)).map(contract => withOrigin(contract)));
   validateContracts(contracts);
   loadedFingerprints.set(sourceRoot, fingerprint);
   if (!contracts.length && enabled?.length !== 0) throw new Error('Behavior source contains no contracts.');

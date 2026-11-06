@@ -46,8 +46,9 @@ A check with no input, a relative check with no `context.before`, a component ch
 An empty plan gives run state `missing`. The run state is `complete` only when every check is complete.
 
 Versioned contract sets and library version detection live in `versioned/README.md` (R13.42).
-Not built yet: threshold overrides, allowlists (ADR 0004, open question 4), and the `schemaVersion` 3 report fields (R13.9).
-The six built-in content checks in `src/checks` stay as they are. They have no `basis`. The owner decided on 2026-10-19 that `basis` for them waits for `schemaVersion` 3.
+`select.js` (pure) plans `capture --packs` (R13.51): `planPackRun(config.packs)` returns the packs that run on the open page (`a11y`) and the packs it skips with a diagnostic (`lint`, `swiper`). It rejects an empty selection with a clear error. The browser step is in `src/capture/packs.js`, and `src/compare/packs.js` reads the stored result into the report.
+Not built yet: threshold overrides and allowlists (#254, ADR 0004, open question 4). A page step for `lint` and `swiper`.
+The report writes `schemaVersion` 3 (R9.7 to R9.11, #230). The six built-in content checks in `src/checks` export `basis`: `text-difference` is `relative`, the other five are `absolute`.
 
 Freeze scope at 1.0, decided by the owner on 2026-10-19 (`docs/seam.md`, section 5): the pack API in this folder (`definePack`, `validateCheck`, `resolveChecks`, `runChecks`, `LAYERS`, `BASES` and the input contract) and the accessibility pack are frozen. The lint pack is not frozen and may change in a minor release.
 
