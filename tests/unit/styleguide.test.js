@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeConfig, captureSettings, settingsHash } from '../../src/config/index.js';
-import { parseComponents, readComponents, componentsUrl, componentPath, StyleguideError } from '../../src/styleguide/index.js';
+import { parseComponents, readComponents, componentsUrl, componentPath, pagesUrl, StyleguideError } from '../../src/styleguide/index.js';
 import { selectConfig } from '../../src/workflow/selection.js';
 import { planPerfCommand } from '../../src/perf/plan.js';
 import { comparisonState } from '../../src/compare/runs.js';
@@ -135,4 +135,117 @@ test('compare: a component in only one run has state missing, never complete (R8
   const capture = { targetId: 'card', viewportId: 'small', state: 'captured' };
   assert.equal(comparisonState(capture, undefined, {}, {}), 'missing');
   assert.equal(comparisonState(undefined, capture, {}, {}), 'missing');
+});
+
+const withVariants = () => [
+  { id: 'hero', name: 'Hero', has_styleguide: true, has_default_variant: true, variants: [{ id: 'dark-bg', title: 'Dark background' }, { id: 'secondary', title: '' }] },
+  { id: 'banner', name: 'Banner', has_styleguide: true, has_default_variant: false, variants: [{ id: 'wide', title: 'Wide' }] },
+  { id: 'card', name: 'Card', has_styleguide: true, has_default_variant: false, variants: [] },
+  { id: 'hero--x', has_styleguide: false },
+];
+const pageList = () => [{ id: 'home', name: 'Home', has_styleguide: true, has_default_variant: true, variants: [{ id: 'empty', title: 'Empty' }] }, { id: 'blog', name: 'Blog', has_styleguide: false }];
+
+test('parseComponents: variants are off by default and an old catalogue reads the same (R5.1)', () => {
+  const plain = parseComponents(withVariants());
+  assert.deepEqual(plain.targets.map(target => target.id), ['banner', 'card', 'hero']);
+  assert.deepEqual(parseComponents(withVariants(), { variants: false }), plain);
+});
+
+test('parseComponents: variants add one target for each variant, with the variant in the path (R13.52)', () => {
+  const { targets, noFixture } = parseComponents(withVariants(), { variants: true });
+  assert.deepEqual(targets.map(target => target.id), ['banner--wide', 'hero', 'hero--dark-bg', 'hero--secondary']);
+  const dark = targets.find(target => target.id === 'hero--dark-bg');
+  assert.deepEqual(dark, { id: 'hero--dark-bg', kind: 'component', title: 'Hero / Dark background', path: '/styleguide/render/component/hero?canvas&variant=dark-bg' });
+  assert.equal(targets.find(target => target.id === 'hero--secondary').title, 'Hero / secondary', 'An empty variant title falls back to the variant ID.');
+  // No default fixture, so no default tile: the grid shows none and the default render would fall back to the bare template.
+  assert.equal(targets.some(target => target.id === 'banner'), false);
+  // No default fixture and no variant: nothing to render. The entry is listed as no fixture, not dropped silently.
+  assert.equal(targets.some(target => target.id === 'card'), false);
+  assert.deepEqual(noFixture, ['card', 'hero--x']);
+  // An older styleguide that omits has_default_variant keeps its default target.
+  assert.deepEqual(parseComponents([{ id: 'old', has_styleguide: true }], { variants: true }).targets.map(target => target.id), ['old']);
+  // Without the option nothing changes: the entry keeps its default target.
+  assert.ok(parseComponents(withVariants()).targets.some(target => target.id === 'card'));
+});
+
+test('parseComponents: a bad variant list or a repeated or long target ID stops the read (R13.52)', () => {
+  const fails = (payload, pattern) => assert.throws(() => parseComponents(payload, { variants: true }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && pattern.test(error.message));
+  fails([{ id: 'a', variants: [{ id: 'Bad Id' }] }], /variant with no usable ID/);
+  fails([{ id: 'a', variants: [{ id: '../x' }] }], /variant with no usable ID/);
+  fails([{ id: 'a', variants: [{ id: 'x' }, { id: 'x' }] }], /variant with no usable ID/);
+  fails([{ id: 'a', variants: 'x' }], /not a list/);
+  fails([{ id: 'a', variants: Array.from({ length: 101 }, (_, index) => ({ id: `v${index}` })) }], /not a list/);
+  fails([{ id: 'a'.repeat(63), variants: [{ id: 'x' }] }], /longer than 64/);
+  fails([{ id: 'a', variants: [{ id: 'b' }] }, { id: 'a--b' }], /repeated or longer/);
+  // A target ID that equals a no-fixture ID (a component `page--x` and a page `x` without fixture) stops the read.
+  assert.throws(() => parseComponents([{ id: 'page--x' }], { pages: [{ id: 'x', has_styleguide: false }] }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && /repeated or longer/.test(error.message));
+  // A bad variant list in a catalogue that does not ask for variants is not read.
+  assert.doesNotThrow(() => parseComponents([{ id: 'a', variants: 'x' }]));
+});
+
+test('parseComponents: pages are opt-in, kind page, and never collide with a component (R13.52)', () => {
+  const same = [{ id: 'home', name: 'Home Component', has_styleguide: true }];
+  assert.deepEqual(parseComponents(same, { pages: undefined }).targets.map(target => target.id), ['home']);
+  const { targets, noFixture } = parseComponents(same, { pages: pageList(), variants: true });
+  assert.deepEqual(targets.map(target => [target.id, target.kind]), [['home', 'component'], ['page--home', 'page'], ['page--home--empty', 'page']]);
+  assert.equal(targets.find(target => target.id === 'page--home').path, '/styleguide/render/page/home?canvas');
+  assert.equal(targets.find(target => target.id === 'page--home--empty').path, '/styleguide/render/page/home?canvas&variant=empty');
+  assert.deepEqual(noFixture, ['page--blog']);
+  assert.deepEqual(parseComponents(same, { pages: [] }).targets.map(target => target.id), ['home'], 'An empty page list is not an error.');
+  assert.throws(() => parseComponents(same, { pages: {} }), error => /page list is not an array/.test(error.message));
+  assert.throws(() => parseComponents(same, { pages: [{ id: 'a'.repeat(60) }] }), /longer than 64/);
+  assert.throws(() => parseComponents(same, { pages: [{ id: '../x' }] }), /page\(s\) with no usable ID/);
+});
+
+test('parseComponents: include names targets, a component also selects its variants (R13.52)', () => {
+  const options = { variants: true, pages: pageList() };
+  const ids = include => parseComponents(withVariants(), { ...options, include }).targets.map(target => target.id);
+  assert.deepEqual(ids(['hero']), ['hero', 'hero--dark-bg', 'hero--secondary']);
+  assert.deepEqual(ids(['hero--dark-bg']), ['hero--dark-bg']);
+  assert.deepEqual(ids(['page--home']), ['page--home', 'page--home--empty']);
+  assert.deepEqual(ids(['page--home--empty', 'banner']), ['banner--wide', 'page--home--empty']);
+  assert.throws(() => parseComponents(withVariants(), { ...options, include: ['hero--gone'] }), error => error.code === 'STYLEGUIDE_COMPONENT_UNKNOWN');
+  // A variant or page ID is unknown while its option is off.
+  assert.throws(() => parseComponents(withVariants(), { include: ['hero--dark-bg'] }), error => error.code === 'STYLEGUIDE_COMPONENT_UNKNOWN');
+  assert.throws(() => parseComponents(withVariants(), { include: ['page--home'] }), error => error.code === 'STYLEGUIDE_COMPONENT_UNKNOWN');
+  // A page with no fixture named in include is skipped and listed, not unknown.
+  assert.deepEqual(parseComponents(withVariants(), { ...options, include: ['card', 'hero', 'page--blog'] }).noFixture, ['card', 'page--blog']);
+});
+
+test('readComponents: pages and variants add one GET for the page list only (R13.52)', async () => {
+  const urls = [];
+  const get = async url => { urls.push(url); return { status: 200, body: JSON.stringify(url.endsWith('/api/pages') ? pageList() : withVariants()) }; };
+  await readComponents({ origin: 'http://localhost:8080', variants: true, get });
+  assert.deepEqual(urls, ['http://localhost:8080/styleguide/api/components']);
+  urls.length = 0;
+  const result = await readComponents({ origin: 'http://localhost:8080', variants: true, pages: true, get });
+  assert.deepEqual(urls, ['http://localhost:8080/styleguide/api/components', 'http://localhost:8080/styleguide/api/pages']);
+  assert.ok(result.targets.some(target => target.id === 'page--home--empty'));
+  assert.equal(pagesUrl('http://localhost:8080', '/tools/ui'), 'http://localhost:8080/tools/ui/api/pages');
+  await assert.rejects(readComponents({ origin: 'http://localhost:8080', pages: true, get: async url => url.endsWith('/api/pages') ? { status: 404, body: '' } : { status: 200, body: '[{"id":"a"}]' } }),
+    error => error.code === 'STYLEGUIDE_CATALOGUE_UNREACHABLE' && /page list answers HTTP 404/.test(error.message));
+});
+
+test('config: targetSource variants and pages are optional booleans (R13.52)', () => {
+  const source = extra => input({ targetSource: { source: 'styleguide', side: 'styleguide', ...extra } });
+  assert.deepEqual(normalizeConfig(source({ variants: true, pages: true })).targetSource, { source: 'styleguide', side: 'styleguide', mount: '/styleguide', variants: true, pages: true });
+  assert.deepEqual(normalizeConfig(source({ variants: false })).targetSource, normalizeConfig(input()).targetSource, 'false equals absent.');
+  for (const key of ['variants', 'pages']) for (const value of ['yes', 1, null]) assert.throws(() => normalizeConfig(source({ [key]: value })), new RegExp(`targetSource.${key} must be a boolean`));
+  const normalized = normalizeConfig(source({ variants: true, pages: true }));
+  assert.deepEqual(normalizeConfig(JSON.parse(JSON.stringify(normalized))), normalized);
+  assert.deepEqual(selectConfig(normalized, { target: 'hero--dark-bg,page--home' }).targetSource.include, ['hero--dark-bg', 'page--home']);
+});
+
+test('parseComponents: the expanded target list has the same 1000 limit as the config (R13.52)', () => {
+  const big = Array.from({ length: 11 }, (_, index) => ({ id: `c${index}`, variants: Array.from({ length: 100 }, (__, v) => ({ id: `v${v}` })) }));
+  assert.throws(() => parseComponents(big, { variants: true }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && /makes 1111 targets/.test(error.message));
+  assert.equal(parseComponents(big, { variants: true, include: ['c0', 'c1'] }).targets.length, 202, 'include narrows below the limit.');
+  assert.equal(parseComponents(big).targets.length, 11, 'Without variants the list is not expanded.');
+  assert.throws(() => parseComponents([{ id: 'a' }], { pages: Array.from({ length: 1000 }, (_, index) => ({ id: `p${index}` })) }), /makes 1001 targets/);
+});
+
+test('parseComponents: a no-fixture page ID over 64 characters with its prefix stops the read (R13.52)', () => {
+  const pages = [{ id: 'p'.repeat(59), has_styleguide: false }];
+  assert.throws(() => parseComponents([{ id: 'a' }], { pages }), error => error.code === 'STYLEGUIDE_CATALOGUE_INVALID' && /longer than 64/.test(error.message));
+  assert.deepEqual(parseComponents([{ id: 'a' }], { pages: [{ id: 'p'.repeat(58), has_styleguide: false }] }).noFixture, [`page--${'p'.repeat(58)}`]);
 });

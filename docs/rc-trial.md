@@ -58,7 +58,7 @@ npx test-kit --help
 
 Notes:
 
-- Node 20 or newer (`engines`).
+- Node 20.19 or newer (`engines`).
 - `@playwright/test` is a peer dependency (`>=1.49`). `capture` and `run` need it and a browser. See [Playwright browsers](https://playwright.dev/docs/browsers).
 - `axe-core` (`^4.10.0`) is an optional peer. Install it only for the a11y runner. `lighthouse` is an optional peer for `perf`.
 - Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Verified once on one consumer project on 2026-10-19 against a local site: the form with the tag `#v1.0.0-rc.2`, then the steps in section 3 and the exports. Not run there: a remote side, `perf`, the `packs` key with a pack ID and the viewer in a browser. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.

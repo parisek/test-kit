@@ -2,7 +2,7 @@
 
 Captures one side into a run. One page load feeds every artifact the run asks for. Spec section 4 (R4.2) and section 6.
 
-`capture({configPath, side, label, runsRoot, artifacts})` returns the run, run directory and
+`capture({configPath, side, label, runsRoot, artifacts, packs})` returns the run, run directory and
 manifest path. It loads and freezes project configuration. It starts Chromium
 on the host. Install `@playwright/test` and its Chromium browser first.
 
@@ -21,6 +21,7 @@ that POST fails the capture. Every other non-read request still fails.
 A remote run stops at a `cf-mitigated` header on an own-origin response, or a 403 or 429 on the page
 (R3.6). That capture fails with `REMOTE_EDGE_STOP`; the later ones fail with `RUN_STOPPED` and send nothing.
 A remote capture records each request it aborts and keeps, per resource type and origin, as `dropped` (R3.8). The record has no path or query. It holds at most 50 entries.
+A side with `allowOrigins`, local or remote, also reads the named HTTPS origins with GET and HEAD for the named resource types (`stylesheet`, `font`) (R3.9). A navigation never uses the list. A redirect from an allowed origin must end at an allowed origin. A local side verifies the certificate of these origins through a separate verifying context. The list is part of the settings hash.
 Service workers are blocked. HTTPS errors are ignored for local DDEV certificates.
 WebSockets are blocked, including local sockets. Version 0.1 captures a static
 state. It does not permit socket traffic. This policy is part of the settings
@@ -91,6 +92,12 @@ overrides (R5.4). Screenshot, content, and behavior comparison bind the
 effective recipe. A changed recipe is incompatible for that target.
 Defaults retain their previous capture hashes.
 
+## Packs (`--packs`, R13.51)
+
+`capture --packs` runs the packs of the `packs` key that have a page step. Today this is `a11y`. The step runs on the page that capture already has open, after settlement and content, and after the screenshot when there is one, before the behavior steps. A remote side refuses `--packs` before a browser starts. It adds no navigation and no request, and the request policy and the timeouts stay as they are. `src/packs/select.js` plans the run and `packs.js` runs it.
+Each result is a sidecar `<pack>/<target>/<viewport>.json` and an index `captures[].artifacts.<pack>`. A pack that is missing (axe-core is not installed) or broken stores the reason and makes the run `partial`.
+`run.packs` records `selected` and `skipped` (a pack with no page step). It exists only when the flag is set. The selection is not in the settings hash or in the comparable tools. Without the flag nothing here runs (R5.1).
+`--packs` with no `packs` key fails before a run directory exists.
 ## Styleguide targets
 
 With `targetSource` in the configuration, `capture` first reads `<mount>/api/components` of the named side (one GET, no redirect).
@@ -98,4 +105,5 @@ It makes one `component` target for each entry and stores the list in the run se
 The run manifest holds `targetSource` with the count and the IDs that have no fixture.
 It reads before any run directory exists, so a bad catalogue leaves no run. `--side` must be the side of the source.
 A component with `has_styleguide: false` makes no target and sends no request. The manifest lists it under `targetSource.noFixture`, and the report and `summary` list it as "no fixture".
+With `variants: true` it also makes one target for each variant. With `pages: true` it reads `<mount>/api/pages` (a second GET) and makes one `page` target for each page.
 See `src/styleguide/README.md`.

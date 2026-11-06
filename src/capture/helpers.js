@@ -59,11 +59,14 @@ export function isOwnOrigin(value, origin) {
 // A top-level navigation to another origin fails the capture.
 // R3.5: a remote side with `challenge: 'cloudflare'` also allows a POST that is not a
 // navigation (fetch, XHR, beacon) to the challenge path of its own origin.
-export function requestPolicy({ url, method, topLevel, navigation = topLevel, origin, remote, challenge }) {
+// R3.9: a side (local or remote) with `allowOrigins` also allows a GET or HEAD subresource of a
+// named origin, when the resource type is in the list of that origin. A navigation never qualifies.
+export function requestPolicy({ url, method, topLevel, navigation = topLevel, resourceType, origin, remote, challenge, allowOrigins }) {
   const read = ['GET', 'HEAD'].includes(method);
-  if (!remote) return read && isLocalUrl(url) ? 'allow' : 'block';
+  if (!remote) return read && (isLocalUrl(url) || (!navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins }))) ? 'allow' : 'block';
   if (!read) return challenge === 'cloudflare' && isChallengeRequest({ url, method, navigation, origin }) ? 'allow' : 'block';
   if (isOwnOrigin(url, origin)) return 'allow';
+  if (!navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins })) return 'allow';
   return topLevel ? 'block' : 'drop';
 }
 
@@ -75,6 +78,30 @@ export function decideRequest(log, args) {
   return decision;
 }
 
+// R3.9: the origin must match exactly: HTTPS, no credentials, same scheme, host and port.
+// The resource type must be in the list of that entry. The list holds `stylesheet` and `font` only.
+export const ALLOW_ORIGIN_TYPES = Object.freeze(['stylesheet', 'font']);
+export function isAllowedOriginRequest({ url, resourceType, allowOrigins }) {
+  if (!Array.isArray(allowOrigins) || typeof resourceType !== 'string' || !ALLOW_ORIGIN_TYPES.includes(resourceType)) return false;
+  return allowOrigins.some(entry => entry && typeof entry.origin === 'string' && entry.origin.startsWith('https://')
+    && Array.isArray(entry.types) && entry.types.includes(resourceType) && isOwnOrigin(url, entry.origin));
+}
+
+// R3.9: a redirect of a subresource may lead to an allowed origin, for the same resource type.
+// A redirect of a navigation never does.
+export function redirectToAllowedOrigin({ url, navigation, resourceType, allowOrigins }) {
+  return !navigation && isAllowedOriginRequest({ url, resourceType, allowOrigins });
+}
+
+// R3.9: a redirect that starts at an allowed origin must end at an allowed origin for the same
+// type. The own origin does not qualify: an origin that is not on the list fails the capture.
+// Any other redirect keeps the rule of its side: the permitted URL, or an allowed origin.
+export function redirectPermitted({ from, to, ownTarget, navigation, resourceType, allowOrigins }) {
+  const target = redirectToAllowedOrigin({ url: to, navigation, resourceType, allowOrigins });
+  if (!navigation && isAllowedOriginRequest({ url: from, resourceType, allowOrigins })) return target;
+  return ownTarget || target;
+}
+
 // R3.7: name the first request the capture blocks, so a person can find the cause.
 // Origin, method, resource type and kind only: no path, query string or fragment.
 // The values come from the page, so the helper strips control characters and bounds each part.
@@ -82,7 +109,7 @@ export function decideRequest(log, args) {
 function clean(value, max) {
   return String(value ?? '').replace(/[^\x20-\x7e]/g, '').trim().slice(0, max);
 }
-export function describeBlockedRequest({ url, method, resourceType, topLevel, navigation = topLevel, redirect = false }) {
+export function describeBlockedRequest({ url, method, resourceType, topLevel, navigation = topLevel, redirect = false, failure = null }) {
   let origin = 'unknown origin';
   try {
     const parsed = new URL(url);
@@ -94,14 +121,16 @@ export function describeBlockedRequest({ url, method, resourceType, topLevel, na
     origin: clean(origin, 100) || 'unknown origin',
     method: clean(method, 10).toUpperCase() || 'unknown',
     resourceType: clean(resourceType, 20) || 'unknown',
-    kind, redirect: redirect === true,
+    kind, redirect: redirect === true, ...(failure ? { failure: clean(failure, 20) } : {}),
   };
 }
 
 export function blockedRequestMessage(blocked) {
   const base = 'A request leaves the local environment or submits data.';
   if (!blocked) return base;
-  const { origin, method, resourceType, kind, redirect } = blocked;
+  const { origin, method, resourceType, kind, redirect, failure } = blocked;
+  // R3.9: a request to an allowed origin failed. The text names the origin, the type and the class of the error.
+  if (failure) return `A request to an allowed origin (allowOrigins) failed (${failure}): ${origin}, ${resourceType}.`;
   return `${base} First blocked request: ${method} ${origin}, ${resourceType}, ${kind}${redirect ? ', redirect target' : ''}.`;
 }
 
@@ -152,4 +181,22 @@ export function droppedFields(log) {
     return { resourceType, origin, count };
   }).sort((a, b) => a.resourceType.localeCompare(b.resourceType) || a.origin.localeCompare(b.origin));
   return { dropped, ...(log.omitted ? { droppedOmitted: log.omitted } : {}) };
+}
+
+// R3.9: any failed fetch of an allowed origin fails the capture, so no page renders in a fallback font
+// without a warning. The pattern only labels the message: it never decides whether the capture fails.
+export function isCertificateError(error) {
+  return /certificate|self[- ]signed|CERT_|unable to verify/i.test(String(error?.message ?? error));
+}
+export function allowedOriginFailure({ url, method, resourceType, allowOrigins, error }) {
+  if (!isAllowedOriginRequest({ url, resourceType, allowOrigins })) return null;
+  return describeBlockedRequest({ url, method, resourceType, topLevel: false, navigation: false, failure: isCertificateError(error) ? 'certificate' : 'request failed' });
+}
+
+// R3.9: an HTTP error answer of an allowed origin (below 200 or 400 and above) also fails the capture.
+// A 2xx and a 3xx answer pass: a redirect keeps the rule of its own (redirectPermitted).
+export function allowedOriginStatusFailure({ url, method, resourceType, allowOrigins, status }) {
+  if (!isAllowedOriginRequest({ url, resourceType, allowOrigins })) return null;
+  if (!Number.isInteger(status) || (status >= 200 && status < 400)) return null;
+  return describeBlockedRequest({ url, method, resourceType, topLevel: false, navigation: false, failure: `HTTP ${status}` });
 }
