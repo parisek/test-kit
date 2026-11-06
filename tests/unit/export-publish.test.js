@@ -353,7 +353,8 @@ test('--publish does not combine with --export or --port', () => {
     assert.throws(() => parseCommand(['history', ...extra, '--publish', 'site']), /--publish alone/);
   }
   assert.throws(() => parseCommand(['report', '--publish', 'site']), /Unknown option/);
-  assert.throws(() => parseCommand(['history', '--publish']), /Missing value/);
+  assert.equal(parseCommand(['history', '--publish']).options.publish, true);
+  assert.equal(parseCommand(['history', '--publish', '--config', 'x.json']).options.publish, true);
 });
 
 test('the CLI prints the success line on stderr and the result on stdout', async t => {

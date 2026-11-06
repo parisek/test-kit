@@ -27,7 +27,9 @@ One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json
 ## Configure
 
 Save `test-kit.config.json` in the theme directory. Use the local project origin.
-Runs go to `.test-kit/runs/` by default. Add `.test-kit/` to the project ignore file. Keep comparison output outside version control too. Set `runsRoot` to use another path.
+Runs go to `test-kit/runs/` by default. The store `test-kit/` is the one folder of test-kit output. Deleting it costs only the current baseline. A new store gets a `.gitignore` with `*`. Git-ignored is not deploy-excluded: the store holds page captures, so exclude `test-kit/` from every deploy (for example an rsync exclude). Set `runsRoot` to use another path.
+
+Up to 1.1 the default store was `.test-kit/`. A command that finds one beside the configuration prints one line on stderr. Delete it by hand. test-kit never reads, moves or deletes it. An explicit `runsRoot` or `--store` is honoured unchanged.
 
 ```json
 {
@@ -192,8 +194,8 @@ configuration. Run the browser
 on the host. Install dependencies and build inside DDEV. Flush Mutagen before
 capture when the project uses it. `--side` defaults to `local`.
 
-`--store .test-kit` selects a stable directory relative to the config file.
-Ignore that directory in Git. It holds runs, reports, and baseline state.
+`--store PATH` selects a stable directory relative to the config file (default `test-kit`).
+It holds runs, reports, baseline state and the store viewer. A new store ignores itself in Git.
 A selection has its own baseline. A partial capture cannot replace it.
 A standalone run records one capture. It does not invent a comparison verdict.
 History lists all stored evidence and opens existing A/B reports. No automatic
@@ -218,9 +220,9 @@ The package writes data to disk. A static viewer reads it. The Node server (`rep
 Export a comparison or the stored history without starting a Node server:
 
 ```sh
-test-kit report --export test-kit-export/pair-001
-test-kit report --run RUN_ID --export test-kit-export/pair-002
-test-kit history --export test-kit-export/history-001
+test-kit report --export test-kit/export/pair-001
+test-kit report --run RUN_ID --export test-kit/export/pair-002
+test-kit history --export test-kit/export/history-001
 ```
 
 Output paths are relative to the project config directory. The destination must
@@ -234,6 +236,18 @@ Raw page HTML and Lighthouse HTML use generated text filenames. They cannot
 execute as HTML under normal static MIME handling. Open a downloaded Lighthouse
 report locally if you need its interactive native interface. Exported evidence
 links point to the safe text copies. The source evidence stays unchanged.
+
+### The store viewer
+
+Every command that writes the store refreshes a static viewer at its root: `run`, `before`, `after`, `report` and project `perf`. No flag is needed (R10.16, #312). The store then holds `index.html`, `app.js`, `style.css`, `favicon.svg` and `index.json` beside `runs/` and `reports/`. Serve the store from any static server and open it:
+
+```sh
+cd test-kit && python3 -m http.server --bind 127.0.0.1 8080
+```
+
+The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. It copies nothing. Each file is written as a temp file plus a rename, so there is no folder swap and no lock folder. Deleting the store loses the viewer. The next command writes it again. `history --publish` with no `DIR`, or with the store as `DIR`, runs the same refresh.
+
+A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server.
 
 ### Publish a stable directory
 

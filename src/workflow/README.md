@@ -8,7 +8,7 @@ Projects provide a configuration file and contracts. They do not copy a runner.
 `after` compares a new capture with its matching baseline. A partial capture stays on disk and produces an incomplete report.
 `report` serves the last comparison or an explicit report ID.
 
-The default store is `.test-kit/` beside the configuration file. Add it to the project git ignore file. It contains `runs/`, `reports/`, and `state.json`. There is no automatic retention policy.
+The default store is `test-kit/` beside the configuration file (`.test-kit/` before 1.2.0). A new store gets a `.gitignore` with `*`. It contains `runs/`, `reports/`, `state.json` and the store viewer (`index.html`, `app.js`, `style.css`, `favicon.svg`, `index.json`). The runtime copy of the configuration (`.runtime-<uuid>.json`) lives in the store for one command. Every command that writes the store refreshes the viewer afterwards (`refreshViewerAfter`, R10.16). A failed refresh is a warning. `after` with no baseline fails with a message that says to run `before` again. There is no automatic retention policy. The store holds page captures: exclude it from deploys.
 
 The feedback summary names a behavior finding by the contract name (`contractId`) and by the report key (`checkId`: `behavior.<contract name>`). A stored version 1 snapshot keeps its step id.
 

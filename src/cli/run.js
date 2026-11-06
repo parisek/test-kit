@@ -5,7 +5,7 @@ const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
-  history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
+  history [--config FILE] [--store PATH] [--port N|--export DIR|--publish [DIR]]
   capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID] [--packs]
   import --side ID [--config FILE] [--label TEXT] [--target ID,ID] [--viewport ID,ID]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID]
@@ -41,6 +41,8 @@ export function parseCommand(argv) {
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
     if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs'].includes(name)) { options[name] = true; continue; }
+    // `history --publish` without a directory refreshes the store viewer (R10.16).
+    if (command === 'history' && name === 'publish' && (args[index + 1] == null || args[index + 1].startsWith('--'))) { options.publish = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
@@ -74,6 +76,11 @@ export function parseCommand(argv) {
   if (options.port) options.port = integer(options.port, '--port', 0, 65535);
   return { command, positions, options };
 }
+async function sameDirectory(a, b) {
+  const { realpath } = await import('node:fs/promises');
+  const real = async path => { try { return await realpath(path); } catch { return path; } };
+  return await real(a) === await real(b);
+}
 async function dispatch({ command, positions, options }) {
   if (['run', 'before', 'after', 'report'].includes(command)) {
     const { runWorkflow } = await import('../workflow/index.js');
@@ -81,9 +88,16 @@ async function dispatch({ command, positions, options }) {
   }
   if (command === 'history' && options.publish !== undefined) {
     // Publish reads the store and writes nothing before its preflight passes (R10.12), so it does not call ensureStore.
-    const { resolveStore } = await import('../workflow/index.js');
+    const { resolveStore, ensureStore } = await import('../workflow/index.js');
     const { publishHistory } = await import('../export/publish.js');
     const { resolve, dirname } = await import('node:path');
+    const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
+    // No DIR, or a DIR that is the store itself: refresh the viewer inside the store. Any other DIR is a publish.
+    if (options.publish === true || await sameDirectory(resolve(configDir, options.publish), resolveStore(options))) {
+      const { refreshStoreViewer } = await import('../export/store-viewer.js');
+      const refreshed = await refreshStoreViewer({ store: await ensureStore(options) });
+      return { output: { refreshed: refreshed.store, reportCount: refreshed.reportCount, runCount: refreshed.runCount, unavailableReports: refreshed.unavailable }, exitCode: 0, stderr: [...refreshed.warnings, `test-kit: refreshed the viewer in ${refreshed.store}; the folder contains captured pages.`] };
+    }
     const result = await publishHistory({ local: resolveStore(options), dir: resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), options.publish) });
     return { output: { published: result.dir, reportCount: result.reportCount, runCount: result.runCount, unavailableReports: result.unavailable }, exitCode: 0, stderr: result.messages };
   }

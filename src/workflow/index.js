@@ -56,7 +56,24 @@ export async function describeDdev(cwd) {
   return parseDdevDescription(stdout);
 }
 
+// Every command that writes the store refreshes the static viewer at its root (R10.16, #312).
+// A failed refresh is a warning. It never changes the result or the exit code of the command.
+export async function refreshViewerAfter(result, dependencies = {}, storePath = result.output?.storePath) {
+  if (!storePath) return result;
+  try {
+    const refresh = dependencies.refreshStoreViewer ?? (await import('../export/store-viewer.js')).refreshStoreViewer;
+    const viewer = await refresh({ store: storePath });
+    return { ...result, stderr: [...(result.stderr ?? []), ...(viewer.warnings ?? [])] };
+  } catch (error) {
+    return { ...result, stderr: [...(result.stderr ?? []), `test-kit: warning: the store viewer was not refreshed (${error.message}).`] };
+  }
+}
+
 export async function runWorkflow(command, options = {}, dependencies = {}) {
+  return refreshViewerAfter(await executeWorkflow(command, options, dependencies), dependencies);
+}
+
+async function executeWorkflow(command, options = {}, dependencies = {}) {
   if (!['run', 'before', 'after', 'report'].includes(command)) throw new Error('Unknown workflow command.');
   const configPath = resolve(options.config ?? 'test-kit.config.json');
   const configDir = dirname(configPath);
