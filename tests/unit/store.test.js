@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readdir, stat, rm, utimes } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, stat, rm, utimes, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_STORE, LEGACY_STORE, DEFAULT_RUNS_ROOT, legacyStoreNotice, ensureDefaultRunsIgnore } from '../../src/config/store.js';
+import { DEFAULT_STORE, LEGACY_STORE, DEFAULT_RUNS_ROOT, legacyStoreNotice, ensureDefaultRunsIgnore, ensureStoreIgnore } from '../../src/config/store.js';
 import { normalizeConfig } from '../../src/config/index.js';
 import { resolveStore } from '../../src/workflow/index.js';
 
@@ -118,4 +118,15 @@ test('importDesign with the default runsRoot creates the store .gitignore; an ex
   await importDesign({ configPath: config, side: 'figma' });
   await assert.rejects(access(join(dir, 'out/.gitignore')));
   await assert.rejects(access(join(dir, 'out/runs/.gitignore')));
+});
+
+test('a .gitignore that appears while the store ignore is written is never replaced (#312)', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'test-kit-ignore-race-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const target = join(dir, '.gitignore');
+  // The first lstat reports "missing"; a project file appears right after it.
+  const fs = { lstat: async path => { const error = await lstat(path).then(() => null, e => e); await writeFile(target, 'project policy\n'); if (error) throw error; return lstat(path); } };
+  assert.equal(await ensureStoreIgnore(dir, { fs }), false);
+  assert.equal(await readFile(target, 'utf8'), 'project policy\n');
+  assert.deepEqual((await readdir(dir)).filter(name => name.endsWith('.tmp')), []);
 });
