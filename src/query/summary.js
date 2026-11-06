@@ -1,5 +1,6 @@
 import { adaptReport } from '../report/model.js';
 import { droppedWarnings, droppedNotListed } from '../report/dropped.js';
+import { warningTotals } from '../report/warnings.js';
 import { summarize, targetClass, targetState } from '../report/classify.js';
 import { isHash } from '../rules/model.js';
 import { noFixtureIds } from '../report/scope.js';
@@ -32,6 +33,8 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	const warnings = droppedWarnings(report).filter((item) => target == null || item.id === target);
 	const requests = warnings.reduce((sum, item) => sum + item.count, 0);
 	const notListed = target == null ? droppedNotListed(report) : droppedNotListed({ entries: report.entries.filter((entry) => entry.id === target) });
+	// R5.11: capture warnings by code. The verdict stays as it is.
+	const captureWarnings = warningTotals(target == null ? report : { entries: report.entries.filter((entry) => entry.id === target) });
 	// A target with a gap has a content difference that lists lines on one side only (#281). One integer,
 	// so the answer stays bounded. The key appears only above zero, so the pinned output stays the same.
 	const lineGapTargets = report.entries.filter((entry) => (target == null || entry.id === target)
@@ -55,6 +58,8 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		// droppedNotListed counts aborted requests that the capture cut from its 50-entry list.
 		// The keys appear only when one of them is above zero, so the pinned output stays the same.
 		...(warnings.length || notListed ? { droppedRequestCount: requests, droppedWarnings: warnings.slice(0, max).map((item) => ({ ...item, id: cut(item.id), ...flag(item.id), viewport: cut(item.viewport) })), droppedWarningsOmitted: Math.max(0, warnings.length - max), droppedNotListed: notListed } : {}),
+		// R5.11: one entry for each warning code: the cells that carry it and the sum of the counts. The key appears only above zero.
+		...(captureWarnings.length ? { captureWarnings: captureWarnings.slice(0, max), captureWarningsOmitted: Math.max(0, captureWarnings.length - max) } : {}),
 		// Owner decision on #94: components the styleguide lists with no fixture. They are not targets. Bounded like other lists.
 		...(noFixture.length ? { noFixture: { count: noFixture.length, ids: noFixture.slice(0, max), omitted: Math.max(0, noFixture.length - max) } } : {}),
 		// R4.5: cells outside a recorded selection or filter. The key appears only when the report skipped one, so the pinned output stays the same.

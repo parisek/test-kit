@@ -14,6 +14,7 @@ import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
+import { warningsForRow } from '../report/warnings.js';
 import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
 import { isDesignRun, designPairProblem } from '../design/compare.js';
@@ -261,6 +262,9 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			// R3.8: a remote side aborts subresources of other origins. Carry the record to the report.
 			const dropped = droppedForRow(ac, bc);
 			if (dropped) row.dropped = dropped;
+			// R5.11: a warning of a capture. A bad stored value adds nothing.
+			const warnings = warningsForRow(ac, bc);
+			if (warnings) row.warnings = warnings;
 			const images = [];
 			const requested = new Set([...(a.settings.artifacts ?? ['screenshot']), ...(b.settings.artifacts ?? ['screenshot'])]);
 			if (requested.has('screenshot')) {
