@@ -25,7 +25,7 @@ export function captureSettings(config, sideId) {
 // R4.6: a design run has no browser. Its hash binds the provider and the viewports. Paths and roots stay out.
 export function designSettings(config, sideId) {
   if (config.sides[sideId]?.kind !== 'design') throw new Error(`Side ${sideId} is not a design side.`);
-  return { kind: 'design', provider: config.sides[sideId].provider, viewports: config.viewports };
+  return { provider: config.sides[sideId].provider, viewports: config.viewports };
 }
 
 // Response artifacts do not depend on screenshot settlement or image settings.

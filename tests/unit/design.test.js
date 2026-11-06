@@ -170,7 +170,7 @@ test('import: writes an immutable run with provenance per image, and no run when
     assert.equal(run.side, 'design');
     assert.equal(run.captures.length, 3);
     assert.deepEqual(run.settings.artifacts, ['screenshot']);
-    assert.equal(run.settingsHash, settingsHash({ kind: 'design', provider: 'files', viewports: run.settings.viewports }));
+    assert.equal(run.settingsHash, settingsHash({ provider: 'files', viewports: run.settings.viewports }));
     const hero = run.captures.find(row => row.targetId === 'hero' && row.viewportId === 'desktop');
     const bytes = await readFile(join(runDir, hero.path));
     assert.equal(hero.design.sha256, sha256(bytes));
