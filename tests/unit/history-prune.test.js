@@ -236,6 +236,30 @@ test('a missing or odd reports/ and an odd report entry stop the prune, dry run 
     await assert.rejects(access(join(f.store, 'lock')), undefined, name);
   }
 });
+test('a reference container of the wrong shape stops the command', () => {
+  const bad = [
+    { pair: 'x' }, { pair: [] }, { pair: { aRunId: 1 } }, { pair: { bRunId: {} } }, { subject: 'x' }, { subject: { runId: null } },
+    { runs: {} }, { runs: ['a'] }, { runs: [null] }, { runs: [{ id: 5 }] },
+  ];
+  for (const value of bad) assert.throws(() => collectReferences({ reports: [{ id: 'r', value }] }), /cannot read|not readable/, JSON.stringify(value));
+  for (const state of [{ profiles: { a: 'x' } }, { profiles: { a: null } }, { profiles: { a: { before: 3 } } }]) assert.throws(() => collectReferences({ state }), /cannot read|not readable/, JSON.stringify(state));
+  assert.equal(collectReferences({ reports: [{ id: 'r', value: {} }], state: { profiles: { a: {} } } }).size, 0);
+});
+test('a run whose tree holds another device is kept, and the walk is bounded', async t => {
+  const f = await fixture(t);
+  for (let n = 1; n <= 3; n++) await f.addRun(`run-${n}`, 'local', day(n));
+  await mkdir(join(f.store, 'runs', 'run-1', 'sub'));
+  const { lstat } = await import('node:fs/promises');
+  const seam = async path => {
+    const info = await lstat(path);
+    return path.endsWith(join('run-1', 'sub')) ? Object.assign(Object.create(info), { dev: info.dev + 1 }) : info;
+  };
+  const { output } = await pruneHistory({ local: f.store, keep: 1, yes: true, lstatSeam: seam });
+  assert.deepEqual(output.removed, ['run-2']);
+  assert.deepEqual(output.skipped.map(item => item.id), ['run-1']);
+  assert.match(output.skipped[0].reason, /different filesystem/);
+  assert.ok((await f.ids()).includes('run-1'));
+});
 test('parseCommand accepts --prune and refuses a bad --keep or a bad combination', () => {
   const ok = parseCommand(['history', '--prune', '--keep', '5', '--yes']);
   assert.deepEqual([ok.options.prune, ok.options.keep, ok.options.yes], [true, 5, true]);

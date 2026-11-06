@@ -61,17 +61,36 @@ export function planPrune({ runs, keep, referenced = new Map() }) {
  */
 export function collectReferences({ reports = [], state = null }) {
   const referenced = new Map();
-  const add = (id, reason) => { if (typeof id === 'string' && !referenced.has(id)) referenced.set(id, reason); };
+  const bad = what => { throw new Error(`${what} has a shape the command cannot read, so its references are unknown. Nothing was removed.`); };
+  // An absent key is fine. A present key of the wrong shape stops the command.
+  const add = (container, key, reason, what) => {
+    if (!Object.hasOwn(container, key)) return;
+    if (typeof container[key] !== 'string') bad(what);
+    if (!referenced.has(container[key])) referenced.set(container[key], reason);
+  };
   for (const { id, value } of reports) {
     if (!isObject(value)) throw new Error(`Report ${id} is not readable. Nothing was removed.`);
     const reason = `named by report ${id}`;
-    if (isObject(value.pair)) { add(value.pair.aRunId, reason); add(value.pair.bRunId, reason); }
-    if (isObject(value.subject)) add(value.subject.runId, reason);
-    if (Array.isArray(value.runs)) for (const run of value.runs) if (isObject(run)) add(run.id, reason);
+    const where = `Report ${id}`;
+    if (Object.hasOwn(value, 'pair')) {
+      if (!isObject(value.pair)) bad(`${where} (pair)`);
+      add(value.pair, 'aRunId', reason, `${where} (pair.aRunId)`); add(value.pair, 'bRunId', reason, `${where} (pair.bRunId)`);
+    }
+    if (Object.hasOwn(value, 'subject')) {
+      if (!isObject(value.subject)) bad(`${where} (subject)`);
+      add(value.subject, 'runId', reason, `${where} (subject.runId)`);
+    }
+    if (Object.hasOwn(value, 'runs')) {
+      if (!Array.isArray(value.runs)) bad(`${where} (runs)`);
+      for (const run of value.runs) { if (!isObject(run)) bad(`${where} (a runs element)`); add(run, 'id', reason, `${where} (runs[].id)`); }
+    }
   }
   if (state !== null) {
     if (!isObject(state) || !isObject(state.profiles)) throw new Error('The workflow state is not readable. Nothing was removed.');
-    for (const profile of Object.values(state.profiles)) if (isObject(profile)) add(profile.before, 'baseline in the workflow state');
+    for (const profile of Object.values(state.profiles)) {
+      if (!isObject(profile)) bad('The workflow state (a profile)');
+      add(profile, 'before', 'baseline in the workflow state', 'The workflow state (profile.before)');
+    }
   }
   return referenced;
 }
@@ -143,13 +162,29 @@ async function scanReports(root) {
   return reports;
 }
 
+export const MAX_WALK = 100000;
+// True when every entry of the tree has the device number of `dev`. lstat only, no link followed, bounded.
+async function sameDevice(dir, dev, statFn) {
+  const queue = [dir];
+  let count = 0;
+  while (queue.length) {
+    const current = queue.pop();
+    const info = await statFn(current);
+    if (info.dev !== dev) return false;
+    if (++count > MAX_WALK) return false;
+    if (info.isDirectory() && !info.isSymbolicLink()) for (const name of await readdir(current)) queue.push(join(current, name));
+  }
+  return true;
+}
+
 /**
  * Plan, and with `yes` remove, the oldest runs beyond `keep` for each side.
  * Without `yes` nothing is written, not even a lock.
  * A failed removal stops the command. The runs after it stay.
  * @returns {Promise<{ output: object, exitCode: number }>}
  */
-export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, beforeRelease } = {}) {
+export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, beforeRelease, lstatSeam } = {}) {
+  const statFn = lstatSeam ?? lstat;
   parseKeep(keep);
   const root = await assertStore(local);
   // The workflow lock keeps a writer out while the command reads references and removes runs.
@@ -187,15 +222,20 @@ export async function pruneHistory({ local, keep = DEFAULT_KEEP, yes = false, be
     if (!yes) { result = { output, exitCode: 0 }; return result; }
     delete output.wouldRemove;
     const runsRoot = join(root, 'runs');
+    const runsDev = (await lstat(runsRoot)).dev;
+    const refused = [];
     for (const run of plan.remove) {
       const dir = join(runsRoot, run.id);
       try {
         // Check again right before the delete: still a real directory, and its real path is the expected one.
         if (!(await plainDirectory(dir)) || (await realpath(dir)) !== resolve(runsRoot, run.id) || !inside(runsRoot, dir)) throw new Error('not a real directory inside runs/');
+        // A mount point inside the run would let the recursive delete reach another file system. Walk first, link-safe.
+        if (!(await sameDevice(dir, runsDev, statFn))) { refused.push({ id: run.id, reason: 'different filesystem, or too many entries to check' }); continue; }
         await rm(dir, { recursive: true });
         output.removed.push(run.id);
       } catch (error) { output.failed = { id: run.id, error: error.message }; break; }
     }
+    output.skipped = [...output.skipped, ...refused];
     output.kept = plan.remove.length - output.removed.length + plan.keptCount + plan.skipped.length;
     result = { output, exitCode: output.failed ? 1 : 0 };
     return result;
