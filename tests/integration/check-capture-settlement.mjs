@@ -87,6 +87,14 @@ try {
       assert.equal(failed.run.captures[0].error.code, 'SETTLEMENT_NAVIGATION_REQUIRED', selector);
       assert.equal(otherRequests, 0, 'Settlement does not fetch a second page.');
     }
+    // R5.10: a reveal step with no match fails the capture. Capture does not skip the step or save a screenshot.
+    config.screenshot = { timeoutMs: 1000 };
+    config.targets = [{ id: 'missing', kind: 'page', path: '/', settle: { reveal: [{ action: 'click', selector: '#does-not-exist' }] } }, { id: 'sibling', kind: 'page', path: '/' }];
+    await save(); const missing = await capture({ configPath, side: 'local' });
+    const missingEntry = missing.run.captures.find(entry => entry.targetId === 'missing');
+    assert.equal(missingEntry.state, 'failed'); assert.equal(missingEntry.path, undefined);
+    assert.equal(missing.run.captures.find(entry => entry.targetId === 'sibling').state, 'captured', 'A failed reveal does not fail another target.');
+    assert.equal(missing.run.captures.find(entry => entry.targetId === 'sibling').recipe.settle.reveal, undefined);
   } finally { await rm(settlementDirectory, { recursive: true, force: true }); }
   await context.close();
   const configPath = join(directory, 'config.json');
