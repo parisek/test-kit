@@ -86,3 +86,31 @@ test('bad frame counts fail closed', () => {
   const good = reduceAxeResults(raw(), { injected: 1, unreachable: 1 });
   for (const frames of [{ injected: 1 }, { injected: 1.5, unreachable: 0 }, null, []]) assert.equal(run({ ...good, frames }).state, 'failed', JSON.stringify(frames));
 });
+
+const rule = (id, impact, ...targets) => ({ id, impact, help: id, helpUrl: null, nodes: targets.map(target => ({ target, html: '<x>' })) });
+const base = () => ({ ...raw(), violations: [rule('image-alt', 'minor', ['#a'])], incomplete: [], passes: [{ id: 'p1' }], inapplicable: [] });
+
+test('a frame result merges by rule id with the frame chain in front of each target (R13.51)', async () => {
+  const { mergeFrameResult } = await import('../../src/packs/a11y/axe.js');
+  const merged = mergeFrameResult(base(), ['iframe#f'], { violations: [rule('image-alt', 'critical', ['#b']), rule('link-name', 'serious', ['a'])], incomplete: [], passes: [{ id: 'p1' }, { id: 'p2' }], inapplicable: [] });
+  assert.equal(merged.violations.length, 2);
+  assert.equal(merged.violations[0].impact, 'critical');
+  assert.deepEqual(merged.violations[0].nodes.map(node => node.target), [['#a'], ['iframe#f', '#b']]);
+  assert.equal(merged.passes.length, 2);
+  const artifact = reduceAxeResults(merged);
+  assert.equal(artifact.violations[0].nodes[1].selector, 'iframe#f #b');
+});
+
+test('a malformed frame result throws and leaves the base unchanged', async () => {
+  const { mergeFrameResult } = await import('../../src/packs/a11y/axe.js');
+  const input = base();
+  const before = JSON.stringify(input);
+  for (const bad of [null, { violations: 'x', incomplete: [], passes: [], inapplicable: [] }, { violations: [{ id: '' }], incomplete: [], passes: [], inapplicable: [] }]) assert.throws(() => mergeFrameResult(input, ['iframe'], bad));
+  assert.throws(() => mergeFrameResult(input, [], { violations: [], incomplete: [], passes: [], inapplicable: [] }));
+  assert.equal(JSON.stringify(input), before);
+});
+
+test('the warning reads in the singular for one frame', () => {
+  const warn = run(reduceAxeResults(raw(), { injected: 0, unreachable: 1 })).findings.find(finding => finding.evidence.unreachableFrames === 1);
+  assert.match(warn.message, /^1 frame was not checked/);
+});

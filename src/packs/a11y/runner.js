@@ -3,60 +3,60 @@
 // It never throws for a bad run or bad options. It returns a `missing` or `failed` artifact (R8.7).
 //
 // Limits:
-// - Frames: axe goes into frames of the page origin and about:blank / srcdoc frames below them, never into another origin (R13.51).
-//   A frame that axe cannot enter is counted in `frames.unreachable`. The busy claim stays per page: the top document holds it.
+// - Frames: axe runs once in the top document and once in each frame of the page origin and each about:blank / srcdoc frame below them, at most 50 frames,
+//   with no axe frame messaging. It never runs in another origin (R13.51). A frame that it does not run in is counted in `frames.unreachable`. The busy claim stays per page: the top document holds it.
 // - After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed`.
 // - Axe runs inside the page. A hostile page can replace `window.axe` and fake a clean result. Run it on pages you control.
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
-import { reduceAxeResults, gapArtifact } from './axe.js';
-import { classifyFrames, originOf, MAX_FRAMES } from './frames.js';
+import { reduceAxeResults, mergeFrameResult, gapArtifact } from './axe.js';
+import { classifyFrames, originOf } from './frames.js';
 
 const require = createRequire(import.meta.url);
 const DEFAULT_TIMEOUT_MS = 30000;
 const BUSY = '__testKitAxeBusy';
-// The mark name is random for each run, so a page attribute of any fixed name is never touched.
-const newSkipAttr = () => `data-test-kit-axe-skip-${randomUUID().replace(/-/g, '').slice(0, 12)}`;
-// Axe waits this long for a frame that does not answer. The default is 60 s, longer than the run timeout.
-const FRAME_WAIT_MS = 5000;
 const isPlain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 
-// Gives axe to each frame of the page origin and to about:blank / srcdoc frames below them. Never to another origin (R13.51).
-// A frame whose own origin differs from the page origin at injection time, or where the injection throws, counts as unreachable. A frame of another origin is excluded from the run by an attribute on its element.
-async function injectFrames(page, source) {
+// The code that runs axe in one document. `ctx` is { topOrigin?, tags, source? }. Axe never messages frames (`iframes: false`), so a frame
+// that is not run is never visited. In a frame the first statement reads the origin of the frame itself, in the same evaluation that loads axe
+// and runs it. A frame that navigated after the URL snapshot, or that has an opaque origin (a sandbox without `allow-same-origin`), throws.
+const RUN_BODY = `(async tags => {
+  if (typeof globalThis.axe?.run !== 'function') throw new Error('axe did not load in the page.');
+  for (const tag of tags ?? []) if (globalThis.axe.getRules([tag]).length === 0) throw new Error('No axe rule has the tag ' + tag + '.');
+  return globalThis.axe.run(document, { iframes: false, ...(tags ? { runOnly: { type: 'tag', values: tags } } : {}) });
+})`;
+const frameCode = (topOrigin, source, tags) => `if (self.origin !== ${JSON.stringify(topOrigin)}) throw new Error('TEST_KIT_FRAME_ORIGIN');\n${source}\n;${RUN_BODY}(${JSON.stringify(tags ?? null)})`;
+
+// Runs axe once in each reachable frame (at most MAX_FRAMES) and merges the results into `raw`. Never in another origin (R13.51).
+// A frame that cannot run, or whose result does not merge, counts as unreachable. A frame below such a frame is not run.
+async function runFrames(page, source, tags, raw, stopped) {
   const children = page.frames().filter(frame => frame !== page.mainFrame());
   const parents = children.map(frame => (frame.parentFrame() === page.mainFrame() ? -1 : children.indexOf(frame.parentFrame())));
   const urls = children.map(frame => frame.url());
   const topOrigin = originOf(page.url());
   const plan = classifyFrames(page.url(), children.map((frame, index) => ({ url: urls[index], parent: parents[index], detached: frame.isDetached() })));
   const ok = [];
+  const chains = [];
+  let merged = raw;
   for (let index = 0; index < children.length; index += 1) {
     let done = false;
-    if (plan.reachable[index] && (parents[index] === -1 || ok[parents[index]])) {
-      // One string evaluation. Its first statement reads the origin of the frame itself, so a frame that navigated after the URL
-      // snapshot, or that has an opaque origin (sandbox without allow-same-origin), throws before axe loads. Any throw means unreachable.
+    if (!stopped() && plan.reachable[index] && (parents[index] === -1 || ok[parents[index]])) {
       try {
         if (children[index].url() !== urls[index]) throw new Error('TEST_KIT_FRAME_MOVED');
-        await children[index].evaluate(`if (self.origin !== ${JSON.stringify(topOrigin)}) throw new Error('TEST_KIT_FRAME_ORIGIN');\n${source}`);
+        // The selector of the frame element in its parent document. The parent already has axe.
+        const element = await children[index].frameElement();
+        const selector = await element.evaluate(node => { const { axe } = globalThis; axe.setup(node.ownerDocument.documentElement); try { return axe.utils.getSelector(node); } finally { axe.teardown(); } });
+        const chain = [...(parents[index] === -1 ? [] : chains[parents[index]]), selector];
+        const result = await children[index].evaluate(frameCode(topOrigin, source, tags));
+        merged = mergeFrameResult(merged, chain, result);
+        chains[index] = chain;
         done = true;
       } catch { done = false; }
     }
     ok.push(done);
   }
-  const attr = newSkipAttr();
-  const marked = [];
-  // Frames beyond the bound stay unmarked (they count as unreachable) so a huge page costs a bounded number of calls.
-  for (let index = 0; index < Math.min(children.length, MAX_FRAMES); index += 1) {
-    if (ok[index] || (parents[index] !== -1 && !ok[parents[index]])) continue; // only the top-most frame that axe skips
-    try {
-      const element = await children[index].frameElement();
-      await element.evaluate((node, attr) => node.setAttribute(attr, ''), attr);
-      marked.push(element);
-    } catch { /* a detached frame has no element */ }
-  }
   const injected = ok.filter(Boolean).length;
-  return { frames: { injected, unreachable: children.length - injected }, marked, attr };
+  return { merged, frames: { injected, unreachable: children.length - injected } };
 }
 
 async function loadSource(axePath) {
@@ -99,18 +99,9 @@ export async function runAxe(page, options) {
       if (!claimed) throw new Error('An axe run is active on this page, or an earlier one did not finish. Use a new page.');
       try {
         await page.evaluate(source);
-        const { frames, marked, attr } = await injectFrames(page, source);
-        try {
-          const raw = await page.evaluate(async ({ runTags, attr, wait }) => {
-            if (typeof globalThis.axe?.run !== 'function') throw new Error('axe did not load in the page.');
-            for (const tag of runTags ?? []) if (globalThis.axe.getRules([tag]).length === 0) throw new Error(`No axe rule has the tag ${tag}.`);
-            const options = { frameWaitTime: wait, ...(runTags ? { runOnly: { type: 'tag', values: runTags } } : {}) };
-            return globalThis.axe.run({ exclude: [[`[${attr}]`]] }, options);
-          }, { runTags: tags ?? null, attr, wait: FRAME_WAIT_MS });
-          return reduceAxeResults(raw, frames);
-        } finally {
-          for (const element of marked) await element.evaluate((node, attr) => node.removeAttribute(attr), attr).catch(() => {});
-        }
+        const top = await page.evaluate(`${RUN_BODY}(${JSON.stringify(tags ?? null)})`);
+        const { merged, frames } = await runFrames(page, source, tags, top, () => timedOut);
+        return reduceAxeResults(merged, frames);
       } finally {
         // Only the run that claimed the page releases it. After a timeout the page stays claimed.
         if (!timedOut) await page.evaluate(busy => { delete globalThis[busy]; }, BUSY).catch(() => {});

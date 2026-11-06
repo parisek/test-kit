@@ -31,7 +31,12 @@ const foreign = await serve(() => child); // second origin: another port
 const foreignPort = foreign.address().port;
 const srcdoc = '<img id="srcdoc-no-alt" src="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=">'.replace(/"/g, '&quot;');
 let home;
-const top = await serve(url => (url === '/child' ? child : `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>
+const shell = body => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>${body}</main></body></html>`;
+const top = await serve(url => (url === '/child' ? child
+  : url === '/many' ? shell(Array.from({ length: 55 }, (_, index) => `<iframe title="f${index}" srcdoc="&lt;p&gt;x&lt;/p&gt;"></iframe>`).join(''))
+  : url === '/nested' ? shell(`<iframe title="nested" src="/nested-inner"></iframe>`)
+  : url === '/nested-inner' ? `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Inner</title></head><body><main><h1>Inner</h1><iframe title="foreign" src="http://127.0.0.1:${foreignPort}/"></iframe></main></body></html>`
+  : `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example site</title></head><body><main><h1>Example site</h1>
 <iframe title="same origin" src="/child" data-test-kit-axe-skip="mine"></iframe>
 <iframe title="srcdoc" srcdoc="${srcdoc}"></iframe>
 <iframe title="sandbox srcdoc" sandbox srcdoc="${srcdoc}"></iframe>
@@ -76,6 +81,28 @@ try {
     const sandboxed = await frame.evaluate(() => self.origin === 'null');
     if (sandboxed) assert.equal(await frame.evaluate(() => typeof globalThis.axe), 'undefined', 'a sandboxed frame has no axe');
   }
+
+  // 55 same-origin frames: only 50 run, 5 count as unreachable, and the time stays bounded.
+  const many = await browser.newPage();
+  await many.goto(`${home}many`, { waitUntil: 'load' });
+  const manyStart = Date.now();
+  const manyArtifact = await runAxe(many);
+  assert.equal(manyArtifact.status, 'complete');
+  assert.deepEqual(manyArtifact.frames, { injected: 50, unreachable: 5 });
+  assert.ok(Date.now() - manyStart < 30000, 'a page with many frames stays bounded');
+  let withAxe = 0;
+  for (const frame of many.frames().filter(item => item !== many.mainFrame())) if (await frame.evaluate(() => typeof globalThis.axe) !== 'undefined') withAxe += 1;
+  assert.equal(withAxe, 50);
+
+  // A foreign frame nested in a same-origin frame gets no axe, is counted, and costs no frame wait.
+  const nested = await browser.newPage();
+  await nested.goto(`${home}nested`, { waitUntil: 'load' });
+  const nestedStart = Date.now();
+  const nestedArtifact = await runAxe(nested);
+  assert.equal(nestedArtifact.status, 'complete');
+  assert.deepEqual(nestedArtifact.frames, { injected: 1, unreachable: 1 });
+  assert.ok(Date.now() - nestedStart < 4000, 'the nested foreign frame costs no wait');
+  assert.equal(await nested.frames().find(frame => frame.url().includes(`:${foreignPort}`)).evaluate(() => typeof globalThis.axe), 'undefined');
 
   // Race: a frame that navigates to the second origin after classification gets no axe.
   const racePage = await browser.newPage();

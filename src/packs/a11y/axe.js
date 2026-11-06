@@ -90,6 +90,46 @@ function reduceRules(rules, name, state, kind) {
   });
 }
 
+const IMPACT_ORDER = ['minor', 'moderate', 'serious', 'critical'];
+// Pure. Adds the result of one frame to the result of its parent run and returns a new object. `target` is the selector chain of the frame
+// from the top document. Each node target gets the chain in front, which `selectorOf` flattens. Rules merge by id. It throws on a malformed frame result.
+export function mergeFrameResult(base, target, result) {
+  if (!isPlain(base) || !isPlain(result)) throw new Error('An axe result must be an object.');
+  const chain = list(target, 'frame target');
+  if (chain.length === 0 || chain.some(part => !isText(part, LIMITS.selector))) throw new Error('A frame target must be a list of selectors.');
+  const out = { ...base };
+  for (const kind of ['violations', 'incomplete']) {
+    const rules = list(base[kind], kind).slice();
+    const at = new Map(rules.map((rule, index) => [rule?.id, index]));
+    for (const rule of list(result[kind], kind)) {
+      if (!isPlain(rule) || !isText(rule.id, 100)) throw new Error(`${kind} has a bad rule.`);
+      const nodes = list(rule.nodes, `Rule ${rule.id} nodes`).map(node => {
+        if (!isPlain(node)) throw new Error(`Rule ${rule.id} has a node that is not an object.`);
+        return { ...node, target: [...chain, ...list(node.target, 'target')] };
+      });
+      if (at.has(rule.id)) {
+        const old = rules[at.get(rule.id)];
+        const higher = IMPACT_ORDER.indexOf(rule.impact) > IMPACT_ORDER.indexOf(old.impact) ? rule.impact : old.impact;
+        rules[at.get(rule.id)] = { ...old, impact: higher, nodes: [...list(old.nodes, `Rule ${rule.id} nodes`), ...nodes] };
+      } else {
+        at.set(rule.id, rules.length);
+        rules.push({ ...rule, nodes });
+      }
+    }
+    out[kind] = rules;
+  }
+  for (const kind of ['passes', 'inapplicable']) { // only the number of rules counts, so the union by id is enough
+    const rules = list(base[kind], kind).slice();
+    const seen = new Set(rules.map(rule => rule?.id));
+    for (const rule of list(result[kind], kind)) {
+      if (!isPlain(rule) || !isText(rule.id, 100)) throw new Error(`${kind} has a bad rule.`);
+      if (!seen.has(rule.id)) { seen.add(rule.id); rules.push({ id: rule.id }); }
+    }
+    out[kind] = rules;
+  }
+  return out;
+}
+
 // Reduces one axe-core result. It never throws: a malformed result gives a `failed` artifact (R8.7).
 // It reads each caller field once. It keeps at most LIMITS.nodes violation nodes and counts the rest.
 // The optional second argument `frames` is { injected, unreachable }, the frame counts of the runner (R13.51).
@@ -191,7 +231,7 @@ export function axeFindings(value) {
   }
   // A frame that axe did not enter is not checked. It is one warning with the count, never a clean page (R8.14, R13.51).
   if (frames !== undefined && frames.unreachable > 0) {
-    out.push({ severity: 'warning', message: `${frames.unreachable} frames were not checked: axe enters only frames of the page origin, about:blank and srcdoc frames.`, evidence: { needsReview: true, unreachableFrames: frames.unreachable, injectedFrames: frames.injected } });
+    out.push({ severity: 'warning', message: `${frames.unreachable} ${frames.unreachable === 1 ? 'frame was' : 'frames were'} not checked: axe runs only in frames of the page origin, about:blank and srcdoc frames.`, evidence: { needsReview: true, unreachableFrames: frames.unreachable, injectedFrames: frames.injected } });
   }
   // Cut evidence never reads as a clean page: the kept violations stay, and one warning says the list is cut.
   if (omittedNodes > 0) out.push({ severity: 'warning', message: `${omittedNodes} violation nodes were left out of the artifact, so the list is not complete.`, evidence: { truncated: true, omittedNodes } });
