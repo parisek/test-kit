@@ -91,3 +91,42 @@ test('equivalent settlement overrides retain comparison compatibility', async ()
   const changed = { ...run, settings: { ...settings, targets: [{ ...target, settle: { waitMs: 1 } }] } };
   assert.equal(comparisonState(shot, shot, run, changed), 'incompatible');
 });
+
+test('the incompatible diagnostic names the differing setting and both values (R8.9)', async () => {
+  const { incompatibleDiagnostic } = await import('../../src/compare/runs.js');
+  const base = { viewports: [{ id: 'desktop', width: 1280, height: 800 }], settle: { waitMs: 0, lazyImages: false }, screenshot: { fullPage: true } };
+  const run = (captureSettings, version = '1') => ({ captureSettings, tools: [{ name: 'playwright', version }] });
+  const text = incompatibleDiagnostic(run(base), run({ ...base, settle: { ...base.settle, lazyImages: true } }));
+  assert.match(text, /settle\.lazyImages \(A: false, B: true\)/);
+  assert.doesNotMatch(text, /settle\.waitMs/);
+  assert.match(incompatibleDiagnostic(run(base), run({ ...base, settle: { waitMs: 0 } })), /settle\.lazyImages \(A: false, B: unset\)/);
+  assert.match(incompatibleDiagnostic(run(base), run({ ...base, viewports: [{ id: 'desktop', width: 1440, height: 800 }] })), /viewports \(A: /);
+  assert.match(incompatibleDiagnostic(run(base), run({ ...base, screenshot: { fullPage: false } })), /screenshot \(A: .*true.*, B: .*false/);
+  assert.match(incompatibleDiagnostic(run(base), run(base, '2')), /tool versions \(A: .*1.*, B: .*2.*\)/);
+  const listed = { ...base, allowOrigins: [{ origin: 'https://use.example-site.net', types: ['font'] }] };
+  assert.match(incompatibleDiagnostic(run(base), run(listed)), /allowOrigins \(A: unset, B: \[/);
+  assert.match(incompatibleDiagnostic(run(listed), run(base)), /allowOrigins \(A: \[.*\], B: unset\)/);
+  const long = incompatibleDiagnostic(run(base), run({ ...base, settle: { ...base.settle, selectors: ['x'.repeat(500)] } }));
+  assert.ok(long.length < 200 && !/\n/.test(long));
+  assert.equal(incompatibleDiagnostic(run(base), run(base)), 'Capture settings or tool versions differ.');
+});
+
+test('the diagnostic uses the effective settle of the target, with its override (R8.9)', async () => {
+  const { incompatibleDiagnostic } = await import('../../src/compare/runs.js');
+  const settle = { waitMs: 0, selectors: [], disableMotion: true, masks: [] };
+  const run = (target, side) => ({ side, captureSettings: { settle }, tools: [], settings: { sides: { [side]: { settle } }, targets: [target] } });
+  const a = run({ id: 'home' }, 'local'), b = run({ id: 'home', settle: { lazyImages: true } }, 'production');
+  const shot = { targetId: 'home' };
+  assert.equal(incompatibleDiagnostic(a, b), 'Capture settings or tool versions differ.');
+  assert.match(incompatibleDiagnostic(a, b, shot, shot), /settle\.lazyImages \(A: unset, B: true\)/);
+  const bySide = run({ id: 'home', settleBySide: { production: { waitMs: 500 } } }, 'production');
+  assert.match(incompatibleDiagnostic(a, bySide, shot, shot), /settle\.waitMs \(A: 0, B: 500\)/);
+});
+
+test('the diagnostic lists at most 5 settings and counts the rest (R8.9)', async () => {
+  const { incompatibleDiagnostic } = await import('../../src/compare/runs.js');
+  const run = n => ({ captureSettings: { settle: Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(key => [key, n])) }, tools: [] });
+  const text = incompatibleDiagnostic(run(1), run(2));
+  assert.equal(text.match(/settle\./g).length, 5);
+  assert.match(text, /; and 2 more\.$/);
+});

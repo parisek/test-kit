@@ -7,6 +7,7 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Added
 
 - `targetSource` takes two opt-in booleans, `variants` and `pages` (R13.52, #94). `variants: true` makes one `component` target for each `styleguide.<variant>.twig` of an entry: ID `<component>--<variant>`, path `<mount>/render/component/<id>?canvas&variant=<variant>`. `pages: true` reads `<mount>/api/pages` and makes one `page` target for each page: ID `page--<id>`, path `<mount>/render/page/<id>?canvas`, variants as `page--<id>--<variant>`. `include` now names target IDs, and a component ID also selects its variants. A page with `has_styleguide: false` is listed as no fixture, like a component. Without the keys nothing changes.
+- An `incompatible` row names each differing capture setting and both values, for example `settle.lazyImages (A: false, B: true)` (R8.9, #279). The README has a section "Lazy images and reveal", and the template config has two sides with one `settle` recipe.
 
 ### Fixed
 
