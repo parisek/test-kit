@@ -11,6 +11,7 @@ Automated rules find only part of the accessibility problems. This pack does not
 | --- | --- | --- |
 | `axe.js` | Pure. Reduces an axe result to an artifact. Maps an artifact to findings. | Nothing (R4.4) |
 | `index.js` | Entry point `@parisek/test-kit/packs/a11y`. Exports `a11yPack`, `reduceAxeResults`, `gapArtifact`. | Nothing |
+| `frames.js` | Pure. Decides which frames of a page axe may enter. | Nothing (R4.4) |
 | `runner.js` | Entry point `@parisek/test-kit/packs/a11y/runner`. Exports `runAxe(page, options)`. | A Playwright page and `axe-core` |
 
 `axe-core` is an optional peer dependency. Install it in the project that uses the runner. The pure files never import it.
@@ -29,14 +30,18 @@ const result = runChecks(plan, { artifact: 'a11y', value: artifact }, { targetId
 
 `runAxe` options: `tags` (a list of axe rule tags; the default is the axe default rule set), `timeoutMs` (a finite number from 1 to 2147483647; the default is 30000), `axePath` (path to `axe.min.js`). A bad option gives a `failed` artifact. It never throws.
 `runAxe` checks each tag with `axe.getRules`. A tag that matches no rule gives `failed`.
-The runner checks the top document. It does not inject axe into frames of other origins.
+The runner checks the top document and the frames that axe may enter (R13.51, owner decision on #316, 2026-11-06). In Chromium it uses the DevTools protocol (CDP). It reads the frame tree from the browser. For the top document and for each frame it creates an isolated world (`Page.createIsolatedWorld`). An isolated world shares the DOM with the page, but not its JavaScript globals, so page script cannot redefine `self.origin` or `window.axe` there. Axe never runs in the main world of a frame, and the runner writes nothing to the page apart from the busy flag. Axe runs with `iframes: false`, so it never messages frames. The runner runs it once per document and merges the results by rule id, with the selector chain of the frame in front of each node target. It computes the chain in the isolated world of the parent frame.
+A frame is reachable when its URL passes a cheap pre-filter (the page origin, or `about:blank` or `about:srcdoc` below a reachable parent), and when one evaluation in its own isolated world passes. That evaluation starts with a check that `self.origin` equals the origin of the top document. The same evaluation then loads and runs axe. A navigation destroys the world, so a frame that moved in between cannot run the code and counts as unreachable. A sandboxed frame without `allow-same-origin` has an opaque origin and fails the check. A page with an opaque origin (`setContent`, `data:`) reaches no frame. A frame below an unreachable frame is not run. A frame that navigates during its run, and so loses its world, counts as unreachable. The frame list is one snapshot taken before the runs. One more read of the tree at the end counts frames added meanwhile as unreachable; a frame removed meanwhile is not subtracted. Only the first 50 frames can run; the rest count as unreachable. A frame that passes the checks but where axe or the merge breaks counts as `failed`.
+Without a CDP session (a browser other than Chromium) axe runs in the main world of the top document only, and every frame counts as unreachable.
+What this does not guarantee: a hostile page can still change the DOM that axe reads, and it can fake the busy flag. Run the pack on pages you control. The artifact records `frames: { injected, unreachable }`, with `failed` added only when it is above zero.
 
 Limits of the runner:
 
 - Every step of `runAxe` that touches the page runs inside the timer, so a busy page cannot hang the caller.
+- `runAxe` claims the page with one atomic step on the top document. Frames get no claim of their own: the page claim covers the whole run, and the timeout acts on the whole run, not on a frame.
 - `runAxe` claims the page with one atomic step and releases it only if it claimed it. Two runs at once on one page: one runs and the other returns `failed`.
 - After a timeout, axe may still run on the page. Do not reuse that page. A second run on it returns `failed` with the message "An axe run is active on this page, or an earlier one did not finish. Use a new page."
-- Axe runs inside the page. A hostile page can lock or replace `window.axe` and fake a clean result. This is inherent to in-page injection. Run the pack on pages you control.
+- With CDP (Chromium) axe runs in an isolated world, so page script cannot replace `window.axe` there. Without CDP, axe runs in the main world of the top document only, and a hostile page can lock or replace `window.axe` and fake a clean result. In both cases a hostile page can still change the DOM that axe reads. Run the pack on pages you control.
 
 ## Artifact
 
@@ -45,6 +50,7 @@ The artifact is JSON-like data:
 - `tool`: `axe-core`.
 - `status`: `complete`, `missing` or `failed`.
 - With `complete`: `version`, `counts` (`passes`, `violations`, `incomplete`, `inapplicable`: numbers of rules), `violations`, `incomplete` and `omittedNodes`. A rule has `id`, `impact`, `help`, `helpUrl`, `nodeCount`, `omitted` and `nodes` (`selector`, `html`). For a violation rule, `nodeCount` equals the kept nodes plus `omitted`. `omittedNodes` equals the sum of `omitted`.
+- With `complete`, `frames` is optional: `injected`, `unreachable` and, only when above zero, `failed`: the numbers of child frames axe entered, did not enter, and where axe or the merge broke. A frame beyond the tree bound of 10000 and a frame added during the run count as unreachable. An artifact with no `frames` field reads as no unreachable frame.
 - With `missing` or `failed`: `reason`.
 
 The reducer keeps at most 500 nodes, 300 characters of HTML and 300 characters of selector. It counts the violation nodes it leaves out in `omittedNodes`. For an incomplete rule it keeps at most 5 nodes and records `nodeCount`. Node text is cut so that its JSON-escaped form stays small (600 characters for review nodes), so one odd node cannot push the evidence over its cap. The caps are chosen safety bounds, not measured numbers.
@@ -65,6 +71,14 @@ The check `a11y-axe` has basis `absolute` and layer `package`. Each violation no
 
 An impact outside this list makes the check `failed`.
 
+A frame that axe did not enter gives one finding, even for many frames (R8.14, R13.51):
+
+| Field | Value |
+| --- | --- |
+| `severity` | `warning` |
+| `message` | `<count> frames were not checked: ...` |
+| `evidence` | `needsReview: true`, `unreachableFrames`, `injectedFrames`. No `state`. |
+
 An axe `incomplete` rule (axe could not decide) gives one finding for each rule, even a rule with no node:
 
 | Field | Value |
@@ -81,6 +95,7 @@ An axe `incomplete` rule (axe could not decide) gives one finding for each rule,
 | `status: missing` (for example axe-core is not installed) | `missing` |
 | `status: failed` (axe threw, timed out, bad options, or a malformed result) | `failed` |
 | No rule ran (all counts zero, or tags match no rule) | `failed` |
+| Frames that axe did not enter | `complete`. One `warning` finding with `needsReview: true` and `unreachableFrames` says how many (R8.14). |
 | Violation nodes left out by the caps | `complete`. Kept violations stay. One `warning` finding with `truncated: true` and `omittedNodes` says the list is cut. |
 | A malformed or tampered artifact, or counts that do not match | `failed` |
 | Run complete, with violations or review warnings | `complete`. The findings carry the result. |
@@ -94,11 +109,13 @@ Consequence, as R8.14 states: these warnings have no `evidence.state`. A consume
 ## Tests
 
 - `tests/unit/a11y-pack.test.js` tests the mapping with fixtures. It needs no browser and no axe-core.
+- `tests/unit/a11y-frames.test.js` tests the frame decision and the frame warning.
+- `tests/integration/check-a11y-frames.mjs` runs axe on a page with a same-origin frame, a `srcdoc` frame and a frame of a second local origin. The first two give violations. The two sandboxed frames and the foreign frame get no axe, and the warning counts 3. It also covers a sandboxed frame that redefines `window.origin`, a page that moves attributes with a `MutationObserver`, a frame that navigates to another origin or to a spoofing opaque document after the origin check, 55 frames (50 run), and a foreign frame nested in a same-origin frame. It skips like the runner check.
 - `tests/integration/check-a11y-runner.mjs` runs axe on `tests/fixtures/a11y/page.html`. It skips when Playwright, Chromium or axe-core is missing.
 
 ## Not built yet
 
-Component-level axe contracts, per-state runs (ADR 0004, accessibility per component state) and frame injection.
+Component-level axe contracts. There are no per-state runs and no state axis: a state is its own target, reached with `settle.reveal` (ADR 0004; owner decision on #316, 2026-11-06). Accessibility per component state is a target with a `reveal` list.
 
 ## Command line
 

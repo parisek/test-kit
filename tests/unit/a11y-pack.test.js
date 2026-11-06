@@ -206,7 +206,7 @@ test('a nested frame target is joined with a space', () => {
 });
 
 test('the pure module does not import axe-core or a browser', () => {
-  for (const file of ['axe.js', 'index.js']) {
+  for (const file of ['axe.js', 'frames.js', 'index.js']) {
     const source = readFileSync(new URL(`../../src/packs/a11y/${file}`, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /from 'axe-core|from '@playwright|from 'playwright|require\(/);
   }

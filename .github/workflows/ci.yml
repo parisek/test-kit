@@ -63,6 +63,7 @@ jobs:
       - run: node tests/integration/check-capture-selection.mjs
       - run: node tests/integration/check-compare-selection.mjs
       - run: node tests/integration/check-a11y-runner.mjs
+      - run: node tests/integration/check-a11y-frames.mjs
       - run: node tests/integration/check-capture-packs.mjs
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-capture-lazy-images.mjs

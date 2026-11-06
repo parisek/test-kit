@@ -90,9 +90,51 @@ function reduceRules(rules, name, state, kind) {
   });
 }
 
+const IMPACT_ORDER = ['minor', 'moderate', 'serious', 'critical'];
+// Pure. Adds the result of one frame to the result of its parent run and returns a new object. `target` is the selector chain of the frame
+// from the top document. Each node target gets the chain in front, which `selectorOf` flattens. Rules merge by id. It throws on a malformed frame result.
+export function mergeFrameResult(base, target, result) {
+  if (!isPlain(base) || !isPlain(result)) throw new Error('An axe result must be an object.');
+  const chain = list(target, 'frame target');
+  if (chain.length === 0 || chain.some(part => !isText(part, LIMITS.selector))) throw new Error('A frame target must be a list of selectors.');
+  const out = { ...base };
+  for (const kind of ['violations', 'incomplete']) {
+    const rules = list(base[kind], kind).slice();
+    const at = new Map(rules.map((rule, index) => [rule?.id, index]));
+    for (const rule of list(result[kind], kind)) {
+      if (!isPlain(rule) || !isText(rule.id, 100)) throw new Error(`${kind} has a bad rule.`);
+      const nodes = list(rule.nodes, `Rule ${rule.id} nodes`).map(node => {
+        if (!isPlain(node)) throw new Error(`Rule ${rule.id} has a node that is not an object.`);
+        return { ...node, target: [...chain, ...list(node.target, 'target')] };
+      });
+      if (at.has(rule.id)) {
+        const old = rules[at.get(rule.id)];
+        const higher = IMPACT_ORDER.indexOf(rule.impact) > IMPACT_ORDER.indexOf(old.impact) ? rule.impact : old.impact;
+        rules[at.get(rule.id)] = { ...old, impact: higher, nodes: [...list(old.nodes, `Rule ${rule.id} nodes`), ...nodes] };
+      } else {
+        at.set(rule.id, rules.length);
+        rules.push({ ...rule, nodes });
+      }
+    }
+    out[kind] = rules;
+  }
+  for (const kind of ['passes', 'inapplicable']) { // only the number of rules counts, so the union by id is enough
+    const rules = list(base[kind], kind).slice();
+    const seen = new Set(rules.map(rule => rule?.id));
+    for (const rule of list(result[kind], kind)) {
+      if (!isPlain(rule) || !isText(rule.id, 100)) throw new Error(`${kind} has a bad rule.`);
+      if (!seen.has(rule.id)) { seen.add(rule.id); rules.push({ id: rule.id }); }
+    }
+    out[kind] = rules;
+  }
+  return out;
+}
+
 // Reduces one axe-core result. It never throws: a malformed result gives a `failed` artifact (R8.7).
 // It reads each caller field once. It keeps at most LIMITS.nodes violation nodes and counts the rest.
-export function reduceAxeResults(raw) {
+// The optional second argument `frames` is { injected, unreachable, failed? }, the frame counts of the runner (R13.51).
+// `failed` counts frames that passed the origin gates but where axe or the merge broke.
+export function reduceAxeResults(raw, frames) {
   try {
     if (!isPlain(raw)) throw new Error('The axe result must be an object.');
     const { violations, incomplete, passes, inapplicable, testEngine } = raw; // one read of each field
@@ -104,7 +146,14 @@ export function reduceAxeResults(raw) {
     const counts = { passes: count(passes, 'passes'), violations: reducedViolations.length, incomplete: reducedIncomplete.length, inapplicable: count(inapplicable, 'inapplicable') };
     // A run in which no rule ran is not a pass (R8.7). Typical cause: tags that match no rule.
     if (counts.passes + counts.violations + counts.incomplete + counts.inapplicable === 0) throw new Error('No axe rule ran.');
-    return { tool: 'axe-core', version, status: 'complete', counts, violations: reducedViolations, incomplete: reducedIncomplete, omittedNodes: state.omitted };
+    const artifact = { tool: 'axe-core', version, status: 'complete', counts, violations: reducedViolations, incomplete: reducedIncomplete, omittedNodes: state.omitted };
+    if (frames !== undefined) {
+      if (!isPlain(frames)) throw new Error('The frame counts must be an object.');
+      const { injected, unreachable, failed = 0 } = frames; // one read of each field
+      if (!safeCount(injected) || !safeCount(unreachable) || !safeCount(failed)) throw new Error('The frame counts must be safe counts.');
+      artifact.frames = failed > 0 ? { injected, unreachable, failed } : { injected, unreachable };
+    }
+    return artifact;
   } catch (error) {
     return gapArtifact('failed', error?.message ?? error);
   }
@@ -148,10 +197,11 @@ function storedRules(rules, name, review) {
 // A `missing` artifact gives one open finding, so the check state is missing (R8.7).
 // A `failed` or malformed artifact throws, so the check state is failed (R8.7).
 // An axe `incomplete` rule gives one `warning` finding with `needsReview: true`.
+// Frames that axe did not enter give one `warning` finding with `needsReview: true` and `unreachableFrames`.
 // Cut evidence gives one `warning` finding with `truncated: true`. Neither opens the check (see README).
 export function axeFindings(value) {
   if (!isPlain(value)) throw new Error('The a11y artifact must be an object.');
-  const { tool, status, reason, version, counts, violations, incomplete, omittedNodes } = value; // one read of each field
+  const { tool, status, reason, version, counts, violations, incomplete, omittedNodes, frames } = value; // one read of each field
   if (tool !== 'axe-core') throw new Error('The a11y artifact is not from axe-core.');
   if (!STATUSES.includes(status)) throw new Error('The a11y artifact has an unknown status.');
   if (status === 'failed') throw new Error(`The axe run failed: ${reasonText(reason ?? 'no reason given')}`);
@@ -162,6 +212,7 @@ export function axeFindings(value) {
   if (!isPlain(counts) || COUNTS.some(key => !safeCount(counts[key]))) throw new Error('The a11y artifact needs rule counts as safe integers.');
   if (counts.passes + counts.violations + counts.incomplete + counts.inapplicable === 0) throw new Error('No axe rule ran.');
   if (!safeCount(omittedNodes)) throw new Error('The a11y artifact needs omittedNodes.');
+  if (frames !== undefined && (!isPlain(frames) || !safeCount(frames.injected) || !safeCount(frames.unreachable) || (frames.failed !== undefined && !safeCount(frames.failed)))) throw new Error('The a11y artifact has unusable frame counts.');
   const bad = storedRules(violations, 'violations', false);
   const review = storedRules(incomplete, 'incomplete', true);
   if (counts.violations !== bad.length || counts.incomplete !== review.length) throw new Error('The rule counts do not match the stored rules.');
@@ -178,6 +229,13 @@ export function axeFindings(value) {
   // An axe "incomplete" rule is a result that axe could not decide. It needs a human review. It is one finding for each rule, even with no node.
   for (const rule of review) {
     out.push({ severity: 'warning', message: `${rule.id} needs review: ${rule.help || 'No description.'}`, evidence: { ruleId: rule.id, needsReview: true, impact: rule.impact, nodeCount: rule.nodeCount, nodes: rule.nodes, helpUrl: rule.helpUrl } });
+  }
+  // A frame that axe did not enter is not checked. It is one warning with the count, never a clean page (R8.14, R13.51).
+  if (frames !== undefined && frames.unreachable > 0) {
+    out.push({ severity: 'warning', message: `${frames.unreachable} ${frames.unreachable === 1 ? 'frame was' : 'frames were'} not checked: axe runs only in frames of the page origin, about:blank and srcdoc frames.`, evidence: { needsReview: true, unreachableFrames: frames.unreachable, injectedFrames: frames.injected } });
+  }
+  if (frames !== undefined && frames.failed > 0) {
+    out.push({ severity: 'warning', message: `${frames.failed} ${frames.failed === 1 ? 'frame' : 'frames'} could not be checked: axe failed in the frame, or its result did not merge.`, evidence: { needsReview: true, failedFrames: frames.failed, injectedFrames: frames.injected } });
   }
   // Cut evidence never reads as a clean page: the kept violations stay, and one warning says the list is cut.
   if (omittedNodes > 0) out.push({ severity: 'warning', message: `${omittedNodes} violation nodes were left out of the artifact, so the list is not complete.`, evidence: { truncated: true, omittedNodes } });
