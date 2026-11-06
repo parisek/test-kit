@@ -86,6 +86,11 @@ A recipe can set `reveal` to at most 20 `{action, selector}` steps. Actions
 are `click`, `hover`, and `focus`. They run before wait selectors. A reveal
 cannot navigate another page, open a popup, or submit a request.
 
+A recipe can set `pin` to at most 20 selectors (R5.12). After the reveal and wait
+steps and before the lazy-image sweep, each match gets an inline
+`position: static !important`. A selector with no match fails the capture. The
+step sends no request and does not change the engine version.
+
 Targets can set partial `settle` overrides and `settleBySide` overrides for
 configured sides. Scalar options inherit. An explicit array replaces the
 inherited array. The report timeline shows the global recipe and target

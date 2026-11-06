@@ -24,6 +24,17 @@ export async function settlePage({ page, recipe, active = () => true }) {
   await page.evaluate(async () => { await document.fonts.ready; });
   if (recipe.waitMs) await page.waitForTimeout(recipe.waitMs);
   check();
+  // R5.12: pin runs after the wait steps and before the lazy-image sweep. It sets one fixed declaration and sends no request.
+  if ((recipe.pin ?? []).length > 20) throw new Error('Capture settlement accepts at most 20 pin selectors.');
+  for (const selector of recipe.pin ?? []) {
+    check();
+    const count = await page.locator(selector).evaluateAll(elements => {
+      for (const element of elements) element.style.setProperty('position', 'static', 'important');
+      return elements.length;
+    });
+    if (count === 0) throw Object.assign(new Error(`The pin selector ${JSON.stringify(selector)} matches no element. Fix settle.pin or remove it.`), { code: 'PIN_NO_MATCH' });
+  }
+  check();
   if (!recipe.lazyImages) return;
   await page.evaluate(async () => {
     const initial = { x: scrollX, y: scrollY };

@@ -297,12 +297,12 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
       width, height, deviceScaleFactor: viewport.deviceScaleFactor, ...stored(), artifacts, ...droppedFields(droppedLog) };
     })()]);
-  } catch {
+  } catch (error) {
     if (context) await context.close().catch(() => {});
     if (verifier) await verifier.close().catch(() => {});
     await unlink(file).catch(() => {});
     return { ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
-      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : `The ${phase} step fails. Check the local page and capture recipe.` } };
+      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : error?.code === 'PIN_NO_MATCH' ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } };
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
 
