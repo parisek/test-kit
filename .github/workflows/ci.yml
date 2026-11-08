@@ -60,6 +60,7 @@ jobs:
       - run: node tests/integration/check-capture-scopes.mjs
       - run: node tests/integration/check-styleguide-targets.mjs
       - run: node tests/integration/check-design-files.mjs
+      - run: node tests/integration/check-design-claude-design.mjs
       - run: node tests/integration/check-capture-selection.mjs
       - run: node tests/integration/check-compare-selection.mjs
       - run: node tests/integration/check-a11y-runner.mjs

@@ -1,8 +1,8 @@
 # src/design
 
-A side of supplied images, and the pair that compares it with a captured run. Spec R4.6, R5.5, R8.15.
+A side of supplied or rendered design images, and the pair that compares it with a captured run. Spec R4.6, R5.5, R8.15.
 
-`import.js` implements `import --side <id>`. `importDesign` reads the images that `target.design` maps under the `root` of a design side and writes an immutable run in the layout of a capture. It opens no browser. The provider `files` opens no network connection. The provider `figma` does, only during `import` (R5.5). `readDesignFile` resolves one path against the real root, refuses an escape (a `..`, an absolute path, a symlink that leaves the root), and reads a regular PNG file of at most 40 MiB. Every check runs before a run directory exists, so a failed import leaves no run.
+`import.js` implements `import --side <id>`. `importDesign` reads the images that `target.design` maps under the `root` of a design side and writes an immutable run in the layout of a capture. The providers `files` and `figma` open no browser. The provider `files` opens no network connection. The provider `figma` does, only during `import` (R5.5). The provider `claude-design` opens Chromium on a loopback server and no connection that leaves the machine. `readDesignFile` resolves one path against the real root, refuses an escape (a `..`, an absolute path, a symlink that leaves the root), and reads a regular PNG file of at most 40 MiB. Every check runs before a run directory exists, so a failed import leaves no run.
 
 `paths.js` is pure. `designPathProblem` and `designRootProblem` give the reason a configured path is refused, or null. The configuration check (`src/config/normalize.js`) and the import use them.
 
@@ -15,5 +15,9 @@ A viewport with no mapped file has no capture entry, so a pair reads it as `miss
 `figma-ids.js` is pure. It checks the file key, the node ID, the token form and the image URL (https, no credentials, no port, a Figma image host), and gives the export scale of a viewport.
 
 `figma.js` is the only file here that uses the network. `readToken` reads `FIGMA_TOKEN` from the environment and fails before any request. `downloadFigmaImages` asks the Figma API for the images (one call for each batch of node IDs and each scale), then downloads each returned URL. The token goes to the API only. It follows no redirect, retries nothing, bounds time and bytes, and puts no URL or token in an error. One deadline (10 min) covers the whole import: each request gets the smaller of its own timeout and the time left. The host list accepts any S3 bucket named `figma-*`; the owner pins exact bucket names after the live check. `apiBase`, `fetchImpl`, `imageUrlProblem`, the timeouts, the deadline and the total cap are hooks for tests: no option or key sets them.
+
+`claude-design-refs.js` is pure. `parseArtboardRef` splits an artboard reference (`Example.dc.html` or `Example.dc.html#<selector>`) at the first `#` and checks the path. `servedPathProblem` decodes a request path of the loopback server and refuses `..`, hidden names, escaped `/` and control characters. `captureClip` gives the screenshot band: x = 0, the viewport wide. `RENDER_STATE` is the readiness test as text, so the file holds no DOM code.
+
+`claude-design.js` is the render part. `prepareCanvas` checks `root/project/`, reads the runtime `project/support.js` and each mapped artboard once through `readProjectFile` (real path inside `project/`, regular file, 40 MiB), and hashes them. `startCanvasServer` serves `project/` on `127.0.0.1` (GET and HEAD, `Host` must name the server) from those bytes and from checked reads. `renderCanvas` launches Chromium with host names that never resolve, routes every request that is not for the server to an abort, waits for the render, stops motion and takes each band. The runtime never comes from the package: the server only serves the copy in the export. `chromium` is a test hook.
 
 Not built: a `design` key that a target generator reads from a component definition (`import` refuses `targetSource`). It stays open on issue #288.

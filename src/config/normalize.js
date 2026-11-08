@@ -6,6 +6,7 @@ import { DEFAULT_MOUNT, MAX_COMPONENTS, validMount } from '../styleguide/index.j
 import { ALLOW_ORIGIN_TYPES } from '../capture/helpers.js';
 import { designPathProblem, designRootProblem } from '../design/paths.js';
 import { fileKeyProblem, nodeIdProblem } from '../design/figma-ids.js';
+import { artboardRefProblem } from '../design/claude-design-refs.js';
 import { DEFAULT_RUNS_ROOT } from './store.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
@@ -116,23 +117,25 @@ function freeze(value) {
 // R5.5: a side of kind `design` holds supplied images. It has no origin and opens no browser.
 // Provider `files`: `root` is a plain relative directory, resolved from the configuration directory. No network.
 // Provider `figma`: `fileKey` names the file. The token is never a key here: it comes from the environment (R5.5).
+// Provider `claude-design`: `root` as for `files`. It holds an exported canvas under `project/`, with the runtime as `project/support.js`.
 function normalizeDesignSide(side, name) {
   object(side, name, ['kind', 'provider', 'root', 'fileKey']);
   if (side.kind !== 'design') fail(`${name}.kind must be "design"`);
-  if (!['files', 'figma'].includes(side.provider)) fail(`${name}.provider must be "files" or "figma"`);
+  if (!['files', 'figma', 'claude-design'].includes(side.provider)) fail(`${name}.provider must be "files", "figma" or "claude-design"`);
   if (side.provider === 'figma') {
     if (Object.hasOwn(side, 'root')) fail(`${name}.root is unsupported with the provider "figma"`);
     const keyProblem = fileKeyProblem(side.fileKey);
     if (keyProblem) fail(`${name}.fileKey ${keyProblem}`);
     return { kind: 'design', provider: 'figma', fileKey: side.fileKey };
   }
-  if (Object.hasOwn(side, 'fileKey')) fail(`${name}.fileKey is unsupported with the provider "files"`);
+  if (Object.hasOwn(side, 'fileKey')) fail(`${name}.fileKey is unsupported with the provider "${side.provider}"`);
   const problem = designRootProblem(side.root);
   if (problem) fail(`${name}.root ${problem}`);
-  return { kind: 'design', provider: 'files', root: side.root };
+  return { kind: 'design', provider: side.provider, root: side.root };
 }
 
-// R5.5: the map from viewport ID to a PNG path under the `root` of a `files` side, or to a node ID of a `figma` side.
+// R5.5: the map from viewport ID to a PNG path under the `root` of a `files` side, to a node ID of a `figma` side,
+// or to an artboard reference (`Example.dc.html` or `Example.dc.html#<selector>`) of a `claude-design` side.
 // The provider decides the value check. Viewport IDs are checked later.
 function normalizeDesignMap(value, provider) {
   object(value, 'target.design');
@@ -140,7 +143,7 @@ function normalizeDesignMap(value, provider) {
   if (!entries.length || entries.length > 20) fail('target.design must have 1..20 entries');
   return Object.fromEntries(entries.map(([viewportId, mapped]) => {
     id(viewportId, 'target.design viewport ID');
-    const problem = provider === 'figma' ? nodeIdProblem(mapped) : designPathProblem(mapped);
+    const problem = provider === 'figma' ? nodeIdProblem(mapped) : provider === 'claude-design' ? artboardRefProblem(mapped) : designPathProblem(mapped);
     if (problem) fail(`target.design.${viewportId} ${problem}`);
     return [viewportId, mapped];
   }));
@@ -203,9 +206,9 @@ export function normalizeConfig(input) {
       ...(side.production === true ? { production: true } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
-  // R5.5: one map serves every design side, so all design sides share one provider (paths and node IDs do not mix).
+  // R5.5: one map serves every design side, so all design sides share one provider (paths, node IDs and artboard references do not mix).
   const designProviders = [...new Set(Object.values(sides).filter(side => side.kind === 'design').map(side => side.provider))];
-  if (designProviders.length > 1) fail('design sides must all use one provider, because target.design holds paths or node IDs, not both');
+  if (designProviders.length > 1) fail('design sides must all use one provider, because target.design holds one kind of value (paths, node IDs or artboard references)');
   // R13.3: components from the styleguide are an opt-in target source. It replaces the list.
   const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
   if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');

@@ -51,8 +51,8 @@ test('config: a design side has no origin and no browser keys, and only a known 
   const side = extra => ({ ...designConfig(), sides: { design: { kind: 'design', provider: 'files', root: 'refs', ...extra }, local: { origin: 'http://localhost:8080' } } });
   assert.throws(() => normalizeConfig(side({ origin: 'http://localhost:8080' })), /origin is unsupported/);
   assert.throws(() => normalizeConfig(side({ remote: true })), /remote is unsupported/);
-  assert.throws(() => normalizeConfig(side({ provider: 'other' })), /provider must be "files" or "figma"/);
-  assert.throws(() => normalizeConfig(side({ provider: undefined })), /provider must be "files" or "figma"/);
+  assert.throws(() => normalizeConfig(side({ provider: 'other' })), /provider must be "files", "figma" or "claude-design"/);
+  assert.throws(() => normalizeConfig(side({ provider: undefined })), /provider must be "files", "figma" or "claude-design"/);
   assert.throws(() => normalizeConfig(side({ root: undefined })), /root/);
   assert.throws(() => normalizeConfig(side({ root: '../outside' })), /root must be a plain relative path/);
   assert.throws(() => normalizeConfig(side({ root: '/abs' })), /root must be a plain relative path/);
