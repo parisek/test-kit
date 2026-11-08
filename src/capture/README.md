@@ -84,6 +84,12 @@ the page before capture. The sweep has limits of 50 steps, 30000 CSS pixels,
 and 1000 visible images. Image load and decode each have a 2-second limit.
 An unfinished load or growing page fails capture. A broken image stays
 available for content checks. The sweep restores the original scroll position.
+Each scroll of the sweep is instant, so a page with `scroll-behavior: smooth`
+does not animate it. After the restore, capture waits two animation frames, one
+task and two more frames, then runs the wait selectors and the font wait once
+more. Scroll-driven state, such as a header that hides a strip, is back in its
+top state before the screenshot (R5.9, #353). `waitMs`, reveal and pin do not
+run again. The engine version does not change.
 
 A recipe can set `reveal` to at most 20 `{action, selector}` steps. Actions
 are `click`, `hover`, and `focus`. They run before wait selectors. A reveal
