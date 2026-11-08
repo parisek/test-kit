@@ -97,8 +97,13 @@ listener, a timer) is still scrolled at the screenshot. A recipe with
 the restore, capture waits until the first match of each selector is visible,
 with the timeout of the wait selectors, then for fonts and two animation
 frames. `normalizeConfig` refuses a non-empty effective list without
-`lazyImages: true`, for each target on each browser side. A hidden selector
-fails the capture with `AFTER_SWEEP_NOT_VISIBLE` and a message that names it.
+`lazyImages: true`, for each target on each browser side. A list on the side
+is valid when each target sets `lazyImages: true` in a later layer. With
+`targetSource` the side recipe is the effective one, so the side check runs. A
+hidden selector fails the capture. The stored `error.code` is
+`CAPTURE_SETTLEMENT_FAILED`, as for a pin with no match, and the message names
+the selector. `AFTER_SWEEP_NOT_VISIBLE` is the internal code that keeps that
+message.
 `settlePage` records the pending selector in `progress.afterSweep`, so a
 capture deadline during the wait gives the same failure. The failure is not
 transient (R5.14).

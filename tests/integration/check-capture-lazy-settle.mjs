@@ -109,6 +109,8 @@ try {
   const failed = await capture({ configPath: failingPath, side: 'local' });
   const failedEntry = failed.run.captures[0];
   assert.equal(failedEntry.state, 'failed');
+  // The stored code is the phase code, as for a pin with no match (R5.12). AFTER_SWEEP_NOT_VISIBLE stays internal.
+  assert.equal(failedEntry.error.code, 'CAPTURE_SETTLEMENT_FAILED');
   assert.match(failedEntry.error.message, /afterSweep selector "#header\.never" matches no visible element/);
   console.log(`Lazy-image settlement: before plus three after give 0 differences. Debounced header height without afterSweep: ${heights.without.join(', ')} px; with afterSweep: ${heights.with.join(', ')} px. A hidden afterSweep selector fails the capture.`);
 } finally {
