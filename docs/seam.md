@@ -69,7 +69,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `artifacts` | list | `["screenshot"]` | no | 1 to 5 of `screenshot`, `html`, `status`, `content`, `behavior`. Additive only. |
 | `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
 | `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
-| `runsRoot` | string | `test-kit/runs` | no | Plain relative path. The default was `.test-kit/runs` before 1.2.0 (one-time exception to the freeze rule, #312) and `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. |
+| `runsRoot` | string | `test-kit/runs` | no | Plain relative path. The default was `.test-kit/runs` before 1.2.0 (one-time exception to the freeze rule, #312) and `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. Since R12.6 (#352) a path equal to or inside `test-kit/inputs` fails. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
 | `screenshot.fullPage` | boolean | `true` | no | |
 | `rules` | object | `{}` | no | Evidenced normaliser rules (R8.4, R8.5). Shape in `src/rules/model.js`. |
@@ -132,7 +132,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 Other command facts:
 
 - The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
-- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam.
+- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam. One exception: `inputs/` is reserved for project files, and test-kit never writes there (R12.6, #352).
 - `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today. Packs run with `--packs`, not with `--artifacts` (R13.51).
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
 - `COMMANDS` and `run` are also exported from the package root (`src/index.js`). No README documents a project import of them. Experimental.
