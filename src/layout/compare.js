@@ -109,8 +109,9 @@ export function differenceMessage(item) {
 }
 
 // The stored difference sidecar is untrusted (R11.2). A reader accepts only this bounded shape and copies it.
-const PART = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?:\[\d{1,5}\])?$/;
-const PROPERTY = /^(?:part|count|[a-z]+\.[A-Za-z]+(?:\[[0-3]\])?)$/;
+// The part and the property of one difference. A decision names them too (src/decisions, #350 part C).
+export const PART = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?:\[\d{1,5}\])?$/;
+export const PROPERTY = /^(?:part|count|[a-z]+\.[A-Za-z]+(?:\[[0-3]\])?)$/;
 const TOKEN = /^--[A-Za-z0-9_-]{1,126}$/;
 const scalar = value => value === null || (typeof value === 'number' && Number.isFinite(value)) || (typeof value === 'string' && value.length <= 200 && !/[\x00-\x1f\x7f]/.test(value));
 const count = (value, max = 1_000_000) => Number.isSafeInteger(value) && value >= 0 && value <= max;

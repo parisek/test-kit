@@ -6,6 +6,7 @@ import { readSidecar } from '../artifacts/compare.js';
 import { hasLineLists, safeLines, safeCount } from '../checks/builtin/text-difference.js';
 import { ABSOLUTE_ARTIFACTS } from '../report/catalog.js';
 import { allowlistCounts } from '../allowlist/model.js';
+import { decisionCounts, decisionKey } from '../decisions/model.js';
 import { OUTPUT_BYTE_LIMIT, outputBytes, clip, markCut, wasCut, fitLists } from './bound.js';
 
 const isPlain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -75,6 +76,9 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
   // R9.12: the allowlist entries of this target, counted by status. The key appears only when there is one, so the pinned output stays the same.
   const allowlisted = allowlistCounts(report, target);
   if (Object.values(allowlisted).some(count => count > 0)) result.allowlist = allowlisted;
+  // R9.14: the decision entries of this target, counted by status. The key appears only when there is one.
+  const decided = decisionCounts(report, target);
+  if (Object.values(decided).some(count => count > 0)) result.decisions = decided;
   if (absolute || report.subject) {
     // An absolute index has one piece of evidence and a bounded result. The sidecar format belongs to the pack that wrote it.
     result.evidence = { run: index.evidence?.src ?? null };
@@ -96,6 +100,16 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
       // R6.15, R11.8: the differences of the sidecar, bounded by --max-lines. The counts cover the full list.
       // `differencesOmitted` adds the cut of the sidecar (its byte limit) and the cut of --max-lines.
       result.diff = { ...detail, differences: detail.differences.slice(0, maxLines), differencesOmitted: detail.differencesOmitted + Math.max(0, detail.differences.length - maxLines) };
+      // R9.14: a listed difference carries the decision of its key: the active entry first, else a stale one.
+      // The producer decided the statuses. The query copies them and adds nothing.
+      if (Array.isArray(report.decisions)) {
+        const label = item => {
+          const same = report.decisions.filter(entry => entry?.targetId === target && entry.viewportId === viewport && decisionKey(entry) === decisionKey({ targetId: target, viewportId: viewport, ...item }));
+          const entry = same.find(candidate => candidate.status === 'active') ?? same.find(candidate => candidate.status === 'stale');
+          return entry ? { decision: entry.decision, status: entry.status } : null;
+        };
+        result.diff.differences = result.diff.differences.map(item => { const decision = label(item); return decision ? { ...item, decision } : item; });
+      }
     } else if (artifact === 'lighthouse') {
       result.diff = { ...detail, findings: detail.findings.slice(0, maxLines), findingsOmitted: Math.max(0, detail.findings.length - maxLines) };
     } else if (artifact === 'behavior') {
