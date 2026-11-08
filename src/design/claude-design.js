@@ -131,26 +131,42 @@ export async function loadChromium() {
 const artboardUrl = (base, artboard) => `${base}/${artboard.split('/').map(encodeURIComponent).join('/')}`;
 
 // Render one cell. Throws an Error that names the target, the viewport and the reference.
+// One deadline of `timeoutMs` covers the whole cell: the new page, the load, the readiness wait, the style tag, the
+// font and frame wait, the box read and the screenshot. `page.evaluate` takes no timeout, so the deadline is a timer
+// that closes the page and fails the cell. Each step that takes a timeout gets the time left. The readiness wait
+// keeps a short reserve, so its diagnostic read still runs before the deadline.
 async function renderCell(context, base, { target, viewport, artboard, selector, source }, timeoutMs) {
   const name = `target ${target.id}, viewport ${viewport.id}: ${source}`;
-  const page = await context.newPage();
-  let scriptError = false;
-  page.on('pageerror', () => { scriptError = true; });
-  try {
+  const deadline = Date.now() + timeoutMs;
+  const left = () => Math.max(1, deadline - Date.now());
+  const reserve = Math.min(500, Math.floor(timeoutMs / 4));
+  let page, timer, expired = false;
+  const late = new Promise((_, fail) => {
+    timer = setTimeout(() => {
+      expired = true;
+      page?.close().catch(() => {});
+      fail(new Error(`Artboard did not finish within ${timeoutMs} ms (screenshot.timeoutMs) for ${name}.`));
+    }, timeoutMs);
+  });
+  const steps = async () => {
+    page = await context.newPage();
+    if (expired) { await page.close().catch(() => {}); return null; }
+    let scriptError = false;
+    page.on('pageerror', () => { scriptError = true; });
     page.setDefaultTimeout(timeoutMs);
     page.setDefaultNavigationTimeout(timeoutMs);
     let response;
-    try { response = await page.goto(artboardUrl(base, artboard), { waitUntil: 'load' }); } catch { throw new Error(`Artboard did not load for ${name}.`); }
+    try { response = await page.goto(artboardUrl(base, artboard), { waitUntil: 'load', timeout: left() }); } catch { throw new Error(`Artboard did not load for ${name}.`); }
     if (!response || response.status() !== 200) throw new Error(`Artboard did not load for ${name} (HTTP ${response?.status() ?? 'none'}).`);
     try {
-      await page.waitForFunction(`(() => { const state = ${RENDER_STATE}; return !state.holes && !state.emptyImports; })()`, null, { timeout: timeoutMs, polling: 100 });
+      await page.waitForFunction(`(() => { const state = ${RENDER_STATE}; return !state.holes && !state.emptyImports; })()`, null, { timeout: Math.max(1, left() - reserve), polling: 100 });
     } catch {
       let state = null;
       try { state = await page.evaluate(RENDER_STATE); } catch { /* The page is gone. The message below still names the cell. */ }
       const reasons = [];
       if (!state || state.holes) reasons.push('a "{{" hole is still in the text');
       if (state?.emptyImports) reasons.push(`${state.emptyImports} x-import element(s) are empty`);
-      throw new Error(`Artboard did not render for ${name}: ${reasons.join(' and ')} after ${timeoutMs} ms.${scriptError ? ' The page reported a script error.' : ''} Check that ${PROJECT_DIR}/${RUNTIME_FILE} is the canvas runtime of this export.`);
+      throw new Error(`Artboard did not render for ${name}: ${reasons.join(' and ')} within ${timeoutMs} ms.${scriptError ? ' The page reported a script error.' : ''} Check that ${PROJECT_DIR}/${RUNTIME_FILE} is the canvas runtime of this export.`);
     }
     await page.addStyleTag({ content: STILL_STYLE });
     await page.evaluate(() => document.fonts.ready.then(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))));
@@ -174,9 +190,14 @@ async function renderCell(context, base, { target, viewport, artboard, selector,
     }
     const clip = captureClip(viewport.width, box);
     if (!clip) throw new Error(`The artboard area of ${name} has no height.`);
-    return await page.screenshot({ type: 'png', clip, fullPage: true, animations: 'disabled', caret: 'hide' });
+    return await page.screenshot({ type: 'png', clip, fullPage: true, animations: 'disabled', caret: 'hide', timeout: left() });
+  };
+  try {
+    return await Promise.race([steps(), late]);
   } finally {
-    await page.close().catch(() => {});
+    clearTimeout(timer);
+    // After the deadline the timer has already asked the page to close. Waiting for that close could hang too.
+    if (!expired) await page?.close().catch(() => {});
   }
 }
 

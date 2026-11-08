@@ -222,8 +222,8 @@ function png(width, height) {
 }
 
 // A stub browser with the Playwright surface the provider uses. It records what the provider asked for.
-function stubChromium({ fail } = {}) {
-  const calls = { launch: [], contexts: [], gotos: [], clips: [], routes: 0, initScripts: [] };
+function stubChromium({ fail, hang } = {}) {
+  const calls = { launch: [], contexts: [], gotos: [], clips: [], routes: 0, initScripts: [], closedPages: 0 };
   const chromium = {
     launch: async options => {
       calls.launch.push(options);
@@ -238,11 +238,12 @@ function stubChromium({ fail } = {}) {
             route: async () => { calls.routes++; },
             close: async () => {},
             newPage: async () => ({
-              on: () => {}, setDefaultTimeout: () => {}, setDefaultNavigationTimeout: () => {}, close: async () => {},
+              on: () => {}, setDefaultTimeout: () => {}, setDefaultNavigationTimeout: () => {}, close: async () => { calls.closedPages++; },
               goto: async url => { calls.gotos.push(url); return { status: () => 200 }; },
               waitForFunction: async () => { if (fail === 'render') throw new Error('Timeout'); },
               addStyleTag: async () => {},
-              evaluate: async () => (fail === 'selector' ? { count: 2 } : { holes: true, emptyImports: 1, count: 1, top: 0, bottom: 15 }),
+              // `hang` makes every evaluate wait forever, as a page.evaluate with no timeout can.
+              evaluate: async () => (hang ? new Promise(() => {}) : fail === 'selector' ? { count: 2 } : { holes: true, emptyImports: 1, count: 1, top: 0, bottom: 15 }),
               screenshot: async ({ clip }) => { calls.clips.push(clip); return png(clip.width * options.deviceScaleFactor, clip.height * options.deviceScaleFactor); },
             }),
           };
@@ -310,5 +311,20 @@ test('import: a failed check or render leaves no run, and no browser starts befo
     await assert.rejects(importDesign({ configPath, side: 'design', claudeDesign: { chromium: stub.chromium } }), /needs the canvas runtime/);
     assert.equal(stub.calls.launch.length, 0);
     await noRun();
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('import: one deadline bounds the whole cell, also an evaluate that never returns (R4.6)', async () => {
+  const directory = await workspace();
+  try {
+    const configPath = join(directory, 'config.json');
+    await writeFile(configPath, JSON.stringify({ ...config(), screenshot: { timeoutMs: 200 } }));
+    const stub = stubChromium({ hang: true });
+    const started = Date.now();
+    await assert.rejects(importDesign({ configPath, side: 'design', claudeDesign: { chromium: stub.chromium } }),
+      /Artboard did not finish within 200 ms \(screenshot\.timeoutMs\) for target hero, viewport desktop: Example\.dc\.html\./);
+    assert.ok(Date.now() - started < 2000, `The cell failed after ${Date.now() - started} ms.`);
+    assert.equal(stub.calls.closedPages, 1, 'The deadline closes the page.');
+    assert.deepEqual(await readdir(join(directory, 'runs')).catch(() => []), []);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
