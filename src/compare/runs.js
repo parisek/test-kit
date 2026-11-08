@@ -3,6 +3,7 @@ import { isLocalUrl } from '../capture/helpers.js';
 import { comparePerformanceArtifact } from '../perf/compare-artifact.js';
 import { compareBehaviorArtifact } from '../behavior/compare-artifact.js';
 import { compareContentArtifact } from '../content/compare-artifact.js';
+import { compareLayoutArtifact } from '../layout/compare-artifact.js';
 import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { pairKey, policyHash, evidenceBinding, comparatorIndex } from '../rules/evidence.js';
 import { compareResponseArtifact } from '../artifacts/compare.js';
@@ -11,7 +12,7 @@ import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/pro
 import { resolve, join, relative, dirname } from 'node:path';
 import { relativePath } from '../report/safe.js';
 import { SCHEMA_VERSION, validateReport } from '../report/model.js';
-import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS } from '../report/catalog.js';
+import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS, LAYOUT_CHECK, LAYOUT_CHECK_ID } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
 import { warningsForRow } from '../report/warnings.js';
@@ -340,6 +341,11 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				const behavior = await compareBehaviorArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
 				row.artifacts.behavior = behavior.artifact; findings.push(...behavior.findings); Object.assign(checks, { ...behavior.catalog, ...checks });
 			}
+			// R6.15: a target with layout parts. A target without them has no layout artifact.
+			if (requested.has('layout')) {
+				const layout = await compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
+				if (layout) { row.artifacts.layout = layout.artifact; checks[LAYOUT_CHECK_ID] ??= { ...LAYOUT_CHECK }; findings.push(...layout.findings); }
+			}
 			if (requested.has('lighthouse')) {
 				const budgets = b.performance?.budgets ?? {};
 				const speed = await comparePerformanceArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id, environmentA: performanceEnvironment(a), environmentB: performanceEnvironment(b), budgets, failOnBudget });
@@ -362,6 +368,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			}
 			// R8.7: an incomplete status artifact makes the cell incomplete, like any other selected artifact (#295).
 			const states = ['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse'].filter(kind => requested.has(kind)).map(kind => row.artifacts[kind]?.state ?? 'missing');
+			if (row.artifacts.layout) states.push(row.artifacts.layout.state);
 			states.push(...PACK_ARTIFACT_KINDS.filter(kind => row.artifacts[kind]).map(kind => row.artifacts[kind].state));
 			if (!states.length) states.push('missing');
 			row.state = ['failed', 'incompatible', 'missing'].find(state => states.includes(state)) ?? 'complete';
@@ -378,7 +385,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
       ...(target.settle !== undefined ? { settle: target.settle } : {}),
       ...(target.settleBySide?.[run.side] !== undefined ? { settleBySide: { [run.side]: target.settleBySide[run.side] } } : {}) })) }, tools: run.tools })), pair: { kind, aRunId: a.id, bRunId: b.id }, checks, entries, causes: [], findings, rules: {} };
 	const responseTools = new Map();
-	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse']) {
+	for (const entry of entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse', 'layout']) {
 		const index = row.artifacts[kind]?.diff;
 		if (index) responseTools.set(index.settingsHash, { name: index.tool, version: index.version, settingsHash: index.settingsHash });
 		const normalized = row.artifacts[kind]?.normalizedA;

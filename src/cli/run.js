@@ -1,5 +1,6 @@
 import { builtinChecks } from '../checks/index.js';
 import { parseIdList } from '../capture/selection.js';
+import { CAPTURE_ARTIFACTS } from '../config/normalize.js';
 export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'record-allowed', 'perf', 'run', 'before', 'after', 'report', 'history', 'import'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
@@ -8,11 +9,11 @@ Usage: test-kit <command> [options]
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
   history --prune [--keep N] [--yes] [--config FILE] [--store PATH]   List the runs it would remove. With --yes, remove the oldest runs beyond --keep (default 20) for each side.
-  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior] [--target ID,ID] [--viewport ID,ID] [--packs] [--retries 0..2] [--keep-existing]
+  capture --side ID [--config FILE] [--label TEXT] [--artifacts screenshot,html,status,content,behavior,layout] [--target ID,ID] [--viewport ID,ID] [--packs] [--retries 0..2] [--keep-existing]
   import --side ID [--config FILE] [--label TEXT] [--target ID,ID] [--viewport ID,ID]
   diff RUN_A RUN_B --output DIRECTORY [--config FILE] [--kind KIND] [--checks ID,ID] [--target ID,ID] [--viewport ID,ID] [--allowlist FILE]
   summary REPORT [--max-targets N] [--filter FILTER] [--target ID]
-  query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|lighthouse|lint|a11y [--max-lines N]
+  query REPORT --target ID [--viewport ID] --artifact html|status|content|behavior|layout|lighthouse|lint|a11y [--max-lines N]
   record-known REPORT --config FILE --target ID --viewport ID --artifact screenshot|html|status|content --cause ID --reason TEXT
   record-allowed REPORT --target ID --check ID [--viewport ID] [--fingerprint HASH] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--config FILE] [--allowlist FILE]
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
@@ -72,12 +73,12 @@ export function parseCommand(argv) {
   if (command === 'import' && !options.side) throw new Error('import requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
   // An absolute result (lint, a11y) may sit at target scope, so --viewport is optional for it (R9.9).
-  if (command === 'query' && (!options.target || (!options.viewport && !['lint', 'a11y'].includes(options.artifact)) || !['html', 'status', 'content', 'behavior', 'lighthouse', 'lint', 'a11y'].includes(options.artifact))) throw new Error('query requires --target, --artifact html|status|content|behavior|lighthouse|lint|a11y, and --viewport (optional for lint and a11y)');
+  if (command === 'query' && (!options.target || (!options.viewport && !['lint', 'a11y'].includes(options.artifact)) || !['html', 'status', 'content', 'behavior', 'layout', 'lighthouse', 'lint', 'a11y'].includes(options.artifact))) throw new Error('query requires --target, --artifact html|status|content|behavior|layout|lighthouse|lint|a11y, and --viewport (optional for lint and a11y)');
   if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'status', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
   if (command === 'record-allowed' && (!options.target || !options.check || !options.reason || !options.owner)) throw new Error('record-allowed requires target, check, reason, and owner');
   // R4.5: `capture` and `diff` take lists of ids. The same parser as the workflow commands checks them.
   if (['capture', 'diff', 'import'].includes(command)) for (const name of ['target', 'viewport']) if (options[name]) parseIdList(options[name], name);
-  if (options.artifacts && options.artifacts.split(',').some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) throw new Error('Unknown capture artifact');
+  if (options.artifacts && options.artifacts.split(',').some(kind => !CAPTURE_ARTIFACTS.includes(kind))) throw new Error('Unknown capture artifact');
   if (options.checks && !(options.checks === 'none' && ['run', 'before', 'after'].includes(command))) {
     const ids = options.checks.split(',');
     if (ids.length > 6 || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');

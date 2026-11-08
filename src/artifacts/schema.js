@@ -1,6 +1,7 @@
 import { validatePerformanceComparison } from '../perf/schema.js';
 import { validateBehaviorComparison } from '../behavior/compare.js';
 import { validateContentComparison } from '../content/compare.js';
+import { validateLayoutComparison } from '../layout/compare.js';
 import { isHash } from '../rules/model.js';
 function integer(value, max = 2 * 1024 * 1024) {
   return Number.isSafeInteger(value) && value >= 0 && value <= max;
@@ -27,6 +28,7 @@ export function comparisonDetail(kind, value, nested = false) {
   if (kind === 'behavior') return validateBehaviorComparison(value);
   if (kind === 'lighthouse') return validatePerformanceComparison(value);
   if (kind === 'content') return validateContentComparison(value);
+  if (kind === 'layout') return validateLayoutComparison(value);
   if (!value || typeof value.changed !== 'boolean') throw new Error('Invalid artifact comparison.');
   if (kind === 'status') return { changed: value.changed, a: statusDetail(value.a), b: statusDetail(value.b) };
   if (value.method !== 'prefix-suffix-replacement' || !Array.isArray(value.lines) || value.lines.length > 100

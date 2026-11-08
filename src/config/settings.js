@@ -42,6 +42,12 @@ export function contentSettings(config, side, target) {
   return { mode: 'settled-dom', extractorVersion: '1.1.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
 }
 
+// R6.14: the layout read binds the settled page like the content snapshot, with the masks left out.
+export function layoutSettings(config, side, target, version) {
+  const { masks, ...settle } = settleRecipe(config, side, target);
+  return { mode: 'computed-style', version, viewports: config.viewports, settle, maxParts: 50, maxRepeat: 50, maxTokens: 2000, maxBytes: 2 * 1024 * 1024 };
+}
+
 // Paths and titles can differ between sides. The screenshot scope cannot.
 export function screenshotScope(target, side) {
   const selector = target?.selector ?? null;

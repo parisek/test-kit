@@ -6,7 +6,7 @@ export const ENTRY_KINDS = Object.freeze(['page', 'component', 'project']);
 // The reserved id of the project entry that holds lint findings with no component (R9.11).
 export const PROJECT_TARGET = '@project';
 // Artifacts of a pair comparison. Each has side A, side B and a difference.
-export const RELATIVE_ARTIFACTS = Object.freeze(['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse']);
+export const RELATIVE_ARTIFACTS = Object.freeze(['screenshot', 'html', 'status', 'content', 'behavior', 'lighthouse', 'layout']);
 // Artifacts that exist only as an absolute result of one run (R9.9).
 export const ABSOLUTE_ARTIFACTS = Object.freeze(['lint', 'a11y']);
 export const ARTIFACT_KINDS = Object.freeze([...RELATIVE_ARTIFACTS, ...ABSOLUTE_ARTIFACTS]);
@@ -31,6 +31,10 @@ export const LIGHTHOUSE_CHECKS = Object.freeze({
 	'lighthouse-change': Object.freeze({ basis: 'relative', layer: 'package', title: 'Speed change beyond noise' }),
 	'lighthouse-budget': Object.freeze({ basis: 'absolute', layer: 'project', title: 'Speed budget' }),
 });
+// The one check of the layout artifact (R6.15). Each layout difference is a relative finding of it.
+export const LAYOUT_CHECK_ID = 'layout';
+export const LAYOUT_CHECK = Object.freeze({ basis: 'relative', layer: 'package', title: 'Layout record difference' });
+
 export const LIGHTHOUSE_CAUSE_CHECK = Object.freeze({ 'performance-change': 'lighthouse-change', 'performance-budget': 'lighthouse-budget' });
 
 // Behavior identity (owner decision of 2026-11-04, ADR 0004 question 1).
