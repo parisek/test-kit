@@ -5,7 +5,11 @@ import { captureRecipe, settleRecipe } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
 import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
-import { contentSettings } from '../config/settings.js';
+import { contentSettings, layoutSettings } from '../config/settings.js';
+import { extractLayoutSnapshot } from '../layout/extract.js';
+import { LAYOUT_VERSION } from '../layout/record.js';
+import { MAX_LAYOUT_BYTES } from '../layout/snapshot.js';
+import { createHash } from 'node:crypto';
 import { responseSettings } from '../config/settings.js';
 import { storeResponse } from '../artifacts/response.js';
 import { mkdir, writeFile, rename, readFile, access, unlink } from 'node:fs/promises';
@@ -62,9 +66,15 @@ async function playwright() {
 
 // The provenance of the artifacts of one target. The content settings depend on the target.
 function targetProvenance(config, side, target, provenance) {
-  if (!provenance.content) return provenance;
-  return { ...provenance, content: { ...provenance.content, settingsHash: settingsHash({ ...contentSettings(config, side, target), browser: BROWSER_SETTINGS }) } };
+  const result = { ...provenance };
+  if (provenance.content) result.content = { ...provenance.content, settingsHash: settingsHash({ ...contentSettings(config, side, target), browser: BROWSER_SETTINGS }) };
+  // R6.14: the layout read binds the settle recipe of the target, like the content snapshot.
+  if (provenance.layout) result.layout = { ...provenance.layout, settingsHash: settingsHash({ ...layoutSettings(config, side, target, LAYOUT_VERSION), browser: BROWSER_SETTINGS }) };
+  return result;
 }
+
+// R6.14: a target without layout parts stores no layout entry, so the artifact does not apply to it.
+const applies = (kind, target) => kind !== 'layout' || Boolean(target?.layout);
 
 async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun = null) {
   const recipe = settleRecipe(config, side, target);
@@ -200,7 +210,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     if (remote) edge ??= edgeStop({ status: statusCode, headers: response.headers(), main: true });
     if (edge) throw new Error('Remote edge stop');
     artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
-    if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior') && !packRun?.ids.length) {
+    if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior') && !(config.artifacts.includes('layout') && target.layout) && !packRun?.ids.length) {
       if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
       return { ...identity, state: 'captured', statusCode, finalPath, ...stored(), artifacts, ...droppedFields(droppedLog) };
     }
@@ -249,6 +259,25 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
         timeoutMs: config.screenshot.timeoutMs, settingsHash: packRun.settingsHash, browserVersion: packRun.browserVersion }));
       if (expired || edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     };
+    // R6.14: the layout read runs after the screenshot, so its probe element cannot change the pixels.
+    const captureLayout = async () => {
+      if (!config.artifacts.includes('layout') || !target.layout) return;
+      phase = 'layout';
+      const index = { kind: 'layout', ...provenance.layout };
+      const path = `layout/${target.id}/${viewport.id}.json`;
+      let layoutFile;
+      try {
+        const bytes = Buffer.from(JSON.stringify(await extractLayoutSnapshot(page, target.layout)));
+        if (bytes.length > MAX_LAYOUT_BYTES || expired || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Layout capture is unavailable.');
+        layoutFile = join(runDir, path);
+        await mkdir(dirname(layoutFile), { recursive: true });
+        await writeFile(layoutFile, bytes, { mode: 0o600 });
+        artifacts.layout = { ...index, state: 'captured', path, bytes: bytes.length, sha256: 'sha256:' + createHash('sha256').update(bytes).digest('hex') };
+      } catch (error) {
+        if (layoutFile) await unlink(layoutFile).catch(() => {});
+        artifacts.layout = { ...index, state: 'failed', error: { code: 'LAYOUT_CAPTURE_FAILED', message: error?.code === 'LAYOUT_SELECTOR_INVALID' ? error.message : 'Layout record is unavailable or exceeds its limit.' } };
+      }
+    };
     const captureBehavior = async () => {
       if (!config.artifacts.includes('behavior')) return;
       phase = 'behavior';
@@ -266,6 +295,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     };
     if (!config.artifacts.includes('screenshot')) {
       if (edge || blocked || expired || !allowedUrl(page.url())) throw new Error('Capture is unavailable.');
+      await captureLayout();
       await runPackStep();
       await captureBehavior();
       if (edge) throw new Error('Remote edge stop');
@@ -302,6 +332,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     assertImageBounds(width, height);
     if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     const final = new URL(page.url());
+    await captureLayout();
     await runPackStep();
     await captureBehavior();
     // R3.6: a behavior step can also meet the edge.
@@ -401,8 +432,8 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
     } finally { await probe.close(); }
     run.tools.push({ name: 'chromium', version: browser.version(), settingsHash: hash });
     const provenance = Object.fromEntries(config.artifacts.filter(kind => kind !== 'screenshot').map(kind => [kind, {
-      tool: kind === 'behavior' ? 'test-kit-behavior' : 'playwright', version: kind === 'behavior' ? BEHAVIOR_VERSION : tool.version, browserVersion: browser.version(),
-      settingsHash: settingsHash({ ...(kind === 'content' ? contentSettings(config, side) : responseSettings(config, kind)), browser: BROWSER_SETTINGS }),
+      tool: kind === 'behavior' ? 'test-kit-behavior' : kind === 'layout' ? 'test-kit-layout' : 'playwright', version: kind === 'behavior' ? BEHAVIOR_VERSION : kind === 'layout' ? LAYOUT_VERSION : tool.version, browserVersion: browser.version(),
+      settingsHash: settingsHash({ ...(kind === 'content' ? contentSettings(config, side) : kind === 'layout' ? layoutSettings(config, side, undefined, LAYOUT_VERSION) : responseSettings(config, kind)), browser: BROWSER_SETTINGS }),
     }]));
     for (const [artifact, index] of Object.entries(provenance)) run.tools.push({ name: index.tool, version: index.version, settingsHash: index.settingsHash, artifact });
     // The pack selection is not a capture setting. It stays out of the settings hash and out of the comparable tools (R13.44).
@@ -438,7 +469,8 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       await writeManifest(manifestPath, run);
     }
     // With a selection, `complete` means every selected cell is captured. `run.selection` tells the reader (R4.5).
-    if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot').every(kind => result.artifacts?.[kind]?.state === 'captured')
+    const targetOf = result => config.targets.find(target => target.id === result.targetId);
+    if (run.captures.every(result => result.state === 'captured' && config.artifacts.filter(kind => kind !== 'screenshot' && applies(kind, targetOf(result))).every(kind => result.artifacts?.[kind]?.state === 'captured')
       && (packRun?.ids ?? []).every(kind => result.artifacts?.[kind]?.state === 'captured'))) run.state = 'complete';
     await writeManifest(manifestPath, run);
   } catch (error) {
