@@ -5,6 +5,7 @@ import { summarize, targetClass, targetState } from '../report/classify.js';
 import { isHash } from '../rules/model.js';
 import { noFixtureIds } from '../report/scope.js';
 import { allowlistCounts } from '../allowlist/model.js';
+import { layoutTotals } from '../report/layout.js';
 import { clip, markCut, wasCut, outputBytes, OUTPUT_BYTE_LIMIT } from './bound.js';
 
 const ID = 200;
@@ -40,6 +41,8 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	// so the answer stays bounded. The key appears only above zero, so the pinned output stays the same.
 	const lineGapTargets = report.entries.filter((entry) => (target == null || entry.id === target)
 		&& entry.viewports.some((row) => Number.isSafeInteger(row.artifacts?.content?.diff?.lineGaps) && row.artifacts.content.diff.lineGaps > 0)).length;
+	// R6.15: layout differences by kind. The key appears only above zero, so the pinned output stays the same.
+	const layout = layoutTotals(report, target);
 	const allowlisted = { counts: allowlistCounts(report, target) };
 	allowlisted.total = Object.values(allowlisted.counts).reduce((sum, count) => sum + count, 0);
 	// One answer for a number of listed targets. The count limit comes first. The byte limit cuts further.
@@ -67,6 +70,7 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		...(noFixture.length ? { noFixture: { count: noFixture.length, ids: noFixture.slice(0, max), omitted: Math.max(0, noFixture.length - max) } } : {}),
 		// R9.12: the allowlist entries of the report, counted by status. The key appears only when the report holds an entry, so the pinned output stays the same.
 		...(allowlisted.total ? { allowlist: allowlisted.counts } : {}),
+		...(Object.keys(layout).length ? { layout } : {}),
 		// R4.5: cells outside a recorded selection or filter. The key appears only when the report skipped one, so the pinned output stays the same.
 		...(Number.isSafeInteger(report.meta?.skipped) && report.meta.skipped > 0 ? { skipped: report.meta.skipped } : {}),
 		next: ['Open the report with test-kit serve.', 'Use summary --filter unexplained or --filter incomplete for scoped evidence.'],

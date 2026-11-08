@@ -39,7 +39,7 @@ function bounded(result) {
     const out = [], add = (owner, key, counter) => { if (owner && typeof owner === 'object') out.push({ owner, key, counter }); };
     const diff = result.diff;
     if (diff && typeof diff === 'object') {
-      add(diff, 'lines', 'omittedLines'); add(diff.oneSided, 'lines', 'omittedLines'); add(diff.rawWindow, 'lines', 'omittedLines'); add(diff, 'findings', 'findingsOmitted'); add(diff, 'steps', 'stepsOmitted');
+      add(diff, 'lines', 'omittedLines'); add(diff.oneSided, 'lines', 'omittedLines'); add(diff.rawWindow, 'lines', 'omittedLines'); add(diff, 'findings', 'findingsOmitted'); add(diff, 'steps', 'stepsOmitted'); add(diff, 'differences', 'differencesOmitted');
       add(diff.a, 'redirects', 'redirectsOmitted'); add(diff.b, 'redirects', 'redirectsOmitted');
       for (const check of Array.isArray(diff.checks) ? diff.checks : []) for (const side of [check?.a, check?.b]) add(side, 'findings', 'omitted');
     }
@@ -54,7 +54,7 @@ function bounded(result) {
 
 export async function queryArtifact(reportPath, { target, viewport, artifact, maxLines = 40 }) {
   const absolute = ABSOLUTE_ARTIFACTS.includes(artifact);
-  if (!['html', 'status', 'content', 'behavior', 'lighthouse', ...ABSOLUTE_ARTIFACTS].includes(artifact)) throw new Error('Artifact must be html, status, content, behavior, lighthouse, lint, or a11y.');
+  if (!['html', 'status', 'content', 'behavior', 'layout', 'lighthouse', ...ABSOLUTE_ARTIFACTS].includes(artifact)) throw new Error('Artifact must be html, status, content, behavior, layout, lighthouse, lint, or a11y.');
   if (viewport == null && !absolute) throw new Error('Artifact needs a viewport.');
   if (!Number.isInteger(maxLines) || maxLines < 1 || maxLines > 100) throw new Error('maxLines must be 1..100.');
   const path = resolve(reportPath), root = dirname(path);
@@ -92,6 +92,9 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
         displayedLines: Math.min(detail.rawWindow.lines.length, maxLines), omittedLines: detail.rawWindow.omittedLines + Math.max(0, detail.rawWindow.lines.length - maxLines) } : undefined;
       result.diff = { ...detail, ...(rawWindow ? { rawWindow } : {}), lines: detail.lines.slice(0, maxLines),
         displayedLines: Math.min(detail.lines.length, maxLines), omittedLines: (detail.omittedLines ?? 0) + Math.max(0, detail.lines.length - maxLines) };
+    } else if (artifact === 'layout') {
+      // R6.15: every difference of the cell, bounded by --max-lines. The counts cover the full list.
+      result.diff = { ...detail, differences: detail.differences.slice(0, maxLines), differencesOmitted: Math.max(0, detail.differences.length - maxLines) };
     } else if (artifact === 'lighthouse') {
       result.diff = { ...detail, findings: detail.findings.slice(0, maxLines), findingsOmitted: Math.max(0, detail.findings.length - maxLines) };
     } else if (artifact === 'behavior') {

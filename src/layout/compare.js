@@ -83,3 +83,31 @@ export function differenceMessage(item) {
   if (item.kind === 'count') return `Layout part ${item.part}: count A ${item.a}, B ${item.b}.`;
   return `Layout part ${item.part} ${item.property}: A ${shown(item.a, item.tokenA)}, B ${shown(item.b, item.tokenB)}.`;
 }
+
+// The stored difference sidecar is untrusted (R11.2). A reader accepts only this bounded shape and copies it.
+const PART = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?:\[\d{1,5}\])?$/;
+const PROPERTY = /^(?:part|count|[a-z]+\.[A-Za-z]+(?:\[[0-3]\])?)$/;
+const TOKEN = /^--[A-Za-z0-9_-]{1,126}$/;
+const scalar = value => value === null || (typeof value === 'number' && Number.isFinite(value)) || (typeof value === 'string' && value.length <= 200 && !/[\x00-\x1f\x7f]/.test(value));
+const count = (value, max = 1_000_000) => Number.isSafeInteger(value) && value >= 0 && value <= max;
+export const MAX_DIFFERENCES = 2500 * 25 + 50;
+export function validateLayoutComparison(value) {
+  const bad = () => { throw new Error('Invalid layout comparison.'); };
+  if (!value || typeof value.changed !== 'boolean' || !Array.isArray(value.parts) || value.parts.length > 50
+    || !Array.isArray(value.differences) || value.differences.length > MAX_DIFFERENCES || !value.counts) bad();
+  const parts = value.parts.map(part => {
+    if (!part || typeof part.id !== 'string' || !PART.test(part.id) || !['match', 'differs', 'missing'].includes(part.state)) bad();
+    return { id: part.id, state: part.state };
+  });
+  const differences = value.differences.map(item => {
+    if (!item || typeof item.part !== 'string' || !PART.test(item.part) || typeof item.property !== 'string' || !PROPERTY.test(item.property)
+      || !['differs', 'missing', 'count'].includes(item.kind) || !scalar(item.a) || !scalar(item.b)
+      || (item.tokenA !== undefined && !(typeof item.tokenA === 'string' && TOKEN.test(item.tokenA)))
+      || (item.tokenB !== undefined && !(typeof item.tokenB === 'string' && TOKEN.test(item.tokenB)))) bad();
+    return { part: item.part, property: item.property, kind: item.kind, a: item.a, b: item.b, ...(item.tokenA ? { tokenA: item.tokenA } : {}), ...(item.tokenB ? { tokenB: item.tokenB } : {}) };
+  });
+  const counts = {};
+  for (const key of ['parts', 'match', 'differs', 'missing', 'count', 'differences']) { if (!count(value.counts[key])) bad(); counts[key] = value.counts[key]; }
+  if (counts.differences !== differences.length || value.changed !== differences.length > 0) bad();
+  return { changed: value.changed, counts, parts, differences };
+}

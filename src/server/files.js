@@ -27,7 +27,7 @@ export async function reportFiles(report, reportRoot) {
 	const sidecars = new Map();
 	const attachments = new Set();
 	const rawPerformance = new Set();
-	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse']) {
+	for (const entry of report.entries) for (const row of entry.viewports) for (const kind of ['html', 'status', 'content', 'behavior', 'lighthouse', 'layout']) {
 		for (const side of ['a', 'b', 'diff', 'normalizedA', 'normalizedB']) {
 			const index = row.artifacts?.[kind]?.[side];
 			if (relativePath(index?.src)) sidecars.set(index.src, kind === 'html' && side !== 'diff' ? 'text/plain; charset=utf-8' : 'application/json');
