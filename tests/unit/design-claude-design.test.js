@@ -92,7 +92,7 @@ test('project file: reads a regular file and refuses a directory and a missing f
 });
 
 test('browser switches: a proxy that closes every connection, bypassed for the import server only (R4.6)', () => {
-  assert.deepEqual(chromiumArgs(4100, 4200), [...CHROMIUM_ARGS, '--proxy-server=http://127.0.0.1:4200', '--proxy-bypass-list=<-loopback>;127.0.0.1:4100']);
+  assert.deepEqual(chromiumArgs(4100, 4200), [...CHROMIUM_ARGS, '--proxy-server=http://127.0.0.1:4200', '--proxy-bypass-list=<-loopback>;http://127.0.0.1:4100', '--disable-features=WebTransport']);
   for (const [server, proxy] of [[0, 4200], [4100, 70000], ['4100', 4200], [4100, 1.5], [4100, Number.NaN]]) assert.throws(() => chromiumArgs(server, proxy), /TCP port number/);
 });
 
@@ -265,8 +265,9 @@ test('import: renders each mapped cell and writes provenance with both hashes (R
     assert.deepEqual(run.settings.artifacts, ['screenshot']);
     assert.equal(calls.launch.length, 1);
     assert.deepEqual(calls.launch[0].args.slice(0, CHROMIUM_ARGS.length), [...CHROMIUM_ARGS]);
-    assert.match(calls.launch[0].args.at(-2), /^--proxy-server=http:\/\/127\.0\.0\.1:\d+$/);
-    assert.match(calls.launch[0].args.at(-1), /^--proxy-bypass-list=<-loopback>;127\.0\.0\.1:\d+$/);
+    assert.ok(calls.launch[0].args.some(arg => /^--proxy-server=http:\/\/127\.0\.0\.1:\d+$/.test(arg)));
+    assert.ok(calls.launch[0].args.some(arg => /^--proxy-bypass-list=<-loopback>;http:\/\/127\.0\.0\.1:\d+$/.test(arg)));
+    assert.ok(calls.launch[0].args.includes('--disable-features=WebTransport'));
     assert.ok(calls.contexts.every(options => options.reducedMotion === 'reduce' && options.serviceWorkers === 'block'));
     assert.deepEqual(calls.contexts.map(options => options.deviceScaleFactor), [1, 2]);
     assert.equal(calls.routes, 2);

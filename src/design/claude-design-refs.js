@@ -113,10 +113,13 @@ export const CHROMIUM_ARGS = Object.freeze(['--host-resolver-rules=MAP * ~NOTFOU
 // The switches of one import: the fixed ones, plus a proxy on `proxyPort` that closes every connection and a bypass
 // for the import server only. `<-loopback>` removes the implicit loopback bypass of Chromium: without it, a
 // connection to another loopback port skips the proxy (measured 2026-11-08: WebTransport from a worker sent 4 QUIC
-// datagrams with the plain bypass and 0 with `<-loopback>`). Both ports come from the caller's own servers.
+// datagrams with the plain bypass and 0 with `<-loopback>`). The bypass names the `http` scheme, so it covers the
+// import server's page requests and nothing else on that port number: a WebTransport session to `https://` on the
+// same number (QUIC over UDP) is not bypassed. `--disable-features=WebTransport` turns the API off in every context,
+// workers included, as a second line beside the init script. Both ports come from the caller's own servers.
 export function chromiumArgs(serverPort, proxyPort) {
   for (const port of [serverPort, proxyPort]) if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('A browser port must be a TCP port number.');
-  return [...CHROMIUM_ARGS, `--proxy-server=http://127.0.0.1:${proxyPort}`, `--proxy-bypass-list=<-loopback>;127.0.0.1:${serverPort}`];
+  return [...CHROMIUM_ARGS, `--proxy-server=http://127.0.0.1:${proxyPort}`, `--proxy-bypass-list=<-loopback>;http://127.0.0.1:${serverPort}`, '--disable-features=WebTransport'];
 }
 
 // The WebRTC interfaces a page could use to open a connection that the request route does not see: a TURN server
