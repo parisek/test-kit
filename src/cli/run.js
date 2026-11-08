@@ -116,17 +116,32 @@ export async function dispatch({ command, positions, options }, dependencies = {
     const { resolveStore } = await import('../workflow/index.js');
     const { publishHistory } = await import('../export/publish.js');
     const { resolve, dirname } = await import('node:path');
-    const result = await publishHistory({ local: resolveStore(options), dir: resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), options.publish) });
+    const { DEFAULT_STORE, assertOutsideInputs } = await import('../config/store.js');
+    const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
+    const local = resolveStore(options);
+    const dir = resolve(configDir, options.publish);
+    // R12.6: no output goes into `inputs/` of a store.
+    assertOutsideInputs(dir, [resolve(configDir, DEFAULT_STORE), local], '--publish');
+    const result = await publishHistory({ local, dir });
     return { output: { published: result.dir, reportCount: result.reportCount, runCount: result.runCount, unavailableReports: result.unavailable }, exitCode: 0, stderr: result.messages };
   }
   if (command === 'history') {
     const { ensureStore } = await import('../workflow/index.js');
     const { startHistory } = await import('../history/index.js');
+    let outputDir;
+    if (options.export) {
+      // R12.6: no output goes into `inputs/` of a store. The check runs before the store is written.
+      const { resolveStore } = await import('../workflow/index.js');
+      const { resolve, dirname } = await import('node:path');
+      const { DEFAULT_STORE, assertOutsideInputs } = await import('../config/store.js');
+      const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
+      outputDir = resolve(configDir, options.export);
+      assertOutsideInputs(outputDir, [resolve(configDir, DEFAULT_STORE), resolveStore(options)], '--export');
+    }
     const local = await ensureStore(options);
     if (options.export) {
       const { exportHistory } = await import('../export/history.js');
-      const { resolve, dirname } = await import('node:path');
-      const result = await exportHistory({ local, outputDir: resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), options.export) });
+      const result = await exportHistory({ local, outputDir });
       return { output: result, exitCode: 0 };
     }
     const result = await startHistory({ local, port: options.port ?? 0 });
@@ -171,6 +186,9 @@ export async function dispatch({ command, positions, options }, dependencies = {
     const { compareRuns } = await import('../compare/runs.js');
     const { resolve } = await import('node:path');
     const loaded = await loadConfig(options.config ?? 'test-kit.config.json');
+    // R12.6: the comparison output never goes into `inputs/` of the default store.
+    const { DEFAULT_STORE, assertOutsideInputs } = await import('../config/store.js');
+    assertOutsideInputs(resolve(loaded.configDir, options.output), [resolve(loaded.configDir, DEFAULT_STORE)], '--output');
     // R9.12: read the allowlist before the comparison. A bad file fails the run before any report exists.
     const { allowlistPath, readAllowlist } = await import('../allowlist/file.js');
     const { entries: allowlistEntries } = await readAllowlist(allowlistPath({ configPath: options.config, override: options.allowlist }));

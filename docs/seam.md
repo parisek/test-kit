@@ -13,10 +13,11 @@ The seam is everything a project touches: its configuration file, the commands i
 - A project pins an exact tag until 1.0 (R13.27). The lockfile pins the commit. A break reaches a project only when it updates the pin.
 - Only the owner approves and tags a stable release (R13.25, R13.26). This document names no tag and no date. Only the owner tags a release candidate (R13.45). The tags `v1.0.0-rc.1` to `v1.0.0-rc.7`, the stable tag `v1.0.0` (2026-11-04) and the tag `v1.1.0-rc.1` (2026-11-05) exist.
 - The word "freeze" does not extend to anything marked "not frozen". Those items may still change in a minor version.
-- Two exceptions exist. Each sets no precedent for another frozen item.
+- Three exceptions exist. Each sets no precedent for another frozen item.
   - The owner allowed the narrowing of `engines.node` to `>=20.19` in the minor release 1.1.0, with a migration note, on 2026-11-06 (#298). See "Runtime requirement".
   - The owner allowed the move of the default store from `.test-kit` to `test-kit`, and of the `runsRoot` default from `.test-kit/runs` to `test-kit/runs`, in the minor release 1.2.0, with a migration note, on 2026-11-06 (#312). See the `runsRoot` row in section 2 and the store note in section 3. An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`, `history` and project `perf` (`--store .test-kit`). An explicit `runsRoot` keeps working for `capture`, `import`, `diff` and plain `perf`. The old `.test-kit/` is not read, moved or deleted. A project deletes it by hand. Old baselines are not carried over. A project that keeps the old store with `--store .test-kit` must also set `"runsRoot": ".test-kit/runs"`, or `capture`, `diff` and plain `perf` use `test-kit/runs` and the stores split.
   - Round 3 (owner decision on #312, 2026-11-06) adds four behaviours to frozen commands: (a) the store `.gitignore` with `*` is also written by `capture`, `import` and plain `perf` when they use the default `runsRoot`. A project with an unrelated `test-kit/` folder must rename it, or pass `--store`, before it upgrades, or new files there become ignored; (b) `run`, `before`, `after`, `report`, `history`, `perf`, `capture`, `import` and `diff` print one stderr line when they find an old `.test-kit/` beside the configuration, only when the default store or the default `runsRoot` is in use (`--store` or a configured `runsRoot` suppresses it); (c) `after` stops early with "Run before again" when the baseline is missing; (d) the runtime copy of the configuration lives in the store. The same decision extends the viewer refresh to `capture`, `import` and plain `perf` when they write the default store, and keeps exports under `test-kit/export/`. The frozen commands `capture`, `import`, `diff`, `perf` and `history` gain these behaviours once. `diff` gains the legacy notice only. This sets no precedent (#312).
+  - The owner allowed this in chat on 2026-11-08 (#352, PR #354): R12.6 reserves `inputs/` of the store. A `runsRoot`, `--store`, `--export`, `--publish` or `diff --output` path equal to or inside it now fails, in the next minor release, with a migration note. Before the change these values passed.
 
 ## Markings
 
@@ -71,7 +72,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `layout` | object | none | no | R6.15. `{ aliases? }`: a token name of side A to a token name of side B, at most 500 entries. Comparison policy only. Not in the capture settings hash. An addition (#350). |
 | `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
 | `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
-| `runsRoot` | string | `test-kit/runs` | no | Plain relative path. The default was `.test-kit/runs` before 1.2.0 (one-time exception to the freeze rule, #312) and `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. |
+| `runsRoot` | string | `test-kit/runs` | no | Plain relative path. The default was `.test-kit/runs` before 1.2.0 (one-time exception to the freeze rule, #312) and `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. Since R12.6 (#352) a path equal to or inside `test-kit/inputs` fails. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
 | `screenshot.fullPage` | boolean | `true` | no | |
 | `rules` | object | `{}` | no | Evidenced normaliser rules (R8.4, R8.5). Shape in `src/rules/model.js`. |
@@ -134,7 +135,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 Other command facts:
 
 - The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
-- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam.
+- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam. One exception: `inputs/` is reserved for project files, and test-kit never writes there (R12.6, #352).
 - `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`, `layout`. The list is additive only. `layout` is an addition (R6.14, #350). `a11y` and `lint` are not accepted today. Packs run with `--packs`, not with `--artifacts` (R13.51).
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
 - `COMMANDS` and `run` are also exported from the package root (`src/index.js`). No README documents a project import of them. Experimental.

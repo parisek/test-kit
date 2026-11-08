@@ -7,7 +7,7 @@ import { loadBehaviorSource } from '../behavior/source.js';
 import { normalizeConfig } from '../config/index.js';
 import { selectConfig } from './selection.js';
 import { allowlistPath, readAllowlist } from '../allowlist/file.js';
-import { DEFAULT_STORE, DEFAULT_RUNS_ROOT, ensureStoreIgnore } from '../config/store.js';
+import { DEFAULT_STORE, DEFAULT_RUNS_ROOT, ensureStoreIgnore, assertOutsideInputs } from '../config/store.js';
 export { selectConfig } from './selection.js';
 const execute = promisify(execFile);
 const NO_BASELINE = 'No baseline in the store. Run before again, then run after.';
@@ -31,7 +31,10 @@ export function resolveStore(options = {}) {
   const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
   const store = options.store ?? DEFAULT_STORE;
   if (typeof store !== 'string' || store.startsWith('/') || /[\\\x00-\x1f]/.test(store) || store.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('The store must be a plain relative path.');
-  return resolve(configDir, store);
+  const path = resolve(configDir, store);
+  // R12.6: a store inside `inputs/` of the default store would write into the project files.
+  assertOutsideInputs(path, [resolve(configDir, DEFAULT_STORE)], '--store');
+  return path;
 }
 export async function ensureStore(options = {}) {
   const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
@@ -113,6 +116,8 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
   const configPath = resolve(options.config ?? 'test-kit.config.json');
   const configDir = dirname(configPath);
   const storePath = resolveStore(options);
+  // R12.6: no output goes into `inputs/` of a store. The check runs before the store is written.
+  if (command === 'report' && options.export) assertOutsideInputs(resolve(configDir, options.export), [resolve(configDir, DEFAULT_STORE), storePath], '--export');
   const offset = relative(configDir, storePath);
   if (!offset || offset.startsWith('..') || offset.startsWith('/') || /[\\\x00-\x1f]/.test(offset)) throw new Error('The store must be a subdirectory of the configuration directory.');
   const statePath = join(storePath, 'state.json');
