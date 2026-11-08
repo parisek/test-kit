@@ -33,8 +33,10 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
   if (!indexes.some(Boolean) && declarations.every(item => item === null)) return null;
   const artifact = { kind: 'layout', state: artifactState(...indexes), scope: { checks: [LAYOUT_CHECK_ID] }, a: null, b: null, diff: null };
   const fail = (state, diagnostic) => { artifact.state = state; artifact.diagnostic ??= diagnostic; return { artifact, findings: [] }; };
-  // The claude-design provider and the layout of a design side are later work (#350).
-  if (isDesignRun(a) || isDesignRun(b)) return fail('missing', 'The layout artifact applies to browser sides only.');
+  // A `files` or `figma` design run holds raster images only. A `claude-design` run renders a document, so its
+  // import reads layout records like a browser capture (#350 part C).
+  const raster = run => isDesignRun(run) && run.settings.sides[run.side].provider !== 'claude-design';
+  if (raster(a) || raster(b)) return fail('missing', 'The layout artifact applies to browser sides and claude-design sides only.');
   if (declarations.includes('invalid')) return fail('failed', 'A stored layout declaration is invalid.');
   if (artifact.state !== 'complete') return fail(artifact.state, 'Requested layout evidence is missing, failed, or incompatible.');
   const viewport = run => run.settings.viewports.find(item => item.id === viewportId);
@@ -42,7 +44,8 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
     return fail('incompatible', 'Layout parts differ: the two runs declare other part IDs or repeat flags.');
   if (settingsHash(viewport(a)) !== settingsHash(viewport(b)) || settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null))
     return fail('incompatible', 'Layout viewports or browser settings differ.');
-  try {
+  // R8.15: a design run has no settle recipe that decides compatibility. The viewport and the part shape do.
+  if (!isDesignRun(a) && !isDesignRun(b)) try {
     const targets = [a, b].map(run => run.settings.targets.find(target => target.id === targetId));
     const recipes = [a, b].map((run, index) => settleRecipe(run.settings, run.side, targets[index]));
     if (![a, b].every((run, index) => settlementMatches([ac, bc][index], run.settings, run.side, targets[index])) || settingsHash(recipes[0]) !== settingsHash(recipes[1]))
