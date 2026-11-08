@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, readdir, rm, cp, symlink } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createServer as createTcpServer } from 'node:net';
+import { createSocket } from 'node:dgram';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PNG } from 'pngjs';
@@ -21,6 +22,7 @@ const directory = await mkdtemp(join(tmpdir(), 'test-kit-claude-design-'));
 let site;
 let probe;
 let turn;
+let quic;
 try {
   site = await startExampleSite();
   // A second loopback server on another port. An artboard asks it for an image, a stylesheet and a fetch.
@@ -40,6 +42,17 @@ try {
   const webrtc = scope => `(async () => { const Peer = ${scope}.RTCPeerConnection; if (typeof Peer !== 'function') return;
   const peer = new Peer({ iceServers: [{ urls: '${relay}', username: 'user', credential: 'secret' }], iceTransportPolicy: 'relay' });
   peer.createDataChannel('probe'); await peer.setLocalDescription(await peer.createOffer()); })();`;
+  // A UDP listener on a fourth loopback port, as a WebTransport server. WebTransport opens QUIC over UDP, which the
+  // route does not see (measured 2026-11-08: 4 datagrams arrived, also with --disable-quic). The artboard tries it in
+  // the page, in an iframe and in a worker, where no init script runs. The proxy that closes every connection is the
+  // guard in the worker. The listener must see 0 datagrams.
+  let quicDatagrams = 0;
+  quic = createSocket('udp4');
+  quic.on('message', () => { quicDatagrams++; });
+  await new Promise(done => quic.bind(0, '127.0.0.1', done));
+  const transport = `try { const session = new WebTransport('https://127.0.0.1:${quic.address().port}/probe'); session.ready.catch(() => {}); session.closed.catch(() => {}); } catch {}`;
+  const webtransport = scope => `(() => { const Transport = ${scope}.WebTransport; if (typeof Transport !== 'function') return; ${transport.replace('new WebTransport', 'new Transport')} })();`;
+  const worker = `new Worker(URL.createObjectURL(new Blob([${JSON.stringify(transport)}], { type: 'text/javascript' })));`;
 
   const root = join(directory, 'canvas');
   await cp(new URL('../fixtures/claude-design/', import.meta.url), root, { recursive: true });
@@ -49,8 +62,11 @@ try {
 <section class="card"><h1>{{hold}}</h1></section></main></x-dc>
 <script>fetch('${other}/fetch').catch(() => {}); fetch('https://example.invalid/fetch').catch(() => {});</script>
 <script>${webrtc('window')}</script>
-<script>const frame = document.createElement('iframe'); document.body.append(frame); ${webrtc('frame.contentWindow')}</script>
-<script>setTimeout(() => { document.querySelector('.card h1').textContent = 'Probe'; frame.remove(); }, 1500);</script></body></html>`);
+<script>const frame = document.createElement('iframe'); document.body.append(frame); ${webrtc('frame.contentWindow')} ${webtransport('frame.contentWindow')}</script>
+<script>${webtransport('window')} ${worker}</script>
+<script>// The hole resolves only when the init script removed the interfaces in the page and in the iframe. Else the import fails.
+const gone = scope => ['RTCPeerConnection', 'webkitRTCPeerConnection', 'WebTransport'].every(name => scope[name] === undefined);
+setTimeout(() => { if (gone(window) && gone(frame.contentWindow)) document.querySelector('.card h1').textContent = 'Probe'; frame.remove(); }, 1500);</script></body></html>`);
 
   const configPath = join(directory, 'config.json');
   const config = {
@@ -77,6 +93,7 @@ try {
   assert.equal(probeRequests, 0, 'No request reaches another server.');
   await new Promise(done => setTimeout(done, 500));
   assert.equal(turnConnections, 0, 'No WebRTC connection reaches another loopback port.');
+  assert.equal(quicDatagrams, 0, 'No WebTransport datagram reaches another loopback port.');
   const manifest = JSON.parse(await readFile(first.manifestPath, 'utf8'));
   const entry = (target, viewport) => manifest.captures.find(row => row.targetId === target && row.viewportId === viewport);
   const runtimeSha256 = sha256(await readFile(join(root, 'project/support.js')));
@@ -140,5 +157,6 @@ try {
   await site?.close();
   await new Promise(done => (probe ? probe.close(() => done()) : done()));
   await new Promise(done => (turn ? turn.close(() => done()) : done()));
+  await new Promise(done => (quic ? quic.close(() => done()) : done()));
   await rm(directory, { recursive: true, force: true });
 }

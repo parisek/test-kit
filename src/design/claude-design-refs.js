@@ -105,18 +105,35 @@ export function captureClip(viewportWidth, box) {
   return { x: 0, y: top, width: viewportWidth, height: bottom - top };
 }
 
+// Chromium switches that close the gaps a request route does not see. A host name never resolves, so a
+// preconnect or a prefetch cannot reach a remote host. WebRTC uses no direct UDP. This switch alone still lets a TURN
+// connection over TCP through (measured 2026-11-08), so it is not a guard on its own.
+export const CHROMIUM_ARGS = Object.freeze(['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']);
+
+// The switches of one import: the fixed ones, plus a proxy on `proxyPort` that closes every connection and a bypass
+// for the import server only. `<-loopback>` removes the implicit loopback bypass of Chromium: without it, a
+// connection to another loopback port skips the proxy (measured 2026-11-08: WebTransport from a worker sent 4 QUIC
+// datagrams with the plain bypass and 0 with `<-loopback>`). Both ports come from the caller's own servers.
+export function chromiumArgs(serverPort, proxyPort) {
+  for (const port of [serverPort, proxyPort]) if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('A browser port must be a TCP port number.');
+  return [...CHROMIUM_ARGS, `--proxy-server=http://127.0.0.1:${proxyPort}`, `--proxy-bypass-list=<-loopback>;127.0.0.1:${serverPort}`];
+}
+
 // The WebRTC interfaces a page could use to open a connection that the request route does not see: a TURN server
 // over TCP or TLS is reachable even with `--force-webrtc-ip-handling-policy=disable_non_proxied_udp` (measured
-// 2026-11-08: an artboard sent a STUN Allocate to another loopback port). The init script below removes them.
-export const WEBRTC_GLOBALS = Object.freeze(['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription',
+// 2026-11-08: an artboard sent a STUN Allocate to another loopback port). WebTransport opens QUIC over UDP, which the
+// route does not see either (measured 2026-11-08: 4 datagrams to another loopback port; `--disable-quic` does not stop
+// it). `WebSocketStream` is a WebSocket the route may not see. The init script below removes them all.
+export const NETWORK_GLOBALS = Object.freeze(['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription',
   'RTCIceCandidate', 'RTCRtpSender', 'RTCRtpReceiver', 'RTCRtpTransceiver', 'RTCDtlsTransport', 'RTCIceTransport', 'RTCSctpTransport',
   'RTCCertificate', 'RTCDTMFSender', 'RTCEncodedAudioFrame', 'RTCEncodedVideoFrame', 'RTCError', 'RTCErrorEvent', 'RTCPeerConnectionIceEvent',
-  'RTCPeerConnectionIceErrorEvent', 'RTCTrackEvent', 'RTCDataChannelEvent', 'RTCDTMFToneChangeEvent', 'RTCStatsReport']);
+  'RTCPeerConnectionIceErrorEvent', 'RTCTrackEvent', 'RTCDataChannelEvent', 'RTCDTMFToneChangeEvent', 'RTCStatsReport',
+  'WebTransport', 'WebTransportBidirectionalStream', 'WebTransportDatagramDuplexStream', 'WebTransportError', 'WebSocketStream']);
 
 // Runs in every frame before any artboard script. Each name becomes `undefined`, not writable and not configurable,
 // so a page script cannot put the interface back. It is a string, so this file stays free of DOM code.
-export const NO_WEBRTC_SCRIPT = `(() => {
-  for (const name of ${JSON.stringify(WEBRTC_GLOBALS)}) {
+export const NO_SOCKETS_SCRIPT = `(() => {
+  for (const name of ${JSON.stringify(NETWORK_GLOBALS)}) {
     try { Object.defineProperty(globalThis, name, { value: undefined, writable: false, configurable: false, enumerable: false }); } catch {}
   }
 })();`;

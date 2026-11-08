@@ -1,24 +1,23 @@
 // The render part of the `claude-design` provider (R4.6, R5.5). It runs only during `import`.
 // It serves the exported canvas under `root/project/` on 127.0.0.1 and renders each mapped artboard in Chromium.
 // The context route aborts every HTTP request and closes every WebSocket that does not go to that loopback server.
-// WebRTC does not pass the route, so an init script removes it from every frame before any artboard script runs.
+// WebRTC and WebTransport do not pass the route, so an init script removes them from every frame before any artboard
+// script runs, and a proxy that closes every connection guards the browser itself, workers included.
 // The canvas runtime (`project/support.js`) is the file the person or the agent saved. This package never ships,
 // downloads or vendors it: the server only serves the copy it finds.
 import { createServer } from 'node:http';
+import { createServer as createNetServer } from 'node:net';
 import { realpath, open, readFile, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolve, relative, isAbsolute, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { MAX_DESIGN_BYTES, sha256 } from './png.js';
-import { PROJECT_DIR, RUNTIME_FILE, RENDER_STATE, STILL_STYLE, NO_WEBRTC_SCRIPT, servedPathProblem, contentType, captureClip } from './claude-design-refs.js';
+import { PROJECT_DIR, RUNTIME_FILE, RENDER_STATE, STILL_STYLE, NO_SOCKETS_SCRIPT, chromiumArgs, servedPathProblem, contentType, captureClip } from './claude-design-refs.js';
 
 const require = createRequire(import.meta.url);
 
-// Chromium switches that close the gaps a request route does not see. A host name never resolves, so a
-// preconnect or a prefetch cannot reach a remote host. WebRTC uses no direct UDP. The route and the init script below
-// are the main guards: this switch alone still lets a TURN connection over TCP through.
-export const CHROMIUM_ARGS = Object.freeze(['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']);
+export { CHROMIUM_ARGS } from './claude-design-refs.js';
 
 const inside = (base, file) => { const offset = relative(base, file); return offset === '' || (!offset.startsWith('..') && !isAbsolute(offset)); };
 
@@ -106,7 +105,17 @@ export async function startCanvasServer(canvas) {
   });
   await new Promise((done, fail) => { server.once('error', fail); server.listen(0, '127.0.0.1', done); });
   port = server.address().port;
-  return { origin: `http://127.0.0.1:${port}`, base: `http://127.0.0.1:${port}/${token}`, stats, close: () => new Promise(done => { server.close(() => done()); server.closeAllConnections(); }) };
+  return { origin: `http://127.0.0.1:${port}`, port, base: `http://127.0.0.1:${port}/${token}`, stats, close: () => new Promise(done => { server.close(() => done()); server.closeAllConnections(); }) };
+}
+
+// The browser-level guard. Chromium sends every connection that is not to the import server through this proxy,
+// and the proxy closes each connection at once. It reads nothing and answers nothing. `connections` counts them.
+export async function startDeadProxy() {
+  const stats = { connections: 0 };
+  const sockets = new Set();
+  const server = createNetServer(socket => { stats.connections++; sockets.add(socket); socket.on('error', () => {}); socket.destroy(); });
+  await new Promise((done, fail) => { server.once('error', fail); server.listen(0, '127.0.0.1', done); });
+  return { port: server.address().port, stats, close: () => new Promise(done => { for (const socket of sockets) socket.destroy(); server.close(() => done()); }) };
 }
 
 export async function loadChromium() {
@@ -176,10 +185,11 @@ async function renderCell(context, base, { target, viewport, artboard, selector,
 export async function renderCanvas({ canvas, cells, timeoutMs, chromium }) {
   const browserType = chromium ?? (await loadChromium()).chromium;
   const server = await startCanvasServer(canvas);
-  let browser;
+  let browser, proxy;
   let blocked = 0;
   try {
-    browser = await browserType.launch({ headless: true, args: [...CHROMIUM_ARGS] });
+    proxy = await startDeadProxy();
+    browser = await browserType.launch({ headless: true, args: chromiumArgs(server.port, proxy.port) });
     const images = [];
     const viewports = [...new Map(cells.map(cell => [cell.viewport.id, cell.viewport])).values()];
     for (const viewport of viewports) {
@@ -187,7 +197,7 @@ export async function renderCanvas({ canvas, cells, timeoutMs, chromium }) {
         reducedMotion: 'reduce', serviceWorkers: 'block', acceptDownloads: false });
       try {
         // WebRTC goes past the route (a TURN server over TCP), so it is gone before any artboard script runs.
-        await context.addInitScript(NO_WEBRTC_SCRIPT);
+        await context.addInitScript(NO_SOCKETS_SCRIPT);
         await context.routeWebSocket('**/*', socket => socket.close());
         // Only the loopback server under its token answers an HTTP request. Every other one is aborted.
         await context.route('**/*', route => {
@@ -202,6 +212,7 @@ export async function renderCanvas({ canvas, cells, timeoutMs, chromium }) {
     return { images, blocked, served: server.stats.requests, version: browser.version() };
   } finally {
     await browser?.close().catch(() => {});
+    await proxy?.close();
     await server.close();
   }
 }

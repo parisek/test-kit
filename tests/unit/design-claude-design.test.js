@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { request } from 'node:http';
 import { PNG } from 'pngjs';
 import { normalizeConfig, designSettings, settingsHash } from '../../src/config/index.js';
-import { parseArtboardRef, artboardRefProblem, servedPathProblem, contentType, captureClip, RENDER_STATE, NO_WEBRTC_SCRIPT, WEBRTC_GLOBALS } from '../../src/design/claude-design-refs.js';
+import { parseArtboardRef, artboardRefProblem, servedPathProblem, contentType, captureClip, chromiumArgs, RENDER_STATE, NO_SOCKETS_SCRIPT, NETWORK_GLOBALS } from '../../src/design/claude-design-refs.js';
 import { prepareCanvas, startCanvasServer, tokenMatches, readProjectFile, CHROMIUM_ARGS } from '../../src/design/claude-design.js';
 import { importDesign } from '../../src/design/import.js';
 import { sha256 } from '../../src/design/png.js';
@@ -67,18 +67,18 @@ test('server token: equal length and equal bytes only (R4.6)', () => {
   for (const value of ['', 'a'.repeat(31), 'a'.repeat(33), `${'a'.repeat(31)}b`, 'A'.repeat(32), undefined]) assert.equal(tokenMatches(value, token), false, String(value));
 });
 
-test('WebRTC removal: every listed interface becomes undefined and cannot be put back (R4.6)', () => {
+test('socket removal: every listed WebRTC and WebTransport interface becomes undefined and cannot be put back (R4.6)', () => {
   const scope = {};
-  for (const name of WEBRTC_GLOBALS) scope[name] = function Interface() {};
-  new Function('globalThis', NO_WEBRTC_SCRIPT)(scope);
-  for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel']) assert.ok(WEBRTC_GLOBALS.includes(name), name);
-  for (const name of WEBRTC_GLOBALS) {
+  for (const name of NETWORK_GLOBALS) scope[name] = function Interface() {};
+  new Function('globalThis', NO_SOCKETS_SCRIPT)(scope);
+  for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCIceTransport', 'RTCSctpTransport', 'WebTransport', 'WebSocketStream']) assert.ok(NETWORK_GLOBALS.includes(name), name);
+  for (const name of NETWORK_GLOBALS) {
     assert.equal(scope[name], undefined, name);
     const descriptor = Object.getOwnPropertyDescriptor(scope, name);
     assert.equal(descriptor.writable, false, name);
     assert.equal(descriptor.configurable, false, name);
   }
-  assert.ok(Object.isFrozen(WEBRTC_GLOBALS));
+  assert.ok(Object.isFrozen(NETWORK_GLOBALS));
 });
 
 test('project file: reads a regular file and refuses a directory and a missing file (R5.5)', async () => {
@@ -89,6 +89,11 @@ test('project file: reads a regular file and refuses a directory and a missing f
     await assert.rejects(readProjectFile(project, 'ds', 'file'), /not a regular file/);
     await assert.rejects(readProjectFile(project, 'Missing.dc.html', 'artboard'), /artboard is missing/);
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('browser switches: a proxy that closes every connection, bypassed for the import server only (R4.6)', () => {
+  assert.deepEqual(chromiumArgs(4100, 4200), [...CHROMIUM_ARGS, '--proxy-server=http://127.0.0.1:4200', '--proxy-bypass-list=<-loopback>;127.0.0.1:4100']);
+  for (const [server, proxy] of [[0, 4200], [4100, 70000], ['4100', 4200], [4100, 1.5], [4100, Number.NaN]]) assert.throws(() => chromiumArgs(server, proxy), /TCP port number/);
 });
 
 test('render state and Chromium switches are fixed text, not configuration', () => {
@@ -259,12 +264,14 @@ test('import: renders each mapped cell and writes provenance with both hashes (R
     assert.deepEqual(run.tools.map(tool => tool.name), ['test-kit-design']);
     assert.deepEqual(run.settings.artifacts, ['screenshot']);
     assert.equal(calls.launch.length, 1);
-    assert.deepEqual(calls.launch[0].args, [...CHROMIUM_ARGS]);
+    assert.deepEqual(calls.launch[0].args.slice(0, CHROMIUM_ARGS.length), [...CHROMIUM_ARGS]);
+    assert.match(calls.launch[0].args.at(-2), /^--proxy-server=http:\/\/127\.0\.0\.1:\d+$/);
+    assert.match(calls.launch[0].args.at(-1), /^--proxy-bypass-list=<-loopback>;127\.0\.0\.1:\d+$/);
     assert.ok(calls.contexts.every(options => options.reducedMotion === 'reduce' && options.serviceWorkers === 'block'));
     assert.deepEqual(calls.contexts.map(options => options.deviceScaleFactor), [1, 2]);
     assert.equal(calls.routes, 2);
     assert.ok(calls.gotos.every(url => /^http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{32}\/Example\.dc\.html$/.test(url)));
-    assert.deepEqual(calls.initScripts, [NO_WEBRTC_SCRIPT, NO_WEBRTC_SCRIPT], 'Each context removes WebRTC before any artboard script.');
+    assert.deepEqual(calls.initScripts, [NO_SOCKETS_SCRIPT, NO_SOCKETS_SCRIPT], 'Each context removes WebRTC and WebTransport before any artboard script.');
     assert.deepEqual(calls.clips, [{ x: 0, y: 0, width: 40, height: 15 }, { x: 0, y: 0, width: 20, height: 15 }]);
     const root = join(directory, 'canvas/project');
     const artboardSha256 = sha256(await readFile(join(root, 'Example.dc.html')));
