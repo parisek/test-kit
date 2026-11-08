@@ -258,7 +258,9 @@ export function normalizeConfig(input) {
   unique(targets.map(target => target.id), 'target');
   for (const [sideId, side] of Object.entries(sides)) {
     if (side.kind === 'design') continue;
-    checkAfterSweep(side.settle, `sides.${sideId}.settle`);
+    // A static target list: the check reads only effective recipes, so a side list may rely on target lazyImages.
+    // With targetSource the targets come from the catalogue and set no settle, so the side recipe is the effective one.
+    if (targetSource) checkAfterSweep(side.settle, `every targetSource target on side ${sideId}: settle`);
     for (const target of targets) checkAfterSweep({ ...side.settle, ...target.settle, ...target.settleBySide?.[sideId] }, `target ${target.id} on side ${sideId}: settle`);
   }
   const viewports = list(input.viewports, 'viewports', 20, 1).map(viewport => {

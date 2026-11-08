@@ -50,7 +50,12 @@ test('afterSweep needs lazyImages true in the effective recipe of every target a
   assert.doesNotThrow(() => config([{ id: 'a', settleBySide: { local: swept(['header']) } }]));
   assert.throws(() => config([{ id: 'a', settle: { afterSweep: ['header'] } }]), /target a on side local: settle\.afterSweep needs lazyImages true/);
   assert.throws(() => config([{ id: 'a', settle: { afterSweep: ['header'] } }], { settle: { lazyImages: false } }), /afterSweep needs lazyImages true/);
-  assert.throws(() => config([{ id: 'a' }], { settle: { afterSweep: ['header'] } }), /sides\.local\.settle\.afterSweep needs lazyImages true/);
+  // A side list with lazyImages only in target.settle is valid: the effective recipe holds both keys.
+  assert.doesNotThrow(() => config([{ id: 'a', settle: { lazyImages: true } }], { settle: { afterSweep: ['header'] } }, { settle: { afterSweep: ['header'] } }));
+  assert.doesNotThrow(() => config([{ id: 'a', settleBySide: { local: { lazyImages: true } } }], { settle: { afterSweep: ['header'] } }));
+  // A side list that reaches a target with no sweep fails, and the message names that target and that side.
+  assert.throws(() => config([{ id: 'a' }], { settle: { afterSweep: ['header'] } }), /target a on side local: settle\.afterSweep needs lazyImages true/);
+  assert.throws(() => config([{ id: 'a', settle: { lazyImages: true } }, { id: 'b' }], { settle: { afterSweep: ['header'] } }), /target b on side local/);
   // A side override that turns the sweep off fails for that side only, and names it.
   assert.throws(() => config([{ id: 'a', settle: swept(['header']), settleBySide: { production: { lazyImages: false } } }]), /target a on side production/);
   // An empty list waits for nothing, so it is valid without the sweep. It is how a target clears an inherited list.
@@ -94,4 +99,11 @@ test('an old entry without settleHash does not match a recipe with afterSweep (R
 test('a hidden afterSweep selector is not a transient failure (R5.14, R5.15)', () => {
   const error = Object.assign(new Error('The afterSweep selector "header" matches no visible element.'), { code: 'AFTER_SWEEP_NOT_VISIBLE' });
   assert.equal(isTransientFailure({ error, phase: 'settlement' }), false);
+});
+
+test('with targetSource the side recipe is the effective recipe, so the side check names the side (R5.15, R13.3)', () => {
+  const source = side => () => normalizeConfig({ schemaVersion: 1, viewports: [{ id: 'desktop', width: 800, height: 600 }],
+    sides: { local: { origin: 'http://localhost:8080', ...side } }, targetSource: { source: 'styleguide', side: 'local' } });
+  assert.doesNotThrow(source({ settle: swept(['header']) }));
+  assert.throws(source({ settle: { afterSweep: ['header'] } }), /every targetSource target on side local: settle\.afterSweep needs lazyImages true/);
 });
