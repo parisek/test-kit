@@ -268,7 +268,17 @@ The workflow commands `run`, `before`, `after`, `report` and project `perf` refr
 cd test-kit && python3 -m http.server --bind 127.0.0.1 8080
 ```
 
-The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. It copies nothing. Each file is written as a temp file plus a rename, so there is no folder swap and no lock folder. Deleting the store loses the viewer. The next command writes it again. The first refresh writes a marker `.test-kit-viewer`. A store that holds a viewer file name (`index.html`, `app.js`, `style.css`, `favicon.svg`, `index.json`) and no marker is left untouched, and the refresh prints a warning. The guarantee covers files that exist when a refresh checks the store; the store belongs to test-kit, so do not write your own files into it.
+The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. It copies nothing. Each file is written as a temp file plus a rename, so there is no folder swap and no lock folder. Deleting the store loses the viewer. The next command writes it again. The first refresh writes a marker `.test-kit-viewer`. A store that holds a viewer file name (`index.html`, `app.js`, `style.css`, `favicon.svg`, `index.json`) and no marker is left untouched, and the refresh prints a warning. The guarantee covers files that exist when a refresh checks the store; the store belongs to test-kit, so do not write your own files into it, except under `inputs/` (see below).
+
+### Your own files: `test-kit/inputs/`
+
+The folder `test-kit/inputs/` belongs to the project (R12.1, #352). Put the files that you or an agent supply there: crops of captured screenshots, supplied design images. No test-kit command writes, moves or deletes anything under it on its own. The viewer refresh, `history --publish` and `history --prune` ignore it. A command never creates it. A `files` design side may read from it:
+
+```json
+"design": { "kind": "design", "provider": "files", "root": "test-kit/inputs/design" }
+```
+
+The root-escape checks stay: a mapped path with `..` and a symbolic link that leaves the root fail. The store `.gitignore` (`*`) covers `inputs/`, so one ignore line, one web-server deny rule and one deploy exclude cover all test-kit work. A path that you name yourself (`runsRoot`, `--store`, `diff --output`, `--export`, `--publish`) is not checked: do not point it into `inputs/`.
 
 A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server. The viewer guards only report links. A run can hold raw HTML (the Lighthouse `<base>.html` from `perf`), and a static server sends it as active content from the viewer's origin. Use the viewer on a local site only. Never deploy the store. The store is web-reachable when the theme folder is under the local document root. It holds page captures and, while a command runs, a 0600 copy of the configuration.
 

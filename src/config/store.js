@@ -7,6 +7,10 @@ import { randomUUID } from 'node:crypto';
 export const DEFAULT_STORE = 'test-kit';
 export const LEGACY_STORE = '.test-kit';
 export const DEFAULT_RUNS_ROOT = `${DEFAULT_STORE}/runs`;
+// R12.1 (#352): the one folder of a store that belongs to the project, for inputs that test-kit reads and never writes:
+// crops of captured screenshots, supplied design images. No command writes, moves or deletes anything under
+// `<store>/inputs/` on its own. A new store-level write must keep out of it.
+export const STORE_INPUTS = 'inputs';
 
 /**
  * One notice line when the default store is in use and an old `.test-kit/` sits beside the config.

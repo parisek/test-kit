@@ -34,3 +34,5 @@ Capture reads the catalogue and writes the resolved list into the run settings (
 An absent key changes nothing, and the key does not enter the capture settings hash.
 
 A side with `kind: "design"` is a design side (R5.5): `{ kind, provider: "files", root }` or `{ kind, provider: "figma", fileKey }`, with no origin and no token key. A target may set `design`, a map from a viewport ID to a PNG path under `root` (`files`) or to a Figma node ID (`figma`). All design sides share one provider. Validation is pure and refuses an absolute path, a `..` segment, a name that is not a plain `.png` path and an unknown viewport. `designSettings` gives the settings a design run hashes (the provider and the viewports). A configuration without a design side changes nothing.
+
+`store.js` holds the store names (R12.1): `DEFAULT_STORE` (`test-kit`), `DEFAULT_RUNS_ROOT` and `STORE_INPUTS` (`inputs`). `<store>/inputs/` belongs to the project. A new store-level write must keep out of it (#352).

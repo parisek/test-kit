@@ -130,3 +130,45 @@ test('a .gitignore that appears while the store ignore is written is never repla
   assert.equal(await readFile(target, 'utf8'), 'project policy\n');
   assert.deepEqual((await readdir(dir)).filter(name => name.endsWith('.tmp')), []);
 });
+
+test('the store viewer refresh, history --publish and history --prune leave inputs/ unchanged (R12.1, #352)', async t => {
+  const { STORE_INPUTS } = await import('../../src/config/store.js');
+  const { refreshStoreViewer } = await import('../../src/export/store-viewer.js');
+  const { publishHistory } = await import('../../src/export/publish.js');
+  const { pruneHistory } = await import('../../src/history/prune.js');
+  assert.equal(STORE_INPUTS, 'inputs');
+  const dir = await mkdtemp(join(tmpdir(), 'test-kit-reserved-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const store = join(dir, DEFAULT_STORE);
+  const inputs = join(store, STORE_INPUTS);
+  await mkdir(join(inputs, 'design'), { recursive: true });
+  await writeFile(join(inputs, 'design', 'home.png'), 'supplied image');
+  await writeFile(join(inputs, 'index.json'), 'a project file with a viewer file name');
+  await mkdir(join(store, 'reports'), { recursive: true });
+  for (const [id, at] of [['run-old', '2026-01-01T00:00:00Z'], ['run-new', '2026-02-01T00:00:00Z']]) {
+    await mkdir(join(store, 'runs', id), { recursive: true });
+    await writeFile(join(store, 'runs', id, 'run.json'), JSON.stringify({ id, side: 'local', at, state: 'complete', captures: [] }));
+  }
+  const past = new Date('2020-01-01T00:00:00Z');
+  for (const path of ['design/home.png', 'index.json', 'design', '.']) await utimes(join(inputs, path), past, past);
+  const snapshot = async () => {
+    const rows = [];
+    for (const path of ['.', 'design', 'design/home.png', 'index.json']) {
+      const info = await lstat(join(inputs, path));
+      rows.push([path, info.mtimeMs, info.isFile() ? await readFile(join(inputs, path), 'utf8') : (await readdir(join(inputs, path))).sort().join(',')]);
+    }
+    return rows;
+  };
+  const seeded = await snapshot();
+  const viewer = await refreshStoreViewer({ store });
+  assert.deepEqual(viewer.warnings, [], 'A viewer file name under inputs/ does not make the store foreign.');
+  assert.deepEqual(await snapshot(), seeded);
+  assert.ok(!(await readFile(join(store, 'index.json'), 'utf8')).includes(STORE_INPUTS));
+  const published = await publishHistory({ local: store, dir: join(dir, 'published'), cwd: dir, home: tmpdir() });
+  assert.ok(!(await readdir(published.dir)).includes(STORE_INPUTS));
+  assert.deepEqual(await snapshot(), seeded);
+  const pruned = await pruneHistory({ local: store, keep: 1, yes: true });
+  assert.deepEqual(pruned.output.removed, ['run-old']);
+  assert.deepEqual(await snapshot(), seeded);
+  assert.deepEqual((await readdir(store)).filter(name => name === STORE_INPUTS), [STORE_INPUTS]);
+});

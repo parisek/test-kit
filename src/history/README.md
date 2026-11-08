@@ -8,7 +8,7 @@ It does not capture evidence. It deletes files only for `history --prune --yes` 
 `renderHistory(data)` escapes metadata before it writes HTML.
 
 `startHistory({ local, root, port })` starts a loopback server.
-The default store is `test-kit` under `root` (the working directory by default).
+The default store is `test-kit` under `root` (the working directory by default). Listing reads only `runs/` and `reports/`. `--publish` copies only those, and `--prune` removes only `runs/<id>/`, so `<store>/inputs/` stays untouched (R12.1, #352).
 It opens comparison viewers with the package server API.
 It returns `{ server, origin, url, close }`.
 `close()` closes the history server and all comparison viewers.
