@@ -7,6 +7,7 @@ import { ALLOW_ORIGIN_TYPES } from '../capture/helpers.js';
 import { designPathProblem, designRootProblem } from '../design/paths.js';
 import { fileKeyProblem, nodeIdProblem } from '../design/figma-ids.js';
 import { DEFAULT_RUNS_ROOT } from './store.js';
+import { normalizeLayoutParts, normalizeLayoutConfig } from '../layout/declaration.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 function fail(message) { throw new Error(`Invalid configuration: ${message}`); }
@@ -172,9 +173,11 @@ function normalizeTargetSource(value, sides) {
 }
 
 export const DEFAULT_ARTIFACTS = Object.freeze(['screenshot']);
+// The artifacts a capture accepts. `layout` is an addition (R6.14): it runs only when a run selects it (R5.1).
+export const CAPTURE_ARTIFACTS = Object.freeze(['screenshot', 'html', 'status', 'content', 'behavior', 'layout']);
 
 export function normalizeConfig(input) {
-  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior', 'packs', 'targetSource']);
+  object(input, 'config', ['schemaVersion', 'sides', 'targets', 'viewports', 'artifacts', 'checks', 'runsRoot', 'screenshot', 'rules', 'known_diffs', 'content', 'behavior', 'packs', 'targetSource', 'layout']);
   if (input.schemaVersion !== 1) fail('schemaVersion must be 1');
   object(input.sides, 'sides');
   const sideEntries = Object.entries(input.sides);
@@ -210,7 +213,7 @@ export function normalizeConfig(input) {
   const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
   if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');
   const targets = list(targetSource ? [] : input.targets, 'targets', 1000, targetSource ? 0 : 1).map(target => {
-    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design']);
+    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design', 'layout']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
     const result = { id: targetId, kind: target.kind, title: text(target.title ?? targetId, 'target.title') };
@@ -245,6 +248,10 @@ export function normalizeConfig(input) {
       if (!designProviders.length) fail('target.design needs a side of kind "design"');
       result.design = normalizeDesignMap(target.design, designProviders[0]);
     }
+    // R6.14: the parts of the layout artifact. The key is optional and enters no hash.
+    if (target.layout !== undefined) {
+      try { result.layout = normalizeLayoutParts(target.layout); } catch (error) { fail(error.message); }
+    }
     return result;
   });
   unique(targets.map(target => target.id), 'target');
@@ -256,8 +263,8 @@ export function normalizeConfig(input) {
   });
   unique(viewports.map(viewport => viewport.id), 'viewport');
   for (const target of targets) for (const viewportId of Object.keys(target.design ?? {})) if (!viewports.some(viewport => viewport.id === viewportId)) fail(`target ${target.id} design has unknown viewport ${viewportId}`);
-  const artifacts = list(input.artifacts ?? DEFAULT_ARTIFACTS, 'artifacts', 5, 1);
-  if (artifacts.some(kind => !['screenshot', 'html', 'status', 'content', 'behavior'].includes(kind))) fail('unsupported artifact');
+  const artifacts = list(input.artifacts ?? DEFAULT_ARTIFACTS, 'artifacts', CAPTURE_ARTIFACTS.length, 1);
+  if (artifacts.some(kind => !CAPTURE_ARTIFACTS.includes(kind))) fail('unsupported artifact');
   unique(artifacts, 'artifact');
   const checks = list(input.checks ?? [], 'checks', 6).map(value => id(value, 'check ID'));
   unique(checks, 'check');
@@ -290,9 +297,12 @@ export function normalizeConfig(input) {
   behavior.emulate = { ...object(behaviorInput.emulate ?? {}, 'behavior.emulate', ['reducedMotion', 'colorScheme']) };
   if (behavior.emulate.reducedMotion !== undefined && !['reduce', 'no-preference'].includes(behavior.emulate.reducedMotion)) fail('unsupported behavior reducedMotion');
   if (behavior.emulate.colorScheme !== undefined && !['light', 'dark', 'no-preference'].includes(behavior.emulate.colorScheme)) fail('unsupported behavior colorScheme');
+  // R6.15: the comparison policy of the layout artifact. The key is optional and enters no hash.
+  let layout;
+  if (input.layout !== undefined) { try { layout = normalizeLayoutConfig(input.layout); } catch (error) { fail(error.message); } }
   const runsRoot = text(input.runsRoot ?? DEFAULT_RUNS_ROOT, 'runsRoot', 500);
   if (!/^[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)*$/.test(runsRoot) || runsRoot.split('/').some(segment => segment === '.' || segment === '..')) fail('runsRoot must be a plain relative path');
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
-  return freeze({ schemaVersion: 1, sides, targets, ...(targetSource ? { targetSource } : {}), viewports, artifacts: [...artifacts], checks, packs, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
+  return freeze({ schemaVersion: 1, sides, targets, ...(targetSource ? { targetSource } : {}), viewports, artifacts: [...artifacts], checks, packs, content, behavior, runsRoot, screenshot, ...(layout ? { layout } : {}), rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });
 }
