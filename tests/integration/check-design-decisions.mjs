@@ -143,10 +143,20 @@ try {
   assert.equal(refused.code, 1);
   assert.match(refused.error, /fingerprint does not match/);
   await assert.rejects(access(join(directory, 'out/refused')), 'No output directory exists.');
-  // A drift pair needs two design runs of one design side.
+  // A drift pair needs two design runs of one design side, in the order of their imports.
   const mixed = await command(['diff', r2, after.run.id, '--config', configPath, '--kind', 'drift', '--output', 'out/mixed']);
   assert.equal(mixed.code, 1);
   assert.match(mixed.error, /two design runs of the same design side/);
+  await assert.rejects(access(join(directory, 'out/mixed')), 'No output directory exists.');
+  // The reversed order: run B gives the design value, so the later import must be run B. Both runs and times are named.
+  const reversed = await command(['diff', r2, r1, '--config', configPath, '--kind', 'drift', '--output', 'out/reversed']);
+  assert.equal(reversed.code, 1);
+  assert.match(reversed.error, /earlier import as run A/);
+  for (const id of [r1, r2]) {
+    assert.ok(reversed.error.includes(id), `The message names ${id}.`);
+    assert.ok(reversed.error.includes(new Date((await readJson(join(runs, id, 'run.json'))).at).toISOString()), `The message names the time of ${id}.`);
+  }
+  await assert.rejects(access(join(directory, 'out/reversed')), 'No output directory exists.');
   console.log('Design drift, decisions bound to the design value, stale on a moved value, and the convergence gap pass.');
 } finally {
   server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(directory, { recursive: true, force: true });

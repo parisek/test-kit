@@ -241,6 +241,17 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	// R3.12: `drift` is what changed in a design between two imports of one design side. Any other pair is refused
 	// before the output directory exists, so the kind never names a pair it does not describe.
 	if (kind === 'drift' && !(isDesignRun(a) && isDesignRun(b) && a.side === b.side)) throw new Error('A drift pair needs two design runs of the same design side.');
+	// R3.12: run B gives the design value (R9.14), so run A must be the earlier import. A reversed pair would bind the
+	// older value. The time is the `at` of each run.json. The message prints the parsed time, never the stored text.
+	if (kind === 'drift') {
+		const time = (run) => {
+			const value = typeof run.at === 'string' ? Date.parse(run.at) : Number.NaN;
+			if (Number.isNaN(value)) throw new Error(`A drift pair needs the import time of each run. Run ${run.id} has no valid time.`);
+			return value;
+		};
+		const timeA = time(a), timeB = time(b);
+		if (timeA >= timeB) throw new Error(`A drift pair needs the earlier import as run A. Run A ${a.id} is from ${new Date(timeA).toISOString()} and run B ${b.id} is from ${new Date(timeB).toISOString()}. Give the earlier run first.`);
+	}
 	// R9.14: the design side of the pair gives the design value of a layout difference. In a drift pair both runs are
 	// design runs, and run B is the newer design. A pair without a design run has no design value and takes no decision.
 	const designSide = isDesignRun(b) ? 'b' : isDesignRun(a) ? 'a' : null;

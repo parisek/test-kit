@@ -153,7 +153,7 @@ test-kit diff <revision-1> <revision-2> --kind drift --output tests/visual/drift
 test-kit diff <revision-2> <site-run> --output tests/visual/gap
 ```
 
-`--kind drift` needs two runs of one design side (R3.12). Decide per layout difference with `record-decision`. It writes `test-kit.decisions.json` beside the config. Commit the file.
+`--kind drift` needs two runs of one design side, the earlier import first (R3.12). Decide per layout difference with `record-decision`. It writes `test-kit.decisions.json` beside the config. Commit the file.
 
 ```sh
 test-kit record-decision tests/visual/drift/report.json --target home --viewport desktop --part title --property type.size \
