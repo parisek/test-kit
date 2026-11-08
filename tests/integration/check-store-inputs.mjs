@@ -85,6 +85,7 @@ try {
     // also writes and removes <store>/.runtime-<uuid>.json at the store root.
     ['perf', ['perf', '--side', 'local', '--targets', 'home', '--config', configPath, '--allow-high-load']],
     ['perf --store', ['perf', '--side', 'local', '--targets', 'home', '--config', configPath, '--store', DEFAULT_STORE, '--allow-high-load']],
+    ['history --export', ['history', '--config', configPath, '--export', 'out/history']],
     ['history --publish', ['history', '--config', configPath, '--publish', 'out/published']],
     ['history --prune', ['history', '--config', configPath, '--prune']],
     ['history --prune --yes', ['history', '--config', configPath, '--prune', '--keep', '1', '--yes']],
@@ -103,6 +104,7 @@ try {
   const index = await readFile(join(directory, DEFAULT_STORE, 'index.json'), 'utf8');
   assert.ok(!index.includes(INPUTS_DIR), 'index.json does not list inputs/.');
   assert.ok(!(await readdir(join(directory, 'out', 'published'))).includes(INPUTS_DIR), 'history --publish does not copy inputs/.');
+  assert.ok(!(await readdir(join(directory, 'out', 'history'))).includes(INPUTS_DIR), 'history --export does not copy inputs/.');
   assert.ok(!JSON.stringify(results['history --prune']).includes(INPUTS_DIR), 'The prune listing does not name inputs/.');
   assert.ok(results['history --prune --yes'].removed.length > 0, 'The prune removed runs, so it ran on this store.');
   assert.ok(results.import.images === 1, 'import reads the design image under inputs/.');
