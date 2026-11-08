@@ -385,6 +385,28 @@ test-kit query report-title/report.json --target home --viewport desktop --artif
 The original run manifests and snapshots stay unchanged (R7.1, R9.6, R12.3).
 Nothing removes snapshots automatically (specification section 17, item 4).
 
+### Layout records
+
+Add `layout` to `artifacts`, for example `--artifacts screenshot,layout`. It is off by default (R5.1). Declare the parts on a target:
+
+```json
+{ "id": "home", "kind": "page", "path": "/", "layout": { "parts": [
+  { "id": "title", "selector": "h1" },
+  { "id": "card", "selector": ".card", "repeat": true }
+] } }
+```
+
+After the screenshot, capture reads one record for each part, or for each of the first 50 matches of a `repeat` part: box size, flex and grid layout, padding, type, paint, and the `:root` token of each value when its name fits the property (`--spacing-*` for a gap, `--text-*` for a font size). It stores `layout/<target>/<viewport>.json`. A target without `layout` stores nothing.
+
+`diff` compares the records part by part: 1 px for a length, 0.01 for a line-height ratio, exact for keywords, colours and font families. The same token on both sides is a match. When the two sides name a token differently, map the name of side A to the name of side B in `"layout": { "aliases": { "--space-4": "--spacing-4" } }`. A repeat with another count gives one `count` difference. Each difference is an unexplained finding with the check `layout`.
+
+```bash
+test-kit summary report/report.json
+test-kit query report/report.json --target home --viewport desktop --artifact layout --max-lines 20
+```
+
+The viewer has no layout view yet: the findings show in its findings list. The artifact applies to browser sides only (R6.14, R6.15, #350).
+
 ### Project behavior contracts
 
 Add `behavior` to `artifacts`. Set `behavior.source` to a project directory.
