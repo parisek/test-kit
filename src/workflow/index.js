@@ -33,7 +33,7 @@ export function resolveStore(options = {}) {
   if (typeof store !== 'string' || store.startsWith('/') || /[\\\x00-\x1f]/.test(store) || store.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('The store must be a plain relative path.');
   const path = resolve(configDir, store);
   // R12.6: a store inside `inputs/` of the default store would write into the project files.
-  assertOutsideInputs(path, [resolve(configDir, DEFAULT_STORE)], 'The store');
+  assertOutsideInputs(path, [resolve(configDir, DEFAULT_STORE)], '--store');
   return path;
 }
 export async function ensureStore(options = {}) {

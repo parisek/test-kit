@@ -86,7 +86,7 @@ test('config: runsRoot must not be inside test-kit/inputs (R12.6)', () => {
 
 test('--store must not be inside test-kit/inputs (R12.6)', () => {
   const config = join(tmpdir(), 'p', 'test-kit.config.json');
-  for (const store of ['test-kit/inputs', 'test-kit/inputs/store']) assert.throws(() => resolveStore({ config, store }), /The store must not be inside inputs\//, store);
+  for (const store of ['test-kit/inputs', 'test-kit/inputs/store']) assert.throws(() => resolveStore({ config, store }), /--store must not be inside inputs\//, store);
   assert.equal(resolveStore({ config, store: 'test-kit-other' }), join(tmpdir(), 'p', 'test-kit-other'));
 });
 
