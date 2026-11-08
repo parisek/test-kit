@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, readdir, rm, cp, symlink } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { createServer as createTcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PNG } from 'pngjs';
@@ -19,6 +20,7 @@ import { sha256 } from '../../src/design/png.js';
 const directory = await mkdtemp(join(tmpdir(), 'test-kit-claude-design-'));
 let site;
 let probe;
+let turn;
 try {
   site = await startExampleSite();
   // A second loopback server on another port. An artboard asks it for an image, a stylesheet and a fetch.
@@ -27,14 +29,28 @@ try {
   probe = createServer((request, response) => { probeRequests++; response.writeHead(200, { 'Content-Type': 'text/plain' }); response.end('probe'); });
   await new Promise(done => probe.listen(0, '127.0.0.1', done));
   const other = `http://127.0.0.1:${probe.address().port}`;
+  // A plain TCP listener on a third loopback port, as a TURN server. The artboard asks WebRTC for a relay over TCP there,
+  // in the page and in an iframe it creates. `--force-webrtc-ip-handling-policy` allows that connection, and the
+  // request route does not see it (measured 2026-11-08: a STUN Allocate arrived). The import removes WebRTC from every
+  // frame before any artboard script runs, so this listener must see 0 connections.
+  let turnConnections = 0;
+  turn = createTcpServer(socket => { turnConnections++; socket.on('error', () => {}); socket.destroy(); });
+  await new Promise(done => turn.listen(0, '127.0.0.1', done));
+  const relay = `turn:127.0.0.1:${turn.address().port}?transport=tcp`;
+  const webrtc = scope => `(async () => { const Peer = ${scope}.RTCPeerConnection; if (typeof Peer !== 'function') return;
+  const peer = new Peer({ iceServers: [{ urls: '${relay}', username: 'user', credential: 'secret' }], iceTransportPolicy: 'relay' });
+  peer.createDataChannel('probe'); await peer.setLocalDescription(await peer.createOffer()); })();`;
 
   const root = join(directory, 'canvas');
   await cp(new URL('../fixtures/claude-design/', import.meta.url), root, { recursive: true });
   await writeFile(join(root, 'project/Probe.dc.html'), `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="ds/tokens.css">
 <link rel="stylesheet" href="${other}/x.css"><script src="./support.js"></script></head>
 <body><x-dc><main class="page"><img src="${other}/x.png" alt=""><img src="https://example.invalid/x.png" alt="">
-<section class="card"><h1>Probe</h1></section></main></x-dc>
-<script>fetch('${other}/fetch').catch(() => {}); fetch('https://example.invalid/fetch').catch(() => {});</script></body></html>`);
+<section class="card"><h1>{{hold}}</h1></section></main></x-dc>
+<script>fetch('${other}/fetch').catch(() => {}); fetch('https://example.invalid/fetch').catch(() => {});</script>
+<script>${webrtc('window')}</script>
+<script>const frame = document.createElement('iframe'); document.body.append(frame); ${webrtc('frame.contentWindow')}</script>
+<script>setTimeout(() => { document.querySelector('.card h1').textContent = 'Probe'; frame.remove(); }, 1500);</script></body></html>`);
 
   const configPath = join(directory, 'config.json');
   const config = {
@@ -59,6 +75,8 @@ try {
   assert.equal(first.state, 'complete');
   assert.equal(first.images, 4);
   assert.equal(probeRequests, 0, 'No request reaches another server.');
+  await new Promise(done => setTimeout(done, 500));
+  assert.equal(turnConnections, 0, 'No WebRTC connection reaches another loopback port.');
   const manifest = JSON.parse(await readFile(first.manifestPath, 'utf8'));
   const entry = (target, viewport) => manifest.captures.find(row => row.targetId === target && row.viewportId === viewport);
   const runtimeSha256 = sha256(await readFile(join(root, 'project/support.js')));
@@ -121,5 +139,6 @@ try {
 } finally {
   await site?.close();
   await new Promise(done => (probe ? probe.close(() => done()) : done()));
+  await new Promise(done => (turn ? turn.close(() => done()) : done()));
   await rm(directory, { recursive: true, force: true });
 }

@@ -1,32 +1,42 @@
 // The render part of the `claude-design` provider (R4.6, R5.5). It runs only during `import`.
 // It serves the exported canvas under `root/project/` on 127.0.0.1 and renders each mapped artboard in Chromium.
-// Every request that does not go to that loopback server is aborted, so no connection leaves the machine.
+// The context route aborts every HTTP request and closes every WebSocket that does not go to that loopback server.
+// WebRTC does not pass the route, so an init script removes it from every frame before any artboard script runs.
 // The canvas runtime (`project/support.js`) is the file the person or the agent saved. This package never ships,
 // downloads or vendors it: the server only serves the copy it finds.
 import { createServer } from 'node:http';
-import { realpath, open, readFile } from 'node:fs/promises';
+import { realpath, open, readFile, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolve, relative, isAbsolute, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { MAX_DESIGN_BYTES, sha256 } from './png.js';
-import { PROJECT_DIR, RUNTIME_FILE, RENDER_STATE, STILL_STYLE, servedPathProblem, contentType, captureClip } from './claude-design-refs.js';
+import { PROJECT_DIR, RUNTIME_FILE, RENDER_STATE, STILL_STYLE, NO_WEBRTC_SCRIPT, servedPathProblem, contentType, captureClip } from './claude-design-refs.js';
 
 const require = createRequire(import.meta.url);
 
 // Chromium switches that close the gaps a request route does not see. A host name never resolves, so a
-// preconnect or a prefetch cannot reach a remote host. WebRTC uses no direct UDP. The route below is the main guard.
+// preconnect or a prefetch cannot reach a remote host. WebRTC uses no direct UDP. The route and the init script below
+// are the main guards: this switch alone still lets a TURN connection over TCP through.
 export const CHROMIUM_ARGS = Object.freeze(['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']);
 
 const inside = (base, file) => { const offset = relative(base, file); return offset === '' || (!offset.startsWith('..') && !isAbsolute(offset)); };
 
 // Read one file under the real `project/` directory. The real path must stay inside it: `..` and a symlink that
 // leaves it are refused. The file must be a regular file of at most 40 MiB. Errors name the path, never its bytes.
+// The open does not follow a symbolic link in the last name, and the opened file must be the file the real-path
+// check saw (same device and inode). A directory higher up that changes between the check and the open is an
+// accepted local risk (R5.5): `project/` is the person's own export, and who can write there can edit the artboards.
 export async function readProjectFile(project, path, what) {
   let file;
   try { file = await realpath(resolve(project, path)); } catch { throw Object.assign(new Error(`The ${what} is missing: ${PROJECT_DIR}/${path}`), { code: 'ENOENT' }); }
   if (!inside(project, file) || file === project) throw new Error(`The ${what} escapes ${PROJECT_DIR}/: ${path}`);
-  const handle = await open(file, 'r');
+  let seen, handle;
+  try { seen = await stat(file); handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)); }
+  catch { throw new Error(`The ${what} cannot be opened: ${PROJECT_DIR}/${path}`); }
   try {
     const info = await handle.stat();
+    if (info.dev !== seen.dev || info.ino !== seen.ino) throw new Error(`The ${what} changed during the check: ${PROJECT_DIR}/${path}`);
     if (!info.isFile()) throw new Error(`The ${what} is not a regular file: ${PROJECT_DIR}/${path}`);
     if (info.size > MAX_DESIGN_BYTES) throw new Error(`The ${what} exceeds the file size limit: ${PROJECT_DIR}/${path}`);
     const bytes = await handle.readFile();
@@ -56,10 +66,19 @@ export async function prepareCanvas(root, artboards) {
   return { project, runtime, runtimeSha256: sha256(runtime), artboards: files };
 }
 
-// The loopback server. GET and HEAD only, the Host header must name the server, the path passes
-// `servedPathProblem` and then the real-path check. No listing, no redirect. `requests` counts answered requests.
+// True when `segment` is the token. The compare takes the same time for every segment of the token length.
+export function tokenMatches(segment, token) {
+  const given = Buffer.from(String(segment)), expected = Buffer.from(token);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
+// The loopback server. GET and HEAD only, the Host header must name the server, the first path segment must be the
+// random token of this server, and the rest passes `servedPathProblem` and then the real-path check. Any other path
+// is 404, so a local process that finds the port cannot read `project/` without the token. No listing, no redirect.
+// `requests` counts answered requests. `base` is the origin with the token: the browser loads everything under it.
 export async function startCanvasServer(canvas) {
   let port = 0;
+  const token = randomBytes(16).toString('hex');
   const stats = { requests: 0, refused: 0 };
   const server = createServer(async (request, response) => {
     const refuse = (status) => { stats.refused++; response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); response.end(); };
@@ -67,7 +86,10 @@ export async function startCanvasServer(canvas) {
     if (request.headers.host !== `127.0.0.1:${port}`) return refuse(403);
     const target = String(request.url ?? '');
     if (!target.startsWith('/')) return refuse(400);
-    const { path, problem } = servedPathProblem(target.split(/[?#]/, 1)[0]);
+    const pathname = target.split(/[?#]/, 1)[0];
+    const at = pathname.indexOf('/', 1);
+    if (at === -1 || !tokenMatches(pathname.slice(1, at), token)) return refuse(404);
+    const { path, problem } = servedPathProblem(pathname.slice(at));
     if (problem) return refuse(404);
     let bytes;
     if (path === RUNTIME_FILE) bytes = canvas.runtime;
@@ -81,7 +103,7 @@ export async function startCanvasServer(canvas) {
   });
   await new Promise((done, fail) => { server.once('error', fail); server.listen(0, '127.0.0.1', done); });
   port = server.address().port;
-  return { origin: `http://127.0.0.1:${port}`, stats, close: () => new Promise(done => { server.close(() => done()); server.closeAllConnections(); }) };
+  return { origin: `http://127.0.0.1:${port}`, base: `http://127.0.0.1:${port}/${token}`, stats, close: () => new Promise(done => { server.close(() => done()); server.closeAllConnections(); }) };
 }
 
 export async function loadChromium() {
@@ -94,10 +116,10 @@ export async function loadChromium() {
   }
 }
 
-const artboardUrl = (origin, artboard) => `${origin}/${artboard.split('/').map(encodeURIComponent).join('/')}`;
+const artboardUrl = (base, artboard) => `${base}/${artboard.split('/').map(encodeURIComponent).join('/')}`;
 
 // Render one cell. Throws an Error that names the target, the viewport and the reference.
-async function renderCell(context, origin, { target, viewport, artboard, selector, source }, timeoutMs) {
+async function renderCell(context, base, { target, viewport, artboard, selector, source }, timeoutMs) {
   const name = `target ${target.id}, viewport ${viewport.id}: ${source}`;
   const page = await context.newPage();
   let scriptError = false;
@@ -106,7 +128,7 @@ async function renderCell(context, origin, { target, viewport, artboard, selecto
     page.setDefaultTimeout(timeoutMs);
     page.setDefaultNavigationTimeout(timeoutMs);
     let response;
-    try { response = await page.goto(artboardUrl(origin, artboard), { waitUntil: 'load' }); } catch { throw new Error(`Artboard did not load for ${name}.`); }
+    try { response = await page.goto(artboardUrl(base, artboard), { waitUntil: 'load' }); } catch { throw new Error(`Artboard did not load for ${name}.`); }
     if (!response || response.status() !== 200) throw new Error(`Artboard did not load for ${name} (HTTP ${response?.status() ?? 'none'}).`);
     try {
       await page.waitForFunction(`(() => { const state = ${RENDER_STATE}; return !state.holes && !state.emptyImports; })()`, null, { timeout: timeoutMs, polling: 100 });
@@ -161,15 +183,17 @@ export async function renderCanvas({ canvas, cells, timeoutMs, chromium }) {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.deviceScaleFactor ?? 1,
         reducedMotion: 'reduce', serviceWorkers: 'block', acceptDownloads: false });
       try {
+        // WebRTC goes past the route (a TURN server over TCP), so it is gone before any artboard script runs.
+        await context.addInitScript(NO_WEBRTC_SCRIPT);
         await context.routeWebSocket('**/*', socket => socket.close());
-        // Offline by construction: only the loopback server answers. Everything else is aborted.
+        // Only the loopback server under its token answers an HTTP request. Every other one is aborted.
         await context.route('**/*', route => {
           const url = route.request().url();
-          if (url === server.origin || url.startsWith(`${server.origin}/`)) return route.continue();
+          if (url.startsWith(`${server.base}/`)) return route.continue();
           blocked++;
           return route.abort('blockedbyclient');
         });
-        for (const cell of cells.filter(item => item.viewport.id === viewport.id)) images.push({ ...cell, bytes: await renderCell(context, server.origin, cell, timeoutMs) });
+        for (const cell of cells.filter(item => item.viewport.id === viewport.id)) images.push({ ...cell, bytes: await renderCell(context, server.base, cell, timeoutMs) });
       } finally { await context.close().catch(() => {}); }
     }
     return { images, blocked, served: server.stats.requests, version: browser.version() };

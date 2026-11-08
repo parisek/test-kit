@@ -3,14 +3,14 @@
 // The real render runs in tests/integration/check-design-claude-design.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink, rm, cp } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink, rm, cp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request } from 'node:http';
 import { PNG } from 'pngjs';
 import { normalizeConfig, designSettings, settingsHash } from '../../src/config/index.js';
-import { parseArtboardRef, artboardRefProblem, servedPathProblem, contentType, captureClip, RENDER_STATE } from '../../src/design/claude-design-refs.js';
-import { prepareCanvas, startCanvasServer, CHROMIUM_ARGS } from '../../src/design/claude-design.js';
+import { parseArtboardRef, artboardRefProblem, servedPathProblem, contentType, captureClip, RENDER_STATE, NO_WEBRTC_SCRIPT, WEBRTC_GLOBALS } from '../../src/design/claude-design-refs.js';
+import { prepareCanvas, startCanvasServer, tokenMatches, readProjectFile, CHROMIUM_ARGS } from '../../src/design/claude-design.js';
 import { importDesign } from '../../src/design/import.js';
 import { sha256 } from '../../src/design/png.js';
 
@@ -59,6 +59,36 @@ test('clip: a band at x = 0, the viewport wide, so the image width is viewport x
   assert.deepEqual(captureClip(390, { top: -5, bottom: 20 }), { x: 0, y: 0, width: 390, height: 20 });
   assert.equal(captureClip(390, { top: 10, bottom: 10 }), null);
   assert.equal(captureClip(390, { top: Number.NaN, bottom: 10 }), null);
+});
+
+test('server token: equal length and equal bytes only (R4.6)', () => {
+  const token = 'a'.repeat(32);
+  assert.equal(tokenMatches(token, token), true);
+  for (const value of ['', 'a'.repeat(31), 'a'.repeat(33), `${'a'.repeat(31)}b`, 'A'.repeat(32), undefined]) assert.equal(tokenMatches(value, token), false, String(value));
+});
+
+test('WebRTC removal: every listed interface becomes undefined and cannot be put back (R4.6)', () => {
+  const scope = {};
+  for (const name of WEBRTC_GLOBALS) scope[name] = function Interface() {};
+  new Function('globalThis', NO_WEBRTC_SCRIPT)(scope);
+  for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel']) assert.ok(WEBRTC_GLOBALS.includes(name), name);
+  for (const name of WEBRTC_GLOBALS) {
+    assert.equal(scope[name], undefined, name);
+    const descriptor = Object.getOwnPropertyDescriptor(scope, name);
+    assert.equal(descriptor.writable, false, name);
+    assert.equal(descriptor.configurable, false, name);
+  }
+  assert.ok(Object.isFrozen(WEBRTC_GLOBALS));
+});
+
+test('project file: reads a regular file and refuses a directory and a missing file (R5.5)', async () => {
+  const directory = await workspace();
+  try {
+    const project = await realpath(join(directory, 'canvas/project'));
+    assert.match((await readProjectFile(project, 'Example.dc.html', 'artboard')).toString(), /<x-dc>/);
+    await assert.rejects(readProjectFile(project, 'ds', 'file'), /not a regular file/);
+    await assert.rejects(readProjectFile(project, 'Missing.dc.html', 'artboard'), /artboard is missing/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test('render state and Chromium switches are fixed text, not configuration', () => {
@@ -150,21 +180,30 @@ test('loopback server: serves project/ only, from 127.0.0.1, and refuses every e
     const canvas = await prepareCanvas(root, ['Example.dc.html']);
     server = await startCanvasServer(canvas);
     assert.match(server.origin, /^http:\/\/127\.0\.0\.1:\d+$/);
-    const page = await get(server.origin, '/Example.dc.html');
+    // Every path starts with the random token of this server (32 hex digits). Without it, every file is 404.
+    const token = server.base.slice(server.origin.length + 1);
+    assert.match(token, /^[0-9a-f]{32}$/);
+    const other = await startCanvasServer(canvas);
+    assert.notEqual(other.base.slice(other.origin.length + 1), token, 'Each server draws its own token.');
+    await other.close();
+    for (const path of ['/Example.dc.html', '/support.js', `/${token}`, `/${token.slice(1)}/Example.dc.html`, `/${token}0/Example.dc.html`, `/${token.toUpperCase()}/Example.dc.html`, `/x/${token}/Example.dc.html`])
+      assert.equal((await get(server.origin, path)).status, 404, path);
+    const at = path => `/${token}${path}`;
+    const page = await get(server.origin, at('/Example.dc.html'));
     assert.equal(page.status, 200);
     assert.equal(page.type, 'text/html; charset=utf-8');
     assert.match(page.body, /<x-dc>/);
-    assert.equal((await get(server.origin, '/ds/tokens.css')).type, 'text/css; charset=utf-8');
-    assert.equal((await get(server.origin, '/support.js?v=1')).status, 200);
+    assert.equal((await get(server.origin, at('/ds/tokens.css'))).type, 'text/css; charset=utf-8');
+    assert.equal((await get(server.origin, at('/support.js?v=1'))).status, 200);
     // The artboard bytes are the bytes read at the check, so a later edit does not reach the render.
     await writeFile(join(root, 'project/Example.dc.html'), '<p>changed</p>');
-    assert.match((await get(server.origin, '/Example.dc.html')).body, /<x-dc>/);
+    assert.match((await get(server.origin, at('/Example.dc.html'))).body, /<x-dc>/);
     for (const path of ['/', '/../beside.txt', '/%2e%2e/beside.txt', '/ds/%2e%2e/%2e%2e/beside.txt', '/link.txt', '/.hidden', '/nothing.css', '/ds', '/a%2f..%2fbeside.txt'])
-      assert.equal((await get(server.origin, path)).status, 404, path);
+      assert.equal((await get(server.origin, at(path))).status, 404, path);
     assert.equal((await get(server.origin, 'http://example.com/Example.dc.html')).status, 400);
-    assert.equal((await get(server.origin, '/Example.dc.html', { method: 'POST' })).status, 405);
-    assert.equal((await get(server.origin, '/Example.dc.html', { host: 'localhost' })).status, 403);
-    assert.equal((await get(server.origin, '/Example.dc.html', { host: 'attacker.example' })).status, 403);
+    assert.equal((await get(server.origin, at('/Example.dc.html'), { method: 'POST' })).status, 405);
+    assert.equal((await get(server.origin, at('/Example.dc.html'), { host: 'localhost' })).status, 403);
+    assert.equal((await get(server.origin, at('/Example.dc.html'), { host: 'attacker.example' })).status, 403);
   } finally {
     await server?.close();
     await rm(directory, { recursive: true, force: true });
@@ -179,7 +218,7 @@ function png(width, height) {
 
 // A stub browser with the Playwright surface the provider uses. It records what the provider asked for.
 function stubChromium({ fail } = {}) {
-  const calls = { launch: [], contexts: [], gotos: [], clips: [], routes: 0 };
+  const calls = { launch: [], contexts: [], gotos: [], clips: [], routes: 0, initScripts: [] };
   const chromium = {
     launch: async options => {
       calls.launch.push(options);
@@ -189,6 +228,7 @@ function stubChromium({ fail } = {}) {
         newContext: async options => {
           calls.contexts.push(options);
           return {
+            addInitScript: async script => { calls.initScripts.push(script); },
             routeWebSocket: async () => {},
             route: async () => { calls.routes++; },
             close: async () => {},
@@ -223,7 +263,8 @@ test('import: renders each mapped cell and writes provenance with both hashes (R
     assert.ok(calls.contexts.every(options => options.reducedMotion === 'reduce' && options.serviceWorkers === 'block'));
     assert.deepEqual(calls.contexts.map(options => options.deviceScaleFactor), [1, 2]);
     assert.equal(calls.routes, 2);
-    assert.ok(calls.gotos.every(url => /^http:\/\/127\.0\.0\.1:\d+\/Example\.dc\.html$/.test(url)));
+    assert.ok(calls.gotos.every(url => /^http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{32}\/Example\.dc\.html$/.test(url)));
+    assert.deepEqual(calls.initScripts, [NO_WEBRTC_SCRIPT, NO_WEBRTC_SCRIPT], 'Each context removes WebRTC before any artboard script.');
     assert.deepEqual(calls.clips, [{ x: 0, y: 0, width: 40, height: 15 }, { x: 0, y: 0, width: 20, height: 15 }]);
     const root = join(directory, 'canvas/project');
     const artboardSha256 = sha256(await readFile(join(root, 'Example.dc.html')));

@@ -13,7 +13,7 @@ export const MAX_SERVED_PATH = 1024;
 const SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 
 // An artboard reference is `<name>.dc.html` or `<name>.dc.html#<selector>`. The name is one file directly in `project/`,
-// because an artboard loads `./support.js` beside itself and the server serves the runtime at `/support.js` only.
+// because an artboard loads `./support.js` beside itself and the server serves the runtime at `/<token>/support.js` only.
 // The path characters exclude `#`, so the first `#` ends the path and the selector may hold more (`A.dc.html##hero`).
 // Returns `{ artboard, selector }` (selector is null for the full artboard), or `{ problem }`.
 export function parseArtboardRef(value) {
@@ -104,3 +104,19 @@ export function captureClip(viewportWidth, box) {
   if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom - top < 1) return null;
   return { x: 0, y: top, width: viewportWidth, height: bottom - top };
 }
+
+// The WebRTC interfaces a page could use to open a connection that the request route does not see: a TURN server
+// over TCP or TLS is reachable even with `--force-webrtc-ip-handling-policy=disable_non_proxied_udp` (measured
+// 2026-11-08: an artboard sent a STUN Allocate to another loopback port). The init script below removes them.
+export const WEBRTC_GLOBALS = Object.freeze(['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription',
+  'RTCIceCandidate', 'RTCRtpSender', 'RTCRtpReceiver', 'RTCRtpTransceiver', 'RTCDtlsTransport', 'RTCIceTransport', 'RTCSctpTransport',
+  'RTCCertificate', 'RTCDTMFSender', 'RTCEncodedAudioFrame', 'RTCEncodedVideoFrame', 'RTCError', 'RTCErrorEvent', 'RTCPeerConnectionIceEvent',
+  'RTCPeerConnectionIceErrorEvent', 'RTCTrackEvent', 'RTCDataChannelEvent', 'RTCDTMFToneChangeEvent', 'RTCStatsReport']);
+
+// Runs in every frame before any artboard script. Each name becomes `undefined`, not writable and not configurable,
+// so a page script cannot put the interface back. It is a string, so this file stays free of DOM code.
+export const NO_WEBRTC_SCRIPT = `(() => {
+  for (const name of ${JSON.stringify(WEBRTC_GLOBALS)}) {
+    try { Object.defineProperty(globalThis, name, { value: undefined, writable: false, configurable: false, enumerable: false }); } catch {}
+  }
+})();`;
