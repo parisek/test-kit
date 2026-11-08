@@ -118,6 +118,22 @@ FIGMA_TOKEN=... test-kit import --side design --label refs
 
 `import` exports each node as PNG at the device scale of its viewport, so the frame must be as wide as the viewport (a 1280 px viewport needs a 1280 px frame). It never resizes an image: a frame of another width reads `incompatible` in `diff`. Without `FIGMA_TOKEN`, `import` fails before it makes a request. `diff` and every other command stay offline.
 
+### Claude Design
+
+A design side can render a canvas from Claude Design. The input is a local export, never the hosted canvas, so the tool needs no account and opens no connection that leaves the machine.
+
+Export the canvas project into a directory, for example `design-canvas/`. The directory holds the artboards `project/<name>.dc.html` and their support files under `project/`. It also holds `project/canvas.json`, which `import` does not interpret. An artboard loads its files with relative paths (`./support.js`, `ds/tokens.css`). Save the canvas runtime beside the artboards as `project/support.js`. test-kit never ships or downloads the runtime: it has no stated licence. Keep the export out of git when it holds client work.
+
+```json
+"sides": { "design": { "kind": "design", "provider": "claude-design", "root": "design-canvas" } },
+"targets": [ { "id": "hero", "kind": "component", "path": "/hero",
+  "design": { "desktop-1280": "Example.dc.html##hero", "mobile-390": "ExampleMobile.dc.html" } } ]
+```
+
+A value is an artboard file name directly in `project/`, and optionally `#` and a CSS selector. The text after the first `#` is the whole selector, so an element ID needs its own `#`: `Example.dc.html##hero`. Without a selector, `import` captures the full artboard. With one, it captures the band of the page that holds the one matched element.
+
+`import` reads every file under `project/` once (at most 2000 files, 40 MiB each, 256 MiB together) and serves only those bytes on `127.0.0.1`, so a file saved during the import does not reach the render. It renders each artboard in Chromium at the viewport width and device scale with motion off. It aborts every other HTTP request, closes WebSockets, removes WebRTC and WebTransport from the page before any artboard script runs, and sends any other connection of the browser to a proxy that closes it. A worker runs no init script and keeps WebTransport, and the route does not see a WebSocket from a worker, a shared worker or a speculation-rules prefetch. A fetch from a `window.open('')` popup and a `fetchLater` pass the route. There the proxy is the guard. It waits until no `{{` hole is left in the text and every `x-import` element has content. A cell that does not finish within `screenshot.timeoutMs`, from the load to the screenshot, fails the import by target name, and no run is written. Each image is the viewport wide, so a pair with a captured run never reads `incompatible` for its width. The provenance adds the sha256 of the artboard, of the runtime and of the whole `project/` snapshot (`projectSha256`), so history shows when the canvas, its runtime or a support file changed.
+
 `import` writes a run with the sha256, size, source path and import time of each image (R4.6). A new import after a design change is a new run. `diff` reads the pair as `convergence`. A viewport with no mapped file is `missing`, never `match`. An image whose width is not the viewport width times the device scale is `incompatible`, and the report names both sizes. The tool never crops or resizes an image (R8.15). Read `diff.regions` first: a design tool and a browser draw text in different ways, so the ratio is a compass.
 
 ## Response evidence

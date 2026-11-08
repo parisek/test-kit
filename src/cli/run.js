@@ -175,7 +175,7 @@ export async function dispatch({ command, positions, options }, dependencies = {
     return lines.length ? { ...refreshed, stderr: [...(refreshed.stderr ?? []), ...lines] } : refreshed;
   }
   if (command === 'import') {
-    // R4.6: no browser and no network. The images come from the root of a design side.
+    // R4.6: `files` reads images from the side root. `figma` downloads them. `claude-design` renders artboards on a loopback server.
     const { importDesign } = await import('../design/import.js');
     const result = await importDesign({ configPath: options.config ?? 'test-kit.config.json', side: options.side, label: options.label ?? '', targets: options.target?.split(','), viewports: options.viewport?.split(',') });
     return refreshLowLevel({ output: { id: result.run.id, state: result.run.state, images: result.run.captures.length, manifestPath: result.manifestPath }, exitCode: 0 }, options);

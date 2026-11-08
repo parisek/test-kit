@@ -10,6 +10,8 @@ import { ensureDefaultRunsIgnore } from '../config/store.js';
 import { MAX_DESIGN_BYTES, designProvenance } from './png.js';
 import { downloadFigmaImages, readToken, FigmaError } from './figma.js';
 import { figmaScale } from './figma-ids.js';
+import { parseArtboardRef } from './claude-design-refs.js';
+import { prepareCanvas, renderCanvas } from './claude-design.js';
 
 export const DESIGN_IMPORT_VERSION = '1.0.0';
 
@@ -67,12 +69,33 @@ async function figmaImages(design, cells, importedAt, env, hooks) {
   });
 }
 
+// R5.5: the `claude-design` provider. Every file check runs first: the export layout, the runtime, each artboard and
+// the snapshot of every file under `project/`, which is all the server serves. Only then does the render start, and only then on a loopback server (no connection leaves the machine).
+// The screenshot is a band at x = 0, the viewport wide, so the image is viewport width x scale wide (R8.15).
+async function claudeDesignImages(root, cells, importedAt, timeoutMs, hooks) {
+  const planned = cells.map(cell => {
+    const { artboard, selector, problem } = parseArtboardRef(cell.source);
+    if (problem) throw new Error(`Design reference ${problem}.`);
+    return { ...cell, artboard, selector };
+  });
+  const canvas = await prepareCanvas(root, planned.map(cell => cell.artboard), hooks.limits);
+  const { images } = await renderCanvas({ canvas, cells: planned, timeoutMs, chromium: hooks.chromium });
+  return images.map(({ target, viewport, source, artboard, bytes }) => {
+    let provenance;
+    try {
+      provenance = designProvenance({ source, importedAt, bytes, provider: 'claude-design', extra: { artboardSha256: canvas.artboards.get(artboard).sha256, runtimeSha256: canvas.runtimeSha256, projectSha256: canvas.projectSha256 } });
+    } catch (error) { throw new Error(`${error.message} (${source})`); }
+    return { target, viewport, bytes, provenance };
+  });
+}
+
 // R4.6: import the images of one design side into an immutable run.
 // The work is all-or-nothing: any path, file, token or request problem fails the import before a run directory exists.
-// Nothing here opens a browser. Only the provider `figma` opens a network connection, and only here (R5.5).
-// `env` and `figma` are test hooks. The command line passes neither, so the token comes from `process.env`
+// The providers `files` and `figma` open no browser. The provider `claude-design` opens Chromium on a loopback server only.
+// Only the provider `figma` opens a network connection that leaves the machine, and only here (R5.5).
+// `env`, `figma` and `claudeDesign` are test hooks. The command line passes neither, so the token comes from `process.env`
 // and the API base is the fixed Figma host. The configuration cannot set an endpoint.
-export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports, baseDir, env = process.env, figma = {} }) {
+export async function importDesign({ configPath, side, label = '', runsRoot, targets: selectedTargets, viewports: selectedViewports, baseDir, env = process.env, figma = {}, claudeDesign = {} }) {
   const loaded = await loadConfig(configPath, { baseDir });
   const config = loaded.config;
   if (!Object.hasOwn(config.sides, side)) throw new Error(`Unknown side: ${side}`);
@@ -89,8 +112,13 @@ export async function importDesign({ configPath, side, label = '', runsRoot, tar
     if (source !== undefined && cellSelected(selection, target.id, viewport.id)) cells.push({ target, viewport, source });
   }
   // Read and check every image first.
-  const images = cells.length ? await (design.provider === 'figma' ? figmaImages(design, cells, importedAt, env, figma) : fileImages(resolve(loaded.configDir, design.root), cells, importedAt)) : [];
-  if (!images.length) throw new Error('No design image to import. Map a file or a node in target.design for a selected target and viewport.');
+  const read = () => {
+    if (design.provider === 'figma') return figmaImages(design, cells, importedAt, env, figma);
+    if (design.provider === 'claude-design') return claudeDesignImages(resolve(loaded.configDir, design.root), cells, importedAt, config.screenshot.timeoutMs, claudeDesign);
+    return fileImages(resolve(loaded.configDir, design.root), cells, importedAt);
+  };
+  const images = cells.length ? await read() : [];
+  if (!images.length) throw new Error('No design image to import. Map a file, a node or an artboard in target.design for a selected target and viewport.');
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const runs = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;
   const runDir = join(runs, id);
