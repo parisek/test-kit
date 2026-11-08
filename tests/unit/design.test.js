@@ -264,6 +264,17 @@ test('diff: match, changed, missing viewport and wrong size read as set (R8.7, R
     // A kind the caller names is kept.
     const named = await compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: id, outputDir: join(dir, 'report3'), kind: 'adhoc', filter: { targets: ['hero'], viewports: ['desktop'] } });
     assert.equal(named.report.pair.kind, 'adhoc');
+
+    // R3.12: a drift pair is two imports of one design side. It holds no other pair, and a refused pair writes nothing.
+    await writeFile(join(design.runDir, 'screenshots/tag/desktop.png'), png(40, 20, [9, 9, 9]));
+    const second = await importDesign({ configPath, side: 'design', label: 'refs 2' });
+    const drift = await compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: second.run.id, outputDir: join(dir, 'drift'), kind: 'drift' });
+    assert.equal(drift.report.pair.kind, 'drift');
+    const plain = await compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: second.run.id, outputDir: join(dir, 'plain') });
+    assert.equal(plain.report.pair.kind, 'convergence', 'Without --kind a pair of two design runs keeps the kind of R8.15.');
+    await assert.rejects(compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: id, outputDir: join(dir, 'not-drift'), kind: 'drift' }), /two design runs of the same design side/);
+    await assert.rejects(readFile(join(dir, 'not-drift', 'report.json')));
+    assert.equal(parseCommand(['diff', 'a', 'b', '--output', 'o', '--kind', 'drift']).options.kind, 'drift');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

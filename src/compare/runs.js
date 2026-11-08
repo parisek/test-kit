@@ -234,6 +234,9 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	const b = await readRun(runsRoot, bId);
 	// R8.15: a pair with a design run reads as a convergence pair unless the caller names a kind.
 	const kind = kindInput ?? (isDesignRun(a) || isDesignRun(b) ? 'convergence' : 'update');
+	// R3.12: `drift` is what changed in a design between two imports of one design side. Any other pair is refused
+	// before the output directory exists, so the kind never names a pair it does not describe.
+	if (kind === 'drift' && !(isDesignRun(a) && isDesignRun(b) && a.side === b.side)) throw new Error('A drift pair needs two design runs of the same design side.');
 	const { PNG } = await import('pngjs');
 	const { default: pixelmatch } = await import('pixelmatch');
 	const { extractRegions } = await import('./regions.js');

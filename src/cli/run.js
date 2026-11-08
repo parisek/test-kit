@@ -1,6 +1,7 @@
 import { builtinChecks } from '../checks/index.js';
 import { parseIdList } from '../capture/selection.js';
 import { CAPTURE_ARTIFACTS } from '../config/normalize.js';
+import { PAIR_KINDS } from '../report/model.js';
 export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'record-allowed', 'perf', 'run', 'before', 'after', 'report', 'history', 'import'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
@@ -84,7 +85,7 @@ export function parseCommand(argv) {
     if (ids.length > 6 || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');
   }
   if (options['max-lines']) options.maxLines = integer(options['max-lines'], '--max-lines', 1, 100);
-  if (options.kind && !['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'].includes(options.kind)) throw new Error('Unknown pair kind');
+  if (options.kind && !PAIR_KINDS.includes(options.kind)) throw new Error('Unknown pair kind');
   if (options.filter && !['all', 'match', 'explained', 'unexplained', 'oracle', 'incomplete', 'availability'].includes(options.filter)) throw new Error('Unknown summary filter');
   if (options['max-targets']) options.maxTargets = integer(options['max-targets'], '--max-targets', 1, 1000);
   if (options.port) options.port = integer(options.port, '--port', 0, 65535);

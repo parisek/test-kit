@@ -9,7 +9,8 @@ import {
 import { validateReportAllowlist } from '../allowlist/model.js';
 
 export const SCHEMA_VERSION = 3;
-export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'];
+// `drift` compares two imports of one design side (R3.12, #350 part C).
+export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc', 'drift'];
 const STATES = ['complete', 'missing', 'failed', 'incompatible'];
 const MAX_CHECKS = 500;
 const MAX_LOCATION_TEXT = 500;
