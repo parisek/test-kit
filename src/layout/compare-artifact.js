@@ -71,7 +71,9 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
   await mkdir(dirname(join(output, src)), { recursive: true }); await writeFile(join(output, src), JSON.stringify(detail));
   const policy = { lengthTolerance: LENGTH_TOLERANCE, ratioTolerance: RATIO_TOLERANCE, aliases };
   artifact.diff = { kind: 'layout', src, tool: 'test-kit-layout-compare', version: LAYOUT_VERSION, settingsHash: settingsHash(policy), changed: detail.changed,
-    checks: 1, counts: detail.counts, differences: detail.differences.slice(0, REPORT_DIFFERENCES), differencesOmitted: Math.max(0, detail.differences.length - REPORT_DIFFERENCES) };
+    checks: 1, counts: detail.counts, differences: detail.differences.slice(0, REPORT_DIFFERENCES), differencesOmitted: Math.max(0, detail.differences.length - REPORT_DIFFERENCES),
+    // The findings stop at MAX_FINDINGS. The key says how many differences have no finding, so a reader sees the cut.
+    ...(detail.differences.length > MAX_FINDINGS ? { findingsOmitted: detail.differences.length - MAX_FINDINGS } : {}) };
   const findings = detail.differences.slice(0, MAX_FINDINGS).map((item, index) => ({ id: `layout-${targetId}-${viewportId}-${index}`, targetId, viewportId,
     artifact: 'layout', checkId: LAYOUT_CHECK_ID, layer: 'package', severity: 'warning', message: differenceMessage(item) }));
   return { artifact, findings };

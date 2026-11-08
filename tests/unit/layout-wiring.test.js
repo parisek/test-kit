@@ -82,6 +82,7 @@ test('compare artifact: a difference is a relative finding with the check layout
   assert.deepEqual(result.findings.map(item => [item.artifact, item.checkId, item.message]), [
     ['layout', 'layout', 'Layout part title type.size: A 16, B 20.'], ['layout', 'layout', 'Layout part title type.lineHeight: A 1.5, B 1.2.']]);
   assert.equal(result.findings.every(item => item.runId === undefined), true, 'A relative finding carries no run.');
+  assert.equal(Object.hasOwn(result.artifact.diff, 'findingsOmitted'), false);
   const same = await fixture(t);
   assert.equal(same.artifact.diff.changed, false);
   assert.deepEqual(same.findings, []);
@@ -117,4 +118,33 @@ test('the difference sidecar and the summary counts read untrusted data with bou
   assert.deepEqual(layoutTotals(report), { cells: 2, differs: 1, missing: 1, count: 1, differences: 3 });
   assert.deepEqual(layoutTotals(report, 'about'), {});
   assert.deepEqual(layoutTotals({ entries: [] }), {});
+});
+
+test('compare artifact: at most 100 findings per cell, and the cut is counted (R6.15, R9.13)', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'test-kit-layout-cap-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const many = (fontSize) => ({ schemaVersion: 1, version: LAYOUT_VERSION, source: 'computed-style',
+    parts: [{ id: 'item', repeat: true, count: 50, records: Array.from({ length: 50 }, () => normaliseRecord({ ...raw, fontSize })) }] });
+  const parts = { parts: [{ id: 'item', selector: 'li', repeat: true }] };
+  const make = async (id, value) => {
+    const bytes = Buffer.from(JSON.stringify(value));
+    await mkdir(join(root, id, 'layout/home'), { recursive: true });
+    await writeFile(join(root, id, 'layout/home/phone.json'), bytes);
+    const run = { id, side: 'local', settings: { sides: { local: { origin: 'http://127.0.0.1:1', settle: {} } }, viewports: [{ id: 'phone', width: 400, height: 800 }], targets: [{ id: 'home', kind: 'page', path: '/', layout: parts }] }, captureSettings: { browser: { name: 'chromium' } } };
+    const capture = { targetId: 'home', viewportId: 'phone', state: 'captured', settleHash: settingsHash(settleRecipe(run.settings, 'local', run.settings.targets[0])),
+      artifacts: { layout: { kind: 'layout', tool: 'test-kit-layout', version: LAYOUT_VERSION, browserVersion: '1', settingsHash: 'sha256:x', state: 'captured', path: 'layout/home/phone.json', bytes: bytes.length, sha256: 'sha256:' + createHash('sha256').update(bytes).digest('hex') } } };
+    return { run, capture };
+  };
+  const a = await make('a', many('16px')), b = await make('b', many('20px'));
+  const result = await compareLayoutArtifact({ a: a.run, b: b.run, ac: a.capture, bc: b.capture, runsRoot: root, output: join(root, 'out'), targetId: 'home', viewportId: 'phone' });
+  assert.equal(result.artifact.diff.counts.differences, 100 + 0, 'Two properties differ on each of 50 items.');
+  assert.equal(result.findings.length, 100);
+  assert.equal(Object.hasOwn(result.artifact.diff, 'findingsOmitted'), false, 'Exactly 100 differences need no cut.');
+  const c = await make('c', { ...many('20px'), parts: [{ ...many('20px').parts[0], records: many('20px').parts[0].records.map(record => ({ ...record, layout: { ...record.layout, padding: [4, 0, 0, 0] } })) }] });
+  const cut = await compareLayoutArtifact({ a: a.run, b: c.run, ac: a.capture, bc: c.capture, runsRoot: root, output: join(root, 'out2'), targetId: 'home', viewportId: 'phone' });
+  assert.equal(cut.artifact.diff.counts.differences, 150);
+  assert.equal(cut.findings.length, 100);
+  assert.equal(cut.artifact.diff.findingsOmitted, 50);
+  assert.equal(cut.artifact.diff.differences.length, 50);
+  assert.equal(cut.artifact.diff.differencesOmitted, 100);
 });
