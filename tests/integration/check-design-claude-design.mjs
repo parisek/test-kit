@@ -25,12 +25,28 @@ let turn;
 let quic;
 try {
   site = await startExampleSite();
-  // A second loopback server on another port. An artboard asks it for an image, a stylesheet and a fetch.
+  // A second loopback server on another port. The page asks it for an image, a stylesheet and a fetch.
   // The import must abort all of them: only its own server answers. A count above zero fails the check.
+  // Workers and a speculation-rules prefetch also ask it. `probeConnections` counts every TCP connection, so a
+  // WebSocket upgrade counts too, and `probePaths` names what arrived.
   let probeRequests = 0;
-  probe = createServer((request, response) => { probeRequests++; response.writeHead(200, { 'Content-Type': 'text/plain' }); response.end('probe'); });
+  let probeConnections = 0;
+  const probePaths = [];
+  probe = createServer((request, response) => { probeRequests++; probePaths.push(request.url); response.writeHead(200, { 'Content-Type': 'text/plain' }); response.end('probe'); });
+  probe.on('connection', () => { probeConnections++; });
+  probe.on('upgrade', (request, socket) => { probePaths.push(request.url); socket.destroy(); });
   await new Promise(done => probe.listen(0, '127.0.0.1', done));
   const other = `http://127.0.0.1:${probe.address().port}`;
+  // The same script runs in a dedicated and in a shared worker. It asks the probe server for a fetch, a WebSocket and
+  // an EventSource. A speculation rule asks it for a prefetch. Without the proxy (measured 2026-11-08) the route still
+  // aborts the fetch and the EventSource of the dedicated worker, but the WebSocket of the dedicated worker, all three
+  // of the shared worker and the prefetch reach this server. So the closing proxy is their guard.
+  const channels = tag => `fetch('${other}/${tag}-fetch').catch(() => {});
+try { const socket = new WebSocket('ws://127.0.0.1:${probe.address().port}/${tag}-socket'); socket.onerror = () => {}; } catch {}
+try { const source = new EventSource('${other}/${tag}-events'); source.onerror = () => source.close(); } catch {}`;
+  const blob = text => `URL.createObjectURL(new Blob([${JSON.stringify(text)}], { type: 'text/javascript' }))`;
+  const workers = `new Worker(${blob(channels('worker'))}); new SharedWorker(${blob(channels('shared'))});`;
+  const prefetch = JSON.stringify({ prefetch: [{ source: 'list', urls: [`${other}/prefetch`] }] });
   // A plain TCP listener on a third loopback port, as a TURN server. The artboard asks WebRTC for a relay over TCP there,
   // in the page and in an iframe it creates. `--force-webrtc-ip-handling-policy` allows that connection, and the
   // request route does not see it (measured 2026-11-08: a STUN Allocate arrived). The import removes WebRTC from every
@@ -64,6 +80,8 @@ try {
 <script>${webrtc('window')}</script>
 <script>const frame = document.createElement('iframe'); document.body.append(frame); ${webrtc('frame.contentWindow')} ${webtransport('frame.contentWindow')}</script>
 <script>${webtransport('window')} ${worker}</script>
+<script>${workers}</script>
+<script type="speculationrules">${prefetch}</script>
 <script>// The hole resolves only when the init script removed the interfaces in the page and in the iframe. Else the import fails.
 const gone = scope => ['RTCPeerConnection', 'webkitRTCPeerConnection', 'WebTransport'].every(name => scope[name] === undefined);
 setTimeout(() => { if (gone(window) && gone(frame.contentWindow)) document.querySelector('.card h1').textContent = 'Probe'; frame.remove(); }, 1500);</script></body></html>`);
@@ -90,8 +108,9 @@ setTimeout(() => { if (gone(window) && gone(frame.contentWindow)) document.query
   const first = JSON.parse(lines.join(''));
   assert.equal(first.state, 'complete');
   assert.equal(first.images, 4);
-  assert.equal(probeRequests, 0, 'No request reaches another server.');
   await new Promise(done => setTimeout(done, 500));
+  assert.equal(probeConnections, 0, `No connection reaches another server: ${probePaths.join(', ')}.`);
+  assert.equal(probeRequests, 0, 'No request reaches another server.');
   assert.equal(turnConnections, 0, 'No WebRTC connection reaches another loopback port.');
   assert.equal(quicDatagrams, 0, 'No WebTransport datagram reaches another loopback port.');
   const manifest = JSON.parse(await readFile(first.manifestPath, 'utf8'));
