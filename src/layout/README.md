@@ -7,7 +7,7 @@ It applies to browser sides only. A design side has no `layout` artifact yet.
 | File | Holds |
 | --- | --- |
 | `declaration.js` | Pure validation of `targets[].layout` and of the top-level `layout` key (R4.4). |
-| `record.js` | Pure normalisation: lengths in CSS px, colours as `#rrggbb[aa]` (incl. `oklab()` and `oklch()`), and the token family rule. |
+| `record.js` | Pure normalisation: lengths in CSS px, colours as `#rrggbb[aa]` (incl. `oklab()` and `oklch()`; no alpha byte of ff), the bounded lowercase text of a colour it does not convert, and the token family rule. |
 | `extract.js` | The browser read. It reads computed styles and the custom properties on `:root`, and adds one hidden probe that it removes again. |
 | `snapshot.js` | Bounded validation of a stored file. A file outside the bounds is refused as a whole. |
 | `compare.js` | Pure comparison per part and property: `match`, `differs`, `missing`, and one `count` difference for a repeat. |

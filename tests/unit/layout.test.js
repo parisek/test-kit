@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOKEN_FAMILIES, LAYOUT_VERSION } from '../../src/layout/record.js';
+import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOKEN_FAMILIES, LAYOUT_VERSION, MAX_COLOUR_TEXT } from '../../src/layout/record.js';
 import { compareLayout, compareRecords, sameValue, sameToken, differenceMessage } from '../../src/layout/compare.js';
 import { normalizeLayoutParts, normalizeLayoutConfig } from '../../src/layout/declaration.js';
 import { validateLayoutSnapshot } from '../../src/layout/snapshot.js';
@@ -40,7 +40,33 @@ test('colour normalisation reads hex, rgb, rgba, space syntax, oklab and oklch',
   assert.equal(colour('oklch(0.627955 0.257683 29.2339)'), '#ff0000');
   assert.equal(colour('oklch(1 0 0 / 0.5)'), '#ffffff80');
   assert.equal(colour('oklch(1 0 none)'), '#ffffff');
-  for (const value of ['color(srgb 1 0 0)', 'red', 'rgb(1, 2)', 'oklch(a b c)', '', null, 7]) assert.equal(colour(value), null, String(value));
+  for (const value of ['', '   ', 'a\u0000b', null, 7]) assert.equal(colour(value), null, String(value));
+});
+
+test('every colour path gives one normal form: an alpha byte of ff is dropped (R6.14)', () => {
+  const red = ['#f00', '#f00f', '#FF0000', '#ff0000ff', 'rgb(255, 0, 0)', 'rgba(255, 0, 0, 1)', 'rgba(255, 0, 0, 0.999)', 'rgb(255 0 0 / 1)',
+    'rgb(255 0 0 / 0.999)', 'rgb(255 0 0 / 100%)', 'rgb(255 0 0 / 99.9%)', 'rgb(100% 0% 0%)', 'oklab(0.627955 0.224863 0.125846 / 1)',
+    'oklab(0.627955 0.224863 0.125846 / 0.999)', 'oklch(0.627955 0.257683 29.2339 / 100%)', 'oklch(0.627955 0.257683 29.2339 / 0.999)'];
+  for (const value of red) assert.equal(colour(value), '#ff0000', value);
+  const half = ['#ff000080', '#f008', 'rgba(255, 0, 0, 0.5)', 'rgb(255 0 0 / 50%)', 'oklab(0.627955 0.224863 0.125846 / 0.5)', 'oklch(0.627955 0.257683 29.2339 / 50%)'];
+  for (const value of half) assert.match(colour(value), /^#ff0000(80|88)$/, value);
+  assert.equal(colour('#f008'), '#ff000088');
+  assert.equal(colour('rgb(255 0 0 / 0.998)'), '#ff0000fe', 'An alpha below the last byte keeps its byte.');
+  // The normal form is stable: the reader gives a normal colour back unchanged.
+  for (const value of [...red, ...half, 'transparent']) assert.equal(colour(colour(value)), colour(value), value);
+});
+
+test('a colour that the reader does not convert keeps its bounded lowercase text, so a change still shows (R6.14, R6.15)', () => {
+  assert.equal(colour('  Color(Display-P3 1 0 0)  '), 'color(display-p3 1 0 0)');
+  assert.equal(colour('color(srgb 1 0 0)'), 'color(srgb 1 0 0)');
+  for (const value of ['red', 'rgb(1, 2)', 'oklch(a b c)', '#12345']) assert.equal(colour(value), value);
+  assert.equal(colour('color(srgb ' + '1 '.repeat(300) + ')').length, MAX_COLOUR_TEXT);
+  const p3 = normaliseRecord(raw({ color: 'color(display-p3 1 0 0)' }), table);
+  const srgb = normaliseRecord(raw({ color: 'color(srgb 1 0 0)' }), table);
+  assert.deepEqual(compareRecords('card', p3, srgb), [{ part: 'card', property: 'paint.color', kind: 'differs', a: 'color(display-p3 1 0 0)', b: 'color(srgb 1 0 0)' }]);
+  assert.deepEqual(compareRecords('card', p3, structuredClone(p3)), []);
+  // The stored file keeps the text, and the reader accepts it.
+  assert.equal(validateLayoutSnapshot(snapshot([part('card', [p3])])).parts[0].records[0].paint.color, 'color(display-p3 1 0 0)');
 });
 
 test('lengths, families and line-height ratios normalise to CSS px', () => {
@@ -160,7 +186,10 @@ test('a stored layout file is untrusted: any shape outside the bounds refuses th
     snapshot([part('a', [record], true, 2)]),
     snapshot([part('a', Array(51).fill(record), true)]),
     snapshot([{ ...part('a', [record]), count: -1 }]),
-    snapshot([part('a', [{ ...record, paint: { ...record.paint, color: 'red' } }])]),
+    snapshot([part('a', [{ ...record, paint: { ...record.paint, color: 'RED' } }])]),
+    snapshot([part('a', [{ ...record, paint: { ...record.paint, color: '#ff0000ff' } }])]),
+    snapshot([part('a', [{ ...record, paint: { ...record.paint, color: ' #ff0000' } }])]),
+    snapshot([part('a', [{ ...record, paint: { ...record.paint, background: 'x'.repeat(201) } }])]),
     snapshot([part('a', [{ ...record, tokens: { 'box.width': '--x' } }])]),
     snapshot([part('a', [{ ...record, tokens: { 'paint.color': 'x' } }])]),
     snapshot([part('a', [{ ...record, box: { width: Infinity, height: 1 } }])]),

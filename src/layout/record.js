@@ -42,7 +42,11 @@ export function length(value, { normal = null } = {}) {
 
 const byte = value => Math.round(Math.min(1, Math.max(0, value)) * 255);
 const hex = value => value.toString(16).padStart(2, '0');
-const alphaSuffix = alpha => alpha === null || alpha >= 1 ? '' : hex(byte(alpha));
+// The alpha byte of a colour. An opaque colour has no alpha byte, so `#ff0000ff` and `rgb(255 0 0 / 0.999)`
+// both give `#ff0000`. The test runs on the rounded byte, so each input path gives one form.
+const alphaSuffix = alphaByte => alphaByte === null || alphaByte === 255 ? '' : hex(alphaByte);
+// The longest unparsed colour text that a record keeps (R6.14).
+export const MAX_COLOUR_TEXT = 200;
 
 // One numeric component of a colour function. `percent` is the value of 100%.
 function component(text, percent = 1) {
@@ -88,18 +92,25 @@ export function oklabToSrgb(L, a, b) {
 
 // A computed colour as lowercase `#rrggbb`, or `#rrggbbaa` when it is not opaque.
 // It reads `#hex`, `rgb()` and `rgba()` in comma and space syntax, `oklab()` and `oklch()`.
-// Chromium serialises Tailwind 4 colours as `oklab()` or `oklch()`. Any other value gives null.
+// Chromium serialises Tailwind 4 colours as `oklab()` or `oklch()`.
+// Any other colour text (for example `color(display-p3 1 0 0)`) stays as its trimmed lowercase text,
+// cut to MAX_COLOUR_TEXT characters, so an exact compare still sees a change between two such colours.
+// Null means that no colour text exists: not a string, an empty string, or a control character.
 export function colour(value) {
   if (typeof value !== 'string') return null;
   const text = value.trim().toLowerCase();
+  if (!text || /[\x00-\x1f\x7f]/.test(text)) return null;
+  return converted(text) ?? text.slice(0, MAX_COLOUR_TEXT);
+}
+
+function converted(text) {
   if (text === 'transparent') return '#00000000';
   const short = /^#([0-9a-f]{3,4})$/.exec(text);
-  if (short) {
-    const full = [...short[1]].map(digit => digit + digit).join('');
-    return '#' + (full.length === 8 && full.endsWith('ff') ? full.slice(0, 6) : full);
+  const long = short ? null : /^#([0-9a-f]{6})([0-9a-f]{2})?$/.exec(text);
+  if (short || long) {
+    const full = short ? [...short[1]].map(digit => digit + digit).join('') : long[1] + (long[2] ?? '');
+    return '#' + full.slice(0, 6) + alphaSuffix(full.length === 8 ? parseInt(full.slice(6), 16) : null);
   }
-  const long = /^#([0-9a-f]{6})([0-9a-f]{2})?$/.exec(text);
-  if (long) return '#' + long[1] + (long[2] && long[2] !== 'ff' ? long[2] : '');
   const parsed = parts(text);
   if (!parsed) return null;
   const alpha = parsed.alpha === null ? null : component(parsed.alpha);
@@ -117,7 +128,7 @@ export function colour(value) {
     const [a, b] = parsed.name === 'oklab' ? [first, second] : [first * Math.cos(second * Math.PI / 180), first * Math.sin(second * Math.PI / 180)];
     rgb = oklabToSrgb(L, a, b).map(byte);
   } else return null;
-  return '#' + rgb.map(hex).join('') + alphaSuffix(alpha);
+  return '#' + rgb.map(hex).join('') + alphaSuffix(alpha === null ? null : byte(alpha));
 }
 
 // The first family of a `font-family` list, without quotes.
