@@ -83,6 +83,7 @@ jobs:
       - run: node tests/integration/check-status-finding.mjs
       - run: node tests/integration/check-content-engine.mjs
       - run: node tests/integration/check-layout-artifact.mjs
+      - run: node tests/integration/check-design-decisions.mjs
       - run: node tests/integration/check-compare-absolute.mjs
       - run: node tests/integration/check-behavior-engine.mjs
       - run: node tests/integration/check-behavior-artifact.mjs
