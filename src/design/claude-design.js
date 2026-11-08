@@ -24,8 +24,9 @@ const inside = (base, file) => { const offset = relative(base, file); return off
 
 // Read one file under the real `project/` directory. The real path must stay inside it: `..` and a symlink that
 // leaves it are refused. The file must be a regular file of at most 40 MiB. Errors name the path, never its bytes.
-// The open does not follow a symbolic link in the last name, and the opened file must be the file the real-path
-// check saw (same device and inode). A directory higher up that changes between the check and the open is an
+// After the real-path check, a `stat` of that path and the opened handle must agree in device and inode, and the
+// real path must be the same again after the open. On POSIX the open also refuses a symbolic link in the last name.
+// A swap that happens between two of these calls and is undone before the next one is not caught. That is an
 // accepted local risk (R5.5): `project/` is the person's own export, and who can write there can edit the artboards.
 export async function readProjectFile(project, path, what) {
   let file;
@@ -36,7 +37,9 @@ export async function readProjectFile(project, path, what) {
   catch { throw new Error(`The ${what} cannot be opened: ${PROJECT_DIR}/${path}`); }
   try {
     const info = await handle.stat();
-    if (info.dev !== seen.dev || info.ino !== seen.ino) throw new Error(`The ${what} changed during the check: ${PROJECT_DIR}/${path}`);
+    let again;
+    try { again = await realpath(file); } catch { again = null; }
+    if (info.dev !== seen.dev || info.ino !== seen.ino || again !== file) throw new Error(`The ${what} changed during the check: ${PROJECT_DIR}/${path}`);
     if (!info.isFile()) throw new Error(`The ${what} is not a regular file: ${PROJECT_DIR}/${path}`);
     if (info.size > MAX_DESIGN_BYTES) throw new Error(`The ${what} exceeds the file size limit: ${PROJECT_DIR}/${path}`);
     const bytes = await handle.readFile();
