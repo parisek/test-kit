@@ -160,6 +160,24 @@ test('compare: per part match, differs, missing, and one count finding for a rep
   assert.deepEqual(compareLayout(a, changed).differences.map(item => item.part), ['item[1]']);
 });
 
+test('compare: a repeat with 0 matches on one side is a count difference, and missing only on both sides (R6.15)', () => {
+  const card = normaliseRecord(raw(), table);
+  const three = snapshot([part('item', [card, card, card], true)]), none = snapshot([part('item', [], true)]);
+  for (const [a, b, countA, countB] of [[none, three, 0, 3], [three, none, 3, 0]]) {
+    const result = compareLayout(a, b);
+    assert.deepEqual(result.parts, [{ id: 'item', state: 'differs' }]);
+    assert.deepEqual(result.differences, [{ part: 'item', property: 'count', kind: 'count', a: countA, b: countB }]);
+    assert.deepEqual(result.counts, { parts: 1, match: 0, differs: 1, missing: 0, count: 1, differences: 1 });
+  }
+  const both = compareLayout(none, structuredClone(none));
+  assert.deepEqual(both.parts, [{ id: 'item', state: 'missing' }]);
+  assert.deepEqual(both.differences, [{ part: 'item', property: 'part', kind: 'missing', a: 'absent', b: 'absent' }]);
+  // A part without repeat is missing when one side has no element.
+  const single = compareLayout(snapshot([part('title', [card])]), snapshot([part('title', [])]));
+  assert.deepEqual(single.parts, [{ id: 'title', state: 'missing' }]);
+  assert.deepEqual(single.differences, [{ part: 'title', property: 'part', kind: 'missing', a: 'present', b: 'absent' }]);
+});
+
 test('declarations: 1 to 50 parts, unique safe IDs, bounded selectors, boolean repeat', () => {
   assert.deepEqual(normalizeLayoutParts({ parts: [{ id: 'card', selector: '.card', repeat: true }, { id: 'title', selector: 'h1', repeat: false }] }),
     { parts: [{ id: 'card', selector: '.card', repeat: true }, { id: 'title', selector: 'h1' }] });

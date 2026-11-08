@@ -46,7 +46,9 @@ export function compareRecords(part, a, b, aliases = {}) {
   return differences;
 }
 
-// Per part: `match`, `differs` (properties or the count of a repeat) or `missing` (no element on a side).
+// Per part: `match`, `differs` (properties or the count of a repeat) or `missing`.
+// A single part is `missing` when a side has no element. A repeat is `missing` only when both sides have none:
+// 0 against N is a count change of one list, so it gives one `count` difference (it keeps N; `missing` would drop it).
 // A repeat whose count differs gives one `count` difference. Indices beyond the shorter list are not compared.
 export function compareLayout(a, b, { aliases = {} } = {}) {
   const partsB = new Map(b.parts.map(part => [part.id, part]));
