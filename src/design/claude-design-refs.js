@@ -115,11 +115,14 @@ export const CHROMIUM_ARGS = Object.freeze(['--host-resolver-rules=MAP * ~NOTFOU
 // connection to another loopback port skips the proxy (measured 2026-11-08: WebTransport from a worker sent 4 QUIC
 // datagrams with the plain bypass and 0 with `<-loopback>`). The bypass names the `http` scheme, so it covers the
 // import server's page requests and nothing else on that port number: a WebTransport session to `https://` on the
-// same number (QUIC over UDP) is not bypassed. `--disable-features=WebTransport` turns the API off in every context,
-// workers included, as a second line beside the init script. Both ports come from the caller's own servers.
+// same number (QUIC over UDP) is not bypassed. Both ports come from the caller's own servers.
+// No `--disable-features` switch: `--disable-features=WebTransport` leaves `typeof WebTransport` at `function` in a
+// page and in a dedicated worker (measured 2026-11-08, Chromium 156, Playwright 1.64, page on `http://127.0.0.1`).
+// Chromium also keeps only one such switch, so it replaced the list Playwright passes (`HttpsUpgrades`, `MediaRouter`
+// and others): with it, `chrome://version` read the effective list `PaintHolding,WebTransport`.
 export function chromiumArgs(serverPort, proxyPort) {
   for (const port of [serverPort, proxyPort]) if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('A browser port must be a TCP port number.');
-  return [...CHROMIUM_ARGS, `--proxy-server=http://127.0.0.1:${proxyPort}`, `--proxy-bypass-list=<-loopback>;http://127.0.0.1:${serverPort}`, '--disable-features=WebTransport'];
+  return [...CHROMIUM_ARGS, `--proxy-server=http://127.0.0.1:${proxyPort}`, `--proxy-bypass-list=<-loopback>;http://127.0.0.1:${serverPort}`];
 }
 
 // The WebRTC interfaces a page could use to open a connection that the request route does not see: a TURN server
