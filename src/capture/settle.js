@@ -1,5 +1,12 @@
+// R5.15: the failure of an afterSweep selector. It names the selector, and its code keeps the retry of R5.14 away:
+// a page that never returns to the declared state is a page defect, not a transient fault.
+export function afterSweepError(selector) {
+  return Object.assign(new Error(`The afterSweep selector ${JSON.stringify(selector)} matches no visible element after the lazy-image sweep. Fix settle.afterSweep or the page.`), { code: 'AFTER_SWEEP_NOT_VISIBLE' });
+}
+
 // Settlement uses the existing capture context and does not navigate (R4.2).
-export async function settlePage({ page, recipe, active = () => true }) {
+// `progress.afterSweep` holds the afterSweep selector that capture waits for, so a capture deadline during that wait names it.
+export async function settlePage({ page, recipe, active = () => true, progress = {} }) {
   if (!Array.isArray(recipe.reveal ?? []) || (recipe.reveal ?? []).length > 20) throw new Error('Capture settlement accepts at most 20 reveal steps.');
   const initialUrl = page.url();
   let navigation = false;
@@ -73,6 +80,22 @@ export async function settlePage({ page, recipe, active = () => true }) {
       if (document.documentElement.scrollHeight > initialHeight) throw new Error('Lazy-image page grows during settlement.');
     } finally { scroll(initial.x, initial.y); }
   });
+  check();
+  // R5.15: after the restore, wait for the state the page returns to on its own time (a debounced scroll listener, a timer).
+  if ((recipe.afterSweep ?? []).length > 20) throw new Error('Capture settlement accepts at most 20 afterSweep selectors.');
+  for (const selector of recipe.afterSweep ?? []) {
+    check();
+    progress.afterSweep = selector;
+    try { await page.locator(selector).first().waitFor({ state: 'visible' }); } catch (error) {
+      if (error?.name === 'TimeoutError') throw afterSweepError(selector);
+      throw error;
+    }
+    delete progress.afterSweep;
+  }
+  if ((recipe.afterSweep ?? []).length > 0) {
+    check();
+    await page.evaluate(async () => { await document.fonts.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
+  }
   check();
   } finally { if (guarded) page.off('request', onRequest); }
 }

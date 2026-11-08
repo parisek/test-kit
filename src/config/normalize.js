@@ -86,7 +86,7 @@ function targetPath(value, name) {
   return value;
 }
 export function normalizeSettlement(value, name = 'settle', partial = false) {
-  const source = object(value, name, ['waitMs', 'selectors', 'disableMotion', 'masks', 'reveal', 'lazyImages', 'pin']);
+  const source = object(value, name, ['waitMs', 'selectors', 'disableMotion', 'masks', 'reveal', 'lazyImages', 'pin', 'afterSweep']);
   const result = {};
   for (const key of ['waitMs', 'selectors', 'disableMotion', 'masks']) {
     if (partial && !Object.hasOwn(source, key)) continue;
@@ -102,7 +102,15 @@ export function normalizeSettlement(value, name = 'settle', partial = false) {
   if (Object.hasOwn(source, 'lazyImages')) result.lazyImages = bool(source.lazyImages, `${name}.lazyImages`);
   // R5.12: plain selectors only. The capture sets one fixed declaration on the matches and runs no script.
   if (Object.hasOwn(source, 'pin')) result.pin = list(source.pin, `${name}.pin`, 20).map(value => text(value, `${name}.pin selector`, 2048));
+  // R5.15: plain selectors that capture waits for after the lazy-image sweep restores the scroll. `[]` clears an inherited list.
+  if (Object.hasOwn(source, 'afterSweep')) result.afterSweep = list(source.afterSweep, `${name}.afterSweep`, 20).map(value => text(value, `${name}.afterSweep selector`, 2048));
   return result;
+}
+
+// R5.15: `afterSweep` waits after the restore of the lazy-image sweep, so it needs the sweep.
+// The check reads the effective recipe, because the two keys can sit in different layers (R5.8).
+function checkAfterSweep(recipe, name) {
+  if ((recipe.afterSweep ?? []).length > 0 && recipe.lazyImages !== true) fail(`${name}.afterSweep needs lazyImages true in the effective settle recipe`);
 }
 
 function freeze(value) {
@@ -248,6 +256,11 @@ export function normalizeConfig(input) {
     return result;
   });
   unique(targets.map(target => target.id), 'target');
+  for (const [sideId, side] of Object.entries(sides)) {
+    if (side.kind === 'design') continue;
+    checkAfterSweep(side.settle, `sides.${sideId}.settle`);
+    for (const target of targets) checkAfterSweep({ ...side.settle, ...target.settle, ...target.settleBySide?.[sideId] }, `target ${target.id} on side ${sideId}: settle`);
+  }
   const viewports = list(input.viewports, 'viewports', 20, 1).map(viewport => {
     object(viewport, 'viewport', ['id', 'width', 'height', 'deviceScaleFactor']);
     const result = { id: id(viewport.id, 'viewport ID'), width: number(viewport.width, 'width', 1, 4096), height: number(viewport.height, 'height', 1, 4096), deviceScaleFactor: number(viewport.deviceScaleFactor ?? 1, 'deviceScaleFactor', 0.5, 3, false) };
