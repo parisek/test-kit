@@ -68,6 +68,11 @@ try { const source = new EventSource('${other}/${tag}-events'); source.onerror =
   await new Promise(done => quic.bind(0, '127.0.0.1', done));
   const transport = `try { const session = new WebTransport('https://127.0.0.1:${quic.address().port}/probe'); session.ready.catch(() => {}); session.closed.catch(() => {}); } catch {}`;
   const webtransport = scope => `(() => { const Transport = ${scope}.WebTransport; if (typeof Transport !== 'function') return; ${transport.replace('new WebTransport', 'new Transport')} })();`;
+  // A fetch from a popup that `window.open('')` returns at once, and a `fetchLater`. Both pass the request route
+  // (measured 2026-11-08: without the proxy switches both reach this server). The route holds the popup request, and it
+  // goes out when the opener page closes. So the closing proxy is their guard.
+  const popupAndLater = `try { const popup = window.open(''); popup.fetch('${other}/popup-fetch').catch(() => {}); } catch {}
+try { fetchLater('${other}/fetch-later', { activateAfter: 0 }); } catch {}`;
   const worker = `new Worker(URL.createObjectURL(new Blob([${JSON.stringify(transport)}], { type: 'text/javascript' })));`;
 
   const root = join(directory, 'canvas');
@@ -81,6 +86,7 @@ try { const source = new EventSource('${other}/${tag}-events'); source.onerror =
 <script>const frame = document.createElement('iframe'); document.body.append(frame); ${webrtc('frame.contentWindow')} ${webtransport('frame.contentWindow')}</script>
 <script>${webtransport('window')} ${worker}</script>
 <script>${workers}</script>
+<script>${popupAndLater}</script>
 <script type="speculationrules">${prefetch}</script>
 <script>// The hole resolves only when the init script removed the interfaces in the page and in the iframe. Else the import fails.
 const gone = scope => ['RTCPeerConnection', 'webkitRTCPeerConnection', 'WebTransport'].every(name => scope[name] === undefined);
@@ -91,9 +97,11 @@ setTimeout(() => { if (gone(window) && gone(frame.contentWindow)) document.query
     schemaVersion: 1,
     sides: { site: { origin: site.origin }, design: { kind: 'design', provider: 'claude-design', root: 'canvas' } },
     targets: [
+      // The probe renders first in its context. A request that the popup holds goes out when the probe page closes,
+      // so the browser must stay open after that close: the next cells keep it open.
+      { id: 'probe', kind: 'page', path: '/unchanged', design: { desktop: 'Probe.dc.html' } },
       { id: 'whole', kind: 'page', path: '/unchanged', design: { desktop: 'Example.dc.html', mobile: 'Example.dc.html' } },
       { id: 'card', kind: 'page', path: '/unchanged', design: { desktop: 'Example.dc.html##hero' } },
-      { id: 'probe', kind: 'page', path: '/unchanged', design: { desktop: 'Probe.dc.html' } },
     ],
     viewports: [{ id: 'mobile', width: 390, height: 700, deviceScaleFactor: 2 }, { id: 'desktop', width: 800, height: 600 }],
     screenshot: { timeoutMs: 5000 },
