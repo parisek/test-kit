@@ -1,14 +1,18 @@
-// Explicit browser integration check (#352, R12.1, R10.16, R12.5, R5.5).
+// Explicit browser integration check (#352, R12.1, R10.16, R12.5, R5.5). It runs Lighthouse for `perf`, so it needs
+// the optional lighthouse peer and Node 22.19 or newer, as `check-perf-engine.mjs` does.
 // A project keeps its own inputs in `test-kit/inputs/`. Every command that writes the store leaves them unchanged,
 // and a `files` design side reads its images from `test-kit/inputs/design` with every root-escape check in place.
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, lstat, readlink, rm, symlink, utimes } from 'node:fs/promises';
+import { mkdtemp, realpath, mkdir, writeFile, readFile, readdir, lstat, readlink, rm, symlink, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { PNG } from 'pngjs';
-import { run as cli } from '../../src/cli/run.js';
+import { chromium } from '@playwright/test';
+import { run as cli, dispatch } from '../../src/cli/run.js';
+import { runPerfCommand } from '../../src/cli/perf.js';
+import { runProjectPerformance } from '../../src/workflow/performance.js';
 import { refreshStoreViewer } from '../../src/export/store-viewer.js';
 import { DEFAULT_STORE, STORE_INPUTS } from '../../src/config/store.js';
 
@@ -17,7 +21,8 @@ const site = createServer((request, response) => {
   response.end('<!doctype html><title>Example site</title><style>body{margin:0;background:#fff}h1{margin:0;height:40px}</style><h1>Example site</h1>');
 });
 await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
-const directory = await mkdtemp(join(tmpdir(), 'test-kit-reserved-'));
+// The real path: project perf derives runsRoot from the real store path, and the macOS temp folder is a symbolic link.
+const directory = await realpath(await mkdtemp(join(tmpdir(), 'test-kit-reserved-')));
 const inputs = join(directory, DEFAULT_STORE, STORE_INPUTS);
 const png = () => { const image = new PNG({ width: 300, height: 200 }); image.data.fill(255); return PNG.sync.write(image); };
 
@@ -35,9 +40,15 @@ async function snapshot(root = inputs) {
   await walk(root);
   return rows;
 }
+// `perf` runs the real Lighthouse. The command line has no Chrome path option, so the check passes the Chrome of the
+// CI job (TEST_KIT_CHROME_PATH) or the Playwright Chromium through the dependency hooks of `dispatch`. Every write stays real.
+const chromePath = process.env.TEST_KIT_CHROME_PATH || chromium.executablePath();
+const withChrome = options => runPerfCommand({ ...options, chromePath });
+const perfDependencies = { runPerfCommand: withChrome, runProjectPerformance: (options, budgets) => runProjectPerformance(options, budgets, { runPerfCommand: withChrome }) };
 async function command(argv) {
   const out = [], err = [];
-  const code = await cli(argv, { out: { write: value => out.push(value) }, err: { write: value => err.push(value) } });
+  const execute = argv[0] === 'perf' ? parsed => dispatch(parsed, perfDependencies) : undefined;
+  const code = await cli(argv, { out: { write: value => out.push(value) }, err: { write: value => err.push(value) } }, '0.0.0', execute);
   return { code, output: out.length ? JSON.parse(out.join('')) : null, err: err.join('') };
 }
 
@@ -70,6 +81,10 @@ try {
     ['report --export', ['report', '--config', configPath, '--export', 'out/report']],
     ['capture', ['capture', '--side', 'local', '--config', configPath]],
     ['import', ['import', '--side', 'design', '--config', configPath]],
+    // Plain perf with the default runsRoot writes test-kit/runs/<id>/ and refreshes the viewer. Project perf (--store)
+    // also writes and removes <store>/.runtime-<uuid>.json at the store root.
+    ['perf', ['perf', '--side', 'local', '--targets', 'home', '--config', configPath, '--allow-high-load']],
+    ['perf --store', ['perf', '--side', 'local', '--targets', 'home', '--config', configPath, '--store', DEFAULT_STORE, '--allow-high-load']],
     ['history --publish', ['history', '--config', configPath, '--publish', 'out/published']],
     ['history --prune', ['history', '--config', configPath, '--prune']],
     ['history --prune --yes', ['history', '--config', configPath, '--prune', '--keep', '1', '--yes']],
@@ -91,6 +106,10 @@ try {
   assert.ok(!JSON.stringify(results['history --prune']).includes(STORE_INPUTS), 'The prune listing does not name inputs/.');
   assert.ok(results['history --prune --yes'].removed.length > 0, 'The prune removed runs, so it ran on this store.');
   assert.ok(results.import.images === 1, 'import reads the design image under inputs/.');
+  for (const name of ['perf', 'perf --store']) {
+    assert.equal(results[name].state, 'complete', `${name} measured the page, so it wrote the store.`);
+    assert.ok(relative(join(directory, DEFAULT_STORE, 'runs'), results[name].manifestPath).split('/').length === 2, `${name} wrote runs/<id>/run.json.`);
+  }
 
   // R5.5: a root under inputs/ keeps every root-escape check.
   await writeFile(configPath, JSON.stringify({ ...config, targets: [{ id: 'home', kind: 'page', path: '/', design: { small: 'escape.png' } }] }));

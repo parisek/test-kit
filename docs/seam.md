@@ -132,7 +132,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 Other command facts:
 
 - The code is the source for flags: `FLAGS` in `src/cli/run.js`. Two accepted flags are absent from `--help`: `diff --fail-on-budget` and `run`, `before`, `after` `--label`. Both are marked like their command.
-- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam, with one exception: `<store>/inputs/` belongs to the project, and no command writes, moves or deletes anything under it on its own (R12.1, owner decision on #352, 2026-11-08). The reservation is an addition: old input still passes.
+- The default store directory `test-kit` is stable (R12.1). It was `.test-kit` before 1.2.0 (one-time exception to the freeze rule, #312). Its content layout is not part of the seam, with one exception: `<store>/inputs/` belongs to the project, and no command writes, moves or deletes anything under it on its own (R12.1, #352; owner direction to an agent in a session, 2026-11-08). The reservation is an addition: old input still passes.
 - `capture --artifacts` accepts `screenshot`, `html`, `status`, `content`, `behavior`. The list is additive only. `a11y` and `lint` are not accepted today. Packs run with `--packs`, not with `--artifacts` (R13.51).
 - Exit codes beyond 0 and 1 do not exist in `src/cli/run.js`. `--fail-on-budget` is the only flag that changes an exit code for a finding (R6.11).
 - `COMMANDS` and `run` are also exported from the package root (`src/index.js`). No README documents a project import of them. Experimental.

@@ -72,6 +72,8 @@ jobs:
       - run: node tests/integration/check-capture-keep.mjs
       - run: node tests/integration/check-history.mjs
       - run: node tests/integration/check-store-inputs.mjs
+        env:
+          TEST_KIT_CHROME_PATH: /usr/bin/google-chrome
       - run: node tests/integration/check-export-guards.mjs
       - run: node tests/integration/check-static-export.mjs
       - run: node tests/integration/check-pipeline.mjs
