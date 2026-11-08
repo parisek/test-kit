@@ -136,6 +136,32 @@ A value is an artboard file name directly in `project/`, and optionally `#` and 
 
 `import` writes a run with the sha256, size, source path and import time of each image (R4.6). A new import after a design change is a new run. `diff` reads the pair as `convergence`. A viewport with no mapped file is `missing`, never `match`. An image whose width is not the viewport width times the device scale is `incompatible`, and the report names both sizes. The tool never crops or resizes an image (R8.15). Read `diff.regions` first: a design tool and a browser draw text in different ways, so the ratio is a compass.
 
+### Design revisions and decisions
+
+A canvas changes. Each import is a run, so two imports show what changed in the design (drift), and an import against a site capture shows where the site differs from the design (gap). With `layout` in the config key `artifacts`, a `claude-design` import also reads the layout records of each target that declares `layout.parts` (R4.6, R6.14). The canvas markup differs from the site markup, so a part may name its selector per side:
+
+```json
+"artifacts": ["screenshot", "layout"],
+"layout": { "aliases": { "--space-6": "--spacing-6" } },
+"targets": [ { "id": "home", "kind": "page", "path": "/", "design": { "desktop": "Home.dc.html" },
+  "layout": { "parts": [ { "id": "title", "selector": "h1.hero", "selectorBySide": { "design": ".title" } } ] } } ]
+```
+
+```sh
+test-kit import --side design --label 'revision 2'
+test-kit diff <revision-1> <revision-2> --kind drift --output tests/visual/drift
+test-kit diff <revision-2> <site-run> --output tests/visual/gap
+```
+
+`--kind drift` needs two runs of one design side (R3.12). Decide per layout difference with `record-decision`. It writes `test-kit.decisions.json` beside the config. Commit the file.
+
+```sh
+test-kit record-decision tests/visual/drift/report.json --target home --viewport desktop --part title --property type.size \
+  --decision report-only --reason 'The design leads; the site follows in the next release.' --owner example-team
+```
+
+The entry binds the design value of that difference: the value of run B in a drift pair, else the value of the design run. On the next `diff`, a difference with an active `report-only` entry is `explained`. It stays in the findings with a `decision` label. `implement` never explains: the difference stays `unexplained` until the site matches. When the design moves the value again, the entry is `stale` and the difference is `unexplained`: decide again. When no difference has the key, the entry is `absent`, for example after the site implemented the gap. `summary` and `query` count the entries by status in `decisions` (R9.14, R11.9). An invalid file fails `diff` before any report. `--decisions FILE` sets another path. The viewer shows no decision yet.
+
 ## Response evidence
 
 Screenshots remain the default. Enable HTML or HTTP metadata explicitly:
