@@ -7,9 +7,9 @@
 // downloads or vendors it: the server only serves the copy it finds.
 import { createServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
-import { realpath, open, readFile, stat } from 'node:fs/promises';
+import { realpath, open, readFile, readdir, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolve, relative, isAbsolute, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { MAX_DESIGN_BYTES, sha256 } from './png.js';
@@ -22,50 +22,100 @@ export { CHROMIUM_ARGS } from './claude-design-refs.js';
 const inside = (base, file) => { const offset = relative(base, file); return offset === '' || (!offset.startsWith('..') && !isAbsolute(offset)); };
 
 // Read one file under the real `project/` directory. The real path must stay inside it: `..` and a symlink that
-// leaves it are refused. The file must be a regular file of at most 40 MiB. Errors name the path, never its bytes.
-// After the real-path check, a `stat` of that path and the opened handle must agree in device and inode, and the
-// real path must be the same again after the open. On POSIX the open also refuses a symbolic link in the last name.
-// A swap that happens between two of these calls and is undone before the next one is not caught. That is an
-// accepted local risk (R5.5): `project/` is the person's own export, and who can write there can edit the artboards.
-export async function readProjectFile(project, path, what) {
+// leaves it are refused. The file must be a regular file of at most `maxBytes` (40 MiB). Errors name the path, never
+// its bytes. After the real-path check, a `stat` of that path and the opened handle must agree in device and inode,
+// and the real path must be the same again after the open. On POSIX the open also refuses a symbolic link in the
+// last name. The bytes it returns are the bytes the caller hashes and serves.
+export async function readProjectFile(project, path, what, maxBytes = MAX_DESIGN_BYTES) {
   let file;
   try { file = await realpath(resolve(project, path)); } catch { throw Object.assign(new Error(`The ${what} is missing: ${PROJECT_DIR}/${path}`), { code: 'ENOENT' }); }
-  if (!inside(project, file) || file === project) throw new Error(`The ${what} escapes ${PROJECT_DIR}/: ${path}`);
+  if (!inside(project, file) || file === project) throw Object.assign(new Error(`The ${what} escapes ${PROJECT_DIR}/: ${path}`), { code: 'ESCAPE' });
   let seen, handle;
   try { seen = await stat(file); handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)); }
-  catch { throw new Error(`The ${what} cannot be opened: ${PROJECT_DIR}/${path}`); }
+  catch { throw Object.assign(new Error(`The ${what} cannot be opened: ${PROJECT_DIR}/${path}`), { code: 'EOPEN' }); }
   try {
     const info = await handle.stat();
     let again;
     try { again = await realpath(file); } catch { again = null; }
     if (info.dev !== seen.dev || info.ino !== seen.ino || again !== file) throw new Error(`The ${what} changed during the check: ${PROJECT_DIR}/${path}`);
-    if (!info.isFile()) throw new Error(`The ${what} is not a regular file: ${PROJECT_DIR}/${path}`);
-    if (info.size > MAX_DESIGN_BYTES) throw new Error(`The ${what} exceeds the file size limit: ${PROJECT_DIR}/${path}`);
+    if (!info.isFile()) throw Object.assign(new Error(`The ${what} is not a regular file: ${PROJECT_DIR}/${path}`), { code: 'NOTFILE' });
+    if (info.size > maxBytes) throw new Error(`The ${what} exceeds the file size limit: ${PROJECT_DIR}/${path}`);
     const bytes = await handle.readFile();
-    if (bytes.length > MAX_DESIGN_BYTES) throw new Error(`The ${what} exceeds the file size limit: ${PROJECT_DIR}/${path}`);
+    if (bytes.length > maxBytes) throw new Error(`The ${what} exceeds the file size limit: ${PROJECT_DIR}/${path}`);
     return bytes;
   } finally { await handle.close(); }
 }
 
-// Check the export and read the runtime and every mapped artboard once. The server serves these bytes, so the
-// hashes in the provenance are the hashes of what rendered. Nothing here opens a browser or a socket.
-export async function prepareCanvas(root, artboards) {
+// The caps of the snapshot of `project/`. A hook for tests: no option or key sets them.
+export const PROJECT_LIMITS = Object.freeze({ files: 2000, fileBytes: MAX_DESIGN_BYTES, totalBytes: 256 * 1024 * 1024 });
+
+// The sha256 of a snapshot: over the paths in sorted order (UTF-16 code units), one line `<path>\0<sha256>\n` each.
+export function projectSha256(files) {
+  const hash = createHash('sha256');
+  for (const path of [...files.keys()].sort()) hash.update(`${path}\0${files.get(path).sha256}\n`);
+  return hash.digest('hex');
+}
+
+// List the files under the real `project/`, as relative paths with `/`. A name that starts with `.` is skipped: the
+// server refuses it. A symbolic link to a directory is not followed. A symbolic link to a file is listed, and the
+// read decides. `limits.files` stops the walk early.
+async function listProject(project, limits) {
+  const paths = [];
+  const walk = async (directory, prefix) => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) await walk(join(directory, entry.name), path);
+      else if (entry.isFile() || entry.isSymbolicLink()) {
+        paths.push(path);
+        if (paths.length > limits.files) throw new Error(`The ${PROJECT_DIR}/ directory holds more than ${limits.files} files. Export only the canvas project into it.`);
+      }
+    }
+  };
+  await walk(project, '');
+  return paths.sort();
+}
+
+// Check the export and read every file under `project/` once, before any browser or socket starts. The runtime and
+// each mapped artboard come first, with their own messages. A symbolic link that leaves `project/`, a link that
+// points nowhere and a file that is not a regular file are left out, so the server answers 404 for them, as for any
+// other path. A file over the size cap, a file that changes during its check and a snapshot over the count or total
+// cap fail the import. The server serves these bytes only, so the hashes in the provenance cover every byte that
+// can render.
+export async function prepareCanvas(root, artboards, limits = PROJECT_LIMITS) {
   let base;
   try { base = await realpath(root); } catch { throw new Error('The design root does not exist.'); }
   let project;
   try { project = await realpath(join(base, PROJECT_DIR)); } catch { throw new Error(`The claude-design root has no ${PROJECT_DIR}/ directory. Export the canvas project into it.`); }
   if (!inside(base, project) || project === base) throw new Error(`The ${PROJECT_DIR}/ directory escapes the design root.`);
   let runtime;
-  try { runtime = await readProjectFile(project, RUNTIME_FILE, 'canvas runtime'); } catch (error) {
+  try { runtime = await readProjectFile(project, RUNTIME_FILE, 'canvas runtime', limits.fileBytes); } catch (error) {
     if (error.code === 'ENOENT') throw new Error(`The claude-design provider needs the canvas runtime at ${PROJECT_DIR}/${RUNTIME_FILE}. Save it from the canvas with the export and run import again. test-kit never ships or downloads it.`);
     throw error;
   }
-  const files = new Map();
+  const files = new Map([[RUNTIME_FILE, { bytes: runtime, sha256: sha256(runtime) }]]);
+  const mapped = new Map();
   for (const path of new Set(artboards)) {
-    const bytes = await readProjectFile(project, path, 'artboard');
+    const bytes = await readProjectFile(project, path, 'artboard', limits.fileBytes);
+    mapped.set(path, { bytes, sha256: sha256(bytes) });
+    files.set(path, mapped.get(path));
+  }
+  let total = 0;
+  for (const { bytes } of files.values()) total += bytes.length;
+  const tooLarge = () => new Error(`The files under ${PROJECT_DIR}/ exceed ${limits.totalBytes} bytes together. Export only the canvas project into it.`);
+  if (total > limits.totalBytes) throw tooLarge();
+  for (const path of await listProject(project, limits)) {
+    if (files.has(path)) continue;
+    let bytes;
+    try { bytes = await readProjectFile(project, path, 'file', limits.fileBytes); } catch (error) {
+      if (['ENOENT', 'ESCAPE', 'EOPEN', 'NOTFILE'].includes(error.code)) continue;
+      throw error;
+    }
+    total += bytes.length;
+    if (total > limits.totalBytes) throw tooLarge();
     files.set(path, { bytes, sha256: sha256(bytes) });
   }
-  return { project, runtime, runtimeSha256: sha256(runtime), artboards: files };
+  return { project, runtime, runtimeSha256: files.get(RUNTIME_FILE).sha256, artboards: mapped, files, projectSha256: projectSha256(files) };
 }
 
 // True when `segment` is the token. The compare takes the same time for every segment of the token length.
@@ -75,14 +125,15 @@ export function tokenMatches(segment, token) {
 }
 
 // The loopback server. GET and HEAD only, the Host header must name the server, the first path segment must be the
-// random token of this server, and the rest passes `servedPathProblem` and then the real-path check. Any other path
-// is 404, so a local process that finds the port cannot read `project/` without the token. No listing, no redirect.
+// random token of this server, and the rest passes `servedPathProblem` and names a file of the snapshot that
+// `prepareCanvas` read. It never reads the disk. Any other path is 404, so a local process that finds the port
+// cannot read `project/` without the token. No listing, no redirect.
 // `requests` counts answered requests. `base` is the origin with the token: the browser loads everything under it.
 export async function startCanvasServer(canvas) {
   let port = 0;
   const token = randomBytes(16).toString('hex');
   const stats = { requests: 0, refused: 0 };
-  const server = createServer(async (request, response) => {
+  const server = createServer((request, response) => {
     const refuse = (status) => { stats.refused++; response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); response.end(); };
     if (!['GET', 'HEAD'].includes(request.method)) return refuse(405);
     if (request.headers.host !== `127.0.0.1:${port}`) return refuse(403);
@@ -93,12 +144,9 @@ export async function startCanvasServer(canvas) {
     if (at === -1 || !tokenMatches(pathname.slice(1, at), token)) return refuse(404);
     const { path, problem } = servedPathProblem(pathname.slice(at));
     if (problem) return refuse(404);
-    let bytes;
-    if (path === RUNTIME_FILE) bytes = canvas.runtime;
-    else if (canvas.artboards.has(path)) bytes = canvas.artboards.get(path).bytes;
-    else {
-      try { bytes = await readProjectFile(canvas.project, path, 'file'); } catch { return refuse(404); }
-    }
+    const file = canvas.files.get(path);
+    if (!file) return refuse(404);
+    const { bytes } = file;
     stats.requests++;
     response.writeHead(200, { 'Content-Type': contentType(path), 'Content-Length': bytes.length, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
     response.end(request.method === 'HEAD' ? undefined : bytes);

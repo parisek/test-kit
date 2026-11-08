@@ -69,8 +69,8 @@ async function figmaImages(design, cells, importedAt, env, hooks) {
   });
 }
 
-// R5.5: the `claude-design` provider. Every file check runs first: the export layout, the runtime and each artboard.
-// Only then does the render start, and only then on a loopback server (no connection leaves the machine).
+// R5.5: the `claude-design` provider. Every file check runs first: the export layout, the runtime, each artboard and
+// the snapshot of every file under `project/`, which is all the server serves. Only then does the render start, and only then on a loopback server (no connection leaves the machine).
 // The screenshot is a band at x = 0, the viewport wide, so the image is viewport width x scale wide (R8.15).
 async function claudeDesignImages(root, cells, importedAt, timeoutMs, hooks) {
   const planned = cells.map(cell => {
@@ -78,12 +78,12 @@ async function claudeDesignImages(root, cells, importedAt, timeoutMs, hooks) {
     if (problem) throw new Error(`Design reference ${problem}.`);
     return { ...cell, artboard, selector };
   });
-  const canvas = await prepareCanvas(root, planned.map(cell => cell.artboard));
+  const canvas = await prepareCanvas(root, planned.map(cell => cell.artboard), hooks.limits);
   const { images } = await renderCanvas({ canvas, cells: planned, timeoutMs, chromium: hooks.chromium });
   return images.map(({ target, viewport, source, artboard, bytes }) => {
     let provenance;
     try {
-      provenance = designProvenance({ source, importedAt, bytes, provider: 'claude-design', extra: { artboardSha256: canvas.artboards.get(artboard).sha256, runtimeSha256: canvas.runtimeSha256 } });
+      provenance = designProvenance({ source, importedAt, bytes, provider: 'claude-design', extra: { artboardSha256: canvas.artboards.get(artboard).sha256, runtimeSha256: canvas.runtimeSha256, projectSha256: canvas.projectSha256 } });
     } catch (error) { throw new Error(`${error.message} (${source})`); }
     return { target, viewport, bytes, provenance };
   });

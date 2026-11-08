@@ -203,6 +203,14 @@ test('loopback server: serves project/ only, from 127.0.0.1, and refuses every e
     // The artboard bytes are the bytes read at the check, so a later edit does not reach the render.
     await writeFile(join(root, 'project/Example.dc.html'), '<p>changed</p>');
     assert.match((await get(server.origin, at('/Example.dc.html'))).body, /<x-dc>/);
+    // Every file comes from the snapshot of the check: a support file changed later is served with the old bytes,
+    // and a file added later does not exist for the server.
+    const tokens = (await get(server.origin, at('/ds/tokens.css'))).body;
+    await writeFile(join(root, 'project/ds/tokens.css'), 'body { color: red; }');
+    assert.equal((await get(server.origin, at('/ds/tokens.css'))).body, tokens);
+    await writeFile(join(root, 'project/ds/later.css'), 'body {}');
+    assert.equal((await get(server.origin, at('/ds/later.css'))).status, 404);
+    assert.ok(!canvas.files.has('link.txt') && !canvas.files.has('.hidden'), 'A link that leaves project/ and a hidden name are not in the snapshot.');
     for (const path of ['/', '/../beside.txt', '/%2e%2e/beside.txt', '/ds/%2e%2e/%2e%2e/beside.txt', '/link.txt', '/.hidden', '/nothing.css', '/ds', '/a%2f..%2fbeside.txt'])
       assert.equal((await get(server.origin, at(path))).status, 404, path);
     assert.equal((await get(server.origin, 'http://example.com/Example.dc.html')).status, 400);
@@ -279,11 +287,17 @@ test('import: renders each mapped cell and writes provenance with both hashes (R
     const artboardSha256 = sha256(await readFile(join(root, 'Example.dc.html')));
     const runtimeSha256 = sha256(await readFile(join(root, 'support.js')));
     const mobile = run.captures.find(row => row.viewportId === 'mobile');
-    assert.deepEqual(Object.keys(mobile.design), ['provider', 'source', 'artboardSha256', 'runtimeSha256', 'importedAt', 'sha256', 'width', 'height']);
+    assert.deepEqual(Object.keys(mobile.design), ['provider', 'source', 'artboardSha256', 'runtimeSha256', 'projectSha256', 'importedAt', 'sha256', 'width', 'height']);
     assert.equal(mobile.design.provider, 'claude-design');
     assert.equal(mobile.design.source, 'Example.dc.html##hero');
     assert.equal(mobile.design.artboardSha256, artboardSha256);
     assert.equal(mobile.design.runtimeSha256, runtimeSha256);
+    // projectSha256 covers every file of the export: sorted paths, one line `<path>\0<sha256>\n` each.
+    const lines = [];
+    for (const path of ['Example.dc.html', 'Hole.dc.html', 'canvas.json', 'ds/tokens.css', 'img/' + (await readdir(join(root, 'img')))[0], 'support.js'].sort())
+      lines.push(`${path}\0${sha256(await readFile(join(root, path)))}\n`);
+    assert.deepEqual((await readdir(join(root, 'ds'))), ['tokens.css']);
+    assert.equal(mobile.design.projectSha256, sha256(Buffer.from(lines.join(''))));
     assert.equal(mobile.design.width, 40, 'Viewport 20 x scale 2.');
     assert.equal(mobile.design.sha256, sha256(await readFile(join(runDir, 'screenshots/hero/mobile.png'))));
   } finally { await rm(directory, { recursive: true, force: true }); }
@@ -326,5 +340,28 @@ test('import: one deadline bounds the whole cell, also an evaluate that never re
     assert.ok(Date.now() - started < 2000, `The cell failed after ${Date.now() - started} ms.`);
     assert.equal(stub.calls.closedPages, 1, 'The deadline closes the page.');
     assert.deepEqual(await readdir(join(directory, 'runs')).catch(() => []), []);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('import: the snapshot caps fail before any browser starts and leave no run (R4.6)', async () => {
+  const directory = await workspace();
+  try {
+    const configPath = join(directory, 'config.json');
+    await writeFile(configPath, JSON.stringify(config()));
+    const runs = join(directory, 'runs');
+    const project = join(directory, 'canvas/project');
+    const sizes = [];
+    for (const path of ['Example.dc.html', 'Hole.dc.html', 'canvas.json', 'support.js']) sizes.push((await readFile(join(project, path))).length);
+    const cases = [
+      [{ files: 3, fileBytes: 1 << 20, totalBytes: 1 << 20 }, /project\/ directory holds more than 3 files/],
+      [{ files: 2000, fileBytes: Math.max(...sizes) - 1, totalBytes: 1 << 20 }, /exceeds the file size limit: project\//],
+      [{ files: 2000, fileBytes: 1 << 20, totalBytes: sizes.reduce((a, b) => a + b, 0) }, /files under project\/ exceed \d+ bytes together/],
+    ];
+    for (const [limits, message] of cases) {
+      const stub = stubChromium();
+      await assert.rejects(importDesign({ configPath, side: 'design', claudeDesign: { chromium: stub.chromium, limits } }), message);
+      assert.equal(stub.calls.launch.length, 0, 'No browser starts when the snapshot fails.');
+      assert.deepEqual(await readdir(runs).catch(() => []), []);
+    }
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

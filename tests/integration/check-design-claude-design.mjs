@@ -102,6 +102,8 @@ setTimeout(() => { if (gone(window) && gone(frame.contentWindow)) document.query
     assert.equal(row.design.provider, 'claude-design');
     assert.equal(row.design.width, width, `${target}/${viewport} is viewport width x scale wide (R8.15).`);
     assert.equal(row.design.runtimeSha256, runtimeSha256);
+    assert.match(row.design.projectSha256, /^[0-9a-f]{64}$/);
+    assert.equal(row.design.projectSha256, entry('whole', 'desktop').design.projectSha256, 'One import has one snapshot of project/.');
     const image = PNG.sync.read(await readFile(join(first.manifestPath, '..', row.path)));
     assert.equal(image.width, width);
     assert.equal(row.design.sha256, sha256(await readFile(join(first.manifestPath, '..', row.path))));
