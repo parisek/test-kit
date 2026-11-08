@@ -1,4 +1,4 @@
-import { settlePage, countUnloadedLazyImages } from './settle.js';
+import { settlePage, countUnloadedLazyImages, afterSweepError } from './settle.js';
 import { captureWarnings, warningFields, withWarning } from '../report/warnings.js';
 import { captureScopedScreenshot } from './scope.js';
 import { captureRecipe, settleRecipe } from '../config/settings.js';
@@ -26,7 +26,7 @@ import { planPackRun } from '../packs/select.js';
 import { runPagePacks } from './packs.js';
 import { gitSha } from './git.js';
 import { createKeepFinder } from './keep-store.js';
-import { deadlineError, isTransientFailure, markTransient, navigationAbortCode, captureWithRetries, parseRetries } from './retry.js';
+import { DEADLINE_CODE, deadlineError, isTransientFailure, markTransient, navigationAbortCode, captureWithRetries, parseRetries } from './retry.js';
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -105,6 +105,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   const file = resolve(runDir, relativePath);
   let timer;
   let expired = false;
+  const settleProgress = {};
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => { expired = true; reject(deadlineError()); }, config.screenshot.timeoutMs);
   });
@@ -215,7 +216,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       return { ...identity, state: 'captured', statusCode, finalPath, ...stored(), artifacts, ...droppedFields(droppedLog) };
     }
     phase = 'settlement';
-    await settlePage({ page, recipe, active: () => !expired && !edge && !blocked && !unexpectedNavigation });
+    await settlePage({ page, recipe, active: () => !expired && !edge && !blocked && !unexpectedNavigation, progress: settleProgress });
     if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
     if (config.artifacts.includes('content')) {
       phase = 'content';
@@ -340,14 +341,17 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     return { ...identity, state: 'captured', path: relativePath, statusCode: response.status(), finalPath: final.pathname,
       width, height, deviceScaleFactor: viewport.deviceScaleFactor, ...stored(), artifacts, ...droppedFields(droppedLog), ...warningFields(warnings) };
     })()]);
-  } catch (error) {
+  } catch (caught) {
+    // R5.15: the capture deadline and the page timeout are one value, so the deadline usually ends a hidden afterSweep wait.
+    // The failure still names the selector, and it is not transient.
+    const error = caught?.code === DEADLINE_CODE && phase === 'settlement' && settleProgress.afterSweep !== undefined ? afterSweepError(settleProgress.afterSweep) : caught;
     if (context) await context.close().catch(() => {});
     if (verifier) await verifier.close().catch(() => {});
     await unlink(file).catch(() => {});
     // R5.14: the verdict on the real error, before the message is generalized. The mark stays out of run.json.
     const transient = isTransientFailure({ error, edge, blocked, unexpectedNavigation, phase, statusCode });
     return markTransient({ ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
-      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : error?.code === 'PIN_NO_MATCH' ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } }, transient);
+      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : ['PIN_NO_MATCH', 'AFTER_SWEEP_NOT_VISIBLE'].includes(error?.code) ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } }, transient);
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
 

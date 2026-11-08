@@ -102,5 +102,5 @@ export function settlementMatches(capture, config, side, target) {
   const recipe = settleRecipe(config, side, target);
   if (capture.settleHash !== undefined) return capture.settleHash === settingsHash(recipe);
   return target?.settle === undefined && !Object.hasOwn(target?.settleBySide ?? {}, side)
-    && !(recipe.reveal?.length > 0) && recipe.lazyImages !== true && !(recipe.pin?.length > 0);
+    && !(recipe.reveal?.length > 0) && recipe.lazyImages !== true && !(recipe.pin?.length > 0) && !(recipe.afterSweep?.length > 0);
 }

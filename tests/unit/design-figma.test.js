@@ -94,7 +94,7 @@ test('config: the figma side takes a file key only, and the token has no key (R5
   assert.throws(() => normalizeConfig(side({ root: 'refs' })), /root is unsupported/);
   assert.throws(() => normalizeConfig(side({ fileKey: undefined })), /fileKey must be a Figma file key/);
   assert.throws(() => normalizeConfig(side({ fileKey: '../x' })), /fileKey must be a Figma file key/);
-  assert.throws(() => normalizeConfig(side({ provider: 'other' })), /provider must be "files" or "figma"/);
+  assert.throws(() => normalizeConfig(side({ provider: 'other' })), /provider must be "files", "figma" or "claude-design"/);
   const files = { ...figmaConfig(), sides: { design: { kind: 'design', provider: 'files', root: 'refs', fileKey: KEY } } };
   assert.throws(() => normalizeConfig(files), /fileKey is unsupported/);
 });

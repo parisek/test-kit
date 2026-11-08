@@ -60,6 +60,7 @@ jobs:
       - run: node tests/integration/check-capture-scopes.mjs
       - run: node tests/integration/check-styleguide-targets.mjs
       - run: node tests/integration/check-design-files.mjs
+      - run: node tests/integration/check-design-claude-design.mjs
       - run: node tests/integration/check-capture-selection.mjs
       - run: node tests/integration/check-compare-selection.mjs
       - run: node tests/integration/check-a11y-runner.mjs
@@ -67,6 +68,7 @@ jobs:
       - run: node tests/integration/check-capture-packs.mjs
       - run: node tests/integration/check-capture-settlement.mjs
       - run: node tests/integration/check-capture-lazy-images.mjs
+      - run: node tests/integration/check-capture-lazy-settle.mjs
       - run: node tests/integration/check-capture-pin.mjs
       - run: node tests/integration/check-capture-retries.mjs
       - run: node tests/integration/check-capture-keep.mjs

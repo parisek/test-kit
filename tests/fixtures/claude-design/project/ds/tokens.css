@@ -1,0 +1,7 @@
+:root { --space-4: 16px; --space-6: 24px; --ink: #1d1d1f; --paper: #ffffff; --accent: #2457d6; --radius: 12px; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 sans-serif; }
+x-dc { display: block; }
+.page { padding: var(--space-6); }
+.card { display: flex; gap: var(--space-4); align-items: center; padding: var(--space-6); border-radius: var(--radius); background: #eef2fb; }
+.card h1 { margin: 0; font-size: 28px; line-height: 1.2; }
+.band { height: 400px; margin-top: var(--space-6); background: linear-gradient(var(--accent), #8fa8ea); }
