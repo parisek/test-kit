@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import { capture } from '../../src/capture/index.js';
 import { compareRuns } from '../../src/compare/runs.js';
 
-// #353 (R5.9): the lazy-image sweep scrolls with `behavior: 'instant'`, and after it restores the scroll position, capture settles again.
+// #353 (R5.9): the lazy-image sweep scrolls with `behavior: 'instant'`, also when it restores the scroll position.
 // The page has a sticky header with a strip. The strip hides when the page scrolls: an IntersectionObserver watches a
 // sentinel at the top, and a scroll listener applies the class two animation frames late, as real headers do.
 // A lazy image sits below the fold, so the sweep must scroll. One capture plus three more with no edit must give 0 differences.

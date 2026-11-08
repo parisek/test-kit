@@ -25,7 +25,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
-- The lazy-image sweep no longer captures a page before its scroll-driven state reverts (R5.9, #353). Each scroll of the sweep, and the restore, is instant, so `scroll-behavior: smooth` does not animate it. After the restore, capture waits two animation frames, one task and two more frames, then runs the `selectors` waits and the font wait once more. A wait selector that is not visible again after the sweep fails the capture. `waitMs`, `reveal` and `pin` do not run again. The capture engine version stays `1`: 24 cells of pages with a deterministic capture give the same bytes. The capture of a target with the sweep is a few frames later (one 50 ms step, measured). A baseline of a page with smooth scrolling and a scroll-driven header, made before this fix, can differ once: run `before` again for it. A new integration check (`check-capture-lazy-settle.mjs`) captures such a page once and three more times and finds 0 differences.
+- The lazy-image sweep no longer captures a page before its scroll-driven state reverts (R5.9, #353). Each scroll of the sweep, and the restore, is instant, so `scroll-behavior: smooth` does not animate it. No settle step runs again after the restore. The capture engine version stays `1`: on a page without smooth scrolling the scroll is the same as before. Whether R5.6 needs a raise for this fix is an open owner question (section 17, item 12). A baseline of a page with smooth scrolling and a scroll-driven header, made before this fix, can differ once: run `before` again for it. A new integration check (`check-capture-lazy-settle.mjs`) captures such a page once and three more times and finds 0 differences.
 
 ## [1.2.0-rc.1] - 2026-11-06
 

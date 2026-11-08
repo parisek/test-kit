@@ -19,13 +19,9 @@ export async function settlePage({ page, recipe, active = () => true }) {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     check();
   }
-  // The wait selectors and the font wait. They run here and once more after the lazy-image sweep (R5.9).
-  const ready = async () => {
-    for (const selector of recipe.selectors ?? []) { check(); await page.locator(selector).first().waitFor({ state: 'visible' }); }
-    check();
-    await page.evaluate(async () => { await document.fonts.ready; });
-  };
-  await ready();
+  for (const selector of recipe.selectors ?? []) { check(); await page.locator(selector).first().waitFor({ state: 'visible' }); }
+  check();
+  await page.evaluate(async () => { await document.fonts.ready; });
   if (recipe.waitMs) await page.waitForTimeout(recipe.waitMs);
   check();
   // R5.12: pin runs after the wait steps and before the lazy-image sweep. It sets one fixed declaration and sends no request.
@@ -77,16 +73,6 @@ export async function settlePage({ page, recipe, active = () => true }) {
       if (document.documentElement.scrollHeight > initialHeight) throw new Error('Lazy-image page grows during settlement.');
     } finally { scroll(initial.x, initial.y); }
   });
-  check();
-  // #353 (R5.9): state that depends on the scroll position (a sticky header that hides a strip) reverts after the restore,
-  // through scroll events, IntersectionObserver callbacks and animation frames. Let those run, then wait for the selectors
-  // and fonts once more. `waitMs` does not run again: a second wait moves the capture later on a page with timed content.
-  // Reveal and pin do not run again: a second click can toggle state, and pin stays before the sweep (R5.12).
-  await page.evaluate(() => new Promise(resolve => {
-    const frames = next => requestAnimationFrame(() => requestAnimationFrame(next));
-    frames(() => setTimeout(() => frames(resolve), 0));
-  }));
-  await ready();
   check();
   } finally { if (guarded) page.off('request', onRequest); }
 }
