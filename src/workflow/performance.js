@@ -1,4 +1,4 @@
-import { readFile, writeFile, rm } from 'node:fs/promises';
+import { readFile, writeFile, rm, realpath } from 'node:fs/promises';
 import { dirname, resolve, relative, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ensureStore, loopbackOrigin, describeDdev, refreshViewerAfter } from './index.js';
@@ -18,7 +18,9 @@ async function perform(options, budgets, dependencies) {
   if (options.ddev) {
     config.sides[options.side].origin = loopbackOrigin(await describeDdev(directory));
   }
-  config.runsRoot = relative(directory, store).split('\\').join('/') + '/runs';
+  // `ensureStore` returns the real store path. Compare it with the real configuration directory, so a path that
+  // goes through a symbolic link (the macOS temp folder) still gives a plain relative runsRoot (#359, R12.1).
+  config.runsRoot = relative(await realpath(directory), store).split('\\').join('/') + '/runs';
   const runtime = join(store, `.runtime-${randomUUID()}.json`);
   try {
     await writeFile(runtime, JSON.stringify(config), { flag: 'wx', mode: 0o600 });
