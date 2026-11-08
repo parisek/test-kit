@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.3.0-rc.1] - 2026-11-08
+
+First release candidate for 1.3.0. It is not a stable release. `package.json` says `1.3.0`, so `--version` prints `1.3.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The store reserves `inputs/` for project files: a `runsRoot` inside `test-kit/inputs` must move. A pair of the same remote side now gives the report kind `deploy`, not `update`: add `deploy` to the `kinds` of a rule that must still apply. The capture engine version stays `1`.
+
 ### Added
 
 - The `a11y` pack enters frames (R13.51, R8.14, #316). `runAxe` runs axe in a CDP isolated world of the top document and of each frame of the page origin or `about:blank` / `srcdoc` frame below it, at most 50 frames, with no axe frame messaging and nothing written to the page. Each frame world starts with a check that `self.origin` equals the page origin, so another origin, an opaque (sandboxed) origin, a spoofed `window.origin` and a frame that navigates in between get no axe. Results merge by rule id with the frame selector chain in front. A frame it cannot enter gives one `warning` finding with `evidence.needsReview: true` and `evidence.unreachableFrames`, a frame where axe breaks gives `evidence.failedFrames`, and the check stays `complete`. The artifact gains an optional `frames: { injected, unreachable, failed? }` field, outside every hash. Without CDP (not Chromium) only the top document runs. A state stays its own target (ADR 0004); there is no state axis.
@@ -14,7 +18,6 @@ Versions follow semver. Each release uses an immutable git tag.
 - The viewer shows capture warnings (R5.11, #329). The report header line gets a last sentence, "Capture warnings: LAZY_IMAGES_NOT_SWEPT in 3 cells (12 in all).", and each cell shows "A: LAZY_IMAGES_NOT_SWEPT (7) · B: none" in the Overview matrix and on Evidence. The numbers equal the `captureWarnings` of `summary`. A warning adds no badge, no filter and no class.
 - `record-allowed --fingerprint HASH` selects the one finding with this `evidenceFingerprint` when several match. It refuses a value that is not a hash and a value that matches no finding. The error for several matches names the option (R9.12, #331).
 - `record-allowed` refuses the check `lighthouse-budget`. A budget finding has no fingerprint, stays `unexplained`, and a budget changes in the config. The rule is now in R9.8 and R9.12 (owner decision, #331).
-
 - The `figma` provider of a design side: `{ kind: "design", provider: "figma", fileKey }`, with a node ID for each viewport in `targets[].design`. `import` exports each node as PNG at the viewport device scale and writes the same run as the `files` provider, with `fileKey` and `scale` in the provenance. It is opt-in and an exception to N3, G5 and vision principle 4. The token comes from `FIGMA_TOKEN` only. The network is used only during `import`, only to the Figma API and its image storage. A missing token fails before any request. Image URLs must be https on a Figma host. No redirect, no retry, bounded time and size. Tests use a local mock server only; nothing was run against Figma yet (R4.6, R5.5, #288).
 
 ### Changed
