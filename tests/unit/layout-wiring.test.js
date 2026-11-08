@@ -8,7 +8,10 @@ import { normalizeConfig } from '../../src/config/normalize.js';
 import { captureSettings, settingsHash, settleRecipe } from '../../src/config/settings.js';
 import { entryProblem } from '../../src/capture/keep.js';
 import { compareLayoutArtifact } from '../../src/layout/compare-artifact.js';
-import { validateLayoutComparison, compareLayout } from '../../src/layout/compare.js';
+import { validateLayoutComparison, compareLayout, boundComparison, MAX_COMPARISON_BYTES, MAX_DIFFERENCES } from '../../src/layout/compare.js';
+import { readSidecar } from '../../src/artifacts/compare.js';
+import { MAX_RESPONSE_BYTES } from '../../src/artifacts/response.js';
+import { queryArtifact } from '../../src/query/artifact.js';
 import { normaliseRecord, LAYOUT_VERSION } from '../../src/layout/record.js';
 import { layoutTotals } from '../../src/report/layout.js';
 import { parseCommand } from '../../src/cli/run.js';
@@ -105,9 +108,11 @@ test('compare artifact: browser sides only, equal part shapes, and an untrusted 
 });
 
 test('the difference sidecar and the summary counts read untrusted data with bounds (R11.2, R11.6)', () => {
-  const detail = compareLayout(snapshot(), snapshot('20px'));
+  const detail = boundComparison(compareLayout(snapshot(), snapshot('20px')));
+  assert.equal(detail.differencesOmitted, 0);
   assert.deepEqual(validateLayoutComparison(JSON.parse(JSON.stringify(detail))), detail);
   for (const change of [{ changed: false }, { parts: [{ id: '../x', state: 'match' }] }, { counts: { ...detail.counts, differences: 9 } },
+    { differencesOmitted: undefined }, { differencesOmitted: -1 }, { differencesOmitted: 1 }, { differencesOmitted: 'x' }, { differencesOmitted: MAX_DIFFERENCES + 1 },
     { differences: [{ ...detail.differences[0], property: 'x;y' }] }, { differences: [{ ...detail.differences[0], a: {} }] }, { differences: [{ ...detail.differences[0], tokenA: 'x' }] }])
     assert.throws(() => validateLayoutComparison({ ...detail, ...change }), JSON.stringify(change));
   const row = (counts, state = 'complete') => ({ id: 'phone', artifacts: { layout: { state, diff: { counts } } } });
@@ -147,4 +152,64 @@ test('compare artifact: at most 100 findings per cell, and the cut is counted (R
   assert.equal(cut.artifact.diff.findingsOmitted, 50);
   assert.equal(cut.artifact.diff.differences.length, 50);
   assert.equal(cut.artifact.diff.differencesOmitted, 100);
+});
+
+test('the difference sidecar always fits the query read limit: 50 repeat parts of 50 records (R6.15, R9.13, R11.8)', async (t) => {
+  assert.equal(MAX_COMPARISON_BYTES, MAX_RESPONSE_BYTES, 'The writer bound equals the default read limit.');
+  const root = await mkdtemp(join(tmpdir(), 'test-kit-layout-bound-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  // Every property differs between the two sides, so each record gives one difference per property.
+  const sideA = { rect: { width: 100, height: 20 }, display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', justifyContent: 'start', alignItems: 'start', rowGap: '1px', columnGap: '1px',
+    paddingTop: '1px', paddingRight: '1px', paddingBottom: '1px', paddingLeft: '1px', fontFamily: 'Example Sans', fontSize: '16px', fontWeight: '400', lineHeight: '24px', letterSpacing: '0px',
+    color: 'rgb(0, 0, 0)', backgroundColor: 'rgb(255, 255, 255)', borderTopWidth: '1px', borderTopColor: 'rgb(1, 1, 1)', borderTopLeftRadius: '1px' };
+  const sideB = { rect: { width: 300, height: 90 }, display: 'inline-flex', flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', rowGap: '9px', columnGap: '9px',
+    paddingTop: '9px', paddingRight: '9px', paddingBottom: '9px', paddingLeft: '9px', fontFamily: 'Other Serif', fontSize: '40px', fontWeight: '700', lineHeight: '80px', letterSpacing: '4px',
+    color: 'rgb(9, 9, 9)', backgroundColor: 'rgb(200, 200, 200)', borderTopWidth: '5px', borderTopColor: 'rgb(9, 1, 1)', borderTopLeftRadius: '9px' };
+  const ids = Array.from({ length: 50 }, (_, index) => `repeat-part-${index}`);
+  const file = values => ({ schemaVersion: 1, version: LAYOUT_VERSION, source: 'computed-style',
+    parts: ids.map(id => ({ id, repeat: true, count: 50, records: Array.from({ length: 50 }, () => normaliseRecord(values)) })) });
+  const parts = { parts: ids.map(id => ({ id, selector: `.${id}`, repeat: true })) };
+  const make = async (id, value) => {
+    const bytes = Buffer.from(JSON.stringify(value));
+    await mkdir(join(root, id, 'layout/home'), { recursive: true });
+    await writeFile(join(root, id, 'layout/home/phone.json'), bytes);
+    const run = { id, side: 'local', settings: { sides: { local: { origin: 'http://127.0.0.1:1', settle: {} } }, viewports: [{ id: 'phone', width: 400, height: 800 }], targets: [{ id: 'home', kind: 'page', path: '/', layout: parts }] }, captureSettings: { browser: { name: 'chromium' } } };
+    const capture = { targetId: 'home', viewportId: 'phone', state: 'captured', settleHash: settingsHash(settleRecipe(run.settings, 'local', run.settings.targets[0])),
+      artifacts: { layout: { kind: 'layout', tool: 'test-kit-layout', version: LAYOUT_VERSION, browserVersion: '1', settingsHash: 'sha256:x', state: 'captured', path: 'layout/home/phone.json', bytes: bytes.length, sha256: 'sha256:' + createHash('sha256').update(bytes).digest('hex') } } };
+    return { run, capture };
+  };
+  const a = await make('a', file(sideA)), b = await make('b', file(sideB));
+  const output = join(root, 'out');
+  const result = await compareLayoutArtifact({ a: a.run, b: b.run, ac: a.capture, bc: b.capture, runsRoot: root, output, targetId: 'home', viewportId: 'phone' });
+  assert.equal(result.artifact.state, 'complete');
+  const total = result.artifact.diff.counts.differences;
+  assert.equal(total, 50 * 50 * 22, 'Each of the 2500 records differs in all 22 properties.');
+  // The full list is several MiB. The sidecar keeps a prefix of it and counts the rest.
+  assert.ok(JSON.stringify(compareLayout(file(sideA), file(sideB)).differences).length > 2 * MAX_COMPARISON_BYTES);
+  const bytes = await readSidecar(output, result.artifact.diff.src);
+  assert.ok(bytes.length <= MAX_RESPONSE_BYTES);
+  const sidecar = validateLayoutComparison(JSON.parse(bytes));
+  assert.equal(sidecar.counts.differences, total);
+  assert.ok(sidecar.differencesOmitted > 0);
+  assert.equal(sidecar.differences.length + sidecar.differencesOmitted, total);
+  // The order is stable: the sidecar starts with the first differences of the index.
+  assert.deepEqual(sidecar.differences.slice(0, 50), result.artifact.diff.differences);
+  assert.equal(result.artifact.diff.differencesOmitted, total - 50, 'The index counts from the full list.');
+  // `query` reads the sidecar with its default limit and reports both cuts.
+  const report = { schemaVersion: 3, meta: { title: 'Layout bound', generated: null, viewports: [{ id: 'phone', width: 400 }], matchBelow: 3, noiseFloor: null },
+    pair: { kind: 'update', aRunId: 'a', bRunId: 'b' }, runs: [{ id: 'a' }, { id: 'b' }],
+    checks: { layout: { basis: 'relative', layer: 'package', title: 'Layout record difference' } },
+    entries: [{ id: 'home', viewports: [{ id: 'phone', state: 'complete', ratio: 0, availability: { a: 'ok', b: 'ok' }, artifacts: { screenshot: { a: null, b: null, diff: null, state: 'complete' }, layout: result.artifact } }] }],
+    findings: result.findings, causes: [], rules: {} };
+  await writeFile(join(output, 'report.json'), JSON.stringify(report));
+  const query = await queryArtifact(join(output, 'report.json'), { target: 'home', viewport: 'phone', artifact: 'layout', maxLines: 5 });
+  assert.equal(query.diff.counts.differences, total);
+  assert.equal(query.diff.differences.length, 5);
+  assert.equal(query.diff.differencesOmitted, total - 5);
+  assert.equal(query.diff.differencesOmitted, sidecar.differencesOmitted + sidecar.differences.length - 5);
+  // A small bound cuts at the first difference that does not fit.
+  const small = boundComparison(compareLayout(file(sideA), file(sideB)), 4096);
+  assert.ok(Buffer.byteLength(JSON.stringify(small)) <= 4096);
+  assert.equal(small.differences.length + small.differencesOmitted, total);
+  assert.ok(Buffer.byteLength(JSON.stringify({ ...small, differences: compareLayout(file(sideA), file(sideB)).differences.slice(0, small.differences.length + 1) })) > 4096);
 });

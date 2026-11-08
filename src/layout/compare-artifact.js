@@ -10,10 +10,10 @@ import { isDesignRun } from '../design/compare.js';
 import { LAYOUT_CHECK_ID } from '../report/catalog.js';
 import { normalizeLayoutConfig, normalizeLayoutParts } from './declaration.js';
 import { validateLayoutSnapshot, MAX_LAYOUT_BYTES } from './snapshot.js';
-import { compareLayout, differenceMessage, LENGTH_TOLERANCE, RATIO_TOLERANCE } from './compare.js';
+import { compareLayout, boundComparison, differenceMessage, LENGTH_TOLERANCE, RATIO_TOLERANCE } from './compare.js';
 import { LAYOUT_VERSION } from './record.js';
 
-// The report index lists the first differences. The sidecar holds them all, and `query` reads it.
+// The report index lists the first differences. The sidecar holds them up to its byte limit, and `query` reads it.
 export const REPORT_DIFFERENCES = 50;
 // The findings of one cell. The class needs one; the counts in the index stay complete.
 export const MAX_FINDINGS = 100;
@@ -68,7 +68,8 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
   }
   const detail = compareLayout(...snapshots, { aliases });
   const src = `diff/layout/${targetId}/${viewportId}.json`;
-  await mkdir(dirname(join(output, src)), { recursive: true }); await writeFile(join(output, src), JSON.stringify(detail));
+  await mkdir(dirname(join(output, src)), { recursive: true }); // The sidecar fits the read limit of `query`: the list stops at the byte bound, and the cut is counted.
+  await writeFile(join(output, src), JSON.stringify(boundComparison(detail)));
   const policy = { lengthTolerance: LENGTH_TOLERANCE, ratioTolerance: RATIO_TOLERANCE, aliases };
   artifact.diff = { kind: 'layout', src, tool: 'test-kit-layout-compare', version: LAYOUT_VERSION, settingsHash: settingsHash(policy), changed: detail.changed,
     checks: 1, counts: detail.counts, differences: detail.differences.slice(0, REPORT_DIFFERENCES), differencesOmitted: Math.max(0, detail.differences.length - REPORT_DIFFERENCES),

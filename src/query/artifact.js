@@ -93,8 +93,9 @@ export async function queryArtifact(reportPath, { target, viewport, artifact, ma
       result.diff = { ...detail, ...(rawWindow ? { rawWindow } : {}), lines: detail.lines.slice(0, maxLines),
         displayedLines: Math.min(detail.lines.length, maxLines), omittedLines: (detail.omittedLines ?? 0) + Math.max(0, detail.lines.length - maxLines) };
     } else if (artifact === 'layout') {
-      // R6.15: every difference of the cell, bounded by --max-lines. The counts cover the full list.
-      result.diff = { ...detail, differences: detail.differences.slice(0, maxLines), differencesOmitted: Math.max(0, detail.differences.length - maxLines) };
+      // R6.15, R11.8: the differences of the sidecar, bounded by --max-lines. The counts cover the full list.
+      // `differencesOmitted` adds the cut of the sidecar (its byte limit) and the cut of --max-lines.
+      result.diff = { ...detail, differences: detail.differences.slice(0, maxLines), differencesOmitted: detail.differencesOmitted + Math.max(0, detail.differences.length - maxLines) };
     } else if (artifact === 'lighthouse') {
       result.diff = { ...detail, findings: detail.findings.slice(0, maxLines), findingsOmitted: Math.max(0, detail.findings.length - maxLines) };
     } else if (artifact === 'behavior') {

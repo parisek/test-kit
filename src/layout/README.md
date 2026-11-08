@@ -11,7 +11,7 @@ It applies to browser sides only. A design side has no `layout` artifact yet.
 | `extract.js` | The browser read. It reads computed styles and the custom properties on `:root`, and adds one hidden probe that it removes again. |
 | `snapshot.js` | Bounded validation of a stored file. A file outside the bounds is refused as a whole. |
 | `compare.js` | Pure comparison per part and property: `match`, `differs`, `missing`, and one `count` difference for a repeat. |
-| `compare-artifact.js` | Reads the two stored files, writes the difference sidecar, and returns the artifact index and the findings. |
+| `compare-artifact.js` | Reads the two stored files, writes the difference sidecar (at most 2 MiB, the cut counted in `differencesOmitted`), and returns the artifact index and the findings. |
 
 Capture stores `layout/<target>/<viewport>.json` beside the screenshot. The read runs after the screenshot, so the probe cannot change its pixels.
 A target without `layout` parts stores no `layout` entry, and the run completes without one.
