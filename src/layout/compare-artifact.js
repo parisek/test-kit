@@ -26,12 +26,24 @@ const declared = (run, targetId) => {
 // The comparison binds the part IDs and repeat flags. A selector may differ between the two sides.
 const shape = declaration => declaration.parts.map(part => [part.id, part.repeat === true]);
 
+// The state of the two stored entries of a pair with a design run (R8.15, #350 part C). The extractor must be the
+// same: tool and version. The settings hash and the browser version do not decide, as for the screenshot of a design
+// pair: a design run binds the provider and the viewports, a browser run its settle recipe and browser settings.
+export function designPairState(a, b) {
+  if (!a || !b) return 'missing';
+  if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
+  if (!['tool', 'version', 'settingsHash', 'browserVersion'].every(key => [a, b].every(index => typeof index[key] === 'string' && index[key].length > 0 && index[key].length <= 200))
+    || a.tool !== b.tool || a.version !== b.version) return 'incompatible';
+  return 'complete';
+}
+
 export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, targetId, viewportId }) {
   const indexes = [ac?.artifacts?.layout, bc?.artifacts?.layout];
   const declarations = [declared(a, targetId), declared(b, targetId)];
   // A target that declares no parts on either side has no layout artifact (R6.14).
   if (!indexes.some(Boolean) && declarations.every(item => item === null)) return null;
-  const artifact = { kind: 'layout', state: artifactState(...indexes), scope: { checks: [LAYOUT_CHECK_ID] }, a: null, b: null, diff: null };
+  const design = isDesignRun(a) || isDesignRun(b);
+  const artifact = { kind: 'layout', state: design ? designPairState(...indexes) : artifactState(...indexes), scope: { checks: [LAYOUT_CHECK_ID] }, a: null, b: null, diff: null };
   const fail = (state, diagnostic) => { artifact.state = state; artifact.diagnostic ??= diagnostic; return { artifact, findings: [] }; };
   // A `files` or `figma` design run holds raster images only. A `claude-design` run renders a document, so its
   // import reads layout records like a browser capture (#350 part C).
@@ -42,10 +54,10 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
   const viewport = run => run.settings.viewports.find(item => item.id === viewportId);
   if (declarations.includes(null) || JSON.stringify(shape(declarations[0])) !== JSON.stringify(shape(declarations[1])))
     return fail('incompatible', 'Layout parts differ: the two runs declare other part IDs or repeat flags.');
-  if (settingsHash(viewport(a)) !== settingsHash(viewport(b)) || settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null))
+  if (settingsHash(viewport(a)) !== settingsHash(viewport(b)) || (!design && settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null)))
     return fail('incompatible', 'Layout viewports or browser settings differ.');
-  // R8.15: a design run has no settle recipe that decides compatibility. The viewport and the part shape do.
-  if (!isDesignRun(a) && !isDesignRun(b)) try {
+  // R8.15: a design run has no browser and no settle recipe that decides compatibility. The viewport and the part shape do.
+  if (!design) try {
     const targets = [a, b].map(run => run.settings.targets.find(target => target.id === targetId));
     const recipes = [a, b].map((run, index) => settleRecipe(run.settings, run.side, targets[index]));
     if (![a, b].every((run, index) => settlementMatches([ac, bc][index], run.settings, run.side, targets[index])) || settingsHash(recipes[0]) !== settingsHash(recipes[1]))

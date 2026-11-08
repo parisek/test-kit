@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { normalizeConfig } from '../../src/config/normalize.js';
 import { captureSettings, settingsHash, settleRecipe } from '../../src/config/settings.js';
 import { entryProblem } from '../../src/capture/keep.js';
-import { compareLayoutArtifact } from '../../src/layout/compare-artifact.js';
+import { compareLayoutArtifact, designPairState } from '../../src/layout/compare-artifact.js';
 import { validateLayoutComparison, compareLayout, boundComparison, MAX_COMPARISON_BYTES, MAX_DIFFERENCES } from '../../src/layout/compare.js';
 import { readSidecar } from '../../src/artifacts/compare.js';
 import { MAX_RESPONSE_BYTES } from '../../src/artifacts/response.js';
@@ -100,6 +100,14 @@ test('compare artifact: browser and claude-design sides, equal part shapes, and 
   const canvas = await fixture(t, { designB: true, provider: 'claude-design', settleA: { waitMs: 100 }, fontSizeB: '20px' });
   assert.equal(canvas.artifact.state, 'complete');
   assert.deepEqual(canvas.findings.map(item => item.message), ['Layout part title type.size: A 16, B 20.', 'Layout part title type.lineHeight: A 1.5, B 1.2.']);
+  // A design pair binds the extractor (tool and version), not the settings hash or the browser version (R8.15).
+  const entry = { state: 'captured', tool: 'test-kit-layout', version: LAYOUT_VERSION, settingsHash: 'sha256:a', browserVersion: '1' };
+  assert.equal(designPairState(entry, { ...entry, settingsHash: 'sha256:b', browserVersion: '2' }), 'complete');
+  assert.equal(designPairState(entry, { ...entry, version: '0.9.0' }), 'incompatible');
+  assert.equal(designPairState(entry, { ...entry, tool: 'other' }), 'incompatible');
+  assert.equal(designPairState(entry, { ...entry, browserVersion: '' }), 'incompatible');
+  assert.equal(designPairState(entry, { ...entry, state: 'failed' }), 'failed');
+  assert.equal(designPairState(entry, undefined), 'missing');
   const settled = await fixture(t, { settleA: { waitMs: 100 } });
   assert.equal(settled.artifact.state, 'incompatible', 'Two browser runs still bind the settle recipe.');
   const other = await fixture(t, { partsB: { parts: [{ id: 'heading', selector: 'h1' }] } });
