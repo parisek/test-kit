@@ -1,12 +1,37 @@
 import * as nodeFs from 'node:fs/promises';
 import { lstat } from 'node:fs/promises';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 // One source for the default store directory (R12.1). The default moved from `.test-kit` to `test-kit` in 1.2.0.
 export const DEFAULT_STORE = 'test-kit';
 export const LEGACY_STORE = '.test-kit';
 export const DEFAULT_RUNS_ROOT = `${DEFAULT_STORE}/runs`;
+// R12.6 (#352): the store reserves `inputs/` for files the project keeps there (crops, design images).
+// test-kit never writes, moves or deletes anything under it, and no command may name it as an output.
+export const INPUTS_DIR = 'inputs';
+export const DEFAULT_INPUTS = `${DEFAULT_STORE}/${INPUTS_DIR}`;
+
+/**
+ * True when the plain relative path `value` is the default inputs folder or lies inside it. Pure (R4.4).
+ * The compare ignores case, because the file systems of macOS and Windows do.
+ */
+export function namesDefaultInputs(value) {
+  const lower = String(value).toLowerCase();
+  return lower === DEFAULT_INPUTS || lower.startsWith(`${DEFAULT_INPUTS}/`);
+}
+
+/**
+ * Throw when the absolute path `target` is `<store>/inputs` of one of `stores`, or lies inside it (R12.6).
+ * The check is lexical and ignores case. It follows no link. It touches no file.
+ */
+export function assertOutsideInputs(target, stores, name) {
+  const path = resolve(target).toLowerCase();
+  for (const store of stores) {
+    const inputs = resolve(store, INPUTS_DIR).toLowerCase();
+    if (path === inputs || path.startsWith(inputs + sep)) throw new Error(`${name} must not be inside ${INPUTS_DIR}/ of the store. That folder holds project files, and test-kit never writes there.`);
+  }
+}
 
 /**
  * One notice line when the default store is in use and an old `.test-kit/` sits beside the config.

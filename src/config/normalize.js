@@ -6,7 +6,7 @@ import { DEFAULT_MOUNT, MAX_COMPONENTS, validMount } from '../styleguide/index.j
 import { ALLOW_ORIGIN_TYPES } from '../capture/helpers.js';
 import { designPathProblem, designRootProblem } from '../design/paths.js';
 import { fileKeyProblem, nodeIdProblem } from '../design/figma-ids.js';
-import { DEFAULT_RUNS_ROOT } from './store.js';
+import { DEFAULT_RUNS_ROOT, DEFAULT_INPUTS, namesDefaultInputs } from './store.js';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 
 function fail(message) { throw new Error(`Invalid configuration: ${message}`); }
@@ -307,6 +307,8 @@ export function normalizeConfig(input) {
   if (behavior.emulate.colorScheme !== undefined && !['light', 'dark', 'no-preference'].includes(behavior.emulate.colorScheme)) fail('unsupported behavior colorScheme');
   const runsRoot = text(input.runsRoot ?? DEFAULT_RUNS_ROOT, 'runsRoot', 500);
   if (!/^[a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)*$/.test(runsRoot) || runsRoot.split('/').some(segment => segment === '.' || segment === '..')) fail('runsRoot must be a plain relative path');
+  // R12.6: the store keeps `inputs/` for project files. Runs never go there.
+  if (namesDefaultInputs(runsRoot)) fail(`runsRoot must not be inside ${DEFAULT_INPUTS}`);
   const shot = object(input.screenshot ?? {}, 'screenshot', ['timeoutMs', 'fullPage']);
   const screenshot = { timeoutMs: number(shot.timeoutMs ?? 30000, 'timeoutMs', 1, 120000), fullPage: bool(shot.fullPage ?? true, 'fullPage') };
   return freeze({ schemaVersion: 1, sides, targets, ...(targetSource ? { targetSource } : {}), viewports, artifacts: [...artifacts], checks, packs, content, behavior, runsRoot, screenshot, rules: normalizeRules(input.rules), known_diffs: normalizeKnown(input.known_diffs) });

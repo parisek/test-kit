@@ -61,3 +61,27 @@ test('project perf refreshes the viewer of the store it wrote', async t => {
   assert.equal(result.exitCode, 0);
   assert.deepEqual(seen, [join(f.root, 'out-store')]);
 });
+
+test('project perf works when the config path goes through a symbolic link (#359)', { skip: process.platform === 'win32' }, async t => {
+  const { runProjectPerformance } = await import('../../src/workflow/performance.js');
+  const { loadConfig } = await import('../../src/config/index.js');
+  const { symlink } = await import('node:fs/promises');
+  const f = await project(t);
+  const linked = join(f.root, 'linked');
+  const real = join(f.root, 'real');
+  await mkdir(real);
+  await writeFile(join(real, 'test-kit.config.json'), await readFile(f.config));
+  await symlink(real, linked);
+  let runsRoot;
+  const dependencies = {
+    runPerfCommand: async ({ configPath, baseDir }) => {
+      runsRoot = (await loadConfig(configPath)).config.runsRoot;
+      assert.equal(baseDir, linked);
+      return { output: { id: 'run-a' }, exitCode: 0 };
+    },
+    refreshStoreViewer: async () => ({ warnings: [] }),
+  };
+  const result = await runProjectPerformance({ config: join(linked, 'test-kit.config.json'), side: 'local', store: 'test-kit', targets: 'home' }, {}, dependencies);
+  assert.equal(result.exitCode, 0);
+  assert.equal(runsRoot, 'test-kit/runs');
+});
