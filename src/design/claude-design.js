@@ -188,7 +188,13 @@ async function renderCell(context, base, { target, viewport, artboard, selector,
   const deadline = Date.now() + timeoutMs;
   const left = () => Math.max(1, deadline - Date.now());
   const reserve = Math.min(500, Math.floor(timeoutMs / 4));
-  let page, timer, expired = false;
+  let page, timer, expired = false, scriptError = false;
+  // An artboard that navigates the top page destroys the document that the steps read. Each step then fails with a
+  // Playwright message, and a new document can render and pass. A random mark on the loaded document tells the two
+  // documents apart, so the cell fails with one message that names it.
+  const mark = `testKitArtboard${randomBytes(8).toString('hex')}`;
+  const away = () => new Error(`Artboard navigated away for ${name}. An artboard must not navigate the top page.`);
+  const sameDocument = () => page.evaluate(key => window[key] === true, mark).catch(() => false);
   const late = new Promise((_, fail) => {
     timer = setTimeout(() => {
       expired = true;
@@ -199,13 +205,19 @@ async function renderCell(context, base, { target, viewport, artboard, selector,
   const steps = async () => {
     page = await context.newPage();
     if (expired) { await page.close().catch(() => {}); return null; }
-    let scriptError = false;
     page.on('pageerror', () => { scriptError = true; });
     page.setDefaultTimeout(timeoutMs);
     page.setDefaultNavigationTimeout(timeoutMs);
     let response;
     try { response = await page.goto(artboardUrl(base, artboard), { waitUntil: 'load', timeout: left() }); } catch { throw new Error(`Artboard did not load for ${name}.`); }
     if (!response || response.status() !== 200) throw new Error(`Artboard did not load for ${name} (HTTP ${response?.status() ?? 'none'}).`);
+    try { await page.evaluate(key => { window[key] = true; }, mark); } catch { throw away(); }
+    try { return await settled(); } catch (error) {
+      if (!expired && !(await sameDocument())) throw away();
+      throw error;
+    }
+  };
+  const settled = async () => {
     try {
       await page.waitForFunction(`(() => { const state = ${RENDER_STATE}; return !state.holes && !state.emptyImports; })()`, null, { timeout: Math.max(1, left() - reserve), polling: 100 });
     } catch {
@@ -238,7 +250,9 @@ async function renderCell(context, base, { target, viewport, artboard, selector,
     }
     const clip = captureClip(viewport.width, box);
     if (!clip) throw new Error(`The artboard area of ${name} has no height.`);
-    return await page.screenshot({ type: 'png', clip, fullPage: true, animations: 'disabled', caret: 'hide', timeout: left() });
+    const bytes = await page.screenshot({ type: 'png', clip, fullPage: true, animations: 'disabled', caret: 'hide', timeout: left() });
+    if (!(await sameDocument())) throw away();
+    return bytes;
   };
   try {
     return await Promise.race([steps(), late]);

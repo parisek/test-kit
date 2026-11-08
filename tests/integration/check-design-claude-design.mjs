@@ -169,6 +169,13 @@ setTimeout(() => { if (gone(window) && gone(frame.contentWindow)) document.query
   const before = (await readdir(runsRoot)).length;
   await writeFile(configPath, JSON.stringify({ ...config, screenshot: { timeoutMs: 1500 }, targets: [{ id: 'hole', kind: 'page', path: '/unchanged', design: { desktop: 'Hole.dc.html' } }] }));
   await assert.rejects(importDesign({ configPath, side: 'design' }), /Artboard did not render for target hole, viewport desktop: Hole\.dc\.html: a "\{\{" hole is still in the text/);
+  // An artboard that navigates the top page after it renders fails the target by name, not with the Playwright text
+  // "Execution context was destroyed". It navigates when the import adds its style tag, so the navigation lands in a
+  // step after the readiness wait (measured 2026-11-08: before the fix the import failed with that raw text).
+  await writeFile(join(root, 'project/Away.dc.html'), `<!doctype html><html><head><meta charset="utf-8"></head><body><p>Away</p>
+<script>new MutationObserver(() => location.assign('./Example.dc.html')).observe(document.head, { childList: true });</script></body></html>`);
+  await writeFile(configPath, JSON.stringify({ ...config, targets: [{ id: 'away', kind: 'page', path: '/unchanged', design: { desktop: 'Away.dc.html' } }] }));
+  await assert.rejects(importDesign({ configPath, side: 'design' }), /^Error: Artboard navigated away for target away, viewport desktop: Away\.dc\.html\. An artboard must not navigate the top page\.$/);
   // A selector that matches nothing fails, and a symlink that leaves project/ fails before a browser starts.
   await writeFile(configPath, JSON.stringify({ ...config, targets: [{ id: 'card', kind: 'page', path: '/unchanged', design: { desktop: 'Example.dc.html#nothing' } }] }));
   await assert.rejects(importDesign({ configPath, side: 'design' }), /matches 0 elements/);
