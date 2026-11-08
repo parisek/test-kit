@@ -84,6 +84,29 @@ the page before capture. The sweep has limits of 50 steps, 30000 CSS pixels,
 and 1000 visible images. Image load and decode each have a 2-second limit.
 An unfinished load or growing page fails capture. A broken image stays
 available for content checks. The sweep restores the original scroll position.
+Each scroll of the sweep, and the restore, is instant, so a page with
+`scroll-behavior: smooth` does not animate it. Scroll-driven state, such as a
+header that hides a strip, is back in its top state before the screenshot
+(R5.9, #353). By default no settle step runs again after the restore. The
+engine version stays `1`; whether R5.6 needs a raise here is an open owner
+question.
+
+A page whose scroll-driven state reverts asynchronously (a debounced scroll
+listener, a timer) is still scrolled at the screenshot. A recipe with
+`lazyImages: true` can set `afterSweep` to at most 20 selectors (R5.15). After
+the restore, capture waits until the first match of each selector is visible,
+with the timeout of the wait selectors, then for fonts and two animation
+frames. `normalizeConfig` refuses a non-empty effective list without
+`lazyImages: true`, for each target on each browser side. A list on the side
+is valid when each target sets `lazyImages: true` in a later layer. With
+`targetSource` the side recipe is the effective one, so the side check runs. A
+hidden selector fails the capture. The stored `error.code` is
+`CAPTURE_SETTLEMENT_FAILED`, as for a pin with no match, and the message names
+the selector. `AFTER_SWEEP_NOT_VISIBLE` is the internal code that keeps that
+message.
+`settlePage` records the pending selector in `progress.afterSweep`, so a
+capture deadline during the wait gives the same failure. The failure is not
+transient (R5.14).
 
 A recipe can set `reveal` to at most 20 `{action, selector}` steps. Actions
 are `click`, `hover`, and `focus`. They run before wait selectors. A reveal
