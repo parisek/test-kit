@@ -4,6 +4,12 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-09
+
+Stable release of 1.3. It holds the same code as `1.3.0-rc.1` (commit 47ca126), with no change. A trial on the tailwind-base skeleton ran the candidate on 2026-11-09 under DDEV: install from the tag (`--version` 1.3.0, `npm ls` 47ca126), `before` and `after` on one target with no change between them (state `complete`, verdict match), the store viewer and its `index.json` (no `inputs/` entry), `history --prune` without `--yes` (nothing to remove), and the web-server deny of `test-kit/inputs` on the DDEV host with a store present (403). It found no bug in the package. Not run in the trial: a design side, `layout`, `record-decision`, `--keep-existing`, `--retries` and the `a11y` pack in frames. Read the migration notes under Changed of `[1.3.0-rc.1]` before you update from 1.2.0. The store reserves `inputs/` for project files, and a pair of the same remote side now gives the report kind `deploy`.
+
+The `--ddev` option still captures the DDEV router 404 for a page that redirects to its canonical URL (#348). Leave `--ddev` off for a remote-against-local comparison until #348 is fixed.
+
 ## [1.3.0-rc.1] - 2026-11-09
 
 First release candidate for 1.3.0. It is not a stable release. `package.json` says `1.3.0`, so `--version` prints `1.3.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The store reserves `inputs/` for project files: a `runsRoot` inside `test-kit/inputs` must move. A pair of the same remote side now gives the report kind `deploy`, not `update`: add `deploy` to the `kinds` of a rule that must still apply. The capture engine version stays `1`.
