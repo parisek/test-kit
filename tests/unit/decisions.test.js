@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { normalizeDecisions, parseDecisions, decisionsForReport, decisionLabel, isDecided, decisionCounts, validateReportDecisions, MAX_ENTRIES } from '../../src/decisions/model.js';
@@ -224,6 +225,33 @@ test('R9.14: appendDecision allows a second design value for one difference and 
 		const before = await readFile(file, 'utf8');
 		await assert.rejects(appendDecision(file, gapEntry({ reason: 'Again.' })), /already has a decision/);
 		assert.equal(await readFile(file, 'utf8'), before, 'A refused entry leaves the file as it was.');
+	} finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+// R9.14: the decisions file is a regular file. A symbolic link, a FIFO and a directory are refused before any read,
+// so a FIFO cannot hang `diff` or `record-decision`. The timeout turns a hang into a failure.
+test('R9.14: the decisions file must be a regular file; a symbolic link, a FIFO and a directory are refused', { timeout: 10_000 }, async () => {
+	const dir = await mkdtemp(join(tmpdir(), 'test-kit-decisions-file-'));
+	try {
+		const real = join(dir, 'real.json');
+		const content = `${JSON.stringify({ schemaVersion: 1, entries: [entry()] }, null, 2)}\n`;
+		await writeFile(real, content);
+		assert.equal((await readDecisions(real)).entries.length, 1, 'A regular file reads.');
+		const notRegular = /not a regular file/;
+		if (process.platform !== 'win32') {
+			const link = join(dir, 'link.json');
+			await symlink(real, link);
+			await assert.rejects(readDecisions(link), notRegular);
+			await assert.rejects(appendDecision(link, entry({ designValue: 32 })), notRegular);
+			assert.equal(await readFile(real, 'utf8'), content, 'A refused write leaves the target of the link unchanged.');
+			const fifo = join(dir, 'fifo.json');
+			execFileSync('mkfifo', [fifo]);
+			await assert.rejects(readDecisions(fifo), notRegular);
+			await assert.rejects(appendDecision(fifo, entry({ designValue: 32 })), notRegular);
+		}
+		await mkdir(join(dir, 'folder.json'));
+		await assert.rejects(readDecisions(join(dir, 'folder.json')), notRegular);
+		assert.deepEqual(await readDecisions(join(dir, 'missing.json')), { entries: [], bytes: null }, 'A missing file is still an empty list.');
 	} finally { await rm(dir, { recursive: true, force: true }); }
 });
 

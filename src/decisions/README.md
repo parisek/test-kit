@@ -12,7 +12,7 @@ The owner sees what changed in the design (a `drift` pair, R3.12) and where the 
 
 ## Rules
 
-- The file sits beside the config. There is no config key. `--decisions FILE` overrides the path for `diff` and `record-decision`. A missing file is an empty list. An invalid file fails the command before any report is written. It never falls back to an empty list.
+- The file sits beside the config. There is no config key. `--decisions FILE` overrides the path for `diff` and `record-decision`. A missing file is an empty list. The path must name a regular file. `lstat` refuses a symbolic link, a FIFO, a device and a directory before the open. The open uses `O_NOFOLLOW` and `O_NONBLOCK`, and `fstat` must show the same regular file (dev and ino). So a FIFO cannot hang `diff` or `record-decision`. An invalid file fails the command before any report is written. It never falls back to an empty list.
 - The key of a difference is target, viewport, part and property, as the layout difference sidecar names them. The fingerprint hashes the key and the design value. The decision, the reason and the owner stay out of it.
 - The design value is the value of run B when run B is a design run (in a drift pair, the later import), else the value of run A. A pair without a design run takes no decision.
 - The producer reads the file and decides each status once: `active`, `stale` (the design value moved), `absent` (no difference with the key) or `unchecked` (no complete layout artifact). The status reads the full list of differences of a cell, not only the first 100 that have a finding.
