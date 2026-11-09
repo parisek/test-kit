@@ -11,6 +11,7 @@ The query command returns bounded HTML windows or HTTP metadata (R11.1).
 It requires a target, viewport, and artifact. It strips unknown sidecar fields.
 The artifacts `lint` and `a11y` are absolute results (R9.9). They need no viewport. A lint result sits at target scope. Their query returns the artifact `result`, `scope` and `evidence` path, and reads no sidecar.
 `summarizeReport` returns `pair` or `subject`, and `null` for the other (R11.6).
+Both `summary` and `query` add a `decisions` key with the count of decision entries by status (R11.9). The key appears only when the report holds an entry. `query --artifact layout` adds the `decision` label of its key to each listed difference.
 Both `summary` and `query` add an `allowlist` key with the count of allowlist entries by status (R9.12). The key appears only when the report holds an entry, so the pinned output stays the same.
 
 

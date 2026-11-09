@@ -7,6 +7,7 @@ import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
 import { contentSettings, layoutSettings } from '../config/settings.js';
 import { extractLayoutSnapshot } from '../layout/extract.js';
+import { partsForSide } from '../layout/declaration.js';
 import { LAYOUT_VERSION } from '../layout/record.js';
 import { MAX_LAYOUT_BYTES } from '../layout/snapshot.js';
 import { createHash } from 'node:crypto';
@@ -268,7 +269,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       const path = `layout/${target.id}/${viewport.id}.json`;
       let layoutFile;
       try {
-        const bytes = Buffer.from(JSON.stringify(await extractLayoutSnapshot(page, target.layout)));
+        const bytes = Buffer.from(JSON.stringify(await extractLayoutSnapshot(page, partsForSide(target.layout, side))));
         if (bytes.length > MAX_LAYOUT_BYTES || expired || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Layout capture is unavailable.');
         layoutFile = join(runDir, path);
         await mkdir(dirname(layoutFile), { recursive: true });

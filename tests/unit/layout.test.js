@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOKEN_FAMILIES, LAYOUT_VERSION, MAX_COLOUR_TEXT } from '../../src/layout/record.js';
 import { compareLayout, compareRecords, sameValue, sameToken, differenceMessage } from '../../src/layout/compare.js';
-import { normalizeLayoutParts, normalizeLayoutConfig } from '../../src/layout/declaration.js';
+import { normalizeLayoutParts, normalizeLayoutConfig, partsForSide } from '../../src/layout/declaration.js';
+import { normalizeConfig } from '../../src/config/normalize.js';
 import { validateLayoutSnapshot } from '../../src/layout/snapshot.js';
 import { layoutSnapshot } from '../../src/layout/extract.js';
 
@@ -188,6 +189,30 @@ test('declarations: 1 to 50 parts, unique safe IDs, bounded selectors, boolean r
   assert.deepEqual(normalizeLayoutConfig({}), {});
   assert.deepEqual(normalizeLayoutConfig({ aliases: { '--z': '--b', '--a': '--c' } }), { aliases: { '--a': '--c', '--z': '--b' } });
   for (const value of [null, { other: 1 }, { aliases: [] }, { aliases: { a: '--b' } }, { aliases: { '--a': 'b' } }, { aliases: { '--a': 7 } }]) assert.throws(() => normalizeLayoutConfig(value));
+});
+
+test('selectorBySide: a part may name its selector per side, validation is pure, and a side reads its own (#350, part C)', () => {
+  const declared = normalizeLayoutParts({ parts: [{ id: 'card', selector: '.card', selectorBySide: { site: '.c', design: '[data-part=card]' }, repeat: true }, { id: 'title', selector: 'h1' }] }, ['site', 'design']);
+  // The keys are sorted, so two equal maps give one stored form.
+  assert.deepEqual(declared.parts[0], { id: 'card', selector: '.card', selectorBySide: { design: '[data-part=card]', site: '.c' }, repeat: true });
+  assert.deepEqual(partsForSide(declared, 'design'), { parts: [{ id: 'card', selector: '[data-part=card]', repeat: true }, { id: 'title', selector: 'h1' }] });
+  assert.deepEqual(partsForSide(declared, 'site').parts[0].selector, '.c');
+  // A side that the map does not name falls back to the selector of the part.
+  assert.deepEqual(partsForSide(declared, 'other').parts[0].selector, '.card');
+  // `__proto__` and other inherited names are not entries of the map.
+  assert.equal(partsForSide(normalizeLayoutParts({ parts: [{ id: 'a', selector: 'a', selectorBySide: { site: 'b' } }] }), 'toString').parts[0].selector, 'a');
+  const part = selectorBySide => ({ parts: [{ id: 'a', selector: 'a', selectorBySide }] });
+  for (const value of [null, [], 'x', {}, { '../x': 'a' }, { site: '' }, { site: 'a\n' }, { site: 'x'.repeat(2049) }, { site: 7 },
+    Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`s${i}`, 'a']))]) assert.throws(() => normalizeLayoutParts(part(value)), JSON.stringify(value)?.slice(0, 60));
+  // With the side list, an unknown side fails. Without it (a stored declaration), only the form of a key counts.
+  assert.throws(() => normalizeLayoutParts(part({ elsewhere: 'a' }), ['site']), /unknown side elsewhere/);
+  assert.deepEqual(normalizeLayoutParts(part({ elsewhere: 'a' })).parts[0].selectorBySide, { elsewhere: 'a' });
+  const config = side => ({ schemaVersion: 1, sides: { site: { origin: 'http://127.0.0.1:1' } }, viewports: [{ id: 'wide', width: 800, height: 600 }],
+    targets: [{ id: 'home', kind: 'page', path: '/', layout: part({ [side]: '.x' }) }] });
+  assert.equal(normalizeConfig(config('site')).targets[0].layout.parts[0].selectorBySide.site, '.x');
+  assert.throws(() => normalizeConfig(config('nowhere')), /unknown side nowhere/);
+  // A declaration without the key normalises to the same object as before.
+  assert.deepEqual(normalizeLayoutParts({ parts: [{ id: 'a', selector: 'a' }] }), { parts: [{ id: 'a', selector: 'a' }] });
 });
 
 test('a stored layout file is untrusted: any shape outside the bounds refuses the whole file', () => {

@@ -1,10 +1,14 @@
 import { isHash, ruleApplies } from './model.js';
 import { findingBasis } from '../report/catalog.js';
 import { isAllowlisted } from '../allowlist/model.js';
+import { isDecided } from '../decisions/model.js';
 export function findingIsExplained(report, finding) {
   // ADR 0004, section 7: an absolute finding becomes explained only through an active allowlist entry (R9.12).
   // No cause, no known difference and no normalizer explains it. This fails closed.
   if (findingBasis(report, finding) === 'absolute') return isAllowlisted(report, finding);
+  // R9.14: a layout finding becomes explained only through an active `report-only` decision for its design value.
+  // No cause and no known difference explains it (`record-known` refuses the artifact). This fails closed.
+  if (finding?.artifact === 'layout') return isDecided(report, finding);
   const cause = report.causes.find(cause => cause.id === finding.causeId);
   if (cause?.known !== true) return false;
   if (!Object.hasOwn(cause, 'acceptance')) return report.meta?.comparisonPolicyHash === undefined; // Legacy unscoped causes retain their contract.

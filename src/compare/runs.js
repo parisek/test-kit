@@ -22,6 +22,8 @@ import { isDesignRun, designPairProblem } from '../design/compare.js';
 import { sha256 } from '../design/png.js';
 import { absoluteFingerprints } from '../allowlist/fingerprint.js';
 import { allowlistForReport, normalizeAllowlist } from '../allowlist/model.js';
+import { normalizeDecisions, decisionsForReport, decisionLabel } from '../decisions/model.js';
+import { decisionFingerprint, checkFingerprints } from '../decisions/fingerprint.js';
 
 // The text of a status finding: each differing field with both values, bounded in size.
 // A path is cut around the first character where A and B differ. A chain shows the steps around its first differing step.
@@ -224,16 +226,36 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind: kindInput, rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput, allowlistEntries = [], now = new Date() }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind: kindInput, rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput, allowlistEntries = [], decisionEntries = [], now = new Date() }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
 	if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new Error('now must be a valid Date.');
 	// R9.12: a bad allowlist fails the run before the output directory exists. It never falls back to an empty list.
 	const allowlist = normalizeAllowlist({ schemaVersion: 1, entries: allowlistEntries }).entries;
+	// R9.14: a bad decisions list fails the run before the output directory exists, as the allowlist does.
+	const decisionList = checkFingerprints(normalizeDecisions({ schemaVersion: 1, entries: decisionEntries }).entries);
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
 	const b = await readRun(runsRoot, bId);
 	// R8.15: a pair with a design run reads as a convergence pair unless the caller names a kind.
 	const kind = kindInput ?? (isDesignRun(a) || isDesignRun(b) ? 'convergence' : 'update');
+	// R3.12: `drift` is what changed in a design between two imports of one design side. Any other pair is refused
+	// before the output directory exists, so the kind never names a pair it does not describe.
+	if (kind === 'drift' && !(isDesignRun(a) && isDesignRun(b) && a.side === b.side)) throw new Error('A drift pair needs two design runs of the same design side.');
+	// R3.12: run B gives the design value (R9.14), so run A must be the earlier import. A reversed pair would bind the
+	// older value. The time is the `at` of each run.json. The message prints the parsed time, never the stored text.
+	if (kind === 'drift') {
+		const time = (run) => {
+			const value = typeof run.at === 'string' ? Date.parse(run.at) : Number.NaN;
+			if (Number.isNaN(value)) throw new Error(`A drift pair needs the import time of each run. Run ${run.id} has no valid time.`);
+			return value;
+		};
+		const timeA = time(a), timeB = time(b);
+		if (timeA >= timeB) throw new Error(`A drift pair needs the earlier import as run A. Run A ${a.id} is from ${new Date(timeA).toISOString()} and run B ${b.id} is from ${new Date(timeB).toISOString()}. Give the earlier run first.`);
+	}
+	// R9.14: the design side of the pair gives the design value of a layout difference. In a drift pair both runs are
+	// design runs, and run B is the newer design. A pair without a design run has no design value and takes no decision.
+	const designSide = isDesignRun(b) ? 'b' : isDesignRun(a) ? 'a' : null;
+	const layoutCells = new Map();
 	const { PNG } = await import('pngjs');
 	const { default: pixelmatch } = await import('pixelmatch');
 	const { extractRegions } = await import('./regions.js');
@@ -344,7 +366,17 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			// R6.15: a target with layout parts. A target without them has no layout artifact.
 			if (requested.has('layout')) {
 				const layout = await compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
-				if (layout) { row.artifacts.layout = layout.artifact; checks[LAYOUT_CHECK_ID] ??= { ...LAYOUT_CHECK }; findings.push(...layout.findings); }
+				if (layout) {
+					row.artifacts.layout = layout.artifact; checks[LAYOUT_CHECK_ID] ??= { ...LAYOUT_CHECK };
+					if (designSide) {
+						// R9.14: the fingerprint of each design value, for the full list. A finding carries the one of its difference.
+						const differences = (layout.differences ?? []).map(item => ({ part: item.part, property: item.property, designValue: item[designSide],
+							fingerprint: decisionFingerprint({ targetId: target.id, viewportId: viewport.id, part: item.part, property: item.property, designValue: item[designSide] }) }));
+						layoutCells.set(`${target.id}\u0000${viewport.id}`, { state: layout.artifact.state, differences });
+						layout.findings.forEach((finding, index) => { finding.designFingerprint = differences[index].fingerprint; });
+					}
+					findings.push(...layout.findings);
+				}
 			}
 			if (requested.has('lighthouse')) {
 				const budgets = b.performance?.budgets ?? {};
@@ -429,6 +461,18 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	const copied = allowlistForReport(allowlist, report, now);
 	if (copied.allowlist.length) report.allowlist = copied.allowlist;
 	if (copied.omitted) report.meta.allowlistOmitted = copied.omitted;
+	// R9.14: the producer decides the status of each decision once. A finding gets the label of its key. Only the
+	// classifier decides what explains: an active `report-only` entry with the fingerprint of the finding.
+	if (designSide) {
+		const decided = decisionsForReport(decisionList, layoutCells);
+		if (decided.decisions.length) report.decisions = decided.decisions;
+		if (decided.omitted) report.meta.decisionsOmitted = decided.omitted;
+		for (const finding of findings) {
+			if (finding.artifact !== 'layout' || !finding.designFingerprint) continue;
+			const label = decisionLabel(decided.decisions, { ...finding, fingerprint: finding.designFingerprint });
+			if (label) finding.decision = label;
+		}
+	}
 	const problems = validateReport(report);
 	if (problems.length) throw new Error(problems.join(' '));
 	const reportPath = join(output, 'report.json');

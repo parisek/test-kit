@@ -7,9 +7,11 @@ import {
 	TARGET_SCOPE_ARTIFACTS, findingBasis, isPlain,
 } from './catalog.js';
 import { validateReportAllowlist } from '../allowlist/model.js';
+import { validateReportDecisions } from '../decisions/model.js';
 
 export const SCHEMA_VERSION = 3;
-export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc'];
+// `drift` compares two imports of one design side (R3.12, #350 part C).
+export const PAIR_KINDS = ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc', 'drift'];
 const STATES = ['complete', 'missing', 'failed', 'incompatible'];
 const MAX_CHECKS = 500;
 const MAX_LOCATION_TEXT = 500;
@@ -240,6 +242,8 @@ export function validateReport(report) {
 		}
 	}
 	const entryKind = (id) => report.entries.find((entry) => entry?.id === id)?.kind;
+	// R9.14: the decisions copy and the decision keys of the layout findings.
+	validateReportDecisions(report, { targetIds, viewportIds }, problems);
 	for (const finding of report.findings) {
 		if (!finding || !targetIds.has(finding.targetId)) { problems.push('Finding refers to an unknown target.'); continue; }
 		if (finding.viewportId != null && !viewportIds.has(finding.viewportId)) problems.push('Finding refers to an unknown viewport.');

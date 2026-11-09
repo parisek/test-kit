@@ -19,6 +19,8 @@ Comparison takes optional validated rules and pair-scoped known differences. It 
 It retains raw findings and attaches verified evidence acceptance. Policy does not
 change screenshot capture hashes. See `src/rules/README.md` (R8.4–R8.6).
 
-A pair may hold a design run (R8.15). Its cells are `incompatible` when the viewports differ or the image width is not the viewport width times the device scale, and the diagnostic names both sizes. A cell with no image is `missing`. A pair with a design run reads as `convergence` unless `--kind` says otherwise. `diff` checks the sha256 of a design image against the record of the import. See `src/design/README.md`.
+A pair may hold a design run (R8.15). Its cells are `incompatible` when the viewports differ or the image width is not the viewport width times the device scale, and the diagnostic names both sizes. A cell with no image is `missing`. A pair with a design run reads as `convergence` unless `--kind` says otherwise. `--kind drift` needs two design runs of one design side, with the earlier import (`at` in `run.json`) as run A, else it fails before the output directory exists (R3.12). The message of a reversed pair names both run IDs and both times. `diff` checks the sha256 of a design image against the record of the import. See `src/design/README.md`.
+
+Comparison also takes the parsed `decisionEntries` (R9.14). It validates them and their fingerprints before the output directory exists. In a pair with a design run it fingerprints the design value of each layout difference, writes `report.decisions` with the status of each entry and puts the label on each layout finding. See `src/decisions/README.md`.
 
 `packs.js` reads the pack results that `capture --packs` stored in run B (R13.51). It runs the pack checks over each stored sidecar and writes an absolute artifact index (R9.9), findings and a catalog entry. Only side B enters the report. A run with no stored pack result adds nothing (R5.1).

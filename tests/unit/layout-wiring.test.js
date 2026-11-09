@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { normalizeConfig } from '../../src/config/normalize.js';
 import { captureSettings, settingsHash, settleRecipe } from '../../src/config/settings.js';
 import { entryProblem } from '../../src/capture/keep.js';
-import { compareLayoutArtifact } from '../../src/layout/compare-artifact.js';
+import { compareLayoutArtifact, designPairState } from '../../src/layout/compare-artifact.js';
 import { validateLayoutComparison, compareLayout, boundComparison, MAX_COMPARISON_BYTES, MAX_DIFFERENCES } from '../../src/layout/compare.js';
 import { readSidecar } from '../../src/artifacts/compare.js';
 import { MAX_RESPONSE_BYTES } from '../../src/artifacts/response.js';
@@ -55,7 +55,7 @@ const raw = { rect: { width: 100, height: 20 }, display: 'block', fontSize: '16p
   color: 'rgb(0, 0, 0)', backgroundColor: 'rgba(0, 0, 0, 0)', borderTopWidth: '0px', borderTopLeftRadius: '0px', paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px' };
 const snapshot = (fontSize = '16px') => ({ schemaVersion: 1, version: LAYOUT_VERSION, source: 'computed-style', parts: [{ id: 'title', repeat: false, count: 1, records: [normaliseRecord({ ...raw, fontSize })] }] });
 
-async function fixture(t, { designB = false, partsB, fontSizeB = '16px', tamper = false, aliases } = {}) {
+async function fixture(t, { designB = false, provider = 'files', settleA, partsB, fontSizeB = '16px', tamper = false, aliases } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'test-kit-layout-unit-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const parts = { parts: [{ id: 'title', selector: 'h1' }] };
@@ -64,7 +64,7 @@ async function fixture(t, { designB = false, partsB, fontSizeB = '16px', tamper 
     const bytes = Buffer.from(JSON.stringify(value));
     await mkdir(join(root, id, 'layout/home'), { recursive: true });
     await writeFile(join(root, id, 'layout/home/phone.json'), tamper && id === 'b' ? Buffer.concat([bytes, Buffer.from(' ')]) : bytes);
-    const run = { id, side: 'local', settings: { sides: { local: kind === 'design' ? { kind: 'design', provider: 'files', root: 'x' } : { origin: 'http://127.0.0.1:1', settle: {} } },
+    const run = { id, side: 'local', settings: { sides: { local: kind === 'design' ? { kind: 'design', provider, root: 'x' } : { origin: 'http://127.0.0.1:1', settle: id === 'a' && settleA ? settleA : {} } },
       viewports: [{ id: 'phone', width: 400, height: 800 }], targets: [{ id: 'home', kind: 'page', path: '/', ...(layout ? { layout } : {}) }], ...(id === 'b' && aliases ? { layout: { aliases } } : {}) },
       captureSettings: { browser: { name: 'chromium' } } };
     const settle = kind === 'design' ? {} : settleRecipe(run.settings, 'local', run.settings.targets[0]);
@@ -91,10 +91,25 @@ test('compare artifact: a difference is a relative finding with the check layout
   assert.deepEqual(same.findings, []);
 });
 
-test('compare artifact: browser sides only, equal part shapes, and an untrusted file', async (t) => {
+test('compare artifact: browser and claude-design sides, equal part shapes, and an untrusted file', async (t) => {
   const design = await fixture(t, { designB: true });
-  assert.equal(design.artifact.state, 'missing');
-  assert.match(design.artifact.diagnostic, /browser sides only/);
+  assert.equal(design.artifact.state, 'missing', 'A files or figma design run holds raster images only.');
+  assert.match(design.artifact.diagnostic, /browser sides and claude-design sides only/);
+  // A claude-design run reads layout records. Its settle recipe does not decide compatibility (R8.15), so a site
+  // with its own settle recipe still compares with it (#350 part C).
+  const canvas = await fixture(t, { designB: true, provider: 'claude-design', settleA: { waitMs: 100 }, fontSizeB: '20px' });
+  assert.equal(canvas.artifact.state, 'complete');
+  assert.deepEqual(canvas.findings.map(item => item.message), ['Layout part title type.size: A 16, B 20.', 'Layout part title type.lineHeight: A 1.5, B 1.2.']);
+  // A design pair binds the extractor (tool and version), not the settings hash or the browser version (R8.15).
+  const entry = { state: 'captured', tool: 'test-kit-layout', version: LAYOUT_VERSION, settingsHash: 'sha256:a', browserVersion: '1' };
+  assert.equal(designPairState(entry, { ...entry, settingsHash: 'sha256:b', browserVersion: '2' }), 'complete');
+  assert.equal(designPairState(entry, { ...entry, version: '0.9.0' }), 'incompatible');
+  assert.equal(designPairState(entry, { ...entry, tool: 'other' }), 'incompatible');
+  assert.equal(designPairState(entry, { ...entry, browserVersion: '' }), 'incompatible');
+  assert.equal(designPairState(entry, { ...entry, state: 'failed' }), 'failed');
+  assert.equal(designPairState(entry, undefined), 'missing');
+  const settled = await fixture(t, { settleA: { waitMs: 100 } });
+  assert.equal(settled.artifact.state, 'incompatible', 'Two browser runs still bind the settle recipe.');
   const other = await fixture(t, { partsB: { parts: [{ id: 'heading', selector: 'h1' }] } });
   assert.equal(other.artifact.state, 'incompatible');
   assert.match(other.artifact.diagnostic, /part IDs or repeat flags/);

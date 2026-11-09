@@ -12,6 +12,9 @@ import { downloadFigmaImages, readToken, FigmaError } from './figma.js';
 import { figmaScale } from './figma-ids.js';
 import { parseArtboardRef } from './claude-design-refs.js';
 import { prepareCanvas, renderCanvas } from './claude-design.js';
+import { partsForSide } from '../layout/declaration.js';
+import { LAYOUT_VERSION } from '../layout/record.js';
+import { createHash } from 'node:crypto';
 
 export const DESIGN_IMPORT_VERSION = '1.0.0';
 
@@ -72,21 +75,30 @@ async function figmaImages(design, cells, importedAt, env, hooks) {
 // R5.5: the `claude-design` provider. Every file check runs first: the export layout, the runtime, each artboard and
 // the snapshot of every file under `project/`, which is all the server serves. Only then does the render start, and only then on a loopback server (no connection leaves the machine).
 // The screenshot is a band at x = 0, the viewport wide, so the image is viewport width x scale wide (R8.15).
-async function claudeDesignImages(root, cells, importedAt, timeoutMs, hooks) {
+// With the layout artifact selected, a target that declares `layout.parts` also gets its layout records, read with
+// the selectors of this side (`selectorBySide`, #350 part C).
+async function claudeDesignImages(root, cells, importedAt, timeoutMs, hooks, { side, layout }) {
   const planned = cells.map(cell => {
     const { artboard, selector, problem } = parseArtboardRef(cell.source);
     if (problem) throw new Error(`Design reference ${problem}.`);
-    return { ...cell, artboard, selector };
+    return { ...cell, artboard, selector, layout: layout && cell.target.layout ? partsForSide(cell.target.layout, side) : null };
   });
   const canvas = await prepareCanvas(root, planned.map(cell => cell.artboard), hooks.limits);
-  const { images } = await renderCanvas({ canvas, cells: planned, timeoutMs, chromium: hooks.chromium });
-  return images.map(({ target, viewport, source, artboard, bytes }) => {
+  const { images, version } = await renderCanvas({ canvas, cells: planned, timeoutMs, chromium: hooks.chromium });
+  return images.map(({ target, viewport, source, artboard, bytes, layoutBytes }) => {
     let provenance;
     try {
       provenance = designProvenance({ source, importedAt, bytes, provider: 'claude-design', extra: { artboardSha256: canvas.artboards.get(artboard).sha256, runtimeSha256: canvas.runtimeSha256, projectSha256: canvas.projectSha256 } });
     } catch (error) { throw new Error(`${error.message} (${source})`); }
-    return { target, viewport, bytes, provenance };
+    return { target, viewport, bytes, provenance, ...(layoutBytes ? { layout: { bytes: layoutBytes, browserVersion: version } } : {}) };
   });
+}
+
+// R6.14 on a design run (#350 part C): the layout read of the canvas. Its hash binds the extractor, the bounds, the
+// provider and the viewports. A design side has no settle recipe that decides anything (R8.15), so none enters it.
+export function designLayoutSettings(config, side) {
+  return { mode: 'computed-style', version: LAYOUT_VERSION, provider: config.sides[side].provider, viewports: config.viewports,
+    maxParts: 50, maxRepeat: 50, maxTokens: 2000, maxBytes: 2 * 1024 * 1024 };
 }
 
 // R4.6: import the images of one design side into an immutable run.
@@ -106,6 +118,9 @@ export async function importDesign({ configPath, side, label = '', runsRoot, tar
   const selection = recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
   const at = new Date();
   const importedAt = at.toISOString();
+  // R5.1: the layout artifact runs only when the config key `artifacts` selects it. Only `claude-design` renders a
+  // document to read it from; `files` and `figma` supply raster images (#350 part C).
+  const layoutSelected = design.provider === 'claude-design' && config.artifacts.includes('layout');
   const cells = [];
   for (const target of config.targets) for (const viewport of config.viewports) {
     const source = target.design?.[viewport.id];
@@ -114,7 +129,7 @@ export async function importDesign({ configPath, side, label = '', runsRoot, tar
   // Read and check every image first.
   const read = () => {
     if (design.provider === 'figma') return figmaImages(design, cells, importedAt, env, figma);
-    if (design.provider === 'claude-design') return claudeDesignImages(resolve(loaded.configDir, design.root), cells, importedAt, config.screenshot.timeoutMs, claudeDesign);
+    if (design.provider === 'claude-design') return claudeDesignImages(resolve(loaded.configDir, design.root), cells, importedAt, config.screenshot.timeoutMs, claudeDesign, { side, layout: layoutSelected });
     return fileImages(resolve(loaded.configDir, design.root), cells, importedAt);
   };
   const images = cells.length ? await read() : [];
@@ -125,22 +140,34 @@ export async function importDesign({ configPath, side, label = '', runsRoot, tar
   const settings = designSettings(config, side);
   const hash = settingsHash(settings);
   // The stored settings read like those of a capture, so every reader of a run keeps working.
-  // A design run holds screenshots only: no other artifact is claimed.
-  const stored = { ...config, artifacts: ['screenshot'], checks: [], packs: [] };
+  // A design run holds screenshots, and layout records when a `claude-design` import read them. No other artifact is claimed.
+  const withLayout = images.some(image => image.layout);
+  const stored = { ...config, artifacts: withLayout ? ['screenshot', 'layout'] : ['screenshot'], checks: [], packs: [] };
+  const layoutHash = withLayout ? settingsHash(designLayoutSettings(config, side)) : null;
   const run = { schemaVersion: 2, id, side, label, at: importedAt, state: 'complete', settings: stored, captureSettings: settings, settingsHash: hash,
-    ...(selection ? { selection } : {}), tools: [{ name: 'test-kit-design', version: DESIGN_IMPORT_VERSION, settingsHash: hash }], captures: [] };
+    ...(selection ? { selection } : {}), tools: [{ name: 'test-kit-design', version: DESIGN_IMPORT_VERSION, settingsHash: hash },
+      ...(withLayout ? [{ name: 'test-kit-layout', version: LAYOUT_VERSION, settingsHash: layoutHash, artifact: 'layout' }] : [])], captures: [] };
   await mkdir(runs, { recursive: true });
   await ensureDefaultRunsIgnore(loaded.configDir, runs);
   await mkdir(runDir);
   try {
-    for (const { target, viewport, bytes, provenance } of images) {
+    for (const { target, viewport, bytes, provenance, layout } of images) {
       const path = `screenshots/${target.id}/${viewport.id}.png`;
       await mkdir(dirname(join(runDir, path)), { recursive: true });
       await writeFile(join(runDir, path), bytes, { mode: 0o600 });
+      const artifacts = {};
+      if (layout) {
+        // The layout file and its entry have the shape of a browser capture (R6.14), so the comparison reads both alike.
+        const layoutPath = `layout/${target.id}/${viewport.id}.json`;
+        await mkdir(dirname(join(runDir, layoutPath)), { recursive: true });
+        await writeFile(join(runDir, layoutPath), layout.bytes, { mode: 0o600 });
+        artifacts.layout = { kind: 'layout', tool: 'test-kit-layout', version: LAYOUT_VERSION, settingsHash: layoutHash, browserVersion: layout.browserVersion,
+          state: 'captured', path: layoutPath, bytes: layout.bytes.length, sha256: 'sha256:' + createHash('sha256').update(layout.bytes).digest('hex') };
+      }
       // The scope and settle hashes keep the record readable like a capture (known differences bind them).
       run.captures.push({ targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(settleRecipe(config, side, target)),
         scopeHash: settingsHash(screenshotScope(target, side)), state: 'captured', path, width: provenance.width, height: provenance.height,
-        deviceScaleFactor: viewport.deviceScaleFactor, artifacts: {}, design: provenance });
+        deviceScaleFactor: viewport.deviceScaleFactor, artifacts, design: provenance });
     }
     const manifestPath = join(runDir, 'run.json');
     await writeFile(`${manifestPath}.tmp`, `${JSON.stringify(run, null, 2)}\n`, { mode: 0o600 });

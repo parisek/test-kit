@@ -261,7 +261,7 @@ export function normalizeConfig(input) {
     }
     // R6.14: the parts of the layout artifact. The key is optional and enters no hash.
     if (target.layout !== undefined) {
-      try { result.layout = normalizeLayoutParts(target.layout); } catch (error) { fail(error.message); }
+      try { result.layout = normalizeLayoutParts(target.layout, Object.keys(sides)); } catch (error) { fail(error.message); }
     }
     return result;
   });

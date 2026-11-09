@@ -150,6 +150,7 @@ describe('kind word', () => {
 	it('shows only a pair kind of the specification', () => {
 		expect(kindWord('update')).toBe('update');
 		expect(kindWord('migration')).toBe('migration');
+		expect(kindWord('drift')).toBe('drift');
 		expect(kindWord('<b>x</b>')).toBeNull();
 		expect(kindWord(null)).toBeNull();
 	});

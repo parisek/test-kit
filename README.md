@@ -409,7 +409,7 @@ test-kit summary report/report.json
 test-kit query report/report.json --target home --viewport desktop --artifact layout --max-lines 20
 ```
 
-The viewer has no layout view yet: the findings show in its findings list. The artifact applies to browser sides only (R6.14, R6.15, #350).
+The viewer has no layout view yet: the findings show in its findings list. The artifact applies to browser sides and to `claude-design` design sides (R6.14, R6.15, #350). A part may set `selectorBySide` when two sides have other markup. A `claude-design` import reads the records in the artboard, `diff --kind drift` compares two imports, and `record-decision` records `implement` or `report-only` per difference, bound to the design value (R3.12, R9.14). See `docs/usage.md`, "Design revisions and decisions".
 
 ### Project behavior contracts
 
