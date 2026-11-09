@@ -39,6 +39,14 @@ First release candidate for 1.3.0. It is not a stable release. `package.json` sa
 - The opt-in settle key `afterSweep` waits after the restore of the lazy-image sweep for a page whose scroll-driven state reverts asynchronously, for example a header that a debounced scroll listener returns to its top state (R5.15, #355). It takes at most 20 selectors. After the restore, capture waits until the first match of each selector is visible, then for fonts and two animation frames. It needs `lazyImages: true` in the effective recipe, else the configuration fails. A selector that stays hidden fails the capture with a message that names it, and `--retries` does not try it again. The key enters `recipe.settle` and the settle hash only when set, so an unchanged declaration keeps its bytes. The integration check `check-capture-lazy-settle.mjs` has a header that reverts 1500 ms after the restore: without the key it is captured scrolled (30 px) in each capture, with `afterSweep: ["#header:not(.scrolled)"]` in its top state (70 px).
 - Project `perf` (`perf --store`, `--ddev` or `--path`) no longer fails with "runsRoot must be a plain relative path" when the path to the configuration goes through a symbolic link, such as the macOS temp folder. It now compares the real store path with the real configuration directory (#359).
 
+## [1.2.0] - 2026-11-08
+
+Stable release of 1.2. It holds the same code as `1.2.0-rc.1` (commit 9abdfd6), with no change. A pilot on a WordPress project ran the candidate on 2026-11-07: the styleguide `before` and `after`, production against local with `before --side production` and `after --side local` (kind `migration`), the store viewer and `history --publish`. It found no blocking bug in the package. Read the migration notes under Changed of `[1.2.0-rc.1]` before you update from 1.1.0. The default store moves from `.test-kit/` to `test-kit/`, and the store holds page captures: keep it out of every deploy. A scoped-workflow baseline made before 1.2.0 never matches: run `before` again.
+
+The `--ddev` option still captures the DDEV router 404 for a page that redirects to its canonical URL (#348). Leave `--ddev` off for a remote-against-local comparison until #348 is fixed.
+
+This section was added after the release. The GitHub Release of `v1.2.0` holds the same text and the notes of `[1.2.0-rc.1]`.
+
 ## [1.2.0-rc.1] - 2026-11-06
 
 First release candidate for 1.2.0. It is not a stable release. `package.json` says `1.2.0`, so `--version` prints `1.2.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration notes under Changed before you update. The default store moves from `.test-kit/` to `test-kit/`, and a scoped-workflow baseline made before 1.2.0 never matches: run `before` again. The capture engine version is `1`. A run made before 1.2.0 has no stored `recipe` and still compares.
