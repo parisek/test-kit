@@ -71,7 +71,7 @@ When the reviewers disagree, settle it with evidence from code or the normative 
 
 ## 5. Review record
 
-A review is one pull request comment. Its first line is `<!-- agent:review -->`. It holds exactly one JSON block. `scripts/process/check-record.mjs` validates it.
+A review is one pull request comment. Its first line is `<!-- agent:review -->`. It holds exactly one JSON block. The validator `check-record.mjs` checks it (section 13 names its path).
 
 | Field | Value |
 | --- | --- |
@@ -101,7 +101,7 @@ Codex runs on the owner's machine with the owner's own Codex account, never in a
 
 - A milestone is a GitHub milestone plus one `[Roadmap]` issue that holds its goal and the checks that prove it. The owner names the milestone and its goal. The agent writes and orders the issues.
 - A design decision is one issue titled `Design decision: <question>` with the label `awaiting-owner`.
-- Any other owner decision is a decision request in the fixed format below. `scripts/process/check-decision-request.sh` checks it.
+- Any other owner decision is a decision request in the fixed format below. `check-decision-request.sh` checks it (section 13 names its path).
 
 ```
 <!-- agent:decision-request -->
@@ -151,7 +151,7 @@ Process documents, code, commits and pull requests are in English, in ASD-STE100
 
 ## 12. Configuration
 
-`.agent/project.conf` holds `key = value` lines. It is parsed, never sourced. `scripts/process/project-config.sh <key>` reads one value.
+`.agent/project.conf` holds `key = value` lines. It is parsed, never sourced. `project-config.sh <key>` reads one value (section 13 names its path).
 
 | Key | Meaning |
 | --- | --- |
@@ -165,6 +165,7 @@ Process documents, code, commits and pull requests are in English, in ASD-STE100
 
 ## 13. This repository
 
+- Tools: `scripts/process/check-record.mjs` (with `records.mjs`), `scripts/process/check-decision-request.sh`, `scripts/process/project-config.sh`; their tests are `scripts/process/test.sh`.
 - Files: generic part in `docs/process.md`, `docs/skills/vision-check.md` and `scripts/process/`; project part in `docs/vision.md`, `docs/specification.md`, `PRODUCT.md`, `DESIGN.md`, `docs/viewer-workflow.md` and `.agent/project.conf`.
 - Normative source: `docs/specification.md` (R-numbers).
 - Gate: `npm test`; for viewer work also `npm run test:viewer` and `npm run check:viewer`.
