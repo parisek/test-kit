@@ -1,7 +1,7 @@
 // Parse and validate a review record (docs/process.md, section 5).
 // Pure functions: no file system, no network. The record text is untrusted input and is parsed as data only.
 // Port of scripts/milestone/records.js in parisek/test-kit, with a configurable identifier pattern.
-// The same file lives in test-kit and portadesign-mcp; change all three together (docs/process.md, section 1).
+// The same file lives in every repository of the standard; change them together (docs/process.md, section 1).
 
 export const MARKER = '<!-- agent:review -->';
 // Markers of the repositories before they adopted the plugin. They count until each repository moves.
