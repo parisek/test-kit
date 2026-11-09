@@ -6,7 +6,7 @@ Decisions of 2026-10-18:
 
 1. The process has three skills, split by purpose: `vision-check`, `milestone-run`, `milestone-report`.
 2. Review records are pull request comments.
-3. The script may merge a pull request itself when the full merge rule holds. Every Tier 3 item always goes to the owner.
+3. (Replaced on 2026-11-09 by `docs/vision.md`, decision 12: the owner merges, an agent only with merge permission for the session.) The script may merge a pull request itself when the full merge rule holds. Every Tier 3 item always goes to the owner.
 4. The review gate is advisory only. The CI check `review-gate` shows a status and blocks nothing. The project does not enforce reviewer identity. All comments may come from one GitHub account. See "Trade-off of the advisory gate".
 
 This document turns the loop in `docs/vision.md` ("Milestones and releases", "Review and merge") into three skills, a script and CI checks. It cites the vision and does not change the rule. It adds mechanisms that check and report on the rule. No CI check blocks a merge until the ruleset exists. The script refuses on them (see "Trade-off of the advisory gate"). A follow-up pull request syncs `AGENTS.md` and `docs/development-loop.md` with this design (see "Where the skills live"). Until that pull request merges, those two files describe the current practice.
@@ -53,7 +53,7 @@ Loop step 6 is this table. The agent does not merge on "both approve and CI is g
 
 ## Review record
 
-A review record is one pull request comment. It starts with the marker line `<!-- test-kit-review -->` and holds one JSON block. Skill 1 (`vision-check`) in mode `pr` writes exactly this block. There is one schema for the skill output and the record.
+A review record is one pull request comment. It starts with the marker line `<!-- agent:review -->` (`docs/process.md`, section 5; the older `<!-- test-kit-review -->` still parses) and holds one JSON block. Skill 1 (`vision-check`) in mode `pr` writes exactly this block. There is one schema for the skill output and the record.
 
 ```json
 {
@@ -105,7 +105,7 @@ The owner chose this on 2026-10-18. The review gate is advisory only. Plainly:
 
 ## Record validation
 
-One module, `scripts/milestone/records.js`, parses and validates records. The merge script and the `review-gate` workflow both import it. The two parse the same way. They can still differ on content: `review-gate` applies the parse rules and the content rules that need only the records (`verdict`, `tier`, `default_behavior`, `security`, `unexpected_files`, `tests`, `risk`). It does not read the template or the diff. So the status can be `success` while the script refuses because of a template or diff rule. The script decides. The status description says "records ok; the script may still refuse". `review-gate` checks out the default branch only to load this module (this needs `contents: read`). It never checks out the pull request.
+One module, `scripts/process/records.mjs` (re-exported by `scripts/milestone/records.js`), parses and validates records. The merge script and the `review-gate` workflow both import it. The two parse the same way. They can still differ on content: `review-gate` applies the parse rules and the content rules that need only the records (`verdict`, `tier`, `default_behavior`, `security`, `unexpected_files`, `tests`, `risk`). It does not read the template or the diff. So the status can be `success` while the script refuses because of a template or diff rule. The script decides. The status description says "records ok; the script may still refuse". `review-gate` checks out the default branch only to load this module (this needs `contents: read`). It never checks out the pull request.
 
 The module returns for each reviewer `counted` (true or false) and a reason. A record is counted only when all parse rules hold. The script then applies the content rules to the two counted records and to the template in the pull request body.
 
