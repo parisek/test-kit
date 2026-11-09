@@ -6,7 +6,15 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [1.3.0] - 2026-11-09
 
-Stable release of 1.3. It holds the same code as `1.3.0-rc.1` (commit 47ca126), with no change. A trial on the tailwind-base skeleton ran the candidate on 2026-11-09 under DDEV: install from the tag (`--version` 1.3.0, `npm ls` 47ca126), `before` and `after` on one target with no change between them (state `complete`, verdict match), the store viewer and its `index.json` (no `inputs/` entry), `history --prune` without `--yes` (nothing to remove), and the web-server deny of `test-kit/inputs` on the DDEV host with a store present (403). It found no bug in the package. Not run in the trial: a design side, `layout`, `record-decision`, `--keep-existing`, `--retries` and the `a11y` pack in frames. Read the migration notes under Changed of `[1.3.0-rc.1]` before you update from 1.2.0. The store reserves `inputs/` for project files, and a pair of the same remote side now gives the report kind `deploy`.
+Stable release of 1.3. It holds the same code as `1.3.0-rc.1` (commit 47ca126), with no change. A trial on a downstream skeleton project ran the candidate on 2026-11-09 under DDEV. It found no bug in the package. The trial checked these steps:
+
+- Install from the tag: `--version` prints `1.3.0`, and `npm ls` shows commit 47ca126.
+- `before`, then `after` on one target, with no change between them: both runs are `complete`, and the verdict is match.
+- The store viewer and its `index.json` load. The index has no `inputs/` entry.
+- `history --prune` without `--yes` lists nothing to remove.
+- With a store present, the web server of the DDEV host denies `test-kit/inputs` (403).
+
+The trial did not run a design side, `layout`, `record-decision`, `--keep-existing`, `--retries` or the `a11y` pack in frames. Read the migration notes under Changed of `[1.3.0-rc.1]` before you update from 1.2.0. The store reserves `inputs/` for project files. A pair of the same remote side now gives the report kind `deploy`.
 
 The `--ddev` option still captures the DDEV router 404 for a page that redirects to its canonical URL (#348). Leave `--ddev` off for a remote-against-local comparison until #348 is fixed.
 
