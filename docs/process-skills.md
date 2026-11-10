@@ -13,7 +13,7 @@ This document turns the loop in `docs/vision.md` ("Milestones and releases", "Re
 
 ## Principle
 
-A skill is a short instruction that calls a script. An invariant that can fail a build belongs in CI. Orchestration belongs in a script. Reviewers state their evidence in their own comments. The pull request template holds only items that the author fills and a machine can check.
+A skill is a short instruction that calls a script. An invariant that can fail a build belongs in CI. Orchestration belongs in a script. Reviewers state their evidence in their own comments. The agent record of the pull request template holds only items that the author fills and a machine can check. The part for the owner above it is a summary in plain words (`docs/process.md`, section 10).
 
 ## The loop
 
@@ -247,7 +247,7 @@ Output: one page with the sections "Merged", "Waiting for the owner", "Verified"
 
 These replace skill text where a machine can decide.
 
-A pull request template holds fields that the author fills and that CI can check. It holds no reviewer evidence. Reviewers write evidence in their records.
+The agent record of a pull request template holds fields that the author fills and that CI can check. It holds no reviewer evidence. The part for the owner above it is a summary, and no check reads it. Reviewers write evidence in their records.
 
 ### Template fields and their checker
 
