@@ -1,8 +1,8 @@
 ## Status
 
-**In progress | Waiting for owner | Ready for review | Blocked** <!-- Keep one. Update it at every hand-over; it is the first thing the owner reads. -->
+**In progress | Waiting for owner | Ready to merge | Blocked** <!-- Keep one. Update it at every hand-over; it is the first thing the owner reads. -->
 
-**Next step:** <!-- Who does what next, in one sentence: "Agent: run the Codex gate", "Owner: decide #N", "Owner: review and merge". -->
+**Next step:** <!-- Who does what next, in one sentence: "Agent: run the Codex gate", "Owner: decide #N", "Owner: merge". -->
 
 <!-- The part down to the agent record is for the owner. Plain words, no file names and no class names. Put in bold what the owner must not miss. -->
 
@@ -20,7 +20,7 @@
 
 ## Who
 
-<!-- Who asked, which agent built it, who reviewed it. For a cloud session, add the name of the account that owns the session in brackets and link the session: only that account can open it. -->
+<!-- Who asked, which agent built it, who reviewed it. For a cloud session, add the name of the account that owns the session in brackets and link the session: only that account can open it. In a public repository, use the GitHub login. -->
 
 ## Review focus
 
