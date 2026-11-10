@@ -143,7 +143,8 @@ After a merge, the agent asks one question: did a review or a failure teach a ru
 
 - One logical change for each pull request. A draft, assigned to the owner.
 - The title is a Conventional Commit. CI checks it. The squash commit uses it.
-- The body follows `.github/PULL_REQUEST_TEMPLATE.md`. Its core sections (Summary; Tier, principle and requirement; Tests; Docs reviewed; Left alone; Review) are the same in every repository, in that order. Project sections come after "Docs reviewed".
+- The body follows `.github/PULL_REQUEST_TEMPLATE.md`. It has two parts. The first part is for the owner, in plain words: the sections Status, What, Why, How, Who and Review focus. The owner decides from this part alone. The second part is the agent record, inside one `<details>` block: Tier, principle and requirement; Tests; Docs reviewed; Left alone; Review. The core sections are the same in every repository, in that order. Project sections come after "Docs reviewed".
+- The section Status is first. It holds one state in bold and the line `Next step:`, which names who does what next. The states are `In progress` (the agent works: CI, a gate, a fix), `Waiting for owner` (the agent cannot go on without a decision or a live check), `Ready for review` (CI is green and every review record is on the head; the owner reviews and merges) and `Blocked` (nobody can go on; the line says why). The agent updates the section at every hand-over. A draft pull request alone does not say which state holds.
 
 ## 11. Language
 
