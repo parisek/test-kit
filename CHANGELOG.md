@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Fixed
+
+- A layout part with `border-radius: calc(infinity * 1px)` (Tailwind CSS 4 `rounded-full`) no longer makes `diff` refuse the layout file of the target (#384, R6.14). Chromium computes the radius as 33554400px. The writer stored that value, and the reader refused every number above 1000000, so the cell was `failed`. The writer and the reader now share one bound (`MAX_NUMBER`, 1000000). A radius above it is stored as the bound, so two fully rounded corners compare equal. A radius token above it takes the same form. Any radius at or above the bound renders the same corner, so the bound hides no visible difference. Every other number above the bound (a box size, a gap, a padding) is stored as it is and still refuses the whole file. A value at or below the bound is stored as before, so the layout version stays `1.0.0` and no settings hash changes. A layout file that an earlier version wrote with such a value stays refused: capture the run again.
+
 ## [1.3.0] - 2026-11-09
 
 Stable release of 1.3. It holds the same code as `1.3.0-rc.1` (commit 47ca126), with no change. A trial on a downstream skeleton project ran the candidate on 2026-11-09 under DDEV. It found no bug in the package. The trial checked these steps:

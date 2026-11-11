@@ -40,6 +40,19 @@ export function length(value, { normal = null } = {}) {
   return Number.isFinite(number) ? round(number) : null;
 }
 
+// The largest magnitude of a stored number (#384). The reader (`snapshot.js`) refuses a number above it, and the
+// writer applies it to a radius. Writer and reader read this one constant.
+export const MAX_NUMBER = 1_000_000;
+
+// A corner radius in px, or null. A radius above MAX_NUMBER is stored as MAX_NUMBER (owner direction, 2026-11-11, #384).
+// Any radius at or above the bound renders the same fully rounded corner, so the bound hides no visible difference.
+// It covers the engine limit of `calc(infinity * 1px)` (Tailwind CSS 4 `rounded-full`): 33554400px in Chromium.
+// Every other number above the bound stays as it is, so the reader refuses the file.
+export function radius(value) {
+  const number = length(value);
+  return number === null ? null : Math.min(MAX_NUMBER, Math.max(-MAX_NUMBER, number));
+}
+
 const byte = value => Math.round(Math.min(1, Math.max(0, value)) * 255);
 const hex = value => value.toString(16).padStart(2, '0');
 // The alpha byte of a colour. An opaque colour has no alpha byte, so `#ff0000ff` and `rgb(255 0 0 / 0.999)`
@@ -146,7 +159,10 @@ export function tokenTable(raw) {
   const table = [];
   for (const item of Array.isArray(raw) ? raw : []) {
     if (!item || typeof item.name !== 'string' || !/^--[A-Za-z0-9_-]{1,126}$/.test(item.name)) continue;
-    table.push({ name: item.name, length: length(item.length), colour: colour(item.colour) });
+    // A radius token takes the radius bound, so `--radius-full: calc(infinity * 1px)` still names a fully rounded corner.
+    // Any other token keeps its length: a gap or size token above the bound names no record value.
+    const radial = TOKEN_FAMILIES['paint.radius'].test(item.name.toLowerCase());
+    table.push({ name: item.name, length: radial ? radius(item.length) : length(item.length), colour: colour(item.colour) });
   }
   return table.sort((x, y) => x.name < y.name ? -1 : x.name > y.name ? 1 : 0);
 }
@@ -200,7 +216,7 @@ export function normaliseRecord(raw, table = []) {
       background: colour(raw?.backgroundColor),
       borderWidth,
       borderColor: borderWidth ? colour(raw?.borderTopColor) : null,
-      radius: length(raw?.borderTopLeftRadius),
+      radius: radius(raw?.borderTopLeftRadius),
     },
     tokens: {},
   };

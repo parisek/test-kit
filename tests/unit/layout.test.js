@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOKEN_FAMILIES, LAYOUT_VERSION, MAX_COLOUR_TEXT } from '../../src/layout/record.js';
+import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOKEN_FAMILIES, LAYOUT_VERSION, MAX_COLOUR_TEXT, MAX_NUMBER, radius } from '../../src/layout/record.js';
 import { compareLayout, compareRecords, sameValue, sameToken, differenceMessage } from '../../src/layout/compare.js';
 import { normalizeLayoutParts, normalizeLayoutConfig, partsForSide } from '../../src/layout/declaration.js';
 import { normalizeConfig } from '../../src/config/normalize.js';
@@ -244,6 +244,52 @@ test('a stored layout file is untrusted: any shape outside the bounds refuses th
   for (const value of bad) assert.throws(() => validateLayoutSnapshot(value));
   // A repeat may count more elements than it stores: the first 50 are kept.
   assert.equal(validateLayoutSnapshot(snapshot([part('a', Array(50).fill(record), true, 80)])).parts[0].count, 80);
+});
+
+test('a radius above the bound is stored as the bound, so two fully rounded corners match (#384, R6.14)', () => {
+  assert.equal(MAX_NUMBER, 1_000_000);
+  assert.equal(radius('1000000px'), MAX_NUMBER);
+  assert.equal(radius('999999.999px'), 999999.999, 'A radius at or below the bound keeps its 3 decimals.');
+  assert.equal(radius('1000000.001px'), MAX_NUMBER);
+  // `calc(infinity * 1px)` computes to 33554400px in Chromium.
+  assert.equal(radius('33554400px'), MAX_NUMBER);
+  assert.equal(radius('1e300px'), MAX_NUMBER);
+  assert.equal(radius('1e400px'), null, 'A value that is not finite stays unmeasured.');
+  assert.equal(radius('8px'), 8);
+  // Two radii above the bound have one stored form, so they compare equal, and the file validates.
+  const full = normaliseRecord(raw({ borderTopLeftRadius: '33554400px' }), table);
+  const other = normaliseRecord(raw({ borderTopLeftRadius: '2000000px' }), table);
+  assert.equal(full.paint.radius, MAX_NUMBER);
+  assert.deepEqual(compareRecords('pill', full, other), []);
+  assert.deepEqual(validateLayoutSnapshot(snapshot([part('pill', [full])])).parts[0].records[0], full);
+  // A radius token above the bound takes the same stored form, so it still names a fully rounded corner.
+  assert.equal(normaliseRecord(raw({ borderTopLeftRadius: '33554400px' }), tokenTable([{ name: '--radius-full', length: '33554400px', colour: null }])).tokens['paint.radius'], '--radius-full');
+});
+
+test('only a radius takes the bound: every other number above it stays, and the reader refuses the file (#384, R6.14)', () => {
+  // A length that is no radius keeps its value. Failed evidence never becomes a match (vision principle 1, R8.7).
+  assert.equal(length('33554400px'), 33554400);
+  const cases = [
+    ['box.height', { rect: { width: 100, height: 1_200_000 } }],
+    ['layout.gap', { columnGap: '2000000px' }],
+    ['layout.padding[0]', { paddingTop: '2000000px' }],
+    ['type.letterSpacing', { letterSpacing: '2000000px' }],
+    ['paint.borderWidth', { borderTopWidth: '2000000px' }],
+  ];
+  for (const [property, changes] of cases) {
+    const record = normaliseRecord(raw(changes), table);
+    assert.throws(() => validateLayoutSnapshot(snapshot([part('box', [record])])), property);
+  }
+  // Two box heights above the bound are not made equal: each record keeps its own value.
+  const a = normaliseRecord(raw({ rect: { width: 100, height: 1_200_000 } }), table);
+  const b = normaliseRecord(raw({ rect: { width: 100, height: 2_400_000 } }), table);
+  assert.equal(a.box.height, 1_200_000);
+  assert.notDeepEqual(compareRecords('box', a, b), []);
+  // A token that is no radius keeps its length, so it never names a value it does not have.
+  const tokens = tokenTable([{ name: '--spacing-huge', length: '33554400px', colour: null }, { name: '--radius-full', length: '33554400px', colour: null }]);
+  assert.equal(tokens.find(item => item.name === '--spacing-huge').length, 33554400);
+  assert.equal(tokens.find(item => item.name === '--radius-full').length, MAX_NUMBER);
+  assert.equal(tokenFor('layout.gap', MAX_NUMBER, tokens), null);
 });
 
 test('the snapshot builder turns raw page values into the stored shape', () => {

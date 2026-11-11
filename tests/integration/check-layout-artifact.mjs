@@ -6,6 +6,7 @@ import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { capture } from '../../src/capture/index.js';
+import { MAX_NUMBER } from '../../src/layout/record.js';
 import { compareRuns } from '../../src/compare/runs.js';
 import { queryArtifact } from '../../src/query/artifact.js';
 import { summarizeReport } from '../../src/query/summary.js';
@@ -20,18 +21,23 @@ body { margin: 0; font-family: "Example Sans", Arial, sans-serif; }
 .cards { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: ${gap}; padding: 8px 12px; }
 .card { box-sizing: border-box; width: 200px; height: 120px; border-radius: var(--radius-card); background: var(--color-paper); color: var(--color-ink); border: 1px solid rgb(0 0 0 / 10%); }
 h1 { font-size: ${size}; line-height: 1.25; font-weight: 700; letter-spacing: -0.5px; color: var(--color-ink); }
-</style></head><body><h1>Example site</h1><div class="cards">${'<div class="card">Card</div>'.repeat(items)}</div></body></html>`;
+.pill { display: inline-block; padding: 4px 12px; border-radius: calc(infinity * 1px); }
+</style></head><body><h1>Example site</h1><span class="pill">Pill</span><div class="cards">${'<div class="card">Card</div>'.repeat(items)}</div></body></html>`;
+// A box above the bound: only a radius takes the bound, so this layout file is refused as a whole (#384).
+// The clip keeps the page short, so the screenshot itself completes.
+const tall = '<!doctype html><html lang="en"><head><title>Example site</title><style>body { margin: 0; } .clip { height: 100px; overflow: hidden; } .tall { height: 1200000px; }</style></head><body><div class="clip"><div class="tall">Tall</div></div></body></html>';
 const site = createServer((request, response) => {
   response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  response.end(page(variant));
+  response.end(request.url === '/tall' ? tall : page(variant));
 });
 await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
 try {
   const configPath = join(directory, 'config.json');
   const config = { schemaVersion: 1, sides: { local: { origin: `http://127.0.0.1:${site.address().port}`, settle: { disableMotion: true } } },
     targets: [
-      { id: 'home', kind: 'page', path: '/', layout: { parts: [{ id: 'title', selector: 'h1' }, { id: 'cards', selector: '.cards' }, { id: 'card', selector: '.card', repeat: true }] } },
+      { id: 'home', kind: 'page', path: '/', layout: { parts: [{ id: 'title', selector: 'h1' }, { id: 'cards', selector: '.cards' }, { id: 'card', selector: '.card', repeat: true }, { id: 'pill', selector: '.pill' }] } },
       { id: 'plain', kind: 'page', path: '/plain' },
+      { id: 'tall', kind: 'page', path: '/tall', layout: { parts: [{ id: 'tall', selector: '.tall' }] } },
     ],
     viewports: [{ id: 'wide', width: 1024, height: 768 }], artifacts: ['screenshot', 'layout'], runsRoot: 'runs' };
   await writeFile(configPath, JSON.stringify(config));
@@ -47,7 +53,7 @@ try {
   assert.match(home.artifacts.layout.sha256, /^sha256:[a-f0-9]{64}$/);
   assert.ok(first.run.tools.some(tool => tool.artifact === 'layout' && tool.name === 'test-kit-layout'));
   const stored = JSON.parse(await readFile(join(first.runDir, home.artifacts.layout.path), 'utf8'));
-  const [title, cards, card] = stored.parts;
+  const [title, cards, card, pill] = stored.parts;
   assert.deepEqual(title.records[0].type, { family: 'Example Sans', size: 32, weight: 700, lineHeight: 1.25, letterSpacing: -0.5 });
   // The font size 32px fits the --text-hero family; --size-32 has the same value and the wrong name.
   assert.equal(title.records[0].tokens['type.size'], '--text-hero');
@@ -64,16 +70,26 @@ try {
   assert.equal(card.records[0].tokens['paint.color'], '--color-ink');
   assert.equal(card.records[0].paint.borderWidth, 1);
   assert.equal(card.records[0].paint.borderColor, '#0000001a');
+  // `calc(infinity * 1px)` (Tailwind 4 `rounded-full`) computes to an engine limit. The record stores the shared bound,
+  // so the reader accepts the file that capture wrote (#384).
+  assert.equal(pill.records[0].paint.radius, MAX_NUMBER);
 
   // Two captures of the same page match.
   const same = await compareRuns({ runsRoot, runA: first.run.id, runB: second.run.id, outputDir: join(directory, 'same') });
   const sameHome = same.report.entries.find(entry => entry.id === 'home');
   assert.equal(sameHome.viewports[0].artifacts.layout.state, 'complete');
   assert.equal(sameHome.viewports[0].artifacts.layout.diff.changed, false);
+  // Before #384 the pill refused both files, and this cell was `failed` with a generic diagnostic.
+  assert.equal(sameHome.viewports[0].artifacts.layout.diff.counts.parts, 4);
+  assert.equal(sameHome.viewports[0].artifacts.layout.diff.counts.match, 4);
   assert.equal(same.report.findings.filter(item => item.artifact === 'layout').length, 0);
   assert.equal(targetClass(same.report, sameHome), 'match');
   assert.equal(same.report.entries.find(entry => entry.id === 'plain').viewports[0].artifacts.layout, undefined);
   assert.equal(summarizeReport(same.report).layout, undefined, 'No layout difference adds no summary key.');
+  // A box height above the bound stays as it is. The reader refuses the file.
+  const tallCell = same.report.entries.find(entry => entry.id === 'tall').viewports[0];
+  assert.equal(tallCell.artifacts.layout.state, 'failed');
+
 
   // One gap and one font size change: exactly those differences, with their tokens.
   variant = { gap: '24px', size: '40px', items: 3 };

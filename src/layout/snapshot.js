@@ -1,6 +1,6 @@
-// The stored layout file is untrusted (R6.14, R12.3). A reader accepts only the bounded shape below.
+// The stored layout file is untrusted (R6.14). A reader accepts only the bounded shape below.
 // Any other value refuses the whole file, so a comparison never reads part of a bad file.
-import { LAYOUT_VERSION, TOKEN_FAMILIES, colour as normalColour } from './record.js';
+import { LAYOUT_VERSION, MAX_NUMBER, TOKEN_FAMILIES, colour as normalColour } from './record.js';
 import { MAX_PARTS, MAX_REPEAT } from './declaration.js';
 
 export const MAX_COUNT = 10000;
@@ -9,7 +9,7 @@ const PART_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const TOKEN = /^--[A-Za-z0-9_-]{1,126}$/;
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const keys = (value, list) => plain(value) && Object.keys(value).length === list.length && list.every(key => Object.hasOwn(value, key));
-const number = value => value === null || (typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1_000_000);
+const number = value => value === null || (typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= MAX_NUMBER);
 const word = (value, max = 100) => value === null || (typeof value === 'string' && value.length > 0 && value.length <= max && !/[\x00-\x1f\x7f]/.test(value));
 // A stored colour is in its normal form: the reader gives the same text back (`#rrggbb`, `#rrggbbaa`
 // without an alpha byte of ff, or the bounded lowercase text of a colour that it does not convert).
