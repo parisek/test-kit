@@ -9,7 +9,7 @@ import { settingsHash, settleRecipe, settlementMatches } from '../config/setting
 import { isDesignRun } from '../design/compare.js';
 import { LAYOUT_CHECK_ID } from '../report/catalog.js';
 import { normalizeLayoutConfig, normalizeLayoutParts } from './declaration.js';
-import { validateLayoutSnapshot, MAX_LAYOUT_BYTES } from './snapshot.js';
+import { validateLayoutSnapshot, MAX_LAYOUT_BYTES, INVALID_LAYOUT } from './snapshot.js';
 import { compareLayout, boundComparison, differenceMessage, LENGTH_TOLERANCE, RATIO_TOLERANCE } from './compare.js';
 import { LAYOUT_VERSION } from './record.js';
 
@@ -79,7 +79,12 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
       await mkdir(dirname(join(output, src)), { recursive: true }); await writeFile(join(output, src), bytes);
       artifact[side] = { kind: 'layout', src, tool: index.tool, version: index.version, settingsHash: index.settingsHash, browserVersion: index.browserVersion, bytes: bytes.length };
       snapshots.push(snapshot);
-    } catch { return fail('failed', 'A layout file is missing, changed, invalid, or exceeds its limit.'); }
+    } catch (error) {
+      // A refusal of the reader names the run side, the part, the property and the value (#384). It is built from safe
+      // text only (`snapshot.js`). Any other error keeps the generic text: a path, a hash or a parse error stays out.
+      if (error?.code === INVALID_LAYOUT && typeof error.message === 'string') return fail('failed', `The layout file of run ${side.toUpperCase()} is invalid. ${error.message.slice(0, 400)}`);
+      return fail('failed', 'A layout file is missing, changed, invalid, or exceeds its limit.');
+    }
   }
   const detail = compareLayout(...snapshots, { aliases });
   const src = `diff/layout/${targetId}/${viewportId}.json`;

@@ -40,6 +40,23 @@ export function length(value, { normal = null } = {}) {
   return Number.isFinite(number) ? round(number) : null;
 }
 
+// The largest magnitude of a stored number (#384). The reader (`snapshot.js`) refuses a number above it, and the
+// writer applies it to a radius. Writer and reader read this one constant.
+export const MAX_NUMBER = 1_000_000;
+
+// A corner radius in px, or null. A radius above MAX_NUMBER is stored as MAX_NUMBER (owner direction, 2026-11-11, #384).
+// It covers the engine limit of `calc(infinity * 1px)` (Tailwind CSS 4 `rounded-full`): 33554400px in Chromium.
+// The record reads only the top-left corner, and CSS scales all radii of a box by one factor when the corners overflow
+// a side. Measured in Chromium: with the other corners at 0, or all at the bound, the stored form renders the same
+// pixels. When another corner is not 0, two boxes whose top-left radii both store the bound can render differently and
+// still read `match`. That is a known gap (owner decision, 2026-11-11, #384).
+// CSS has no negative radius, so only the upper bound applies.
+// Every other number above the bound stays as it is, so the reader refuses the file.
+const boundRadius = number => number === null ? null : Math.min(MAX_NUMBER, number);
+export function radius(value) {
+  return boundRadius(length(value));
+}
+
 const byte = value => Math.round(Math.min(1, Math.max(0, value)) * 255);
 const hex = value => value.toString(16).padStart(2, '0');
 // The alpha byte of a colour. An opaque colour has no alpha byte, so `#ff0000ff` and `rgb(255 0 0 / 0.999)`
@@ -159,7 +176,10 @@ export function tokenFor(property, value, table) {
   const family = TOKEN_FAMILIES[property];
   for (const token of table) {
     if (!family.test(token.name.toLowerCase())) continue;
-    if (kind === 'length' ? token.length !== null && Math.abs(token.length - value) < 0.001 : token.colour === value) return token.name;
+    // Only the radius takes the bound, so `--radius-full: calc(infinity * 1px)` still names a fully rounded corner.
+    // A token used for any other property keeps its own length, also when its name fits the radius family too.
+    const tokenLength = property === 'paint.radius' ? boundRadius(token.length) : token.length;
+    if (kind === 'length' ? tokenLength !== null && Math.abs(tokenLength - value) < 0.001 : token.colour === value) return token.name;
   }
   return null;
 }
@@ -200,7 +220,7 @@ export function normaliseRecord(raw, table = []) {
       background: colour(raw?.backgroundColor),
       borderWidth,
       borderColor: borderWidth ? colour(raw?.borderTopColor) : null,
-      radius: length(raw?.borderTopLeftRadius),
+      radius: radius(raw?.borderTopLeftRadius),
     },
     tokens: {},
   };

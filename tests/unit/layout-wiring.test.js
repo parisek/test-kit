@@ -55,7 +55,7 @@ const raw = { rect: { width: 100, height: 20 }, display: 'block', fontSize: '16p
   color: 'rgb(0, 0, 0)', backgroundColor: 'rgba(0, 0, 0, 0)', borderTopWidth: '0px', borderTopLeftRadius: '0px', paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px' };
 const snapshot = (fontSize = '16px') => ({ schemaVersion: 1, version: LAYOUT_VERSION, source: 'computed-style', parts: [{ id: 'title', repeat: false, count: 1, records: [normaliseRecord({ ...raw, fontSize })] }] });
 
-async function fixture(t, { designB = false, provider = 'files', settleA, partsB, fontSizeB = '16px', tamper = false, aliases } = {}) {
+async function fixture(t, { designB = false, provider = 'files', settleA, partsB, fontSizeB = '16px', tamper = false, aliases, editB } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'test-kit-layout-unit-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const parts = { parts: [{ id: 'title', selector: 'h1' }] };
@@ -73,7 +73,9 @@ async function fixture(t, { designB = false, provider = 'files', settleA, partsB
     return { run, capture };
   };
   const a = await make('a', snapshot(), parts);
-  const b = await make('b', snapshot(fontSizeB), partsB === undefined ? parts : partsB, designB ? 'design' : undefined);
+  const fileB = snapshot(fontSizeB);
+  editB?.(fileB);
+  const b = await make('b', fileB, partsB === undefined ? parts : partsB, designB ? 'design' : undefined);
   return compareLayoutArtifact({ a: a.run, b: b.run, ac: a.capture, bc: b.capture, runsRoot: root, output: join(root, 'out'), targetId: 'home', viewportId: 'phone' });
 }
 
@@ -120,6 +122,37 @@ test('compare artifact: browser and claude-design sides, equal part shapes, and 
   assert.deepEqual(tampered.findings, []);
   const badAliases = await fixture(t, { aliases: { nope: 1 } });
   assert.equal(badAliases.artifact.state, 'failed');
+});
+
+test('compare artifact: a refused layout file names the run, the part, the property and the value (#384, R6.14)', async (t) => {
+  // The file keeps its recorded sha256, so the reader refuses it, not the hash check. The whole file is refused.
+  const radius = await fixture(t, { editB: file => { file.parts[0].records[0].paint.radius = 33554400; } });
+  assert.equal(radius.artifact.state, 'failed');
+  assert.deepEqual(radius.findings, []);
+  assert.equal(radius.artifact.diagnostic, 'The layout file of run B is invalid. Invalid layout snapshot: part title, property paint.radius, value 33554400 (the bound is 1000000).');
+  // `query --artifact layout` gives the same text to a reader.
+  const output = await mkdtemp(join(tmpdir(), 'test-kit-layout-query-'));
+  t.after(() => rm(output, { recursive: true, force: true }));
+  const report = { schemaVersion: 3, meta: { title: 'Layout refusal', generated: null, viewports: [{ id: 'phone', width: 400 }], matchBelow: 3, noiseFloor: null },
+    pair: { kind: 'update', aRunId: 'a', bRunId: 'b' }, runs: [{ id: 'a' }, { id: 'b' }],
+    checks: { layout: { basis: 'relative', layer: 'package', title: 'Layout record difference' } },
+    entries: [{ id: 'home', viewports: [{ id: 'phone', state: 'failed', ratio: 0, availability: { a: 'ok', b: 'ok' }, artifacts: { screenshot: { a: null, b: null, diff: null, state: 'complete' }, layout: radius.artifact } }] }],
+    findings: [], causes: [], rules: {} };
+  await writeFile(join(output, 'report.json'), JSON.stringify(report));
+  const query = await queryArtifact(join(output, 'report.json'), { target: 'home', viewport: 'phone', artifact: 'layout' });
+  assert.equal(query.state, 'failed');
+  assert.equal(query.diagnostic, radius.artifact.diagnostic);
+  // The writer keeps a box height above the bound (only a radius takes it), so the file that capture writes is refused
+  // as a whole, and the cell is `failed`, not `match` (vision principle 1, R8.7).
+  const tall = await fixture(t, { editB: file => { file.parts[0].records[0] = normaliseRecord({ ...raw, rect: { width: 100, height: 1_200_000 } }); } });
+  assert.equal(tall.artifact.state, 'failed');
+  assert.equal(tall.artifact.diagnostic, 'The layout file of run B is invalid. Invalid layout snapshot: part title, property box.height, value 1200000 (the bound is 1000000).');
+  // A value that is no number shows only its type, so no text from the file reaches the report.
+  const text = await fixture(t, { editB: file => { file.parts[0].records[0].type.size = '<b>16</b>'; } });
+  assert.equal(text.artifact.diagnostic, 'The layout file of run B is invalid. Invalid layout snapshot: part title, property type.size, value a string.');
+  // A changed file and a missing file keep the generic text.
+  const tampered = await fixture(t, { tamper: true });
+  assert.equal(tampered.artifact.diagnostic, 'A layout file is missing, changed, invalid, or exceeds its limit.');
 });
 
 test('the difference sidecar and the summary counts read untrusted data with bounds (R11.2, R11.6)', () => {
