@@ -86,10 +86,12 @@ try {
   assert.equal(targetClass(same.report, sameHome), 'match');
   assert.equal(same.report.entries.find(entry => entry.id === 'plain').viewports[0].artifacts.layout, undefined);
   assert.equal(summarizeReport(same.report).layout, undefined, 'No layout difference adds no summary key.');
-  // A box height above the bound stays as it is. The reader refuses the file.
+  // A box height above the bound stays as it is. The reader refuses the file, and query names the part, the property and the value.
   const tallCell = same.report.entries.find(entry => entry.id === 'tall').viewports[0];
   assert.equal(tallCell.artifacts.layout.state, 'failed');
-
+  const tallQuery = await queryArtifact(same.reportPath, { target: 'tall', viewport: 'wide', artifact: 'layout' });
+  assert.equal(tallQuery.state, 'failed');
+  assert.match(tallQuery.diagnostic, /^The layout file of run A is invalid\. Invalid layout snapshot: part tall, property box\.height, value 1200000 \(the bound is 1000000\)\.$/);
 
   // One gap and one font size change: exactly those differences, with their tokens.
   variant = { gap: '24px', size: '40px', items: 3 };

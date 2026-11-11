@@ -4,7 +4,7 @@ import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOK
 import { compareLayout, compareRecords, sameValue, sameToken, differenceMessage } from '../../src/layout/compare.js';
 import { normalizeLayoutParts, normalizeLayoutConfig, partsForSide } from '../../src/layout/declaration.js';
 import { normalizeConfig } from '../../src/config/normalize.js';
-import { validateLayoutSnapshot } from '../../src/layout/snapshot.js';
+import { validateLayoutSnapshot, INVALID_LAYOUT } from '../../src/layout/snapshot.js';
 import { layoutSnapshot } from '../../src/layout/extract.js';
 
 const raw = (changes = {}) => ({
@@ -278,7 +278,7 @@ test('only a radius takes the bound: every other number above it stays, and the 
   ];
   for (const [property, changes] of cases) {
     const record = normaliseRecord(raw(changes), table);
-    assert.throws(() => validateLayoutSnapshot(snapshot([part('box', [record])])), property);
+    assert.throws(() => validateLayoutSnapshot(snapshot([part('box', [record])])), new RegExp(`part box, property ${property.replace(/[[\]]/g, '\\$&')}, value`), property);
   }
   // Two box heights above the bound are not made equal: each record keeps its own value.
   const a = normaliseRecord(raw({ rect: { width: 100, height: 1_200_000 } }), table);
@@ -290,6 +290,28 @@ test('only a radius takes the bound: every other number above it stays, and the 
   assert.equal(tokens.find(item => item.name === '--spacing-huge').length, 33554400);
   assert.equal(tokens.find(item => item.name === '--radius-full').length, MAX_NUMBER);
   assert.equal(tokenFor('layout.gap', MAX_NUMBER, tokens), null);
+});
+
+test('a refused layout file names the part, the property and the value, and is still refused as a whole (#384, R6.14)', () => {
+  const record = normaliseRecord(raw(), table);
+  const refusal = value => { try { validateLayoutSnapshot(value); } catch (error) { return error; } assert.fail('The file was accepted.'); };
+  const pill = { ...record, paint: { ...record.paint, radius: 33554400 } };
+  const error = refusal(snapshot([part('text', [record]), part('pill', [pill])]));
+  assert.equal(error.code, INVALID_LAYOUT);
+  assert.equal(error.message, 'Invalid layout snapshot: part pill, property paint.radius, value 33554400 (the bound is 1000000).');
+  // A repeat names the index of the record.
+  assert.equal(refusal(snapshot([part('card', [record, pill], true)])).message,
+    'Invalid layout snapshot: part card[1], property paint.radius, value 33554400 (the bound is 1000000).');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, layout: { ...record.layout, padding: [0, 0, -2e6, 0] } }])])).message,
+    'Invalid layout snapshot: part a, property layout.padding[2], value -2000000 (the bound is 1000000).');
+  // Text from the file never enters the message: a bad part ID gives its index, a bad value gives its type.
+  assert.equal(refusal(snapshot([part('<script>', [record])])).message, 'Invalid layout snapshot: part at index 0 has an invalid shape.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, paint: { ...record.paint, color: 'RED<b>' } }])])).message,
+    'Invalid layout snapshot: part a, property paint.color, value a string.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, box: { width: Infinity, height: 1 } }])])).message,
+    'Invalid layout snapshot: part a, property box.width, value Infinity.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, extra: {} }])])).message, 'Invalid layout snapshot: part a, property record.');
+  assert.equal(refusal({ schemaVersion: 2 }).message, 'Invalid layout snapshot.');
 });
 
 test('the snapshot builder turns raw page values into the stored shape', () => {
