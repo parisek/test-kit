@@ -19,7 +19,7 @@ const word = (value, max = 100) => value === null || (typeof value === 'string' 
 const colour = value => value === null || (typeof value === 'string' && normalColour(value) === value);
 
 // The value of a refused property as safe text: a number as JSON (finite or not), any other value only by its type.
-const shown = value => typeof value === 'number' ? String(value) : value === null ? 'null' : Array.isArray(value) ? 'an array' : `a ${typeof value}`;
+const shown = value => typeof value === 'number' ? String(value) : value === null ? 'null' : Array.isArray(value) ? 'an array' : `${/^[aeiou]/.test(typeof value) ? 'an' : 'a'} ${typeof value}`;
 
 // The first property of a record outside the bounds, as `{ property, value?, numeric? }`, or null when the record is valid.
 // The property names come from this list only, never from the file.

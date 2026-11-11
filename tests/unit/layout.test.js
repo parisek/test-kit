@@ -308,12 +308,13 @@ test('only a radius takes the bound: every other number above it stays, and the 
   assert.equal(tokenFor('paint.radius', MAX_NUMBER, both), '--gap-radius');
 });
 
-test('known gap: the record reads only the top-left radius, so two boxes with large adjacent corners can match (owner decision, 2026-11-11, #384)', () => {
-  // CSS scales all radii of a box by one factor. In Chromium a 400x400 box with a top-left radius of 3000000px and a
-  // top-right radius of 1000000px renders another corner than one with 1500000px and 1000000px. Both store the bound.
+test('known gap: the record reads only the top-left radius, so two boxes with another large corner can match (owner decision, 2026-11-11, #384)', () => {
+  // When the corners overflow a side, CSS scales all radii of a box by one factor. In Chromium a 400x400 box with a
+  // top-left radius of 3000000px renders differently from one with 2000000px when another corner, adjacent or opposite,
+  // is large against the box (500000px or more). Both top-left radii store the bound.
   // This test pins the documented behaviour, so a change to it is deliberate.
   const a = normaliseRecord(raw({ borderTopLeftRadius: '3000000px' }), table);
-  const b = normaliseRecord(raw({ borderTopLeftRadius: '1500000px' }), table);
+  const b = normaliseRecord(raw({ borderTopLeftRadius: '2000000px' }), table);
   assert.equal(a.paint.radius, MAX_NUMBER);
   assert.deepEqual(compareRecords('pill', a, b), []);
 });
@@ -334,6 +335,10 @@ test('a refused layout file names the part, the property and the value, and is s
   assert.equal(refusal(snapshot([part('<script>', [record])])).message, 'Invalid layout snapshot: part at index 0 has an invalid shape.');
   assert.equal(refusal(snapshot([part('a', [{ ...record, paint: { ...record.paint, color: 'RED<b>' } }])])).message,
     'Invalid layout snapshot: part a, property paint.color, value a string.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, paint: { ...record.paint, radius: {} } }])])).message,
+    'Invalid layout snapshot: part a, property paint.radius, value an object.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, paint: { ...record.paint, radius: true } }])])).message,
+    'Invalid layout snapshot: part a, property paint.radius, value a boolean.');
   assert.equal(refusal(snapshot([part('a', [{ ...record, box: { width: Infinity, height: 1 } }])])).message,
     'Invalid layout snapshot: part a, property box.width, value Infinity.');
   assert.equal(refusal(snapshot([part('a', [{ ...record, extra: {} }])])).message, 'Invalid layout snapshot: part a, property record.');
