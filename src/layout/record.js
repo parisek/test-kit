@@ -46,11 +46,10 @@ export const MAX_NUMBER = 1_000_000;
 
 // A corner radius in px, or null. A radius above MAX_NUMBER is stored as MAX_NUMBER (owner direction, 2026-11-11, #384).
 // It covers the engine limit of `calc(infinity * 1px)` (Tailwind CSS 4 `rounded-full`): 33554400px in Chromium.
-// The record reads only the top-left corner. When the corners overflow a side, CSS scales all radii of a box by one
-// factor. So two boxes whose top-left radii both store the bound can render differently when another corner, adjacent
-// or opposite, is large against the box size, below or above the bound. With small other corners the stored form renders
-// the same (measured in Chromium: other corners up to 2000px on a 400px box). That is a known gap (owner decision,
-// 2026-11-11, #384).
+// The record reads only the top-left corner, and CSS scales all radii of a box by one factor when the corners overflow
+// a side. Measured in Chromium: with the other corners at 0, or all at the bound, the stored form renders the same
+// pixels. When another corner is not 0, two boxes whose top-left radii both store the bound can render differently and
+// still read `match`. That is a known gap (owner decision, 2026-11-11, #384).
 // CSS has no negative radius, so only the upper bound applies.
 // Every other number above the bound stays as it is, so the reader refuses the file.
 const boundRadius = number => number === null ? null : Math.min(MAX_NUMBER, number);

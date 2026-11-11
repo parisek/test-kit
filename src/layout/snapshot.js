@@ -18,7 +18,7 @@ const word = (value, max = 100) => value === null || (typeof value === 'string' 
 // without an alpha byte of ff, or the bounded lowercase text of a colour that it does not convert).
 const colour = value => value === null || (typeof value === 'string' && normalColour(value) === value);
 
-// The value of a refused property as safe text: a number as JSON (finite or not), any other value only by its type.
+// The value of a refused property as safe text: a number as String() prints it (finite or not), any other value only by its type.
 const shown = value => typeof value === 'number' ? String(value) : value === null ? 'null' : Array.isArray(value) ? 'an array' : `${/^[aeiou]/.test(typeof value) ? 'an' : 'a'} ${typeof value}`;
 
 // The first property of a record outside the bounds, as `{ property, value?, numeric? }`, or null when the record is valid.
