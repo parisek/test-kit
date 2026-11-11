@@ -1,6 +1,6 @@
 ## Status
 
-**In progress | Waiting for owner | Ready to merge | Blocked** <!-- Keep one. Update it at every hand-over; it is the first thing the owner reads. -->
+**In progress** <!-- One state: In progress | Waiting for owner | Ready to merge | Blocked. Update it at every hand-over; it is the first thing the owner reads. -->
 
 **Next step:** <!-- Who does what next, in one sentence: "Agent: run the Codex gate", "Owner: decide #N", "Owner: merge". -->
 
