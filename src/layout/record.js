@@ -45,12 +45,15 @@ export function length(value, { normal = null } = {}) {
 export const MAX_NUMBER = 1_000_000;
 
 // A corner radius in px, or null. A radius above MAX_NUMBER is stored as MAX_NUMBER (owner direction, 2026-11-11, #384).
-// Any radius at or above the bound renders the same fully rounded corner, so the bound hides no visible difference.
 // It covers the engine limit of `calc(infinity * 1px)` (Tailwind CSS 4 `rounded-full`): 33554400px in Chromium.
+// The normal form is exact when the other corners of the box are below the bound. CSS scales all radii of a box by
+// one factor, and the record reads only the top-left corner, so two boxes whose adjacent corners are also at or above
+// the bound may store the same radius and render differently. That is a known gap (owner decision, 2026-11-11, #384).
+// CSS has no negative radius, so only the upper bound applies.
 // Every other number above the bound stays as it is, so the reader refuses the file.
+const boundRadius = number => number === null ? null : Math.min(MAX_NUMBER, number);
 export function radius(value) {
-  const number = length(value);
-  return number === null ? null : Math.min(MAX_NUMBER, Math.max(-MAX_NUMBER, number));
+  return boundRadius(length(value));
 }
 
 const byte = value => Math.round(Math.min(1, Math.max(0, value)) * 255);
@@ -159,10 +162,7 @@ export function tokenTable(raw) {
   const table = [];
   for (const item of Array.isArray(raw) ? raw : []) {
     if (!item || typeof item.name !== 'string' || !/^--[A-Za-z0-9_-]{1,126}$/.test(item.name)) continue;
-    // A radius token takes the radius bound, so `--radius-full: calc(infinity * 1px)` still names a fully rounded corner.
-    // Any other token keeps its length: a gap or size token above the bound names no record value.
-    const radial = TOKEN_FAMILIES['paint.radius'].test(item.name.toLowerCase());
-    table.push({ name: item.name, length: radial ? radius(item.length) : length(item.length), colour: colour(item.colour) });
+    table.push({ name: item.name, length: length(item.length), colour: colour(item.colour) });
   }
   return table.sort((x, y) => x.name < y.name ? -1 : x.name > y.name ? 1 : 0);
 }
@@ -175,7 +175,10 @@ export function tokenFor(property, value, table) {
   const family = TOKEN_FAMILIES[property];
   for (const token of table) {
     if (!family.test(token.name.toLowerCase())) continue;
-    if (kind === 'length' ? token.length !== null && Math.abs(token.length - value) < 0.001 : token.colour === value) return token.name;
+    // Only the radius takes the bound, so `--radius-full: calc(infinity * 1px)` still names a fully rounded corner.
+    // A token used for any other property keeps its own length, also when its name fits the radius family too.
+    const tokenLength = property === 'paint.radius' ? boundRadius(token.length) : token.length;
+    if (kind === 'length' ? tokenLength !== null && Math.abs(tokenLength - value) < 0.001 : token.colour === value) return token.name;
   }
   return null;
 }

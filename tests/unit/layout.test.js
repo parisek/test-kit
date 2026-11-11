@@ -256,6 +256,8 @@ test('a radius above the bound is stored as the bound, so two fully rounded corn
   assert.equal(radius('1e300px'), MAX_NUMBER);
   assert.equal(radius('1e400px'), null, 'A value that is not finite stays unmeasured.');
   assert.equal(radius('8px'), 8);
+  // CSS has no negative radius, so only the upper bound applies: a negative value is not changed.
+  assert.equal(radius('-2000000px'), -2000000);
   // Two radii above the bound have one stored form, so they compare equal, and the file validates.
   const full = normaliseRecord(raw({ borderTopLeftRadius: '33554400px' }), table);
   const other = normaliseRecord(raw({ borderTopLeftRadius: '2000000px' }), table);
@@ -275,9 +277,16 @@ test('only a radius takes the bound: every other number above it stays, and the 
     ['layout.padding[0]', { paddingTop: '2000000px' }],
     ['type.letterSpacing', { letterSpacing: '2000000px' }],
     ['paint.borderWidth', { borderTopWidth: '2000000px' }],
+    ['box.width', { rect: { width: 1_200_000, height: 48 } }],
+    ['type.size', { fontSize: '2000000px' }],
+    ['type.weight', { fontWeight: '2000000' }],
+    // A line height of 2000px over a font size of 0.001px is a ratio of 2000000.
+    ['type.lineHeight', { fontSize: '0.001px', lineHeight: '2000px' }],
   ];
   for (const [property, changes] of cases) {
     const record = normaliseRecord(raw(changes), table);
+    const [group, key] = property.replace(/\[\d\]$/, '').split('.');
+    assert.ok(Math.abs([record[group][key]].flat()[0]) > MAX_NUMBER, `${property} is stored unbounded.`);
     assert.throws(() => validateLayoutSnapshot(snapshot([part('box', [record])])), new RegExp(`part box, property ${property.replace(/[[\]]/g, '\\$&')}, value`), property);
   }
   // Two box heights above the bound are not made equal: each record keeps its own value.
@@ -288,8 +297,25 @@ test('only a radius takes the bound: every other number above it stays, and the 
   // A token that is no radius keeps its length, so it never names a value it does not have.
   const tokens = tokenTable([{ name: '--spacing-huge', length: '33554400px', colour: null }, { name: '--radius-full', length: '33554400px', colour: null }]);
   assert.equal(tokens.find(item => item.name === '--spacing-huge').length, 33554400);
-  assert.equal(tokens.find(item => item.name === '--radius-full').length, MAX_NUMBER);
   assert.equal(tokenFor('layout.gap', MAX_NUMBER, tokens), null);
+  assert.equal(tokenFor('paint.radius', MAX_NUMBER, tokens), '--radius-full');
+  // A name that fits the radius family and another family takes the bound only for the radius.
+  // For the gap and the size it keeps its own length, so it names no value it does not have.
+  const both = tokenTable([{ name: '--gap-radius', length: '33554400px', colour: null }, { name: '--text-rounded', length: '33554400px', colour: null }]);
+  assert.equal(tokenFor('layout.gap', MAX_NUMBER, both), null);
+  assert.equal(tokenFor('type.size', MAX_NUMBER, both), null);
+  assert.equal(tokenFor('layout.gap', 33554400, both), '--gap-radius');
+  assert.equal(tokenFor('paint.radius', MAX_NUMBER, both), '--gap-radius');
+});
+
+test('known gap: the record reads only the top-left radius, so two boxes with large adjacent corners can match (owner decision, 2026-11-11, #384)', () => {
+  // CSS scales all radii of a box by one factor. In Chromium a 400x400 box with a top-left radius of 3000000px and a
+  // top-right radius of 1000000px renders another corner than one with 1500000px and 1000000px. Both store the bound.
+  // This test pins the documented behaviour, so a change to it is deliberate.
+  const a = normaliseRecord(raw({ borderTopLeftRadius: '3000000px' }), table);
+  const b = normaliseRecord(raw({ borderTopLeftRadius: '1500000px' }), table);
+  assert.equal(a.paint.radius, MAX_NUMBER);
+  assert.deepEqual(compareRecords('pill', a, b), []);
 });
 
 test('a refused layout file names the part, the property and the value, and is still refused as a whole (#384, R6.14)', () => {
