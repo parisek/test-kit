@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-11
+
+Patch release. It fixes #384: a layout part on a fully rounded element no longer fails its target. The owner approved this release in a session on 2026-11-11.
+
 ### Fixed
 
 - A layout part with `border-radius: calc(infinity * 1px)` (Tailwind CSS 4 `rounded-full`) no longer makes `diff` refuse the layout file of the target (#384, R6.14). Chromium computes the radius as 33554400px. The writer stored that value, and the reader refused every number above 1000000, so the cell was `failed`. The writer and the reader now share one bound (`MAX_NUMBER`, 1000000). A radius above it is stored as the bound, so two fully rounded corners compare equal. A token matched to the radius takes the same bound; for any other property it keeps its own length. Known gap (owner decision, 2026-11-11): The record reads only the top-left corner, and CSS scales all radii of a box by one factor when the corners overflow a side. Measured in Chromium: when the other corners are 0, or all store the bound (Tailwind CSS 4 `rounded-full` on every corner), the stored form renders the same pixels. When another corner is not 0, the rendered top-left corner also depends on it, so two boxes whose top-left radii both store the bound can render differently and still read `match`. Every other number above the bound (a box size, a gap, a padding) is stored as it is and still refuses the whole file, now with a named diagnostic. A value at or below the bound is stored as before, so the layout version stays `1.0.0` and no settings hash changes. A layout file that an earlier version wrote with such a value stays refused: capture the run again.
