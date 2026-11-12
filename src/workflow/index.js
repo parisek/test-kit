@@ -96,7 +96,8 @@ async function present(path) {
 
 // R3.11: the pair kind of `before` and `after` follows the pair of sides.
 // The same local side gives `update`, the same remote side gives `deploy`. A changed side configuration needs a new `before`.
-// A remote side against a local side gives `migration`. Any other pair of different sides gives `adhoc`.
+// A remote side against a local side gives `migration`. So does a side with `role: "source"` against a local side
+// without that role (#387). Any other pair of different sides gives `adhoc`.
 export function pairKind({ before, after }) {
   if (!before.id || !Object.hasOwn(before, 'origin')) throw new Error('Run before again. The baseline names a side that the configuration no longer holds.');
   if (before.id === after.id) {
@@ -104,6 +105,7 @@ export function pairKind({ before, after }) {
     return before.remote === true ? 'deploy' : 'update';
   }
   if (before.remote === true && after.remote !== true) return 'migration';
+  if (before.role === 'source' && after.remote !== true && after.role !== 'source') return 'migration';
   return 'adhoc';
 }
 

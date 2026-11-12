@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, delimiter } from 'node:path';
 import { loadConfig } from '../../src/config/index.js';
 import { publishHistory } from '../../src/export/publish.js';
-import { runWorkflow, selectConfig, loopbackOrigin, resolveStore, ensureStore, parseDdevDescription } from '../../src/workflow/index.js';
+import { runWorkflow, selectConfig, loopbackOrigin, resolveStore, ensureStore, parseDdevDescription, pairKind } from '../../src/workflow/index.js';
 const config = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8000' } }, targets: [{ id: 'home', kind: 'page', path: '/' }, { id: 'contact', kind: 'page', path: '/contact' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }, { id: 'mobile', width: 390, height: 844 }], artifacts: ['screenshot'], checks: [] };
 async function fixture(t) {
  const dir = await mkdtemp(join(tmpdir(), 'test-kit-workflow-'));
@@ -404,4 +404,33 @@ test('a catalogue baseline serves fewer viewports of the same components, not fe
  await assert.rejects(runWorkflow('after', { ...options, target: 'card', viewport: 'mobile' }, dependencies), /Run before/);
  await assert.rejects(runWorkflow('after', { ...options, target: 'card,menu' }, dependencies), /Run before/);
  assert.equal(captures.length, 2);
+});
+
+// #387, R3.11: a side with `role: "source"` against a local side gives `migration`.
+test('a source side against a local side gives the migration kind (#387)', async t => {
+ const { options, kinds, dependencies } = await pairFixture(t);
+ await writeFile(options.config, JSON.stringify({ ...pairConfig, sides: { ...pairConfig.sides, reference: { origin: 'http://127.0.0.1:8002', role: 'source' } } }));
+ await runWorkflow('before', { ...options, side: 'reference' }, dependencies); await runWorkflow('after', { ...options, side: 'local' }, dependencies);
+ await runWorkflow('before', { ...options, side: 'reference' }, dependencies); await runWorkflow('after', { ...options, side: 'production' }, dependencies);
+ await runWorkflow('before', { ...options, side: 'local' }, dependencies); await runWorkflow('after', { ...options, side: 'reference' }, dependencies);
+ await runWorkflow('before', { ...options, side: 'reference' }, dependencies); await runWorkflow('after', { ...options, side: 'reference' }, dependencies);
+ assert.deepEqual(kinds, ['migration', 'adhoc', 'adhoc', 'update']);
+});
+test('pairKind: role source gives migration only against a local side without the role (#387)', () => {
+ const side = (id, extra = {}) => ({ id, origin: 'http://127.0.0.1:8000', digest: id, ...extra });
+ assert.equal(pairKind({ before: side('a', { role: 'source' }), after: side('b') }), 'migration');
+ assert.equal(pairKind({ before: side('a', { role: 'source' }), after: side('b', { role: 'source' }) }), 'adhoc');
+ assert.equal(pairKind({ before: side('a', { role: 'source' }), after: side('b', { remote: true }) }), 'adhoc');
+ assert.equal(pairKind({ before: side('a', { role: 'source', remote: true }), after: side('b') }), 'migration');
+ assert.equal(pairKind({ before: side('a'), after: side('b', { role: 'source' }) }), 'adhoc');
+ assert.equal(pairKind({ before: side('a'), after: side('b') }), 'adhoc');
+});
+test('config accepts role "source" on a browser side, refuses any other value, and keeps the settings hash (#387)', async () => {
+ const { normalizeConfig } = await import('../../src/config/normalize.js');
+ const { captureSettings } = await import('../../src/config/settings.js');
+ const plain = normalizeConfig(config);
+ const sourced = normalizeConfig({ ...config, sides: { local: { origin: 'http://127.0.0.1:8000', role: 'source' } } });
+ assert.equal(sourced.sides.local.role, 'source'); assert.equal(plain.sides.local.role, undefined);
+ assert.deepEqual(captureSettings(sourced, 'local'), captureSettings(plain, 'local'));
+ assert.throws(() => normalizeConfig({ ...config, sides: { local: { origin: 'http://127.0.0.1:8000', role: 'target' } } }), /role must be "source"/);
 });

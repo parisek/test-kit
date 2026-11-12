@@ -99,7 +99,9 @@ npx test-kit after --side local
 
 The report has kind `migration`. A remote side first and a local side second give
 `migration`. The same local side twice gives `update`. The same remote side twice
-gives `deploy`. Any other pair of different sides gives `adhoc`. A second `before`
+gives `deploy`. A side with `"role": "source"` first and a local side second
+give `migration` too, for example a static export of the old site served locally.
+Any other pair of different sides gives `adhoc`. A second `before`
 with another side replaces the first baseline. A baseline made before 1.2 needs
 `before` again.
 
