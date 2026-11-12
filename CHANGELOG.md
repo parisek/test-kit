@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- `after` accepts a selection that is a subset of the baseline selection: fewer targets, fewer viewports, or both (#386, R13.13). It captures the baseline configuration with a recorded selection (R4.5), so the settings hashes match, and compares only the selected cells. A cell outside the baseline stays an error, and a subset run never replaces the baseline. `before` now records its `--target` and `--viewport` options in `state.json`. A baseline made with an earlier version has no such record and serves only its own selection: run `before` once more.
+
 ## [1.3.1] - 2026-11-11
 
 Patch release. It fixes #384: a layout part on a fully rounded element no longer fails its target. The owner approved this release in a session on 2026-11-11.
