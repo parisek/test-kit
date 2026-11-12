@@ -378,10 +378,11 @@ test('a baseline stored before 1.4 has no selection record and serves only its o
 });
 test('the smallest baseline that holds the cells wins (#386)', async t => {
  const { options, compares, dependencies } = await subsetFixture(t);
- await runWorkflow('before', options, dependencies);
+ // The smaller baseline comes first, so a last-match rule would pick the full baseline instead.
  await runWorkflow('before', { ...options, target: 'home' }, dependencies);
+ await runWorkflow('before', options, dependencies);
  await runWorkflow('after', { ...options, target: 'home', viewport: 'mobile' }, dependencies);
- assert.equal(compares[0].runA, 'run-1');
+ assert.equal(compares[0].runA, 'run-0');
 });
 test('a subset after with two sides keeps the pair kind of the baseline side (#386, R3.11)', async t => {
  const { options, compares, dependencies } = await subsetFixture(t);
@@ -390,13 +391,17 @@ test('a subset after with two sides keeps the pair kind of the baseline side (#3
  await runWorkflow('after', { ...options, side: 'local', target: 'home', viewport: 'desktop' }, dependencies);
  assert.equal(compares[0].kind, 'adhoc');
 });
-test('a catalogue baseline serves a subset of its included components; capture checks the catalogue (#386)', async t => {
+test('a catalogue baseline serves fewer viewports of the same components, not fewer components (#386, R13.52)', async t => {
  const { options, captures, dependencies } = await subsetFixture(t);
  const { targets, ...rest } = config;
- await writeFile(options.config, JSON.stringify({ ...rest, targetSource: { source: 'styleguide', side: 'local' } }));
+ await writeFile(options.config, JSON.stringify({ ...rest, targetSource: { source: 'styleguide', side: 'local', variants: true } }));
  await runWorkflow('before', { ...options, target: 'button,card' }, dependencies);
- const after = await runWorkflow('after', { ...options, target: 'card', viewport: 'mobile' }, dependencies);
- assert.deepEqual(after.output.subset, { targets: ['card'], viewports: ['mobile'] });
+ const after = await runWorkflow('after', { ...options, target: 'button,card', viewport: 'mobile' }, dependencies);
+ assert.deepEqual(after.output.subset, { viewports: ['mobile'] });
+ assert.equal(captures[1].targets, undefined);
  assert.deepEqual(captures[1].config.targetSource.include, ['button', 'card']);
+ // A component ID also selects its variants, which the workflow cannot know before capture. Fewer components stay an error.
+ await assert.rejects(runWorkflow('after', { ...options, target: 'card', viewport: 'mobile' }, dependencies), /Run before/);
  await assert.rejects(runWorkflow('after', { ...options, target: 'card,menu' }, dependencies), /Run before/);
+ assert.equal(captures.length, 2);
 });

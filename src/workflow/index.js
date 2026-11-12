@@ -131,16 +131,16 @@ async function subsetBaseline({ state, current, options, build, policyOf }) {
     if (!within(viewports, idsOf(candidate.config.viewports))) continue;
     let targets;
     if (current.targetSource || candidate.config.targetSource) {
-      // The catalogue is read at capture. Capture refuses a component that the baseline catalogue does not hold.
-      const outer = candidate.config.targetSource?.include;
-      targets = current.targetSource?.include;
-      if (outer && (!targets || !within(targets, outer))) continue;
+      // R13.52: a component ID also selects its variants, and the catalogue is read only at capture.
+      // So with a catalogue only the viewports may be a subset. The components must be the components of the baseline.
+      if (JSON.stringify(current.targetSource?.include ?? null) !== JSON.stringify(candidate.config.targetSource?.include ?? null)) continue;
+      targets = undefined;
     } else {
       targets = idsOf(current.targets);
       if (!within(targets, idsOf(candidate.config.targets))) continue;
     }
-    // The size of the candidate baseline. A catalogue without an include list counts as the largest.
-    const cells = (candidate.config.targetSource ? candidate.config.targetSource.include?.length ?? Infinity : candidate.config.targets.length) * candidate.config.viewports.length;
+    // The size of the candidate baseline. With a catalogue all candidates hold the same components.
+    const cells = (candidate.config.targetSource ? 1 : candidate.config.targets.length) * candidate.config.viewports.length;
     if (best && best.cells <= cells) continue;
     const allTargets = !targets || (!candidate.config.targetSource && targets.length === candidate.config.targets.length);
     const allViewports = viewports.length === candidate.config.viewports.length;
