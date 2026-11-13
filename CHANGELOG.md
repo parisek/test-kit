@@ -7,7 +7,7 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Added
 
 - `after` accepts a selection that is a subset of the baseline selection: fewer targets, fewer viewports, or both (#386, R13.13). It captures the baseline configuration with a recorded selection (R4.5), so the settings hashes match, and compares only the selected cells. A cell outside the baseline stays an error, and a subset run never replaces the baseline. With `targetSource`, only the viewports may be a subset, because a component ID also selects its variants (R13.52). `before` now records its `--target` and `--viewport` options in `state.json`. A baseline made with an earlier version has no such record and serves only its own selection: run `before` once more.
-- A side may set `"role": "source"` (#387, R3.11). A source side in `before` and a local side without that role in `after` give the report kind `migration`, so a pair of two local sides (an old static export against its rebuild) reads as a migration and rules with `kinds: ["migration"]` apply to it. The key changes no settings hash and no capture. Without the key nothing changes.
+- A side may set `"role": "reference"` (#387, R3.11). A reference side in `before` and a local side without that role in `after` give the report kind `convergence`, so a static reference (for example an old static export served locally) against the styleguide reads as convergence and rules with `kinds: ["convergence"]` apply to it. The key changes no capture settings hash and no capture. It is part of the side configuration, so a change of the key on the same side stops `after` until a new `before`. Without the key nothing changes.
 
 ## [1.3.1] - 2026-11-11
 
