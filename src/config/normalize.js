@@ -197,7 +197,7 @@ export function normalizeConfig(input) {
     id(sideId, 'side ID');
     // R5.5: a side with a `kind` key is a design side. A side without it is a browser side, as before.
     if (side && typeof side === 'object' && !Array.isArray(side) && Object.hasOwn(side, 'kind')) return [sideId, normalizeDesignSide(side, `sides.${sideId}`)];
-    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins', 'thirdParty']);
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins', 'thirdParty', 'role']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
     // R6.5: the flag, not the side id, marks a production side.
     if (Object.hasOwn(side, 'production') && typeof side.production !== 'boolean') fail(`sides.${sideId}.production must be a boolean`);
@@ -208,6 +208,8 @@ export function normalizeConfig(input) {
     if (Object.hasOwn(side, 'challenge') && side.challenge !== 'cloudflare') fail(`sides.${sideId}.challenge must be "cloudflare"`);
     // R3.10: the mode for a frame or subresource of another origin. Both sides accept it.
     if (Object.hasOwn(side, 'thirdParty') && !['block', 'drop'].includes(side.thirdParty)) fail(`sides.${sideId}.thirdParty must be "block" or "drop"`);
+    // R3.11, #387: the role of a side in a pair. A reference side against a local side gives `convergence`.
+    if (Object.hasOwn(side, 'role') && side.role !== 'reference') fail(`sides.${sideId}.role must be "reference"`);
     return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`, remote),
       ...(remote ? { remote: true } : {}),
       ...(Object.hasOwn(side, 'userAgent') ? { userAgent: userAgent(side.userAgent, `sides.${sideId}.userAgent`) } : {}),
@@ -215,6 +217,7 @@ export function normalizeConfig(input) {
       ...(Object.hasOwn(side, 'allowOrigins') ? { allowOrigins: allowOrigins(side.allowOrigins, `sides.${sideId}.allowOrigins`) } : {}),
       ...(Object.hasOwn(side, 'thirdParty') ? { thirdParty: side.thirdParty } : {}),
       ...(side.production === true ? { production: true } : {}),
+      ...(side.role === 'reference' ? { role: 'reference' } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
   // R5.5: one map serves every design side, so all design sides share one provider (paths, node IDs and artboard references do not mix).
