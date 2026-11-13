@@ -70,12 +70,12 @@ export function flattenFrameTree(tree) {
 }
 
 // Pure. The frames of the second tree read that the first read did not hold, counted by frame id, so a frame added while another
-// one went away still counts. A frame with no id counts as new.
+// one went away still counts. Frames with no id count only by their growth between the reads (#347), so one held by the first read is not new.
 // The comparison uses the ids of the whole tree, listed and dropped, so a frame pushed past the bound is not counted twice.
 // When a tree is too large for its ids, the count falls back to the growth of the total.
 export function addedFrames(before, after) {
   if (before.ids && after.ids) {
-    let added = after.ids.noId;
+    let added = Math.max(0, after.ids.noId - before.ids.noId);
     for (const id of after.ids.set) if (!before.ids.set.has(id)) added += 1;
     return added;
   }
@@ -84,4 +84,6 @@ export function addedFrames(before, after) {
 
 // Pure. True when a frame error means that the frame is gone or refused the gate: the origin gate, a lost or destroyed world (a navigation),
 // a detached frame. The runner counts such a frame as unreachable. Any other error counts as failed.
-export const isLostFrameError = message => /TEST_KIT_FRAME_|Cannot find context|Execution context was destroyed|No frame|Target closed|not found|detached/i.test(String(message));
+// The texts are the exact CDP and Playwright messages (#347), so an axe error that only contains "not found" or "detached" counts as failed.
+const LOST_FRAME = /^(?:Error: )?TEST_KIT_FRAME_ORIGIN\b|Cannot find context with specified id|Execution context was destroyed|No frame for given id found|Frame with the given id was not found|Target closed|Session closed|Frame (?:was|has been) detached/;
+export const isLostFrameError = message => LOST_FRAME.test(String(message));

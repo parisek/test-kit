@@ -4,6 +4,16 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Fixed
+
+- `capture --packs`: an axe error that only contains the words "not found" or "detached" now counts as a failed frame, not an unreachable one. Only the exact CDP and Playwright messages for a gate, a lost context, a missing frame, a closed target or a detached frame count as unreachable (#347, R13.51).
+- `capture --packs`: a frame with no id that the first read of the frame tree held no longer counts as added at the end read (#347, R13.51).
+- `capture --keep-existing`: a kept content index must also pass its gzip CRC and parse as JSON, not only match the stored byte count (#347, R5.13).
+
+### Changed
+
+- R12.5 and R13.51 name two behaviours the code already had: `history --prune` refuses an explicit `--store` outside the configuration directory, and above 100000 frames the count of added frames falls back to the growth of the total (#347).
+
 ### Added
 
 - `after` accepts a selection that is a subset of the baseline selection: fewer targets, fewer viewports, or both (#386, R13.13). It captures the baseline configuration with a recorded selection (R4.5), so the settings hashes match, and compares only the selected cells. A cell outside the baseline stays an error, and a subset run never replaces the baseline. With `targetSource`, only the viewports may be a subset, because a component ID also selects its variants (R13.52). `before` now records its `--target` and `--viewport` options in `state.json`. A baseline made with an earlier version has no such record and serves only its own selection: run `before` once more.
