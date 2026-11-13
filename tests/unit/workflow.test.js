@@ -300,3 +300,108 @@ test('a baseline stored with the side in its scope hash never matches (#240)', a
  state.profiles = { ['0'.repeat(64)]: Object.values(state.profiles)[0] }; await writeFile(path, JSON.stringify(state));
  await assert.rejects(runWorkflow('after', { ...options, side: 'local' }, { ...dependencies, capture: () => assert.fail('no capture') }), /Run before/);
 });
+
+// #386, R13.13: `after` on a subset of the cells of a baseline.
+async function subsetFixture(t) {
+ const { dir, options } = await fixture(t);
+ const captures = [];
+ const compares = [];
+ const dependencies = {
+  capture: async input => {
+   const id = `run-${captures.length}`;
+   captures.push({ ...input, config: JSON.parse(await readFile(input.configPath)) });
+   await mkdir(join(dir, 'test-kit/runs', id), { recursive: true });
+   await writeFile(join(dir, 'test-kit/runs', id, 'run.json'), '{}');
+   return { run: { id, state: 'complete' }, manifestPath: 'evidence' };
+  },
+  compareRuns: async input => { compares.push(input); return { reportPath: join(input.outputDir, 'report.json') }; },
+ };
+ return { dir, options, captures, compares, dependencies };
+}
+test('after on one viewport of a baseline captures the baseline configuration with a selection (#386)', async t => {
+ const { options, captures, compares, dependencies } = await subsetFixture(t);
+ const before = await runWorkflow('before', { ...options, target: 'home' }, dependencies);
+ const after = await runWorkflow('after', { ...options, target: 'home', viewport: 'desktop' }, dependencies);
+ assert.equal(after.exitCode, 0);
+ assert.equal(after.output.scope, before.output.scope);
+ assert.deepEqual(after.output.subset, { viewports: ['desktop'] });
+ assert.deepEqual(captures[1].viewports, ['desktop']); assert.equal(captures[1].targets, undefined);
+ // The capture gets the configuration of the baseline, so every settings hash equals the baseline hash (R4.5).
+ assert.deepEqual(captures[1].config, captures[0].config);
+ assert.equal(compares[0].runA, 'run-0'); assert.equal(compares[0].runB, 'run-1'); assert.equal(compares[0].kind, 'update');
+});
+test('after on fewer targets and viewports of a full baseline selects both axes (#386)', async t => {
+ const { options, captures, dependencies } = await subsetFixture(t);
+ await runWorkflow('before', options, dependencies);
+ const after = await runWorkflow('after', { ...options, target: 'contact', viewport: 'mobile' }, dependencies);
+ assert.deepEqual(after.output.subset, { targets: ['contact'], viewports: ['mobile'] });
+ assert.deepEqual(captures[1].targets, ['contact']); assert.deepEqual(captures[1].viewports, ['mobile']);
+});
+test('a cell outside the baseline stays an error and nothing is captured (#386)', async t => {
+ const { options, captures, dependencies } = await subsetFixture(t);
+ await runWorkflow('before', { ...options, target: 'home', viewport: 'desktop' }, dependencies);
+ await assert.rejects(runWorkflow('after', { ...options, target: 'home' }, dependencies), /Run before/);
+ await assert.rejects(runWorkflow('after', { ...options, target: 'contact', viewport: 'desktop' }, dependencies), /Run before/);
+ assert.equal(captures.length, 1);
+});
+test('a subset after leaves the baseline in place (#386, a partial capture cannot replace it)', async t => {
+ const { dir, options, compares, dependencies } = await subsetFixture(t);
+ await runWorkflow('before', options, dependencies);
+ const stateBefore = JSON.parse(await readFile(join(dir, 'test-kit/state.json')));
+ await runWorkflow('after', { ...options, viewport: 'desktop' }, dependencies);
+ await runWorkflow('after', { ...options, viewport: 'mobile' }, dependencies);
+ const state = JSON.parse(await readFile(join(dir, 'test-kit/state.json')));
+ assert.deepEqual(state.profiles, stateBefore.profiles);
+ assert.deepEqual(compares.map(input => input.runA), ['run-0', 'run-0']);
+});
+test('a changed target configuration voids the baseline for a subset too (#386)', async t => {
+ const { options, dependencies } = await subsetFixture(t);
+ await runWorkflow('before', options, dependencies);
+ await writeFile(options.config, JSON.stringify({ ...config, targets: [{ id: 'home', kind: 'page', path: '/start' }, config.targets[1]] }));
+ await assert.rejects(runWorkflow('after', { ...options, target: 'contact' }, dependencies), /Run before/);
+});
+test('a changed lockfile voids the baseline for a subset too (#386)', async t => {
+ const { dir, options, dependencies } = await subsetFixture(t);
+ await runWorkflow('before', options, dependencies);
+ await writeFile(join(dir, 'package-lock.json'), '{}');
+ await assert.rejects(runWorkflow('after', { ...options, viewport: 'desktop' }, dependencies), /Run before/);
+});
+test('a baseline stored before 1.4 has no selection record and serves only its own selection (#386)', async t => {
+ const { dir, options, dependencies } = await subsetFixture(t);
+ await runWorkflow('before', options, dependencies);
+ const path = join(dir, 'test-kit/state.json');
+ const state = JSON.parse(await readFile(path));
+ for (const profile of Object.values(state.profiles)) delete profile.selection;
+ await writeFile(path, JSON.stringify(state));
+ await assert.rejects(runWorkflow('after', { ...options, viewport: 'desktop' }, dependencies), /Run before/);
+ assert.equal((await runWorkflow('after', options, dependencies)).exitCode, 0);
+});
+test('the smallest baseline that holds the cells wins (#386)', async t => {
+ const { options, compares, dependencies } = await subsetFixture(t);
+ // The smaller baseline comes first, so a last-match rule would pick the full baseline instead.
+ await runWorkflow('before', { ...options, target: 'home' }, dependencies);
+ await runWorkflow('before', options, dependencies);
+ await runWorkflow('after', { ...options, target: 'home', viewport: 'mobile' }, dependencies);
+ assert.equal(compares[0].runA, 'run-0');
+});
+test('a subset after with two sides keeps the pair kind of the baseline side (#386, R3.11)', async t => {
+ const { options, compares, dependencies } = await subsetFixture(t);
+ await writeFile(options.config, JSON.stringify({ ...config, sides: { local: { origin: 'http://127.0.0.1:8000' }, reference: { origin: 'http://127.0.0.1:8001' } } }));
+ await runWorkflow('before', { ...options, side: 'reference', target: 'home' }, dependencies);
+ await runWorkflow('after', { ...options, side: 'local', target: 'home', viewport: 'desktop' }, dependencies);
+ assert.equal(compares[0].kind, 'adhoc');
+});
+test('a catalogue baseline serves fewer viewports of the same components, not fewer components (#386, R13.52)', async t => {
+ const { options, captures, dependencies } = await subsetFixture(t);
+ const { targets, ...rest } = config;
+ await writeFile(options.config, JSON.stringify({ ...rest, targetSource: { source: 'styleguide', side: 'local', variants: true } }));
+ await runWorkflow('before', { ...options, target: 'button,card' }, dependencies);
+ const after = await runWorkflow('after', { ...options, target: 'button,card', viewport: 'mobile' }, dependencies);
+ assert.deepEqual(after.output.subset, { viewports: ['mobile'] });
+ assert.equal(captures[1].targets, undefined);
+ assert.deepEqual(captures[1].config.targetSource.include, ['button', 'card']);
+ // A component ID also selects its variants, which the workflow cannot know before capture. Fewer components stay an error.
+ await assert.rejects(runWorkflow('after', { ...options, target: 'card', viewport: 'mobile' }, dependencies), /Run before/);
+ await assert.rejects(runWorkflow('after', { ...options, target: 'card,menu' }, dependencies), /Run before/);
+ assert.equal(captures.length, 2);
+});

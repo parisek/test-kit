@@ -107,6 +107,51 @@ export function pairKind({ before, after }) {
   return 'adhoc';
 }
 
+const idsOf = rows => rows.map(row => row.id);
+const within = (list, outer) => list.every(id => outer.includes(id));
+
+// #386, R13.13: find a baseline whose selection holds every cell of the current selection.
+// A candidate counts only when its recorded selection, built again from the current configuration, gives its own scope hash:
+// then every shared setting, target and viewport is unchanged. Among several, the baseline with the fewest cells wins.
+// A baseline with another policy (contracts, lockfile) does not count. Returns null when no baseline holds the cells.
+// The caller then gives the usual message.
+async function subsetBaseline({ state, current, options, build, policyOf }) {
+  if (options.path || options.selector) return null;
+  let best = null;
+  for (const [key, profile] of Object.entries(state.profiles)) {
+    if (!profile?.before || !profile.selection || typeof profile.selection !== 'object') continue;
+    const { target, viewport } = profile.selection;
+    if ((target !== undefined && typeof target !== 'string') || (viewport !== undefined && typeof viewport !== 'string')) continue;
+    let candidate;
+    try { candidate = await build({ target, viewport }); } catch { continue; }
+    if (candidate.scope !== key) continue;
+    const policy = policyOf(candidate.shared);
+    if (policy !== profile.policy) continue;
+    const viewports = idsOf(current.viewports);
+    if (!within(viewports, idsOf(candidate.config.viewports))) continue;
+    let targets;
+    if (current.targetSource || candidate.config.targetSource) {
+      // R13.52: a component ID also selects its variants, and the catalogue is read only at capture.
+      // So with a catalogue only the viewports may be a subset. The components must be the components of the baseline.
+      if (JSON.stringify(current.targetSource?.include ?? null) !== JSON.stringify(candidate.config.targetSource?.include ?? null)) continue;
+      targets = undefined;
+    } else {
+      targets = idsOf(current.targets);
+      if (!within(targets, idsOf(candidate.config.targets))) continue;
+    }
+    // The size of the candidate baseline. With a catalogue all candidates hold the same components.
+    const cells = (candidate.config.targetSource ? 1 : candidate.config.targets.length) * candidate.config.viewports.length;
+    if (best && best.cells <= cells) continue;
+    const allTargets = !targets || (!candidate.config.targetSource && targets.length === candidate.config.targets.length);
+    const allViewports = viewports.length === candidate.config.viewports.length;
+    const subset = { ...(allTargets ? {} : { targets }), ...(allViewports ? {} : { viewports }) };
+    best = { cells, ...candidate, profile, policy, subset };
+  }
+  if (!best) return null;
+  const { cells, ...found } = best;
+  return found;
+}
+
 export async function runWorkflow(command, options = {}, dependencies = {}) {
   return refreshViewerAfter(await executeWorkflow(command, options, dependencies), dependencies);
 }
@@ -148,22 +193,27 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
   // The runtime copy lives in the store, so the project root stays free of stray files (#312).
   const runtime = join(storePath, `.runtime-${randomUUID()}.json`);
   try {
-    let config = selectConfig(await json(configPath), options);
+    const input = await json(configPath);
     const side = options.side ?? 'local';
-    if (!config.sides[side]) throw new Error('Unknown side.');
-    if (config.sides[side].kind === 'design') throw new Error('A design side holds images. Use import for it.');
-    if (options.ddev && config.sides[side].remote === true) throw new Error('A remote side has no DDEV origin. Remove --ddev.');
-    if (options.ddev) {
-      const describe = dependencies.describe ?? (() => describeDdev(configDir));
-      config.sides[side].origin = loopbackOrigin(await describe());
-    }
-    config.runsRoot = `${offset.split('\\').join('/')}/runs`;
-    config = normalizeConfig(config);
-    // The scope holds the selection and the shared configuration, not the side (R13.13, #240).
+    let ddevOrigin;
+    // Build the configuration of one selection. The scope holds the selection and the shared configuration, not the side (R13.13, #240).
     // `before` and `after` may name two sides. The side travels in the profile instead.
-    const { sides: allSides, ...shared } = config;
-    const sideDigest = digest(JSON.stringify(allSides[side]));
-    const scope = digest(JSON.stringify({ config: shared }));
+    const build = async selected => {
+      const built = selectConfig(input, { ...options, ...selected });
+      if (!built.sides[side]) throw new Error('Unknown side.');
+      if (built.sides[side].kind === 'design') throw new Error('A design side holds images. Use import for it.');
+      if (options.ddev && built.sides[side].remote === true) throw new Error('A remote side has no DDEV origin. Remove --ddev.');
+      if (options.ddev) {
+        const describe = dependencies.describe ?? (() => describeDdev(configDir));
+        ddevOrigin ??= loopbackOrigin(await describe());
+        built.sides[side].origin = ddevOrigin;
+      }
+      built.runsRoot = `${offset.split('\\').join('/')}/runs`;
+      const normalized = normalizeConfig(built);
+      const { sides: allSides, ...shared } = normalized;
+      return { config: normalized, shared, sideDigest: digest(JSON.stringify(allSides[side])), scope: digest(JSON.stringify({ config: shared })) };
+    };
+    let { config, shared, sideDigest, scope } = await build({});
     let sourceFingerprint = null;
     if (config.artifacts.includes('behavior')) {
       const source = await (dependencies.loadBehaviorSource ?? loadBehaviorSource)({ projectRoot: configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled });
@@ -171,11 +221,19 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     let lockfile = '';
     try { lockfile = await readFile(join(configDir, 'package-lock.json')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    const policy = digest(JSON.stringify({ config: shared, sourceFingerprint }) + digest(lockfile));
+    const policyOf = sharedConfig => digest(JSON.stringify({ config: sharedConfig, sourceFingerprint }) + digest(lockfile));
+    let policy = policyOf(shared);
     const state = await json(statePath, { schemaVersion: 1, profiles: {} });
     if (state.schemaVersion !== 1 || !state.profiles || Array.isArray(state.profiles)) throw new Error('Unsupported workflow state.');
-    const profile = state.profiles[scope] ?? {};
+    let profile = state.profiles[scope] ?? {};
     if (command === 'after' && !profile.before && !Object.keys(state.profiles).length) throw new Error(NO_BASELINE);
+    // R13.13, #386: `after` may select a subset of the cells of a baseline. It captures the baseline configuration
+    // with a recorded selection (R4.5), so every settings hash equals the baseline hash. A cell outside the baseline stays an error.
+    let subset = null;
+    if (command === 'after' && !profile.before) {
+      const found = await subsetBaseline({ state, current: config, options, build, policyOf });
+      if (found) ({ config, shared, sideDigest, scope, profile, policy, subset } = found);
+    }
     if (command === 'after' && (!profile.before || profile.policy !== policy)) throw new Error('Run before with this selection, configuration, contracts, lockfile, and origin.');
     // The pair of sides decides the report kind (R3.11). A changed side configuration stops before any capture runs.
     let kind = 'update';
@@ -188,9 +246,9 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     const allowlistEntries = command === 'after' ? (await readAllowlist(allowlistPath({ configPath, override: options.allowlist }))).entries : [];
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
-    const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command });
+    const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command, ...(subset ?? {}) });
     const run = result.run;
-    const output = { id: run.id, state: run.state, manifestPath: result.manifestPath, storePath, scope };
+    const output = { id: run.id, state: run.state, manifestPath: result.manifestPath, storePath, scope, ...(subset ? { subset } : {}) };
     const exitCode = run.state === 'complete' ? 0 : 1;
     // R5.11: the same stderr line as `capture`. Stdout stays one JSON line.
     const { warningLine } = await import('../report/warnings.js');
@@ -202,7 +260,10 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     }
     if (command === 'before') {
       if (exitCode) return { output: { ...output, baselineUpdated: false }, exitCode, ...warned };
-      state.profiles[scope] = { before: run.id, policy, side, sideDigest };
+      // The selection options let a later `after` find this baseline for a subset of its cells (#386).
+      // A path or a selector builds its own target, so such a baseline serves only the same selection.
+      const selection = options.path || options.selector ? null : { ...(options.target ? { target: options.target } : {}), ...(options.viewport ? { viewport: options.viewport } : {}) };
+      state.profiles[scope] = { before: run.id, policy, side, sideDigest, ...(selection ? { selection } : {}) };
       delete state.report;
     }
     if (command === 'after') {

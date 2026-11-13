@@ -222,6 +222,11 @@ capture when the project uses it. `--side` defaults to `local`.
 `--store PATH` selects a stable directory relative to the config file (default `test-kit`).
 It holds runs, reports, baseline state and the store viewer. A new store ignores itself in Git.
 A selection has its own baseline. A partial capture cannot replace it.
+`after` may select a subset of a baseline: fewer targets or fewer viewports.
+For example `before --target gallery`, then `after --target gallery --viewport desktop`.
+`after` then compares only the selected cells. A cell that the baseline does not hold
+stays an error. With `targetSource`, only fewer viewports work: select the same components.
+A baseline made before 1.4.0 serves only its own selection: run `before` once more.
 A standalone run records one capture. It does not invent a comparison verdict.
 History lists all stored evidence and opens existing A/B reports. No automatic
 retention or deletion is enabled.
