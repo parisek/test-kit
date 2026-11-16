@@ -105,3 +105,17 @@ test('static export is explicit and does not combine with a listening port', () 
   assert.throws(() => parseCommand(['history', '--export', 'out', '--port', '1234']));
   assert.throws(() => parseCommand(['run', '--export', 'out']));
 });
+
+// #349 item 1: `summary DIR` names the report file, not the size limit.
+test('summary of a directory asks for report.json, not the size limit (#349)', async () => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = await mkdtemp(join(tmpdir(), 'test-kit-summary-'));
+  try {
+    const err = sink();
+    assert.equal(await run(['summary', `${dir}/`], { out: sink(), err }), 1);
+    assert.equal(err.text, `summary reads a report file, not a directory. Pass ${dir}/report.json.\n`);
+    assert.doesNotMatch(err.text, /size limit/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
