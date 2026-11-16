@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { changeText, groupByDay, historyStrip, homeRows, latestRow, localDay, kindWord, rowClass, shortId, verdictSentence } from './home-model.js';
+import { changeText, groupByDay, sameScope, historyStrip, homeRows, latestRow, localDay, kindWord, rowClass, shortId, verdictSentence } from './home-model.js';
 import { parseIndex } from './index-list.js';
 
 const summary = (extra = {}) => ({ unexplained: 0, explained: 0, match: 0, oracle: 0, unclassified: 0, incomplete: 0, ...extra });
 const hashA = 'sha256:' + 'a'.repeat(12);
 const hashB = 'sha256:' + 'b'.repeat(12);
-const row = (id, createdAt, extra = {}) => ({ id, createdAt, available: true, settingsHash: hashA, summary: summary({ match: 3 }), ...extra });
+const row = (id, createdAt, extra = {}) => ({ id, createdAt, available: true, kind: 'update', targets: 3, viewports: 1, settingsHash: hashA, summary: summary({ match: 3 }), ...extra });
 
 describe('index summary fields (R10.13)', () => {
 	const entry = (extra) => ({ id: 'a', kind: 'convergence', createdAt: '2026-10-02T09:00:00.000Z', settingsHash: null, path: 'reports/a/report.json', targets: 3, ...extra });
@@ -88,6 +88,29 @@ describe('home rows', () => {
 		expect(rows[0]).toMatchObject({ verdict: 'unexplained', change: '+1 unexplained, −1 match', hashChanged: true, day: '2026-10-03' });
 		expect(rows[1]).toMatchObject({ verdict: 'match', change: null, hashChanged: false });
 		expect(rows[2]).toMatchObject({ verdict: null, change: null, hashChanged: false });
+	});
+	it('shows no change against a previous row of another scope (#349 item 2)', () => {
+		const rows = homeRows([
+			row('d', '2026-10-04T09:00:00.000Z', { kind: 'migration', targets: 16, summary: summary({ unexplained: 15, match: 1 }) }),
+			row('c', '2026-10-03T09:00:00.000Z', { kind: 'migration', targets: 16, summary: summary({ unexplained: 14, match: 2 }) }),
+			row('b', '2026-10-02T09:00:00.000Z'),
+			row('a', '2026-10-01T09:00:00.000Z'),
+		], { timeZone: 'UTC' });
+		expect(rows[0].change).toBe('+1 unexplained, −1 match');
+		// c is the first migration report: b is an update report of 3 targets.
+		expect(rows[1].change).toBeNull();
+		expect(rows[2].change).toBe('Same counts as before');
+	});
+	it('needs the same kind and known equal counts for one scope', () => {
+		const base = row('a', null);
+		expect(sameScope(base, row('b', null))).toBe(true);
+		expect(sameScope(base, row('b', null, { kind: 'migration' }))).toBe(false);
+		expect(sameScope(base, row('b', null, { targets: 4 }))).toBe(false);
+		expect(sameScope(base, row('b', null, { viewports: 2 }))).toBe(false);
+		expect(sameScope(row('a', null, { kind: null }), row('b', null, { kind: null }))).toBe(false);
+		expect(sameScope(row('a', null, { targets: null }), row('b', null, { targets: null }))).toBe(false);
+		expect(sameScope(row('a', null, { viewports: null }), row('b', null, { viewports: null }))).toBe(false);
+		expect(sameScope(base, null)).toBe(false);
 	});
 	it('carries the incomplete count beside the class and keeps the summary of an unavailable report', () => {
 		const rows = homeRows([

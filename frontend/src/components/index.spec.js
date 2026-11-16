@@ -60,7 +60,7 @@ describe('Home', () => {
 		expect(dots[2]).toContain('unavailable');
 		expect(dots[3]).toContain('unexplained');
 	});
-	it('groups rows by day and shows the change, the incomplete state and a new settings hash', () => {
+	it('groups rows by day and shows the change within one scope, the incomplete state and a new settings hash', () => {
 		const view = mount(IndexView, { props: { index } });
 		const groups = view.findAll('.home-day');
 		expect(groups).toHaveLength(4);
@@ -70,7 +70,11 @@ describe('Home', () => {
 		expect(first.text()).toContain('unexplained');
 		expect(first.text()).toContain('1 incomplete');
 		expect(first.text()).toContain('3 pages, 2 viewports');
-		expect(first.text()).toContain('+1 unexplained, −1 match, +1 incomplete');
+		// example-c has another kind than example-b, so it is another scope and shows no change (#349 item 2).
+		expect(first.text()).not.toContain('−1 match');
+		expect(first.text()).not.toContain('Same counts');
+		// example-b and example-a share kind and counts, so example-b shows its change.
+		expect(groups[1].text()).toContain('Same counts as before');
 		expect(first.text()).toContain('settings changed: ' + hash('b').slice(0, 19));
 		expect(first.find('.row-id').attributes('title')).toBe('example-c');
 		// A kind outside the pair kinds of section 3 (here a hostile string) is not shown.
