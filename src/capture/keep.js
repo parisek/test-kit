@@ -44,7 +44,9 @@ export function runProblem(source, current) {
   if (source.state !== 'complete') return 'state';
   if (source.side !== current.side) return 'side';
   if (current.declaration?.remote !== true || source.settings.sides[current.side]?.remote !== true) return 'remote';
-  if (!same(source.settings.sides[current.side], current.declaration)) return 'declaration';
+  // R6.16: `perfBlockPaths` changes no capture, so the comparison drops it on both sides.
+  const declared = side => (plain(side) ? (({ perfBlockPaths, ...rest }) => rest)(side) : side);
+  if (!same(declared(source.settings.sides[current.side]), declared(current.declaration))) return 'declaration';
   if (source.settingsHash !== current.settingsHash) return 'settings';
   // The whole tools list must be equal, in any order.
   if (!Array.isArray(source.tools) || !Array.isArray(current.tools) || source.tools.length !== current.tools.length) return 'tools';

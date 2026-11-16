@@ -45,3 +45,15 @@ test('capture stops on a stopped DDEV project before Playwright loads and before
     await assert.rejects(readFile(join(project, 'runs')), { code: 'ENOENT' });
   });
 });
+
+test('perf --ddev refuses a remote side before any DDEV call (R3.3, #383)', { skip: process.platform === 'win32' }, async () => {
+  const { runProjectPerformance } = await import('../../src/workflow/performance.js');
+  await withFakeDdev('running', async (project, calls) => {
+    const config = { schemaVersion: 1, sides: { live: { origin: 'https://example.com', remote: true } }, targets: [{ id: 'home', kind: 'page', path: '/' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }] };
+    const configPath = join(project, 'test-kit.config.json');
+    await writeFile(configPath, JSON.stringify(config));
+    await assert.rejects(runProjectPerformance({ config: configPath, side: 'live', targets: 'home', ddev: true }, {},
+      { runPerfCommand: () => assert.fail('no measurement') }), /remote side has no DDEV origin/);
+    assert.equal(await calls(), '');
+  });
+});

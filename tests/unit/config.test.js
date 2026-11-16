@@ -85,6 +85,19 @@ test('a remote side may set challenge cloudflare, and it stays out of the captur
   assert.throws(() => normalizeConfig(local), /challenge requires remote true/);
 });
 
+test('a side may set perfBlockPaths for speed, and it stays out of the capture settings (R6.16, #383)', () => {
+  const source = input(); source.sides.local.perfBlockPaths = ['/analytics/*', '/wp-json/hit'];
+  const result = normalizeConfig(source);
+  assert.deepEqual(result.sides.local.perfBlockPaths, ['/analytics/*', '/wp-json/hit']);
+  assert.equal(settingsHash(captureSettings(result, 'local')), settingsHash(captureSettings(normalizeConfig(input()), 'local')));
+  const remote = input(); remote.sides.production = { origin: 'https://example.com', remote: true, perfBlockPaths: ['/a'] };
+  assert.deepEqual(normalizeConfig(remote).sides.production.perfBlockPaths, ['/a']);
+  for (const value of [[], ['analytics'], ['/a b'], ['/a', '/a'], ['/' + 'a'.repeat(200)], [1], '/a', Array.from({ length: 21 }, (_, i) => `/p${i}`)]) {
+    const bad = input(); bad.sides.local.perfBlockPaths = value;
+    assert.throws(() => normalizeConfig(bad), /Invalid configuration/, JSON.stringify(value));
+  }
+});
+
 test('per-side paths must cover every side and remain on the origin', () => {
   const source = input(); source.sides.other = { origin: 'http://localhost:8081' };
   source.targets[0] = { id: 'home', kind: 'page', paths: { local: '/', other: '/different?lang=en' } };

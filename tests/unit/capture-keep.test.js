@@ -78,6 +78,13 @@ test('rule 3: the stored target declaration must equal the current one (R5.13)',
   assert.equal(entryProblem(gone.captures[0], gone, cell()), 'target');
 });
 
+test('rule 2 ignores sides.<id>.perfBlockPaths, which changes no capture (R6.16, #383)', () => {
+  const run = source();
+  run.settings.sides.production = { ...run.settings.sides.production, perfBlockPaths: ['/analytics/*'] };
+  assert.equal(runProblem(run, current), null);
+  assert.equal(runProblem(source(), { ...current, declaration: { ...current.declaration, perfBlockPaths: ['/other'] } }), null);
+});
+
 test('rule 3 ignores target.expectStatus, which changes no capture (R8.17, #349)', () => {
   const run = source();
   run.settings.targets[0] = { ...target, expectStatus: 404 };

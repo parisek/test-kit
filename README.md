@@ -444,8 +444,28 @@ under #25 and #45.
 
 The engine and pure helpers support Node 20.19. Lighthouse 13.6 requires
 Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
-is pinned to 13.6.0. Measurement accepts local HTTP page targets only.
-HTTPS and component targets fail explicitly.
+is pinned to 13.6.0. Measurement accepts page targets on a local or a remote
+side, over HTTP or HTTPS. Component targets fail explicitly.
+
+Speed isolates its requests without a proxy (R6.16). Chrome resolves only the
+own host and the hosts of `allowOrigins`. Every other host does not resolve.
+A local side must resolve to loopback. A local HTTPS side with a self-signed or
+mkcert certificate works: Chrome accepts that one certificate and verifies all
+others. A blocked request does not fail the measurement. The run lists it as
+`blocked` (resource type, origin, count) in `run.json` (R6.17). A write method
+(POST, PUT, ...), a WebSocket or a page that leaves its origin fails the target.
+Chrome sends a request before test-kit can read it, so a page that writes on load
+reaches the site once, in the discarded warmup. Block such a path of the own
+origin with `perfBlockPaths`:
+
+```json
+"production": { "origin": "https://example.com", "remote": true, "production": true,
+  "perfBlockPaths": ["/wp-admin/admin-ajax.php", "/analytics/*"] }
+```
+
+The policy (`allowOrigins`, `perfBlockPaths`) enters the speed settings hash.
+Speed runs of 1.3 used a proxy policy, so they do not compare with new runs.
+On a remote side, one failed target stops the run.
 
 ```bash
 test-kit perf --side local --targets home --label before --runs 3

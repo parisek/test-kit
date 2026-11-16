@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import https from 'node:https';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, cp, writeFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { chromium } from '@playwright/test';
-import { startLocalProxy } from '../../src/perf/proxy.js';
 import { comparePerformanceArtifact } from '../../src/perf/compare-artifact.js';
 import { compareRuns } from '../../src/compare/runs.js';
 import { queryArtifact } from '../../src/query/artifact.js';
@@ -25,25 +26,19 @@ const fixture = http.createServer(async (req, res) => {
   } catch { /* The standalone command has not started yet. */ }
   if (req.url === '/redirect') { res.writeHead(302, { location: 'https://example.com/' }); res.end(); return; }
   res.setHeader('content-type', 'text/html');
-  if (req.url === '/blocked-page') { res.end('<!doctype html><html><head><title>Example site</title><script src="/redirect"></script></head><body><h1>Example site</h1></body></html>'); return; }
+  // R6.17: a subresource that leaves the origin is blocked and listed; the page still measures.
+  if (req.url === '/blocked-page') { res.end('<!doctype html><html><head><title>Example site</title><script src="/redirect"></script><link rel="stylesheet" href="https://fonts.example.com/a.css"></head><body><h1>Example site</h1></body></html>'); return; }
+  // R6.17: a write to the own origin fails the target. The page navigation must end on the own origin.
+  if (req.url === '/write-page') { res.end('<!doctype html><html><head><title>Example site</title></head><body><h1>Example site</h1><script>fetch("/track", { method: "POST", body: "x" })</script></body></html>'); return; }
+  if (req.url === '/moved-page') { res.writeHead(302, { location: `http://localhost:${fixture.address().port}/` }); res.end(); return; }
+  if (req.url === '/path-blocked-page') { res.end('<!doctype html><html><head><title>Example site</title></head><body><h1>Example site</h1><script>fetch("/analytics/hit")</script></body></html>'); return; }
   res.end('<!doctype html><html lang="en"><head><title>Example site</title><meta name="viewport" content="width=device-width"></head><body><h1>Example site</h1><p>Local performance fixture.</p></body></html>');
 });
 await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${fixture.address().port}`;
-const proxy = await startLocalProxy();
-const request = (url, method = 'GET') => new Promise((resolve, reject) => {
-  const req = http.request({ hostname: '127.0.0.1', port: proxy.port, path: url, method }, response => {
-    response.resume(); response.on('end', () => resolve(response.statusCode));
-  }); req.on('error', reject); req.end();
-});
 const chromePath = process.env.TEST_KIT_CHROME_PATH || chromium.executablePath();
 const root = await mkdtemp(join(tmpdir(), 'test-kit-perf-'));
 try {
-  assert.equal(await request(origin), 200);
-  assert.equal(await request(`${origin}/redirect`), 403);
-  assert.equal(await request(origin, 'POST'), 403);
-  assert.equal(await request('http://example.com/'), 403);
-  await proxy.close();
   const configPath = join(root, 'config.json');
   await writeFile(configPath, JSON.stringify({ schemaVersion: 1, sides: { local: { origin } },
     targets: [{ id: 'example-site', kind: 'page', path: '/' }, { id: 'unused', kind: 'page', path: '/unused' }],
@@ -157,13 +152,44 @@ try {
   const altered = await comparePerformanceArtifact({ ...options, output: join(root, 'altered-pair') });
   assert.equal(altered.artifact.state, 'failed');
   assert.equal(altered.artifact.diff, null);
-  const blocked = await runPerformance({ targets: [{ id: 'blocked-page', url: `${origin}/blocked-page` }],
-    runDir: join(root, 'blocked-run'), chromePath, allowHighLoad: true });
-  assert.equal(blocked.results[0].artifact.state, 'failed');
-  assert.match(blocked.results[0].artifact.error.message, /proxy blocked a measured page/);
-  console.log('Local proxy policy, three real desktop Lighthouse audits, immutable CLI manifests, suppressed redirect rejection and pair evidence validation pass.');
+  // R6.16, R6.17: request isolation without a proxy (#383).
+  const isolated = await runPerformance({ chromePath, allowHighLoad: true, consent: true, runDir: join(root, 'isolated-run'),
+    network: { origin, blockPaths: ['/analytics/*'] },
+    targets: [{ id: 'blocked-page', url: `${origin}/blocked-page` }, { id: 'write-page', url: `${origin}/write-page` },
+      { id: 'moved-page', url: `${origin}/moved-page` }, { id: 'path-blocked-page', url: `${origin}/path-blocked-page` }] });
+  const byId = Object.fromEntries(isolated.results.map(result => [result.targetId, result.artifact]));
+  assert.equal(byId['blocked-page'].state, 'captured', JSON.stringify(byId['blocked-page'].error));
+  assert.deepEqual(byId['blocked-page'].blocked.map(group => [group.resourceType, group.origin, group.count]).sort(),
+    [['script', 'https://example.com', 3], ['stylesheet', 'https://fonts.example.com', 3]]);
+  assert.equal(byId['write-page'].state, 'failed');
+  assert.match(byId['write-page'].error.message, /POST fetch request to http:\/\/127\.0\.0\.1/);
+  assert.equal(byId['moved-page'].state, 'failed');
+  // The other host does not resolve, so Chrome shows an error page and the target fails.
+  assert.match(byId['moved-page'].error.message, /Lighthouse failed/);
+  assert.equal(byId['path-blocked-page'].state, 'captured', JSON.stringify(byId['path-blocked-page'].error));
+  assert.deepEqual(byId['path-blocked-page'].blocked, [{ resourceType: 'fetch', origin, count: 3 }]);
+  assert.deepEqual(isolated.settings.networkPolicy, { version: 'host-allowlist-v1', blockPaths: ['/analytics/*'] });
+  // R6.16: a local HTTPS origin with a self-signed certificate measures. Only that certificate is accepted.
+  const certificates = await mkdtemp(join(tmpdir(), 'test-kit-perf-tls-'));
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', join(certificates, 'key.pem'), '-out', join(certificates, 'cert.pem'),
+    '-days', '1', '-subj', '/CN=localhost'], { stdio: 'ignore' });
+  const secure = https.createServer({ key: await readFile(join(certificates, 'key.pem')), cert: await readFile(join(certificates, 'cert.pem')) }, (req, res) => {
+    res.setHeader('content-type', 'text/html');
+    res.end('<!doctype html><html lang="en"><head><title>Example site</title></head><body><h1>Example site</h1><img src="https://example.com/a.png" alt=""></body></html>');
+  });
+  await new Promise(resolve => secure.listen(0, '127.0.0.1', resolve));
+  try {
+    const secureOrigin = `https://localhost:${secure.address().port}`;
+    const measured = await runPerformance({ chromePath, allowHighLoad: true, runDir: join(root, 'https-run'),
+      targets: [{ id: 'example-site', url: `${secureOrigin}/` }] });
+    assert.equal(measured.results[0].artifact.state, 'captured', JSON.stringify(measured.results[0].artifact.error));
+    assert.deepEqual(measured.results[0].artifact.blocked, [{ resourceType: 'image', origin: 'https://example.com', count: 3 }]);
+  } finally {
+    secure.closeAllConnections(); await new Promise(resolve => secure.close(resolve));
+    await rm(certificates, { recursive: true, force: true });
+  }
+  console.log('Host isolation, blocked-request evidence, write and redirect failures, local HTTPS, three real desktop Lighthouse audits, immutable CLI manifests and pair evidence validation pass.');
 } finally {
-  await proxy.close().catch(() => {});
   fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve));
   await rm(root, { recursive: true, force: true });
 }
