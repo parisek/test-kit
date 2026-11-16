@@ -1,4 +1,5 @@
 import { METRICS, rebuildPerformanceSettings, summarizeSamples } from './core.js';
+import { storedBlocked } from './isolation.js';
 
 function structural(value) {
   const canonical = input => {
@@ -23,7 +24,11 @@ export function validatePerformanceComparison(value) {
       .map(metric => [metric, input.metrics[metric]?.samples?.[index]])));
     const metrics = summarizeSamples(samples, settings.runs);
     if (structural(metrics) !== structural(input.metrics)) return fail();
-    return { settings, metrics, suspect: input.suspect };
+    // R6.17: the blocked evidence is optional. A value that is present must be valid as a whole.
+    const blocked = storedBlocked(input);
+    if (structural(blocked.blocked ?? null) !== structural(input.blocked ?? null)
+      || (blocked.blockedOmitted ?? null) !== (input.blockedOmitted ?? null)) return fail();
+    return { settings, metrics, suspect: input.suspect, ...blocked };
   };
   if (!object(value) || typeof value.compatible !== 'boolean' || !object(value.metrics)
     || !Array.isArray(value.findings) || value.findings.length > 20 || ![0, 1].includes(value.exitCode)) return fail();

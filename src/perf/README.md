@@ -26,6 +26,7 @@ Chrome accepts that one certificate and verifies every other one.
 `perfBlockPaths` become Lighthouse `blockedUrlPatterns` of the own origin.
 After each audit, `requestEvidence` reads the DevTools log. A blocked request is evidence:
 the artifact lists `blocked` groups `{ resourceType, origin, count }` (R6.17).
+The comparison detail copies the checked groups of each side (`storedBlocked`), so the viewer and the query show them.
 A write method that Chrome sends, a WebSocket, a failed allowed origin, a runtime error or a navigation that leaves the origin fails the target.
 A blocked write is evidence too: its failure event shows the block. Chrome sends a request before the runner reads the log, so a write of the own origin or of an `allowOrigins` host that no rule blocks reaches that server once, in the warmup. A failed request of the own origin does not fail the target: the Lighthouse report shows it.
 On a remote side, one failed target stops the run.

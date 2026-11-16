@@ -5,6 +5,7 @@ import { artifactState } from '../artifacts/state.js';
 import { relativePath } from '../report/safe.js';
 import { settingsHash } from '../config/settings.js';
 import { comparePerformance, validatePerformanceSnapshot, extractMetrics, METRICS } from './model.js';
+import { storedBlocked } from './isolation.js';
 
 const MAX_RAW_BYTES = 20 * 1024 * 1024;
 const MAX_SUMMARY_BYTES = 2 * 1024 * 1024;
@@ -65,8 +66,9 @@ export async function comparePerformanceArtifact({ a, b, ac, bc, runsRoot, outpu
     return { artifact: result, findings: [], exitCode: 0 };
   }
   const comparison = comparePerformance(...snapshots, { environmentA, environmentB, budgets, failOnBudget });
-  const detail = { ...comparison, a: { settings: snapshots[0].settings, metrics: snapshots[0].metrics, suspect: snapshots[0].suspect },
-    b: { settings: snapshots[1].settings, metrics: snapshots[1].metrics, suspect: snapshots[1].suspect } };
+  // R6.17: each side carries its blocked requests, so the viewer and the query show them.
+  const side = snapshot => ({ settings: snapshot.settings, metrics: snapshot.metrics, suspect: snapshot.suspect, ...storedBlocked(snapshot) });
+  const detail = { ...comparison, a: side(snapshots[0]), b: side(snapshots[1]) };
   const bytes = Buffer.from(JSON.stringify(detail));
   if (bytes.length > MAX_SUMMARY_BYTES) throw new Error('Performance comparison exceeds its limit.');
   const src = `diff/lighthouse/${targetId}/${viewportId}.json`;

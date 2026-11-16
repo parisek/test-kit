@@ -41,3 +41,13 @@ it('bounds the visual width of finite large measurements', () => {
   expect(wrapper.findAll('a')[0].attributes('download')).toBe('lighthouse-a-1.html');
  });
 
+
+it('lists the blocked requests of each side as text (R6.17)', () => {
+ const data = detail(); data.b = { ...data.b, blocked: [{ resourceType: 'script', origin: 'https://<b>.example', count: 2 }], blockedOmitted: 3 };
+ const wrapper = mount(PerformanceComparison,{props:{data}});
+ expect(wrapper.findAll('details summary').map(item => item.text())).toContain('Blocked requests');
+ expect(wrapper.text()).toContain('2 script · https://<b>.example');
+ expect(wrapper.text()).toContain('3 more not listed');
+ expect(wrapper.find('b').exists()).toBe(false);
+ expect(mount(PerformanceComparison,{props:{data:detail()}}).text()).not.toContain('Blocked requests');
+});

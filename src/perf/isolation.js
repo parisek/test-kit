@@ -7,6 +7,8 @@
 // block paths of the own origin by URL pattern. A blocked request is evidence, not a
 // failure. The runner reads the request log of each audit with `requestEvidence`.
 
+import { sanitizeDropped } from '../report/dropped.js';
+
 const MAX_GROUPS = 50;
 const SAFE_HOST = /^(?:\[[0-9a-f:.]+\]|[a-z0-9.-]+)$/;
 
@@ -106,6 +108,16 @@ export function requestEvidence(events, { origin, allowOrigins = [], challenge =
   const first = [...violations, ...writes.values()].sort((a, b) => a.sequence - b.sequence)[0];
   const blocked = [...groups.values()].sort((a, b) => b.count - a.count || (a.origin < b.origin ? -1 : a.origin > b.origin ? 1 : a.resourceType < b.resourceType ? -1 : 1));
   return { blocked: blocked.slice(0, MAX_GROUPS), omitted: blocked.slice(MAX_GROUPS).reduce((sum, group) => sum + group.count, 0), violation: first?.text ?? null };
+}
+
+// R6.17: the blocked evidence of a stored artifact. Run data is untrusted, so each group
+// is checked like the dropped list of R3.8, and a malformed group is left out. Returns
+// only the keys that hold evidence.
+export function storedBlocked(artifact) {
+  const blocked = sanitizeDropped(artifact?.blocked);
+  const omitted = artifact?.blockedOmitted;
+  return { ...(blocked.length ? { blocked } : {}),
+    ...(Number.isInteger(omitted) && omitted > 0 && omitted <= 1_000_000 ? { blockedOmitted: omitted } : {}) };
 }
 
 // Adds the groups of one audit to the groups of the target.
