@@ -211,7 +211,10 @@ export async function dispatch({ command, positions, options }, dependencies = {
     let bytes;
     try {
       const info = await handle.stat();
-      if (!info.isFile() || info.size > 64 * 1024 * 1024) throw new Error('Report exceeds the size limit');
+      // #349 item 1: a directory or another non-file gets its own message, not the size message.
+      if (info.isDirectory()) throw new Error(`summary reads a report file, not a directory. Pass ${positions[0].replace(/[\/]+$/, '')}/report.json.`);
+      if (!info.isFile()) throw new Error('summary reads a report file. The path is not a regular file.');
+      if (info.size > 64 * 1024 * 1024) throw new Error('Report exceeds the size limit');
       const buffer = Buffer.alloc(info.size + 1);
       let length = 0;
       while (length < buffer.length) {
