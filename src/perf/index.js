@@ -24,7 +24,8 @@ async function tools() {
 // One audit: the request policy holds, the page stays on its origin, the blocked requests are evidence (R6.16, R6.17).
 function audited(result, network) {
   if (result?.lhr?.runtimeError) throw new Error(`Lighthouse failed: ${String(result.lhr.runtimeError.code ?? 'runtime error').slice(0, 80)}.`);
-  const evidence = requestEvidence(result?.artifacts?.DevtoolsLog, network);
+  // Every group of the audit: the 50-group cap applies once, to the sum of the measured audits (R6.17).
+  const evidence = requestEvidence(result?.artifacts?.DevtoolsLog, { ...network, limit: Infinity });
   if (evidence.violation) throw new Error(`The page broke the speed request policy: ${evidence.violation}.`);
   const moved = finalOriginProblem(result.lhr, network.origin);
   if (moved) throw new Error(moved);

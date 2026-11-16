@@ -60,7 +60,7 @@ const CHALLENGE = /^\/cdn-cgi\/challenge-platform(?:\/[A-Za-z0-9._~:+=-]+)+$/;
 // log shows it as a failure with "name not resolved" on a blocked host, or with the
 // blocked reason "inspector" for a block path. A write method stays a violation until its
 // own failure event proves the block. A redirect proves that Chrome sent it.
-export function requestEvidence(events, { origin, allowOrigins = [], challenge = null }) {
+export function requestEvidence(events, { origin, allowOrigins = [], challenge = null, limit = MAX_GROUPS }) {
   if (!Array.isArray(events)) throw new Error('Performance request evidence is unavailable.');
   const own = new URL(origin).origin;
   const ownHost = host(own);
@@ -107,7 +107,7 @@ export function requestEvidence(events, { origin, allowOrigins = [], challenge =
   }
   const first = [...violations, ...writes.values()].sort((a, b) => a.sequence - b.sequence)[0];
   const blocked = [...groups.values()].sort((a, b) => b.count - a.count || (a.origin < b.origin ? -1 : a.origin > b.origin ? 1 : a.resourceType < b.resourceType ? -1 : 1));
-  return { blocked: blocked.slice(0, MAX_GROUPS), omitted: blocked.slice(MAX_GROUPS).reduce((sum, group) => sum + group.count, 0), violation: first?.text ?? null };
+  return { blocked: blocked.slice(0, limit), omitted: blocked.slice(limit).reduce((sum, group) => sum + group.count, 0), violation: first?.text ?? null };
 }
 
 // R6.17: the blocked evidence of a stored artifact. Run data is untrusted, so each group

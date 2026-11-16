@@ -85,6 +85,8 @@ test('blocked groups stop at 50 and count the rest; merged audits add up', () =>
   const evidence = requestEvidence(events, { origin: 'https://example.com' });
   assert.equal(evidence.blocked.length, 50);
   assert.equal(evidence.omitted, 2);
+  // The runner reads each audit without the cap, so a group outside the top 50 of one audit still sums.
+  assert.equal(requestEvidence(events, { origin: 'https://example.com', limit: Infinity }).blocked.length, 52);
   const one = [{ resourceType: 'script', origin: 'https://a.example', count: 1 }];
   assert.deepEqual(mergeBlocked(mergeBlocked([], one), one), [{ resourceType: 'script', origin: 'https://a.example', count: 2 }]);
 });
