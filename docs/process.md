@@ -91,7 +91,7 @@ A review is one pull request comment. Its first line is `<!-- agent:review -->`.
 | `risk` | `none`, or one sentence |
 | `citations` | `path:line` or `path:start-end` entries |
 
-A record counts as an approval only with verdict `fits`, a reviewer other than `author`, tier 1 or 2, and `none` in `default_behavior`, `security`, `unexpected_files` and `risk`.
+A record counts as an approval only with verdict `fits`, a reviewer other than `author`, tier 1 or 2 (or tier 3 for a change the owner named in a milestone permission, section 4), and `none` in `default_behavior`, `security`, `unexpected_files` and `risk`.
 
 The validator also reads the older markers `<!-- test-kit-review -->` and `<!-- styleguide-review -->`, so records posted before the standard still count.
 
