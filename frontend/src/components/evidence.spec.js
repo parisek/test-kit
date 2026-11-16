@@ -168,6 +168,13 @@ describe('readable response evidence', () => {
         expect(wrapper.text()).toContain('/page/');
         expect(wrapper.text()).toContain('1 redirects');
     });
+    it('names the final origin when a page ends on another origin (#348)', () => {
+        const side = finalOrigin => ({ statusCode: 404, finalPath: '/page/', redirects: ['/page/'], assets: { requests: 1, failed: 0, httpErrors: 0 }, ...(finalOrigin ? { finalOrigin } : {}) });
+        const wrapper = mount(StatusComparison, { props: { data: { a: side('http://<b>127.0.0.1'), b: side() } } });
+        expect(wrapper.text()).toContain('The page ends on another origin: http://<b>127.0.0.1');
+        expect(wrapper.find('b').exists()).toBe(false);
+        expect(wrapper.text().match(/ends on another origin/g)).toHaveLength(1);
+    });
     it('says the fields are equal when only the request counts differ', () => {
         const side = requests => ({ statusCode: 200, finalPath: '/page', redirects: [], assets: { requests, failed: 0, httpErrors: 0 } });
         const wrapper = mount(StatusComparison, { props: { data: { a: side(4), b: side(9) } } });

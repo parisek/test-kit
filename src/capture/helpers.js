@@ -136,6 +136,20 @@ export function describeBlockedRequest({ url, method, resourceType, topLevel, na
   };
 }
 
+// R13.13, #348: with --ddev the side origin is the direct port of the web container. A site
+// that redirects to its canonical URL leaves that origin, and the next hop can reach another
+// server, for example the DDEV router on port 80. Returns the target origin of a top-level
+// redirect that leaves the side origin, else null.
+export function redirectLeavesOrigin({ from, location, origin }) {
+  let target;
+  try { target = new URL(location, from); } catch { return null; }
+  return target.origin === new URL(origin).origin ? null : target.origin;
+}
+
+export function originBoundMessage(target) {
+  return `The page redirects from the DDEV origin to ${clean(target, 100) || 'another origin'}. --ddev captures the direct port of the web container, so the redirect leaves it. Capture without --ddev.`;
+}
+
 export function blockedRequestMessage(blocked) {
   const base = 'A request leaves the local environment or submits data.';
   if (!blocked) return base;

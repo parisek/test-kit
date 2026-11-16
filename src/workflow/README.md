@@ -19,4 +19,4 @@ Use `none` to disable checks or contracts for one invocation.
 
 Each baseline binds its selected settings, side, origin, package lock, and behavior source fingerprint. A change requires a new baseline. A failed baseline does not replace a complete baseline. Capture writes a unique temporary configuration beside the source configuration. Relative source paths remain valid. A store lock rejects concurrent writers. After a crashed process, remove the lock only after that process stops.
 
-`--ddev` explicitly discovers the current loopback HTTP origin. It does not run DDEV commands unless requested. Run the workflow on the host with DDEV already started.
+`--ddev` explicitly discovers the current loopback HTTP origin. It binds the capture to that origin: a top-level redirect that leaves it fails the capture (`DDEV_REDIRECT_LEFT_ORIGIN`, #348). It does not run DDEV commands unless requested. Run the workflow on the host with DDEV already started.

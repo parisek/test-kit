@@ -251,7 +251,8 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     const allowlistEntries = command === 'after' ? (await readAllowlist(allowlistPath({ configPath, override: options.allowlist }))).entries : [];
     await writeFile(runtime, JSON.stringify(config), { mode: 0o600, flag: 'wx' });
     const capture = dependencies.capture ?? (await import('../capture/index.js')).capture;
-    const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command, ...(subset ?? {}) });
+    // R13.13, #348: a --ddev capture fails when the page redirects away from the discovered origin.
+    const result = await capture({ configPath: runtime, baseDir: configDir, side, label: options.label ?? command, ...(subset ?? {}), ...(options.ddev ? { originBound: true } : {}) });
     const run = result.run;
     const output = { id: run.id, state: run.state, manifestPath: result.manifestPath, storePath, scope, ...(subset ? { subset } : {}) };
     const exitCode = run.state === 'complete' ? 0 : 1;

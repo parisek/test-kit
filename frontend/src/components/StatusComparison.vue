@@ -20,6 +20,8 @@ const differs = computed(() => {
                     <p class="mt-3 text-3xl font-semibold tabular-nums text-ui-text" :class="differs.includes('statusCode') ? 'underline decoration-2 underline-offset-4' : ''">{{ data[side].statusCode }}<span class="ml-2 text-sm font-normal text-ui-muted">HTTP</span></p>
                     <p v-if="data[side].statusCode >= 400" class="mt-2 text-sm font-semibold text-ui-text">The navigation returns an HTTP error.</p>
                     <p class="mt-3 break-all font-mono text-xs" :class="differs.includes('finalPath') ? 'font-semibold underline decoration-2 underline-offset-4' : ''">{{ data[side].finalPath }}</p>
+                    <!-- #348: the status sidecar records the final origin only when the page ends on another origin than its side. -->
+                    <p v-if="data[side].finalOrigin" class="mt-2 break-all text-xs font-semibold text-ui-text">The page ends on another origin: <span class="font-mono">{{ data[side].finalOrigin }}</span></p>
                     <dl class="mt-4 grid grid-cols-3 gap-2 border-t border-ui-border pt-4 text-xs">
                         <div><dt class="text-ui-muted">Requests</dt><dd class="mt-1 text-lg tabular-nums">{{ data[side].assets?.requests ?? 'Unknown' }}</dd></div>
                         <div><dt class="text-ui-muted">Failed</dt><dd class="mt-1 text-lg tabular-nums" :class="data[side].assets?.failed ? 'font-semibold' : ''">{{ data[side].assets?.failed ?? 'Unknown' }}</dd></div>

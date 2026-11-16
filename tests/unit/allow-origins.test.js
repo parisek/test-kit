@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin, redirectPermitted, ALLOW_ORIGIN_TYPES, isCertificateError, allowedOriginFailure, allowedOriginStatusFailure, describeBlockedRequest, blockedRequestMessage } from '../../src/capture/helpers.js';
+import { requestPolicy, isAllowedOriginRequest, redirectToAllowedOrigin, redirectPermitted, ALLOW_ORIGIN_TYPES, isCertificateError, allowedOriginFailure, allowedOriginStatusFailure, describeBlockedRequest, blockedRequestMessage, redirectLeavesOrigin, originBoundMessage } from '../../src/capture/helpers.js';
 import { comparisonState, incompatibleDiagnostic } from '../../src/compare/runs.js';
 import { normalizeConfig, captureSettings, settingsHash } from '../../src/config/index.js';
 
@@ -159,4 +159,15 @@ test('an HTTP error answer of an allowed origin fails the capture and the messag
   for (const status of [200, 204, 206, 301, 302, 304, 307]) assert.equal(check(status), null, String(status));
   assert.equal(check(404, { url: 'https://other.example-site.net/f.woff2' }), null, 'an origin that is not allowed keeps its rule');
   assert.equal(check(404, { resourceType: 'script' }), null);
+});
+
+test('a --ddev capture names a top-level redirect that leaves the discovered origin (R13.13, #348)', () => {
+  const origin = 'http://127.0.0.1:33257';
+  assert.equal(redirectLeavesOrigin({ from: `${origin}/page/`, location: 'http://127.0.0.1/page/', origin }), 'http://127.0.0.1');
+  assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location: '/page/', origin }), null);
+  assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location: `${origin}/page/`, origin }), null);
+  assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location: 'https://example-site.ddev.site/page/', origin }), 'https://example-site.ddev.site');
+  assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location: 'http://[::1', origin }), null);
+  assert.equal(originBoundMessage('http://127.0.0.1'), 'The page redirects from the DDEV origin to http://127.0.0.1. --ddev captures the direct port of the web container, so the redirect leaves it. Capture without --ddev.');
+  assert.doesNotMatch(originBoundMessage('http://a\nb'), /\n/);
 });

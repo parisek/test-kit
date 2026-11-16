@@ -183,7 +183,9 @@ An unsupported body or a body above the limit has a failed artifact state.
 
 Status sidecars use `status/<target>/<viewport>.json`. They hold the final HTTP
 code, final pathname, redirect pathnames, and asset request, failure, and HTTP
-error counts. Redirects have at most 20 steps. Paths have at most 2000 characters.
+error counts. When the page ends on another origin than its side, `finalOrigin`
+holds that origin (scheme, host and port only, #348). It makes no finding.
+Redirects have at most 20 steps. Paths have at most 2000 characters.
 Do not store cookies, request headers, credentials, or query strings.
 The count covers asset requests observed before response-artifact collection.
 A failed capture has availability capture-error. Its retained status sidecar
