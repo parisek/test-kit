@@ -16,8 +16,10 @@ import { runPerformance } from '../../src/perf/index.js';
 
 let partialObserved = false;
 let unselectedRequests = 0;
+let blockedWrites = 0;
 const fixture = http.createServer(async (req, res) => {
   if (req.url === '/unused') unselectedRequests++;
+  if (req.url.startsWith('/analytics/')) blockedWrites++;
   try {
     for (const id of await readdir(join(root, 'runs'))) {
       const manifest = JSON.parse(await readFile(join(root, 'runs', id, 'run.json'), 'utf8'));
@@ -31,7 +33,7 @@ const fixture = http.createServer(async (req, res) => {
   // R6.17: a write to the own origin fails the target. The page navigation must end on the own origin.
   if (req.url === '/write-page') { res.end('<!doctype html><html><head><title>Example site</title></head><body><h1>Example site</h1><script>fetch("/track", { method: "POST", body: "x" })</script></body></html>'); return; }
   if (req.url === '/moved-page') { res.writeHead(302, { location: `http://localhost:${fixture.address().port}/` }); res.end(); return; }
-  if (req.url === '/path-blocked-page') { res.end('<!doctype html><html><head><title>Example site</title></head><body><h1>Example site</h1><script>fetch("/analytics/hit")</script></body></html>'); return; }
+  if (req.url === '/path-blocked-page') { res.end('<!doctype html><html><head><title>Example site</title></head><body><h1>Example site</h1><script>fetch("/analytics/hit"); fetch("/analytics/post", { method: "POST", body: "x" })</script></body></html>'); return; }
   res.end('<!doctype html><html lang="en"><head><title>Example site</title><meta name="viewport" content="width=device-width"></head><body><h1>Example site</h1><p>Local performance fixture.</p></body></html>');
 });
 await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
@@ -167,7 +169,9 @@ try {
   // The other host does not resolve, so Chrome shows an error page and the target fails.
   assert.match(byId['moved-page'].error.message, /Lighthouse failed/);
   assert.equal(byId['path-blocked-page'].state, 'captured', JSON.stringify(byId['path-blocked-page'].error));
-  assert.deepEqual(byId['path-blocked-page'].blocked, [{ resourceType: 'fetch', origin, count: 3 }]);
+  // A POST to a block path is blocked too: it never reaches the server and does not fail the target.
+  assert.deepEqual(byId['path-blocked-page'].blocked, [{ resourceType: 'fetch', origin, count: 6 }]);
+  assert.equal(blockedWrites, 0);
   assert.deepEqual(isolated.settings.networkPolicy, { version: 'host-allowlist-v1', blockPaths: ['/analytics/*'] });
   // R6.16: a local HTTPS origin with a self-signed certificate measures. Only that certificate is accepted.
   const certificates = await mkdtemp(join(tmpdir(), 'test-kit-perf-tls-'));

@@ -312,8 +312,8 @@ three to five repeats, a discarded warmup, load state, budgets and provenance.
 An optional Lighthouse peer requires Node 22.19 or newer.
 
 Chrome host rules allow only the own host and the hosts of `allowOrigins`.
-A blocked request is evidence (`blocked`), not a failure. A write method, a
-WebSocket, a failed allowed origin and a navigation that leaves the origin fail
+A blocked request is evidence (`blocked`), not a failure. A write method that
+Chrome sends, a WebSocket, a failed allowed origin and a navigation that leaves the origin fail
 the target. Component-scoped speed is unsupported.
 
 A speed comparison binds the saved side and canonical origin. It refuses

@@ -59,6 +59,19 @@ test('a write method, a WebSocket and a failed allowed origin are violations; a 
   assert.equal(requestEvidence([challenge], { origin, challenge: 'cloudflare' }).violation, null);
   assert.match(requestEvidence([challenge], { origin }).violation, /^POST/);
   assert.match(requestEvidence([sent('1', 'https://example.com/cdn-cgi/challenge-platform/', 'XHR', 'POST')], { origin, challenge: 'cloudflare' }).violation, /^POST/);
+  // R6.17: a write that Chrome blocked never reached a server, so it is evidence, not a violation.
+  const post = sent('1', 'https://example.com/wp-admin/admin-ajax.php', 'XHR', 'POST');
+  const byPath = requestEvidence([post, failed('1', { errorText: '', blockedReason: 'inspector' })], { origin });
+  assert.equal(byPath.violation, null);
+  assert.deepEqual(byPath.blocked, [{ resourceType: 'xhr', origin: 'https://example.com', count: 1 }]);
+  assert.equal(requestEvidence([sent('1', 'https://other.example/beacon', 'Ping', 'POST'), failed('1', notFound)], { origin }).violation, null);
+  // Another failure is no proof of a block: the request may have reached the server.
+  assert.match(requestEvidence([post, failed('1', { errorText: 'net::ERR_CONNECTION_RESET' })], { origin }).violation, /^POST xhr/);
+  // A redirect proves that the write was sent, even when its next hop is blocked.
+  const redirected = { method: 'Network.requestWillBeSent', params: { requestId: '1', type: 'XHR', redirectResponse: { status: 307 }, request: { url: 'https://other.example/x', method: 'POST' } } };
+  assert.equal(requestEvidence([post, redirected, failed('1', notFound)], { origin }).violation, 'POST xhr request to https://example.com');
+  // The first violation in log order wins.
+  assert.equal(requestEvidence([sent('1', 'https://example.com/a', 'Fetch', 'POST'), { method: 'Network.webSocketCreated', params: { url: 'wss://example.com/s' } }], { origin }).violation, 'POST fetch request to https://example.com');
   // A hostile method name never reaches the message as text.
   assert.equal(requestEvidence([sent('1', 'https://example.com/', 'Fetch', 'P\nOST')], { origin }).violation, 'A write method fetch request to https://example.com');
   assert.throws(() => requestEvidence(undefined, { origin }));

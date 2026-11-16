@@ -453,7 +453,8 @@ A local side must resolve to loopback. A local HTTPS side with a self-signed or
 mkcert certificate works: Chrome accepts that one certificate and verifies all
 others. A blocked request does not fail the measurement. The run lists it as
 `blocked` (resource type, origin, count) in `run.json` (R6.17). A write method
-(POST, PUT, ...), a WebSocket or a page that leaves its origin fails the target.
+(POST, PUT, ...) that leaves the browser, a WebSocket or a page that leaves its
+origin fails the target. A blocked write does not.
 Chrome sends a request before test-kit can read it, so a page that writes on load
 reaches the site once, in the discarded warmup. Block such a path of the own
 origin with `perfBlockPaths`:
