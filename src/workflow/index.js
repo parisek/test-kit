@@ -212,7 +212,9 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
       }
       built.runsRoot = `${offset.split('\\').join('/')}/runs`;
       const normalized = normalizeConfig(built);
-      const { sides: allSides, ...shared } = normalized;
+      // R8.17: `expectStatus` changes no capture, so it enters neither the scope nor the policy digest.
+      const { sides: allSides, ...withStatus } = normalized;
+      const shared = { ...withStatus, targets: withStatus.targets.map(({ expectStatus, ...target }) => target) };
       return { config: normalized, shared, sideDigest: digest(JSON.stringify(allSides[side])), scope: digest(JSON.stringify({ config: shared })) };
     };
     let { config, shared, sideDigest, scope } = await build({});

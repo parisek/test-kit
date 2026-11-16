@@ -227,7 +227,7 @@ export function normalizeConfig(input) {
   const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
   if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');
   const targets = list(targetSource ? [] : input.targets, 'targets', 1000, targetSource ? 0 : 1).map(target => {
-    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design', 'layout']);
+    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design', 'layout', 'expectStatus']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
     const result = { id: targetId, kind: target.kind, title: text(target.title ?? targetId, 'target.title') };
@@ -261,6 +261,11 @@ export function normalizeConfig(input) {
     if (target.design !== undefined) {
       if (!designProviders.length) fail('target.design needs a side of kind "design"');
       result.design = normalizeDesignMap(target.design, designProviders[0]);
+    }
+    // R8.17, #349 item 4: the one HTTP status that this target answers on purpose (for example a 404 page). It enters no hash.
+    if (target.expectStatus !== undefined) {
+      if (!Number.isInteger(target.expectStatus) || target.expectStatus < 100 || target.expectStatus > 599) fail('target.expectStatus must be an HTTP status code from 100 to 599');
+      result.expectStatus = target.expectStatus;
     }
     // R6.14: the parts of the layout artifact. The key is optional and enters no hash.
     if (target.layout !== undefined) {

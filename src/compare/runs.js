@@ -133,9 +133,12 @@ function effectiveSettings(run) {
 	return JSON.stringify({ viewports: run.settings?.viewports, settle: run.settings?.sides?.[run.side]?.settle, screenshot: run.settings?.screenshot });
 }
 
-function available(capture) {
+// R8.17: a target may name the one status it answers on purpose. That status reads `ok`, any other status from 400 up stays `http-error`.
+export function available(capture, expectStatus) {
 	if (capture?.state === 'failed') return 'capture-error';
-	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
+	if (capture?.statusCode == null) return 'unknown';
+	if (Number.isInteger(expectStatus) && capture.statusCode === expectStatus) return 'ok';
+	return capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
 
 // R8.9: a pair that is incompatible names each differing setting and both values, so a person finds the cause.
@@ -286,7 +289,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			compared++;
 			const ac = a.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const bc = b.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
-			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac), b: available(bc) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
+			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac, target.expectStatus), b: available(bc, target.expectStatus) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
 			// R3.8: a remote side aborts subresources of other origins. Carry the record to the report.
 			const dropped = droppedForRow(ac, bc);
 			if (dropped) row.dropped = dropped;

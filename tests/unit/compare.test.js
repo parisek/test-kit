@@ -186,3 +186,15 @@ test('an incompatible union names the differing scope part with both stored valu
   assert.equal(incompatibleDiagnostic(a, b, entry(a, 'union'), entry(b, 'union')),
     'Capture settings differ: scope.selector (A: ["#one","#two"], B: ["#one"]).');
 });
+
+// R8.17, #349 item 4: the expected status reads ok. Any other status from 400 up stays http-error.
+test('available: an expected status reads ok, another error status stays http-error', async () => {
+  const { available } = await import('../../src/compare/runs.js');
+  assert.equal(available({ statusCode: 404 }), 'http-error');
+  assert.equal(available({ statusCode: 404 }, 404), 'ok');
+  assert.equal(available({ statusCode: 500 }, 404), 'http-error');
+  assert.equal(available({ statusCode: 200 }, 404), 'ok');
+  assert.equal(available({ statusCode: 410 }, 410), 'ok');
+  assert.equal(available({ state: 'failed', statusCode: 404 }, 404), 'capture-error');
+  assert.equal(available({}, 404), 'unknown');
+});

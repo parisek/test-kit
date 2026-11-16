@@ -253,3 +253,15 @@ test('a side marks production with a boolean flag, not with its id (R6.5)', () =
     assert.throws(() => normalizeConfig(bad), /Invalid configuration/);
   }
 });
+
+// R8.17, #349 item 4.
+test('target.expectStatus takes one HTTP status code and enters no capture settings', async () => {
+  const { normalizeConfig } = await import('../../src/config/normalize.js');
+  const { captureSettings } = await import('../../src/config/settings.js');
+  const base = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8000' } }, targets: [{ id: 'missing', kind: 'page', path: '/missing' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }], artifacts: ['screenshot'], checks: [] };
+  const withStatus = { ...base, targets: [{ ...base.targets[0], expectStatus: 404 }] };
+  assert.equal(normalizeConfig(withStatus).targets[0].expectStatus, 404);
+  assert.equal(normalizeConfig(base).targets[0].expectStatus, undefined);
+  assert.deepEqual(captureSettings(normalizeConfig(withStatus), 'local'), captureSettings(normalizeConfig(base), 'local'));
+  for (const bad of [99, 600, 404.5, '404', null, [404]]) assert.throws(() => normalizeConfig({ ...base, targets: [{ ...base.targets[0], expectStatus: bad }] }), /expectStatus/, String(bad));
+});
