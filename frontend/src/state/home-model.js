@@ -60,9 +60,20 @@ export function localDay(iso, timeZone) {
 	return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
+// Two rows are of one scope when both name the same kind and the same counts of
+// targets and viewports, all known. The index holds no scope key, so these three
+// values stand for it. A delta across scopes compares unlike pages (#349 item 2).
+export function sameScope(row, previous) {
+	if (!row || !previous) return false;
+	for (const key of ['kind', 'targets', 'viewports']) {
+		if (row[key] === null || row[key] === undefined || row[key] !== previous[key]) return false;
+	}
+	return true;
+}
+
 // Rows of the Home in file order (newest first, R10.13), with what each row shows.
 // The previous row is the next older entry, available or not (DESIGN.md "Comparison
-// row"). Only the older and newer links skip unavailable entries (R10.3). An
+// row"). The change shows only when that row has the same scope (sameScope). Only the older and newer links skip unavailable entries (R10.3). An
 // unavailable report keeps its summary (R10.13): its row is not a link, but it shows
 // what is known.
 export function homeRows(reports, { timeZone } = {}) {
@@ -77,7 +88,8 @@ export function homeRows(reports, { timeZone } = {}) {
 			// Incomplete is a state beside the class, never the class (DESIGN.md).
 			// The row carries it so that no view can show the class without it.
 			incomplete: summary ? summary.incomplete : null,
-			change: changeText(summary, previous?.summary ?? null),
+			// The change needs a previous row of the same scope; else it is unknown.
+			change: sameScope(row, previous) ? changeText(summary, previous.summary ?? null) : null,
 			hashChanged: Boolean(row.settingsHash && previous?.settingsHash && row.settingsHash !== previous.settingsHash),
 		};
 	});

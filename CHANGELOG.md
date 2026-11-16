@@ -10,6 +10,7 @@ Versions follow semver. Each release uses an immutable git tag.
 - `capture --packs`: a frame with no id that the first read of the frame tree held no longer counts as added at the end read (#347, R13.51).
 - `capture --keep-existing`: a kept content index must also pass its gzip CRC and parse as JSON, not only match the stored byte count (#347, R5.13).
 - `summary DIR` with a directory now says that `summary` reads a report file and names `DIR/report.json`. It printed "Report exceeds the size limit" before (#349, item 1). A path that `stat` reports as not a regular file (for example `/dev/null`) gets its own message too.
+- Store viewer, Home: a row no longer shows a change against a previous row of another scope. Both rows must have the same kind and the same counts of targets and viewports (#349 item 2, R10.13). Before, an `update` report of 3 targets and a `migration` report of 16 targets gave "+15 unexplained, −2 match".
 
 ### Changed
 
