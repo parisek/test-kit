@@ -51,6 +51,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `sides.<id>.challenge` | string | none | no | R3.5. Only with `remote: true`. The one value is `"cloudflare"`. Not in the capture settings hash. Added in 1.0.0-rc.7. |
 | `sides.<id>.allowOrigins` | array | none | no | R3.9. Local or remote side. 1 to 20 entries `{origin, types}`: an HTTPS origin (no path, credentials or wildcard) and 1 or 2 of `stylesheet`, `font`. GET and HEAD only, never a navigation. In the capture settings hash when it is not empty. Added in 1.1. |
 | `sides.<id>.thirdParty` | `"block"` or `"drop"` | local `block`, remote `drop` | no | R3.10. Local or remote side. `drop` aborts a GET or HEAD frame or subresource of another origin and keeps the capture. `block` fails the capture. A top-level navigation and every non-read method still fail. In the capture settings hash when set. Added in 1.1. |
+| `sides.<id>.role` | `"reference"` | none | no | R3.11. Local or remote side. A reference side in `before` against a local side without the role in `after` gives the pair kind `convergence`. Not in the capture settings hash. It is part of the side configuration that `after` compares. Added in 1.4 (#387). |
 | `sides.<id>.production` | boolean | `false` | no | R6.5. `perf` on this side waits for `--consent` for any number of targets. The side id does not decide. Added in 1.0.0-rc.4. |
 | `sides.<id>.settle` | object | see below | no | Settle recipe (R5.4). |
 | `targets` | list | none | yes | 1 to 1000 entries. |
