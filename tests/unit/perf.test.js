@@ -66,6 +66,18 @@ test('local address guards accept HTTP and HTTPS loopback and reject credentials
   await assert.rejects(resolveLocalAddress(new URL('http://example-site.ddev.site/'), remote));
 });
 
+test('the runner pins the first loopback address that answers (CI resolves localhost to ::1 first)', async () => {
+  const { reachableLocalAddress } = await import('../../src/perf/network.js');
+  const both = async () => [{ address: '::1' }, { address: '127.0.0.1' }];
+  const probed = [];
+  const probe = async (address, port) => { probed.push([address, port]); return address === '127.0.0.1'; };
+  assert.equal(await reachableLocalAddress(new URL('https://localhost:8443/'), { resolver: both, probe }), '127.0.0.1');
+  assert.deepEqual(probed, [['::1', 8443], ['127.0.0.1', 8443]]);
+  assert.equal(await reachableLocalAddress(new URL('http://localhost/'), { resolver: both, probe: async () => true }), '::1');
+  await assert.rejects(reachableLocalAddress(new URL('http://localhost/'), { resolver: both, probe: async () => false }), /does not answer/);
+  await assert.rejects(reachableLocalAddress(new URL('http://localhost/'), { resolver: async () => [{ address: '127.0.0.1' }, { address: '203.0.113.1' }], probe }), /loopback/);
+});
+
 test('absolute budgets are explicit per-run judgments and reject missing metrics', () => {
   const artifact = captured([100, 110, 120]);
   assert.equal(evaluateBudgets(artifact, { lcp_ms: 90 }).exitCode, 0);

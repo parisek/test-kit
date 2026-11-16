@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { cpus, loadavg, platform } from 'node:os';
 import { createRequire } from 'node:module';
 import { performanceSettings, performanceProvenance, performanceConsent, machineLoad, summarizeSamples, extractMetrics } from './model.js';
-import { resolveLocalAddress, localCertificateSpki } from './network.js';
+import { reachableLocalAddress, localCertificateSpki } from './network.js';
 import { hostResolverRules, blockedUrlPatterns, requestEvidence, mergeBlocked, finalOriginProblem } from './isolation.js';
 export * from './model.js';
 
@@ -56,7 +56,7 @@ export async function runPerformance({ targets, runDir, settings: options = {}, 
   const origin = new URL(network.origin);
   if (!['http:', 'https:'].includes(origin.protocol)) throw new Error('Performance accepts an HTTP or HTTPS origin only.');
   // A local side resolves to loopback once, and Chrome keeps that address. Its own certificate is the one exception to certificate checks.
-  const address = network.remote ? null : await resolveLocalAddress(origin);
+  const address = network.remote ? null : await reachableLocalAddress(origin);
   const spki = !network.remote && origin.protocol === 'https:' ? await localCertificateSpki(origin, address) : null;
   const { lighthouse, version, launcher } = await tools();
   let chrome;

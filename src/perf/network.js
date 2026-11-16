@@ -1,5 +1,5 @@
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
+import { isIP, connect as tcpConnect } from 'node:net';
 import { connect } from 'node:tls';
 import { X509Certificate, createHash } from 'node:crypto';
 import { isLocalUrl } from '../capture/helpers.js';
@@ -17,6 +17,26 @@ export async function resolveLocalAddress(url, resolver = lookup) {
   const addresses = isIP(host) ? [{ address: host }] : await resolver(host, { all: true });
   if (!addresses.length || addresses.some(entry => !isLoopbackAddress(entry.address))) throw new Error('Performance DNS must resolve only to loopback.');
   return addresses[0].address;
+}
+
+// The first loopback address of the host that accepts a connection on the port. A name such as
+// `localhost` can resolve to ::1 and 127.0.0.1, and a server often listens on one of them only.
+export async function reachableLocalAddress(url, { resolver = lookup, probe = canConnect } = {}) {
+  await resolveLocalAddress(url, resolver);
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  const addresses = isIP(host) ? [host] : (await resolver(host, { all: true })).map(entry => entry.address);
+  if (addresses.some(address => !isLoopbackAddress(address))) throw new Error('Performance DNS must resolve only to loopback.');
+  const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+  for (const address of [...new Set(addresses)]) if (await probe(address, port)) return address;
+  throw new Error('The local origin does not answer on a loopback address.');
+}
+
+function canConnect(address, port, timeout = 5000) {
+  return new Promise(resolve => {
+    const socket = tcpConnect({ host: address, port, timeout }, () => { socket.destroy(); resolve(true); });
+    socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    socket.on('error', () => resolve(false));
+  });
 }
 
 // The SHA-256 of the public key of a local HTTPS origin. Chrome then accepts this one
