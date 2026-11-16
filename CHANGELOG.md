@@ -6,7 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
-- `capture --packs`: an axe error that only contains the words "not found" or "detached" now counts as a failed frame, not an unreachable one. Only the exact CDP and Playwright messages for a gate, a lost context, a missing frame, a closed target or session or a detached frame count as unreachable (#347, R13.51). The list holds the texts of Playwright 1.64 and Chromium.
+- `capture --packs`: an axe error that only contains the words "not found" or "detached" now counts as a failed frame, not an unreachable one. Only the exact CDP and Playwright messages for a gate, a lost context, a missing frame, a closed target or session or a detached frame count as unreachable (#347, R13.51). The list holds the texts of Playwright 1.64 and Chromium. The error text must start with one of them, so an axe error that quotes one later counts as failed.
 - `capture --packs`: a frame with no id that the first read of the frame tree held no longer counts as added at the end read (#347, R13.51).
 - `capture --keep-existing`: a kept content index must also pass its gzip CRC and parse as JSON, not only match the stored byte count (#347, R5.13).
 

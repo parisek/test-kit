@@ -85,5 +85,7 @@ export function addedFrames(before, after) {
 // Pure. True when a frame error means that the frame is gone or refused the gate: the origin gate, a lost or destroyed world (a navigation),
 // a detached frame. The runner counts such a frame as unreachable. Any other error counts as failed.
 // The texts are the exact CDP and Playwright messages (#347), so an axe error that only contains "not found" or "detached" counts as failed.
-const LOST_FRAME = /^(?:Error: )?TEST_KIT_FRAME_ORIGIN\b|Cannot find context with specified id|Execution context was destroyed|No frame for given id found|Frame with the given id was not found|Target closed|Target page, context or browser has been closed|Inspected target navigated or closed|[Ss]ession closed|Frame (?:was|has been) detached/;
+// A message must start with one of them. Only the prefixes that Playwright and CDP add may come first: an API name ("cdpSession.send: "),
+// "Protocol error (Method): ", "Internal server error, " and "Error: ". So an axe error that quotes such a text later counts as failed.
+const LOST_FRAME = /^(?:[a-z]\w*\.[a-z]\w*: )?(?:Protocol error \([\w.]+\): )?(?:Internal server error, )?(?:Error: )?(?:TEST_KIT_FRAME_ORIGIN\b|Cannot find context with specified id|Execution context was destroyed|No frame for given id found|Frame with the given id was not found|Target closed|Target page, context or browser has been closed|Inspected target navigated or closed|[Ss]ession closed|Frame (?:was|has been) detached)/;
 export const isLostFrameError = message => LOST_FRAME.test(String(message));
