@@ -60,7 +60,9 @@ export function runProblem(source, current) {
 export function entryProblem(entry, source, cell) {
   const { target, viewport, requested, provenance, recipe, settleHash } = cell;
   if (requested.includes('behavior')) return 'behavior';
-  if (!Array.isArray(source.settings.targets) || !same(source.settings.targets.find(item => item?.id === target.id), target)) return 'target';
+  // R8.17: `expectStatus` changes no capture, so it does not decide whether a kept cell may stand.
+  const declared = item => { if (!plain(item)) return item; const { expectStatus, ...rest } = item; return rest; };
+  if (!Array.isArray(source.settings.targets) || !same(declared(source.settings.targets.find(item => item?.id === target.id)), declared(target))) return 'target';
   if (!plain(entry) || entry.targetId !== target.id || entry.viewportId !== viewport.id || entry.state !== 'captured') return 'entry';
   if (!same(entry.recipe, recipe) || entry.settleHash !== settleHash || entry.scopeHash !== settingsHash(recipe.scope)) return 'recipe';
   const files = expectedFiles(target.id, viewport.id, requested);

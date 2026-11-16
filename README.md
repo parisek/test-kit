@@ -51,6 +51,8 @@ An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`
 }
 ```
 
+A target that answers an error on purpose, for example a missing page, may set `"expectStatus": 404`. That status then reads `ok`, so the report verdict is not `availability-problems`. Any other error status still reads `http-error`. The key enters no hash, so a baseline stays valid (R8.17).
+
 ## Compare
 
 Capture before and after a change. The capture command prints each run ID.

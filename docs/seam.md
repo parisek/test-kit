@@ -65,6 +65,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `targets[].box` | string | none | no | `border` or `content`. Needs `selector`. |
 | `targets[].settle`, `targets[].settleBySide` | object | none | no | Partial settle recipe, for all sides or for one side. |
 | `targets[].layout` | object | none | no | R6.14. `{ parts: [ { id, selector, selectorBySide?, repeat? } ] }`, 1 to 50 parts with unique safe IDs. `selectorBySide` maps a configured side ID to the selector of the part on that side (an addition, owner direction to an agent in a session, 2026-11-08, #350, part C). Read only when the run selects the `layout` artifact. Not in the capture settings hash. An addition: old input passes (owner direction, 2026-11-08, #350). |
+| `targets[].expectStatus` | number | none | no | R8.17. One HTTP status code from 100 to 599. A capture with that code reads `ok` in `availability`. In no hash. Added in 1.4 (#349). |
 | `targetSource` | object | none | no | R13.3. Component targets from a styleguide side. Needs `source: "styleguide"` and `side`. Optional `mount` (default `/styleguide`), `include` (target IDs) and the booleans `variants` and `pages` (R13.52, default off). `targets` must be absent or empty. Not in the capture settings hash. An addition: old input passes. Added after 1.0.0. |
 | `viewports` | list | none | yes | 1 to 20 entries. |
 | `viewports[].id`, `width`, `height` | string, number, number | none | yes | Width and height 1 to 4096. At most 32 million physical pixels. |

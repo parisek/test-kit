@@ -435,3 +435,14 @@ test('config accepts role "reference" on a browser side, refuses any other value
  assert.deepEqual(captureSettings(referenced, 'local'), captureSettings(plain, 'local'));
  for (const role of ['source', 'target', '']) assert.throws(() => normalizeConfig({ ...config, sides: { local: { origin: 'http://127.0.0.1:8000', role } } }), /role must be "reference"/);
 });
+
+// R8.17, #349 item 4: `target.expectStatus` enters no digest, so a baseline still serves after the key is added.
+test('adding target.expectStatus keeps the baseline (#349)', async t => {
+ const { options, kinds, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'local' }, dependencies);
+ await writeFile(options.config, JSON.stringify({ ...pairConfig, targets: pairConfig.targets.map(target => ({ ...target, expectStatus: 404 })) }));
+ await runWorkflow('after', { ...options, side: 'local' }, dependencies);
+ assert.deepEqual(kinds, ['update']);
+ await writeFile(options.config, JSON.stringify({ ...pairConfig, targets: pairConfig.targets.map(target => ({ ...target, path: '/changed' })) }));
+ await assert.rejects(runWorkflow('after', { ...options, side: 'local' }, { ...dependencies, capture: () => assert.fail('no capture') }), /Run before/);
+});

@@ -78,6 +78,13 @@ test('rule 3: the stored target declaration must equal the current one (R5.13)',
   assert.equal(entryProblem(gone.captures[0], gone, cell()), 'target');
 });
 
+test('rule 3 ignores target.expectStatus, which changes no capture (R8.17, #349)', () => {
+  const run = source();
+  run.settings.targets[0] = { ...target, expectStatus: 404 };
+  assert.equal(entryProblem(run.captures[0], run, cell()), null);
+  assert.equal(entryProblem(source().captures[0], source(), cell({ target: { ...target, expectStatus: 410 } })), null);
+});
+
 test('rule 4: the entry and every selected artifact must be captured with equal provenance (R5.13)', () => {
   const failed = source();
   failed.captures[0].state = 'failed';
