@@ -456,7 +456,7 @@ others. A blocked request does not fail the measurement. The run lists it as
 (POST, PUT, ...) that leaves the browser, a WebSocket or a page that leaves its
 origin fails the target. A blocked write does not.
 Chrome sends a request before test-kit can read it, so a page that writes on load
-reaches the site once, in the discarded warmup. Block such a path of the own
+reaches the site, or an `allowOrigins` host, once, in the discarded warmup. Block such a path of the own
 origin with `perfBlockPaths`:
 
 ```json
