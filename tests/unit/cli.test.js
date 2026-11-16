@@ -119,3 +119,9 @@ test('summary of a directory asks for report.json, not the size limit (#349)', a
     assert.doesNotMatch(err.text, /size limit/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('summary of a path that is not a regular file says so (#349)', { skip: process.platform === 'win32' }, async () => {
+  const err = sink();
+  assert.equal(await run(['summary', '/dev/null'], { out: sink(), err }), 1);
+  assert.equal(err.text, 'summary reads a report file. The path is not a regular file.\n');
+});

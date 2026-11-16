@@ -9,7 +9,7 @@ Versions follow semver. Each release uses an immutable git tag.
 - `capture --packs`: an axe error that only contains the words "not found" or "detached" now counts as a failed frame, not an unreachable one. Only the exact CDP and Playwright messages for a gate, a lost context, a missing frame, a closed target or session or a detached frame count as unreachable (#347, R13.51). The list holds the texts of Playwright 1.64 and Chromium. The error text must start with one of them, so an axe error that quotes one later counts as failed.
 - `capture --packs`: a frame with no id that the first read of the frame tree held no longer counts as added at the end read (#347, R13.51).
 - `capture --keep-existing`: a kept content index must also pass its gzip CRC and parse as JSON, not only match the stored byte count (#347, R5.13).
-- `summary DIR` with a directory now says that `summary` reads a report file and names `DIR/report.json`. It printed "Report exceeds the size limit" before (#349, item 1). A path that is not a regular file gets its own message too.
+- `summary DIR` with a directory now says that `summary` reads a report file and names `DIR/report.json`. It printed "Report exceeds the size limit" before (#349, item 1). A path that `stat` reports as not a regular file (for example `/dev/null`) gets its own message too.
 
 ### Changed
 
@@ -17,7 +17,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Documentation
 
-- README, store section: git-ignored is not deploy-excluded. rsync does not read `.gitignore`, so a store under the web root needs an rsync exclude and a web server deny (#349, item 3).
+- README, store section: rsync does not read `.gitignore`, so the store always needs an rsync exclude. A store under the web root also needs a web server deny (#349, item 3).
 
 ### Added
 
