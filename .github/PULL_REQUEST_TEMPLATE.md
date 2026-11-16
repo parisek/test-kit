@@ -1,6 +1,33 @@
-## Summary
+## Status
 
-<!-- What changes and why. Cite the requirement number (R6.7) when the change meets or changes one. -->
+**In progress** <!-- One state: In progress | Waiting for owner | Ready to merge | Blocked. Update it at every hand-over; it is the first thing the owner reads. -->
+
+**Next step:** <!-- Who does what next, in one sentence: "Agent: run the Codex gate", "Owner: decide #N", "Owner: merge". -->
+
+<!-- The part down to the agent record is for the owner. Plain words, no file names and no class names. Put in bold what the owner must not miss. -->
+
+## What
+
+<!-- The change as its user sees it. -->
+
+## Why
+
+<!-- The reason, and the goal or principle it serves. -->
+
+## How
+
+<!-- The approach, in one or two sentences. -->
+
+## Who
+
+<!-- Who asked, which agent built it, who reviewed it. For a cloud session, add the name of the account that owns the session in brackets and link the session: only that account can open it. In a public repository, use the GitHub login. -->
+
+## Review focus
+
+<!-- The tier, and in bold the one or two things the owner should look at or check live. "Nothing special" when true. -->
+
+<details>
+<summary>Agent record: tier, tests, docs, checklist, review</summary>
 
 ## Tier, principle and requirement
 
@@ -38,3 +65,5 @@
 - [ ] Codex record `<!-- agent:review -->` on the head SHA.
 - [ ] Claude record `<!-- agent:review -->` on the head SHA.
 - [ ] Release, workflow change, security path or security finding: the owner decides.
+
+</details>

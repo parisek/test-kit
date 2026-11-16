@@ -1,6 +1,6 @@
 # Process standard v1
 
-Status: approved by the owner on 2026-11-09. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
+Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
 
 The same file lives in each repository below, with only the section "This repository" different. Each repository is autonomous: it carries the standard and its tools itself and depends on no shared plugin (owner decision, 2026-11-09). A change to a generic section is one pull request in each repository, with the same text.
 
@@ -143,7 +143,9 @@ After a merge, the agent asks one question: did a review or a failure teach a ru
 
 - One logical change for each pull request. A draft, assigned to the owner.
 - The title is a Conventional Commit. CI checks it. The squash commit uses it.
-- The body follows `.github/PULL_REQUEST_TEMPLATE.md`. Its core sections (Summary; Tier, principle and requirement; Tests; Docs reviewed; Left alone; Review) are the same in every repository, in that order. Project sections come after "Docs reviewed".
+- The body follows the pull request template of the repository. It has two parts. The first part is for the owner, in plain words: the sections Status, What, Why, How, Who and Review focus. The owner reads this part first. The author writes it, and no check verifies it: CI and the review records of section 4 stay the gate. The second part is the agent record, inside one `<details>` block: Tier, principle and requirement; Tests; Docs reviewed; Left alone; Review. The sections named here are the same in every repository, in that order. Project sections come after "Docs reviewed".
+- The section Status is first. It holds one state in bold and the line `Next step:`, which names who does what next. The states are `In progress` (the agent works: CI, a gate, a fix), `Waiting for owner` (the agent cannot go on without the owner: a decision, a live check, or a Tier 3 change that has green CI and both review records on the head), `Ready to merge` (every condition of section 4 holds on the head) and `Blocked` (nobody can go on; the line says why). The agent updates the section at every hand-over. A draft pull request alone does not say which state holds.
+- The section Who names who asked for the change, which agent built it and who reviewed it. For a cloud session it links the session and names the account that owns the session, because only that account can open the link. In a public repository the name is the GitHub login of the account.
 
 ## 11. Language
 
