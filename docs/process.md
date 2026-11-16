@@ -47,13 +47,13 @@ A repository adds its own Tier 3 items in its `docs/vision.md`. It never removes
 
 ## 4. Review and merge
 
-The owner merges (decision A1). An agent merges only when the owner gives it merge permission for that session. The permission ends with the session and never reaches a scheduled routine. A Tier 3 change always waits for the owner.
+The owner merges (decision A1). An agent merges only when the owner gives it merge permission for that session, or for one milestone in writing on the milestone's issue. A session permission ends with the session; a milestone permission ends when the milestone closes or the owner withdraws it. Neither reaches a scheduled routine. A Tier 3 change always waits for the owner, unless the owner named it in a milestone permission.
 
 A change is ready to merge when all of these hold:
 
 1. Codex and Claude review it independently. Each review is a valid review record (section 5) on the head SHA, and both count as an approval.
 2. CI is green on the head SHA.
-3. The change is not Tier 3.
+3. The change is not Tier 3, or the owner named it in a milestone permission.
 4. The author gives no decisive approval.
 5. The change names its tier, its principle number and the identifiers it meets or changes.
 
