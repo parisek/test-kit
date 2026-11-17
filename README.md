@@ -53,6 +53,10 @@ An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`
 
 A target that answers an error on purpose, for example a missing page, may set `"expectStatus": 404`. That status then reads `ok`, so the report verdict is not `availability-problems`. Any other error status still reads `http-error`. The key enters no hash, so a baseline stays valid (R8.17).
 
+A target may also name text that its page must contain: `"expectText": ["component-page-header-home"]`. Select the check `expect-text` (it needs the `content` artifact). It reports each string that the stored DOM of the page lacks, so a cached error page or a language fallback that answers 200 shows. The match is exact and case-sensitive, and it may name markup, for example `id="wpforms-form-125"`. The key enters no hash (R7.8).
+
+Recipe: a tag manager. The Google Tag Manager snippet inserts a script element with the address `https://www.googletagmanager.com/gtm.js?id=GTM-…` into the page. The element stays in the stored DOM also when a remote capture drops the request (R3.3). So `"expectText": ["gtm.js?id=GTM-EXAMPLE"]` proves that the page holds the container ID and tries to load the tag manager. Do not include the rest of the query: the browser writes `&` as `&amp;` in the stored DOM. The check cannot prove that the tag manager loaded, because a remote capture never sends the request. On a local side, set `"thirdParty": "drop"` (R3.10). Without it, the request to the tag manager fails the capture, and the check has no stored DOM to read. A setup that inserts the snippet only after consent shows no element before consent (#379).
+
 ## Compare
 
 Capture before and after a change. The capture command prints each run ID.

@@ -87,7 +87,7 @@ export function parseCommand(argv) {
   if (options.artifacts && options.artifacts.split(',').some(kind => !CAPTURE_ARTIFACTS.includes(kind))) throw new Error('Unknown capture artifact');
   if (options.checks && !(options.checks === 'none' && ['run', 'before', 'after'].includes(command))) {
     const ids = options.checks.split(',');
-    if (ids.length > 6 || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');
+    if (ids.length > Object.keys(builtinChecks).length || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');
   }
   if (options['max-lines']) options.maxLines = integer(options['max-lines'], '--max-lines', 1, 100);
   if (options.kind && !PAIR_KINDS.includes(options.kind)) throw new Error('Unknown pair kind');
