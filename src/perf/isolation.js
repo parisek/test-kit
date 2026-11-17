@@ -115,9 +115,14 @@ export function requestEvidence(events, { origin, allowOrigins = [], challenge =
 // only the keys that hold evidence.
 export function storedBlocked(artifact) {
   const blocked = sanitizeDropped(artifact?.blocked);
-  const omitted = artifact?.blockedOmitted;
-  return { ...(blocked.length ? { blocked } : {}),
-    ...(Number.isInteger(omitted) && omitted > 0 && omitted <= 1_000_000 ? { blockedOmitted: omitted } : {}) };
+  const stored = artifact?.blockedOmitted;
+  // A group that the guard leaves out still counts: its requests join `blockedOmitted`.
+  const listed = Array.isArray(artifact?.blocked) ? artifact.blocked.slice(0, MAX_GROUPS) : [];
+  const left = listed.length - blocked.length > 0
+    ? listed.filter(item => !blocked.some(group => group.resourceType === item?.resourceType && group.origin === item?.origin && group.count === item?.count))
+      .reduce((sum, item) => sum + (Number.isInteger(item?.count) && item.count > 0 && item.count <= 1_000_000 ? item.count : 0), 0) : 0;
+  const omitted = Math.min(1_000_000, (Number.isInteger(stored) && stored > 0 && stored <= 1_000_000 ? stored : 0) + left);
+  return { ...(blocked.length ? { blocked } : {}), ...(omitted ? { blockedOmitted: omitted } : {}) };
 }
 
 // Adds the groups of one audit to the groups of the target.

@@ -99,7 +99,8 @@ test('performance snapshots bind settings, summaries and complete report counts'
   const kept = validatePerformanceSnapshot({ ...artifact, blocked: [{ resourceType: 'font', origin: 'https://fonts.example.net', count: 1 },
     { resourceType: 'font', origin: 'file:///etc', count: 1 }], blockedOmitted: 2 });
   assert.deepEqual(kept.blocked, [{ resourceType: 'font', origin: 'https://fonts.example.net', count: 1 }]);
-  assert.equal(kept.blockedOmitted, 2);
+  // The left-out group still counts: its request joins blockedOmitted.
+  assert.equal(kept.blockedOmitted, 3);
   assert.equal(Object.hasOwn(validatePerformanceSnapshot(artifact), 'blocked'), false);
   assert.throws(() => validatePerformanceSnapshot({ ...artifact, metrics: { ...artifact.metrics, lcp_ms: { ...artifact.metrics.lcp_ms, median: 999 } } }));
 });

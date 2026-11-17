@@ -17,6 +17,11 @@ async function store(root, src, bytes) {
   await writeFile(join(root, src), bytes, { mode: 0o600 });
 }
 
+// R6.17: each side of the detail carries its blocked requests, so the viewer and the query show them.
+export function comparisonSide(snapshot) {
+  return { settings: snapshot.settings, metrics: snapshot.metrics, suspect: snapshot.suspect, ...storedBlocked(snapshot) };
+}
+
 export async function comparePerformanceArtifact({ a, b, ac, bc, runsRoot, output, targetId, viewportId,
   environmentA = a?.side, environmentB = b?.side, budgets = {}, failOnBudget = false }) {
   if (![a?.id, b?.id, targetId, viewportId].every(identity)) throw new Error('Invalid performance comparison identity.');
@@ -66,9 +71,7 @@ export async function comparePerformanceArtifact({ a, b, ac, bc, runsRoot, outpu
     return { artifact: result, findings: [], exitCode: 0 };
   }
   const comparison = comparePerformance(...snapshots, { environmentA, environmentB, budgets, failOnBudget });
-  // R6.17: each side carries its blocked requests, so the viewer and the query show them.
-  const side = snapshot => ({ settings: snapshot.settings, metrics: snapshot.metrics, suspect: snapshot.suspect, ...storedBlocked(snapshot) });
-  const detail = { ...comparison, a: side(snapshots[0]), b: side(snapshots[1]) };
+  const detail = { ...comparison, a: comparisonSide(snapshots[0]), b: comparisonSide(snapshots[1]) };
   const bytes = Buffer.from(JSON.stringify(detail));
   if (bytes.length > MAX_SUMMARY_BYTES) throw new Error('Performance comparison exceeds its limit.');
   const src = `diff/lighthouse/${targetId}/${viewportId}.json`;

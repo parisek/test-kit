@@ -90,6 +90,7 @@ try {
   assert.deepEqual(queried.diff.a.metrics, artifact.metrics);
   assert.equal(queried.diff.compatible, !artifact.suspect);
   assert.deepEqual(queried.diff.b.blocked, [{ resourceType: 'script', origin: 'https://cdn.example.net', count: 2 }]);
+  assert.equal(queried.diff.b.blockedOmitted, 1);
   assert.equal(Object.hasOwn(queried.diff.a, 'blocked'), false);
   const viewer = await serve({ reportPath: compared.reportPath });
   try {
