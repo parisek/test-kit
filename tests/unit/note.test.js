@@ -149,3 +149,14 @@ test('listNotes never follows a link and bounds what it reads (R12.7)', async t 
   await assert.rejects(dispatch(parseCommand(['note', 'run-1', '--file', join(root, 'big.json'), '--config', join(root, 'test-kit.config.json')])), /--file: The file must be at most 262144 bytes/);
   await assert.rejects(dispatch(parseCommand(['note', 'run-1', '--file', join(root, 'none.json'), '--config', join(root, 'test-kit.config.json')])), /--file: the file does not exist/);
 });
+
+test('a note number is one more than the highest, and a gap is not reused (R12.7)', async t => {
+  const { root, local } = await store(t);
+  const notes = join(local, 'runs', 'run-1', 'notes');
+  await mkdir(notes);
+  for (const name of ['001.json', '003.json']) await writeFile(join(notes, name), '{}');
+  const added = await addNote({ configDir: root, store: local, run: 'run-1', text: '{}' });
+  assert.equal(added.note, 'notes/004.json');
+  await writeFile(join(notes, '999.json'), '{}');
+  await assert.rejects(addNote({ configDir: root, store: local, run: 'run-1', text: '{}' }), /No free note number/);
+});
