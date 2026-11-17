@@ -9,6 +9,7 @@ Before 1.0, projects pin an exact tag. The lockfile records its commit.
 ## Release gates
 
 - Independent review covers the final implementation head.
+- The release security review (`docs/process.md`, section 6) has a `pass` record on the release PR. A Critical or High finding blocks the tag. Section 6 also sets the full audit once per minor version, the issue for each Medium or Low finding, and a new review when `main` changes before the tag.
 - CI and relevant local integration checks pass.
 - Capture, comparison, viewer, and summary work on synthetic local evidence.
 - Package contents and installation in DDEV are verified.
@@ -19,7 +20,7 @@ Before 1.0, projects pin an exact tag. The lockfile records its commit.
 ## Publish a tag
 
 1. Open a release PR. Update package version, lockfile, and changelog.
-2. Review the final head. Wait for green CI. Merge to `main`.
+2. Review the final head. Run the release security review on it and post its `<!-- agent:security-review -->` record on the PR. Wait for green CI. Merge to `main`.
 3. Fetch `origin/main`. Confirm the release commit is on that branch.
 4. Create the new tag on that commit and push it. Never replace an existing tag.
 5. Wait for the release workflow. Verify its GitHub Release and notes.
@@ -46,6 +47,6 @@ It creates the GitHub Release only after these checks pass.
 ddev npm install -D github:parisek/test-kit#v0.1.0
 ```
 
-The container needs git and Node 20 or later. Chromium capture uses the host
+The container needs git and Node 22.19 or later. Chromium capture uses the host
 browser. The package has no build step. `files` in `package.json` selects the
 installed files. Keep pilot paths and capture evidence outside the repository.

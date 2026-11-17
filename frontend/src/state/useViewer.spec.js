@@ -31,7 +31,7 @@ describe('viewer actions', () => {
 	});
 	it('opens every pair kind on Overview without inventing a match (R10.5)', async () => {
 		expect(VIEWS).toEqual(['overview', 'evidence', 'findings', 'info']);
-		for (const kind of ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc']) {
+		for (const kind of ['convergence', 'self-baseline', 'update', 'migration', 'deploy', 'adhoc', 'drift']) {
 			const instance = viewer({ fetch: async () => response(report(kind)) });
 			await instance.load('/report.json');
 			expect(instance.state.view).toBe('overview');

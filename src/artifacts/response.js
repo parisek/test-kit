@@ -2,7 +2,7 @@ import { mkdir, writeFile, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
-export async function storeResponse({ response, requested, runDir, targetId, viewportId, provenance, assets, active = () => true, artifacts = {} }) {
+export async function storeResponse({ response, origin = null, requested, runDir, targetId, viewportId, provenance, assets, active = () => true, artifacts = {} }) {
   for (const kind of requested.filter(kind => ['html', 'status'].includes(kind))) {
     if (!active()) break;
     const index = { kind, ...provenance[kind] };
@@ -22,8 +22,11 @@ export async function storeResponse({ response, requested, runDir, targetId, vie
           if (redirects.length >= 20) throw new Error('Redirect chain exceeds 20 steps.');
           redirects.unshift(new URL(request.url()).pathname.slice(0, 2000));
         }
+        // #348: the final origin, only when the page ends on another origin than the side origin.
+        const final = new URL(response.url());
+        const finalOrigin = finalOriginOf(final, origin);
         bytes = Buffer.from(JSON.stringify({ statusCode: response.status(),
-          finalPath: new URL(response.url()).pathname.slice(0, 2000), redirects,
+          finalPath: final.pathname.slice(0, 2000), ...(finalOrigin ? { finalOrigin } : {}), redirects,
           assets: { requests: assets.requests, failed: assets.failed, httpErrors: assets.httpErrors } }));
       }
       const path = `${kind}/${targetId}/${viewportId}.${kind === 'html' ? 'txt' : 'json'}`;
@@ -38,4 +41,13 @@ export async function storeResponse({ response, requested, runDir, targetId, vie
     }
   }
   return artifacts;
+}
+
+// #348: the origin where a page ends, only when it differs from the side origin. An origin
+// over 200 characters is left out: a cut origin is not an origin (statusDetail). Pure (R4.4).
+export function finalOriginOf(url, origin) {
+  if (!origin) return null;
+  const final = new URL(url);
+  if (!/^https?:$/.test(final.protocol) || final.origin === new URL(origin).origin || final.origin.length > 200) return null;
+  return final.origin;
 }

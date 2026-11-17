@@ -7,6 +7,7 @@ import { gzipSync } from 'node:zlib';
 import { extractContentSnapshot } from '../content/extract.js';
 import { contentSettings, layoutSettings } from '../config/settings.js';
 import { extractLayoutSnapshot } from '../layout/extract.js';
+import { partsForSide } from '../layout/declaration.js';
 import { LAYOUT_VERSION } from '../layout/record.js';
 import { MAX_LAYOUT_BYTES } from '../layout/snapshot.js';
 import { createHash } from 'node:crypto';
@@ -21,7 +22,7 @@ import { promisify } from 'node:util';
 import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
 import { recordSelection, cellSelected } from './selection.js';
-import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, allowedOriginStatusFailure, decideRequest, redirectPermitted, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
+import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, allowedOriginStatusFailure, decideRequest, redirectPermitted, redirectLeavesOrigin, originBoundMessage, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 import { planPackRun } from '../packs/select.js';
 import { runPagePacks } from './packs.js';
 import { gitSha } from './git.js';
@@ -76,7 +77,7 @@ function targetProvenance(config, side, target, provenance) {
 // R6.14: a target without layout parts stores no layout entry, so the artifact does not apply to it.
 const applies = (kind, target) => kind !== 'layout' || Boolean(target?.layout);
 
-async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun = null) {
+async function captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun = null, { originBound = false } = {}) {
   const recipe = settleRecipe(config, side, target);
   const identity = { targetId: target.id, viewportId: viewport.id, settleHash: settingsHash(recipe) };
   // R5.6: a captured entry stores its effective recipe, also when it is the default. Its parts hash to `scopeHash` and `settleHash`.
@@ -96,6 +97,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
   let blocked = false;
   // The first blocked request, for the error text. Later ones do not replace it.
   let firstBlocked = null;
+  // R13.13, #348: the target origin of a top-level redirect that leaves a --ddev origin.
+  let leftOrigin = null;
   // R3.8: the requests a remote side aborts and keeps the capture.
   const droppedLog = createDroppedLog();
   // R3.6: the reason a remote edge challenges or limits the capture. It stops the run.
@@ -181,8 +184,18 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
           // R3.9: a subresource may also redirect to an allowed origin, for its own resource type.
           // A redirect from an allowed origin may lead only to an allowed origin.
           const permitted = href => redirectPermitted({ from: request.url(), to: href, ownTarget: allowedUrl(href), navigation: request.isNavigationRequest(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
-          if (response.status() >= 300 && response.status() < 400 && (write || (location
-            && !permitted(new URL(location, request.url()).href)))) {
+          const redirect = response.status() >= 300 && response.status() < 400;
+          const refused = redirect && (write || (location && !permitted(new URL(location, request.url()).href)));
+          // R13.13, #348: on a --ddev side a top-level redirect must stay on the side origin, also when the port alone
+          // differs. Only a redirect that R3.10 permits gets this code; a refused one keeps the R3.7 code.
+          const left = originBound && topLevel && location && redirect && !refused
+            ? redirectLeavesOrigin({ from: request.url(), location, origin: config.sides[side].origin }) : null;
+          if (left) {
+            blocked = true;
+            // The first blocked request names the failure (R3.7).
+            if (!firstBlocked) leftOrigin ??= left;
+            await route.abort('blockedbyclient');
+          } else if (refused) {
             blocked = true;
             let target = request.url();
             try { if (location) target = new URL(location, request.url()).href; } catch { /* Keep the request URL. */ }
@@ -210,7 +223,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     finalPath = new URL(response.url()).pathname;
     if (remote) edge ??= edgeStop({ status: statusCode, headers: response.headers(), main: true });
     if (edge) throw new Error('Remote edge stop');
-    artifacts = await storeResponse({ response, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
+    artifacts = await storeResponse({ response, origin: config.sides[side].origin, requested: config.artifacts, runDir, targetId: target.id, viewportId: viewport.id, provenance, assets, active: () => !expired, artifacts });
     if (!config.artifacts.includes('screenshot') && !config.artifacts.includes('content') && !config.artifacts.includes('behavior') && !(config.artifacts.includes('layout') && target.layout) && !packRun?.ids.length) {
       if (edge || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Nonlocal navigation');
       return { ...identity, state: 'captured', statusCode, finalPath, ...stored(), artifacts, ...droppedFields(droppedLog) };
@@ -268,7 +281,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       const path = `layout/${target.id}/${viewport.id}.json`;
       let layoutFile;
       try {
-        const bytes = Buffer.from(JSON.stringify(await extractLayoutSnapshot(page, target.layout)));
+        const bytes = Buffer.from(JSON.stringify(await extractLayoutSnapshot(page, partsForSide(target.layout, side))));
         if (bytes.length > MAX_LAYOUT_BYTES || expired || blocked || unexpectedNavigation || !allowedUrl(page.url())) throw new Error('Layout capture is unavailable.');
         layoutFile = join(runDir, path);
         await mkdir(dirname(layoutFile), { recursive: true });
@@ -350,7 +363,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     await unlink(file).catch(() => {});
     // R5.14: the verdict on the real error, before the message is generalized. The mark stays out of run.json.
     const transient = isTransientFailure({ error, edge, blocked, unexpectedNavigation, phase, statusCode });
-    return markTransient({ ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
+    return markTransient({ ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : leftOrigin ? { code: 'DDEV_REDIRECT_LEFT_ORIGIN', message: originBoundMessage(leftOrigin) } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
       message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : ['PIN_NO_MATCH', 'AFTER_SWEEP_NOT_VISIBLE'].includes(error?.code) ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } }, transient);
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
@@ -373,7 +386,7 @@ async function readStyleguideTargets(tool, config, side) {
   } finally { await context.dispose().catch(() => {}); }
 }
 
-export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false, retries: retryInput, keepExisting = false, baseDir }, dependencies = {}) {
+export async function capture({ configPath, side, label = '', runsRoot, artifacts: requested, targets: selectedTargets, viewports: selectedViewports, packs: runPacks = false, retries: retryInput, keepExisting = false, baseDir, originBound = false }, dependencies = {}) {
   // R5.14: the retry bound is checked before anything starts.
   const retries = parseRetries(retryInput);
   const loaded = await loadConfig(configPath, { baseDir });
@@ -462,7 +475,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
       const kept = keepFinder ? await keepFinder({ target, viewport, runDir }) : null;
       if (kept) { run.captures.push(kept); await writeManifest(manifestPath, run); continue; }
       // R5.14: with --retries 0 (the default) this is one plain attempt.
-      run.captures.push(await captureWithRetries(() => captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun),
+      run.captures.push(await captureWithRetries(() => captureOne(browser, config, side, target, viewport, runDir, provenance, behaviorSource, packRun, { originBound: originBound === true }),
         { retries, sleep: dependencies.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms))), addWarning: withWarning }));
       stopped = run.captures.at(-1).error?.code === 'REMOTE_EDGE_STOP';
       const behaviorIndex = run.captures.at(-1).artifacts?.behavior;

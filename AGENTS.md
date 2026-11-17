@@ -16,7 +16,7 @@ The specification is `docs/specification.md`. Read it before any change. Require
 
 ```yaml
 PACKAGE_NAME: "@parisek/test-kit"
-NODE_REQUIRES: ">=20.19"
+NODE_REQUIRES: ">=22.19"
 TESTS_DIR: "tests"
 PLAN: "docs/specification.md section 14"
 ```
@@ -36,7 +36,7 @@ node bin/cli.js --help     # the command line
 | `src/<area>/` | One area for each part of the architecture. Each folder has a README with its contract and its spec sections. |
 | `frontend/` | Vue source, Tailwind tokens, and the isolated Vite build. |
 | `viewer/` | The compiled viewer. Do not edit it by hand. |
-| `templates/` | A sample config (`test-kit.config.json`) and a planning sketch. A project copies the JSON file by hand. There is no `init` command. |
+| `templates/` | A sample config (`test-kit.config.json`), a planning sketch and sample project contracts (`contracts/`). A project copies them by hand. There is no `init` command. |
 | `tests/unit/` | Pure logic. No browser, no network. |
 | `tests/fixtures/` | Sample data only. |
 | `docs/adr/` | Decision records. |
@@ -56,7 +56,9 @@ Everything in this repository is English: code, comments, documents, commit mess
 ## PR + Review workflow
 
 - One logical change for each pull request. A pull request is a draft, assigned to `parisek`.
-- One merge rule applies. It is the rule "Review and merge" in `docs/vision.md`, section "How the agent decides". A change merges when all of these hold:
+- The process standard is `docs/process.md`. The same file lives in styleguide and portadesign-mcp; a change to a generic section goes to all three. The configuration of this repository is `.agent/project.conf`.
+- An owner decision outside a design question is a decision request in the format of `docs/process.md`, section 6. `scripts/process/check-decision-request.sh` checks it before you post it.
+- One merge rule applies. It is the rule "Review and merge" in `docs/vision.md`, section "How the agent decides". The owner merges; an agent merges only with merge permission for the session. A change is ready to merge when all of these hold:
   - Codex and Claude review it independently and both approve. Each review is bound to the commit SHA that merges.
   - CI is green, including the checkable items below.
   - The change is not a Tier 3 item of the vision.
@@ -65,7 +67,9 @@ Everything in this repository is English: code, comments, documents, commit mess
   - The change names its tier, the principle number and the requirement number it serves. It adds no default behavior and no runtime dependency. It carries tests and touches no security-relevant path.
   - The change has no security impact, no unexpected file, no missing test and no material risk. Send any of these to the owner, even when both reviewers agree.
 
-  Reviewer skill: `docs/skills/vision-check.md` holds the steps, the verdicts and the review record format. A reviewer follows it. Claude Code loads it as the skill `vision-check`. `node scripts/milestone/check-record.js <file> --sha <head SHA>` checks a record.
+  Codex gate: `scripts/process/codex-gate.sh` posts the Codex record and sets `review/codex`. A cloud agent does not post a Codex record. It sets `gate/codex-pending` once CI is green, and `scripts/process/codex-queue.sh` on the owner's machine runs the gate (`docs/codex-gate.md`). On `gate/codex-changes` the agent fixes or rebuts each finding and sets `gate/codex-pending` again.
+
+  Reviewer skill: `docs/skills/vision-check.md` holds the steps, the verdicts and the review record format. A reviewer follows it. Claude Code loads it as the skill `vision-check`. `node scripts/process/check-record.mjs <file> --sha <head SHA> --spec <base spec file>` checks a record.
 
   Reviewer rules:
   1. A reviewer gets the diff, the specification and the vision. For a viewer change it also gets `PRODUCT.md`, `DESIGN.md` and `docs/viewer-workflow.md`. It does not get the description of the change or the author's reasoning.

@@ -78,6 +78,27 @@ test('rule 3: the stored target declaration must equal the current one (R5.13)',
   assert.equal(entryProblem(gone.captures[0], gone, cell()), 'target');
 });
 
+test('rule 2 ignores sides.<id>.perfBlockPaths, which changes no capture (R6.16, #383)', () => {
+  const run = source();
+  run.settings.sides.production = { ...run.settings.sides.production, perfBlockPaths: ['/analytics/*'] };
+  assert.equal(runProblem(run, current), null);
+  assert.equal(runProblem(source(), { ...current, declaration: { ...current.declaration, perfBlockPaths: ['/other'] } }), null);
+});
+
+test('rule 3 ignores target.expectStatus, which changes no capture (R8.17, #349)', () => {
+  const run = source();
+  run.settings.targets[0] = { ...target, expectStatus: 404 };
+  assert.equal(entryProblem(run.captures[0], run, cell()), null);
+  assert.equal(entryProblem(source().captures[0], source(), cell({ target: { ...target, expectStatus: 410 } })), null);
+});
+
+test('rule 3 ignores target.expectText, which changes no capture (R7.8, #378)', () => {
+  const run = source();
+  run.settings.targets[0] = { ...target, expectText: ['component-page-header-home'] };
+  assert.equal(entryProblem(run.captures[0], run, cell()), null);
+  assert.equal(entryProblem(source().captures[0], source(), cell({ target: { ...target, expectText: ['other'] } })), null);
+});
+
 test('rule 4: the entry and every selected artifact must be captured with equal provenance (R5.13)', () => {
   const failed = source();
   failed.captures[0].state = 'failed';
@@ -275,6 +296,24 @@ test('copyKeptFiles checks the IHDR tag and the stored byte counts, content file
   await writeFile(join(c, 'content/home/desktop.body.html.gz'), gzipSync(body));
   await writeFile(join(c, 'content/home/desktop.json.gz'), Buffer.concat([json, Buffer.from('x')]));
   assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n5'), entry: withContent(), requested: all }), false, 'content size differs');
+  // #347: the content index is decompressed up to 16 MiB. A valid index of 1 MiB copies; one above the bound is refused.
+  const big = gzipSync(Buffer.from(JSON.stringify('a'.repeat(1024 * 1024))));
+  const huge = gzipSync(Buffer.from(JSON.stringify(' '.repeat(17 * 1024 * 1024))));
+  const sized = data => { const e = withContent(); e.artifacts.content.bytes = data.length; return e; };
+  await writeFile(join(c, 'content/home/desktop.json.gz'), big);
+  assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n8'), entry: sized(big), requested: all }), true, 'a 1 MiB index copies');
+  await writeFile(join(c, 'content/home/desktop.json.gz'), huge);
+  assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n9'), entry: sized(huge), requested: all }), false, 'an index above 16 MiB is refused');
+  await writeFile(join(c, 'content/home/desktop.json.gz'), json);
+  // #347: a content index of the stored size that fails its gzip CRC, or is not JSON, is refused.
+  const flipped = Buffer.from(json);
+  flipped[flipped.length - 8] ^= 0xff;
+  await writeFile(join(c, 'content/home/desktop.json.gz'), flipped);
+  assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n6'), entry: withContent(), requested: all }), false, 'content CRC fails');
+  const notJson = gzipSync(Buffer.from('{]'));
+  assert.equal(notJson.length, json.length);
+  await writeFile(join(c, 'content/home/desktop.json.gz'), notJson);
+  assert.equal(await copyKeptFiles({ sourceDir: c, runDir: join(root, 'n7'), entry: withContent(), requested: all }), false, 'content is not JSON');
 }));
 
 test('copyKeptFiles fails when a file is missing, is not a PNG of the stored size, or the entry holds an unsafe ID (R5.13)', async () => fixture(async root => {

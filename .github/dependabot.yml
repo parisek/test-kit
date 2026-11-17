@@ -1,9 +1,23 @@
-# Dependabot reports outdated dependencies and opens one pull request for each update.
-# Titles start with `chore(deps)` so that the `pr-title` check passes.
+# Dependabot: one summary pull request per ecosystem, once a month.
+# The same settings run in every parisek/* package (issue in each repository).
+# - monthly: fewer, larger updates cost less review than weekly single ones;
+# - minor and patch in one group, majors in another. A major never rides with
+#   the safe updates; review it alone and split it if it breaks;
+# - cooldown: a release must be 7 days old (majors 30) before Dependabot
+#   offers it. A compromised release is usually pulled within days.
 #
+# Security updates are not limited by the schedule or the cooldown. They need
+# "Dependabot security updates" on in the repository settings; the `*-security`
+# groups bundle them per ecosystem.
+#
+# Auto-merge: .github/workflows/dependabot-merge.yml squash-merges a pull
+# request when every update is minor or patch, it touches only dev
+# dependencies or action pins, and every check is green. Everything else
+# waits for the owner's review; green CI is not enough there.
+#
+# Titles start with `chore(deps)` so that the `pr-title` check passes.
 # Assignee: every entry assigns `parisek`, as AGENTS.md requires.
 # Exception to the draft rule: Dependabot cannot open draft pull requests. Its pull requests open ready.
-# Do not merge one on green CI alone. Review it first.
 #
 # Versioning: package.json pins exact versions. Dependabot keeps the pins and rewrites them
 # to the new exact version. `versioning-strategy` stays at its default for that reason.
@@ -15,7 +29,7 @@ version: 2
 updates:
   # Root package: the engine. `dependencies` (pixelmatch, pngjs) ship to users.
   #
-  # Playwright bump checklist. `@playwright/test` has its own pull request (excluded from the group):
+  # Playwright bump checklist. `@playwright/test` has its own pull request (excluded from the groups):
   #   1. docs/rc-trial.md: the install line `npm install -D @playwright/test@<version>`.
   #   2. .github/workflows/ci.yml: check that the install step `npx playwright install --with-deps chromium` still works.
   #   3. package.json `peerDependencies`: the range `>=1.49` stays unless the new version needs a higher floor.
@@ -23,19 +37,26 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    assignees:
-      - parisek
+      interval: monthly
+      time: "06:00"
+      timezone: Europe/Prague
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    open-pull-requests-limit: 3
+    assignees: [parisek]
     commit-message:
       prefix: "chore(deps)"
     groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
       npm-minor-patch:
-        update-types:
-          - minor
-          - patch
-        exclude-patterns:
-          - "@playwright/test"
+        update-types: [minor, patch]
+        exclude-patterns: ["@playwright/test"]
+      npm-major:
+        update-types: [major]
+        exclude-patterns: ["@playwright/test"]
 
   # Viewer source: Vue, Vite, Tailwind, Vitest. It has its own lockfile.
   # DO NOT auto-merge a pull request for this folder. `viewer/` holds the compiled output.
@@ -45,29 +66,37 @@ updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    assignees:
-      - parisek
+      interval: monthly
+      time: "06:00"
+      timezone: Europe/Prague
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    open-pull-requests-limit: 3
+    assignees: [parisek]
     commit-message:
       prefix: "chore(deps)"
     groups:
+      frontend-security:
+        applies-to: security-updates
+        patterns: ["*"]
       frontend-minor-patch:
-        update-types:
-          - minor
-          - patch
+        update-types: [minor, patch]
+      frontend-major:
+        update-types: [major]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    assignees:
-      - parisek
+      interval: monthly
+      time: "06:00"
+      timezone: Europe/Prague
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 2
+    assignees: [parisek]
     commit-message:
       prefix: "chore(deps)"
     groups:
-      github-actions-minor-patch:
-        update-types:
-          - minor
-          - patch
+      github-actions:
+        patterns: ["*"]

@@ -6,14 +6,14 @@ Decisions of 2026-10-18:
 
 1. The process has three skills, split by purpose: `vision-check`, `milestone-run`, `milestone-report`.
 2. Review records are pull request comments.
-3. The script may merge a pull request itself when the full merge rule holds. Every Tier 3 item always goes to the owner.
+3. (Replaced on 2026-11-09 by `docs/vision.md`, decision 12: the owner merges, an agent only with merge permission for the session.) The script may merge a pull request itself when the full merge rule holds. Every Tier 3 item always goes to the owner.
 4. The review gate is advisory only. The CI check `review-gate` shows a status and blocks nothing. The project does not enforce reviewer identity. All comments may come from one GitHub account. See "Trade-off of the advisory gate".
 
 This document turns the loop in `docs/vision.md` ("Milestones and releases", "Review and merge") into three skills, a script and CI checks. It cites the vision and does not change the rule. It adds mechanisms that check and report on the rule. No CI check blocks a merge until the ruleset exists. The script refuses on them (see "Trade-off of the advisory gate"). A follow-up pull request syncs `AGENTS.md` and `docs/development-loop.md` with this design (see "Where the skills live"). Until that pull request merges, those two files describe the current practice.
 
 ## Principle
 
-A skill is a short instruction that calls a script. An invariant that can fail a build belongs in CI. Orchestration belongs in a script. Reviewers state their evidence in their own comments. The pull request template holds only items that the author fills and a machine can check.
+A skill is a short instruction that calls a script. An invariant that can fail a build belongs in CI. Orchestration belongs in a script. Reviewers state their evidence in their own comments. The agent record of the pull request template holds only items that the author fills and a machine can check. The part for the owner above it is a summary in plain words (`docs/process.md`, section 10).
 
 ## The loop
 
@@ -32,7 +32,7 @@ A skill is a short instruction that calls a script. An invariant that can fail a
 
 - Claude Code reads `.claude/skills/<name>/SKILL.md`.
 - Codex reads `AGENTS.md`. Each skill also has a plain file at `docs/skills/<name>.md`. `AGENTS.md` links to it, so Codex can load it. The follow-up pull request confirms the Codex skill path before it builds anything.
-- The script lives at `scripts/milestone/` and is plain Node (`NODE_REQUIRES: ">=20.19"`). Both agents call the same script.
+- The script lives at `scripts/milestone/` and is plain Node (`NODE_REQUIRES: ">=22.19"`). Both agents call the same script.
 - The follow-up pull request that builds the skills also edits `AGENTS.md` and `docs/development-loop.md` so that they name the skills, the review record, the `review-gate` check and the merge command.
 
 ## Merge rule map
@@ -43,7 +43,7 @@ Skill 2 (`milestone-run`) merges only when all items of the vision's merge rule 
 | --- | --- |
 | Codex and Claude review independently and both approve | Script (gate). `review-gate` (CI, advisory) shows the same result. Both read the review records |
 | Each review is bound to the SHA that merges | Script (gate) and `review-gate` (advisory). The record SHA must equal the head SHA. The script merges with `gh pr merge --match-head-commit <sha>`. A new push changes the head SHA and voids every earlier review |
-| CI is green, including the checkable items | The script reads the state of every check at the head SHA: `Node 20`, `Node 22`, `Local screenshot pipeline` (all three in workflow `CI`) and `conventional-pr-title` (workflow `Lint PR Title`), `tier-3-gate` and `pr-fields-check`. The script refuses when any of them is not green in step 2 or step 6. For the title, the script validates the current title itself and does not read `conventional-pr-title` (see "Merge steps"). `review-gate` is shown but the script decides from the records itself. GitHub blocks a merge on these checks only after the owner creates the ruleset (see "Trade-off of the advisory gate") |
+| CI is green, including the checkable items | The script reads the state of every check at the head SHA: `Node 22`, `Node 24`, `Local screenshot pipeline` (all three in workflow `CI`) and `conventional-pr-title` (workflow `Lint PR Title`), `tier-3-gate` and `pr-fields-check`. The script refuses when any of them is not green in step 2 or step 6. For the title, the script validates the current title itself and does not read `conventional-pr-title` (see "Merge steps"). `review-gate` is shown but the script decides from the records itself. GitHub blocks a merge on these checks only after the owner creates the ruleset (see "Trade-off of the advisory gate") |
 | The change is not a Tier 3 item | `tier-3-gate` (CI) for the categories it can detect. For all categories the script refuses when any counted record has `tier` 3 or `default_behavior` other than `none` (see "Record validation"). Reviewers judge the rest (see "Tier 3 coverage") |
 | The author gives no decisive approval | Script (gate) and `review-gate` (advisory). No record counts when its reviewer field is `author`. The author is never one of the two reviewers |
 | Each reviewer states the evidence examined and what it left unverified | Review record fields `evidence` and `unverified`. Script and `review-gate` fail when either field is empty |
@@ -53,7 +53,7 @@ Loop step 6 is this table. The agent does not merge on "both approve and CI is g
 
 ## Review record
 
-A review record is one pull request comment. It starts with the marker line `<!-- test-kit-review -->` and holds one JSON block. Skill 1 (`vision-check`) in mode `pr` writes exactly this block. There is one schema for the skill output and the record.
+A review record is one pull request comment. It starts with the marker line `<!-- agent:review -->` (`docs/process.md`, section 5; the older `<!-- test-kit-review -->` still parses) and holds one JSON block. Skill 1 (`vision-check`) in mode `pr` writes exactly this block. There is one schema for the skill output and the record.
 
 ```json
 {
@@ -100,12 +100,12 @@ The owner chose this on 2026-10-18. The review gate is advisory only. Plainly:
 - A forged review is caught only by audit. CI does not catch it. A forged record from an account that has the association `OWNER` or `COLLABORATOR` (for example the shared account) counts. A forged record from a stranger is excluded, because only those associations count. A missing review is not an audit matter: the script refuses to merge without both records.
 - The script checks the records before it merges. The script is code that the same agent runs. So the control is the honesty of the agent, plus the audit sampling of the owner. Nothing else stops a dishonest or broken agent.
 - The merge rule in `docs/vision.md` stays the rule. This design does not weaken it. It only says which part a machine enforces and which part rests on honesty and audit.
-- Other checks are `Node 20`, `Node 22`, `Local screenshot pipeline`, `conventional-pr-title`, `tier-3-gate` and `pr-fields-check`. They are advisory for GitHub today: they block a merge only after the owner creates the ruleset below. The script refuses on them anyway (step 2 and step 6). Even then `tier-3-gate` and `pr-fields-check` only block what a machine can detect.
-- A required check on `main` needs a ruleset. On 2026-10-18 `main` had no branch protection (the GitHub API returned 404) and the repository had no rulesets (the `rulesets` API returned `[]`). The owner creates the ruleset. Until it exists, no check blocks a merge. The ruleset lists these exact check names: `Node 20`, `Node 22`, `Local screenshot pipeline` (all three in workflow `CI`) and `conventional-pr-title` (workflow `Lint PR Title`), and then `tier-3-gate` and `pr-fields-check`. `review-gate` stays out of the list.
+- Other checks are `Node 22`, `Node 24`, `Local screenshot pipeline`, `conventional-pr-title`, `tier-3-gate` and `pr-fields-check`. They are advisory for GitHub today: they block a merge only after the owner creates the ruleset below. The script refuses on them anyway (step 2 and step 6). Even then `tier-3-gate` and `pr-fields-check` only block what a machine can detect.
+- A required check on `main` needs a ruleset. On 2026-10-18 `main` had no branch protection (the GitHub API returned 404) and the repository had no rulesets (the `rulesets` API returned `[]`). The owner creates the ruleset. Until it exists, no check blocks a merge. The ruleset lists these exact check names: `Node 22`, `Node 24`, `Local screenshot pipeline` (all three in workflow `CI`) and `conventional-pr-title` (workflow `Lint PR Title`), and then `tier-3-gate` and `pr-fields-check`. `review-gate` stays out of the list.
 
 ## Record validation
 
-One module, `scripts/milestone/records.js`, parses and validates records. The merge script and the `review-gate` workflow both import it. The two parse the same way. They can still differ on content: `review-gate` applies the parse rules and the content rules that need only the records (`verdict`, `tier`, `default_behavior`, `security`, `unexpected_files`, `tests`, `risk`). It does not read the template or the diff. So the status can be `success` while the script refuses because of a template or diff rule. The script decides. The status description says "records ok; the script may still refuse". `review-gate` checks out the default branch only to load this module (this needs `contents: read`). It never checks out the pull request.
+One module, `scripts/process/records.mjs` (re-exported by `scripts/milestone/records.js`), parses and validates records. The merge script and the `review-gate` workflow both import it. The two parse the same way. They can still differ on content: `review-gate` applies the parse rules and the content rules that need only the records (`verdict`, `tier`, `default_behavior`, `security`, `unexpected_files`, `tests`, `risk`). It does not read the template or the diff. So the status can be `success` while the script refuses because of a template or diff rule. The script decides. The status description says "records ok; the script may still refuse". `review-gate` checks out the default branch only to load this module (this needs `contents: read`). It never checks out the pull request.
 
 The module returns for each reviewer `counted` (true or false) and a reason. A record is counted only when all parse rules hold. The script then applies the content rules to the two counted records and to the template in the pull request body.
 
@@ -247,7 +247,7 @@ Output: one page with the sections "Merged", "Waiting for the owner", "Verified"
 
 These replace skill text where a machine can decide.
 
-A pull request template holds fields that the author fills and that CI can check. It holds no reviewer evidence. Reviewers write evidence in their records.
+The agent record of a pull request template holds fields that the author fills and that CI can check. It holds no reviewer evidence. The part for the owner above it is a summary, and no check reads it. Reviewers write evidence in their records.
 
 ### Template fields and their checker
 

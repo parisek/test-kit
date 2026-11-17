@@ -183,7 +183,9 @@ An unsupported body or a body above the limit has a failed artifact state.
 
 Status sidecars use `status/<target>/<viewport>.json`. They hold the final HTTP
 code, final pathname, redirect pathnames, and asset request, failure, and HTTP
-error counts. Redirects have at most 20 steps. Paths have at most 2000 characters.
+error counts. When the page ends on another origin than its side, `finalOrigin`
+holds that origin (scheme, host and port only, #348). It makes no finding.
+Redirects have at most 20 steps. Paths have at most 2000 characters.
 Do not store cookies, request headers, credentials, or query strings.
 The count covers asset requests observed before response-artifact collection.
 A failed capture has availability capture-error. Its retained status sidecar
@@ -303,17 +305,18 @@ bounds steps by count and serialized size and records omissions.
 
 ## Opt-in Lighthouse extension (v0.2.0)
 
-Requirements: R6.5–R6.12, R8.7–R8.9, R9.2, R10.4, R11.6.
+Requirements: R6.5–R6.12, R6.16, R6.17, R8.7–R8.9, R9.2, R10.4, R11.6.
 
-`perf` selects explicit page IDs and a configured local HTTP side. It writes
+`perf` selects explicit page IDs and a configured local or remote side, over HTTP or HTTPS. It writes
 an initial partial manifest before browser requests, then an atomic final
 manifest. The run stores fixed viewport, user agent policy, throttling,
 three to five repeats, a discarded warmup, load state, budgets and provenance.
 An optional Lighthouse peer requires Node 22.19 or newer.
 
-The proxy and recorded page requests enforce local GET/HEAD navigation.
-Suppressed redirects and other blocked page requests fail measurement.
-HTTPS and component-scoped speed are unsupported in this extension.
+Chrome host rules allow only the own host and the hosts of `allowOrigins`.
+A blocked request is evidence (`blocked`), not a failure. A write method that
+Chrome sends, a WebSocket, a failed allowed origin and a navigation that leaves the origin fail
+the target. Component-scoped speed is unsupported.
 
 A speed comparison binds the saved side and canonical origin. It refuses
 incompatible settings, tool or browser versions, different environments and

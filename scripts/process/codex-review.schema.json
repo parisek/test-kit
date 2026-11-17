@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "principle", "tier", "requirements", "default_behavior", "evidence", "unverified", "security", "unexpected_files", "tests", "risk", "citations", "findings"],
+  "properties": {
+    "verdict": { "type": "string", "enum": ["fits", "needs-owner", "conflicts"] },
+    "principle": { "type": "integer" },
+    "tier": { "type": "integer", "enum": [1, 2, 3] },
+    "requirements": { "type": "array", "items": { "type": "string" }, "description": "R-numbers from the base specification, or [\"none\"]." },
+    "default_behavior": { "type": "string", "description": "none, or the changed default." },
+    "evidence": { "type": "array", "items": { "type": "string" }, "description": "What you read and ran." },
+    "unverified": { "type": "array", "items": { "type": "string" }, "description": "What you could not check, or [\"none\"]." },
+    "security": { "type": "string", "description": "none, or the path and the reason." },
+    "unexpected_files": { "type": "string", "description": "none, or the paths." },
+    "tests": { "type": "string", "pattern": "^(present|docs-only|none: .+)$", "description": "Exactly present, docs-only, or none: <reason>." },
+    "risk": { "type": "string", "description": "none, or one sentence." },
+    "citations": { "type": "array", "items": { "type": "string", "pattern": "^[^\\s:/][^\\s]*:[0-9]+(-[0-9]+)?$" }, "description": "One location per entry: path:line or path:start-end. Never two ranges in one entry." },
+    "findings": { "type": "array", "items": { "type": "string" }, "description": "Most severe first. Each finding cites path:line." }
+  }
+}

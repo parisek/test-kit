@@ -44,7 +44,9 @@ export function runProblem(source, current) {
   if (source.state !== 'complete') return 'state';
   if (source.side !== current.side) return 'side';
   if (current.declaration?.remote !== true || source.settings.sides[current.side]?.remote !== true) return 'remote';
-  if (!same(source.settings.sides[current.side], current.declaration)) return 'declaration';
+  // R6.16: `perfBlockPaths` changes no capture, so the comparison drops it on both sides.
+  const declared = side => (plain(side) ? (({ perfBlockPaths, ...rest }) => rest)(side) : side);
+  if (!same(declared(source.settings.sides[current.side]), declared(current.declaration))) return 'declaration';
   if (source.settingsHash !== current.settingsHash) return 'settings';
   // The whole tools list must be equal, in any order.
   if (!Array.isArray(source.tools) || !Array.isArray(current.tools) || source.tools.length !== current.tools.length) return 'tools';
@@ -60,7 +62,9 @@ export function runProblem(source, current) {
 export function entryProblem(entry, source, cell) {
   const { target, viewport, requested, provenance, recipe, settleHash } = cell;
   if (requested.includes('behavior')) return 'behavior';
-  if (!Array.isArray(source.settings.targets) || !same(source.settings.targets.find(item => item?.id === target.id), target)) return 'target';
+  // R8.17, R7.8: `expectStatus` and `expectText` change no capture, so they do not decide whether a kept cell may stand.
+  const declared = item => { if (!plain(item)) return item; const { expectStatus, expectText, ...rest } = item; return rest; };
+  if (!Array.isArray(source.settings.targets) || !same(declared(source.settings.targets.find(item => item?.id === target.id)), declared(target))) return 'target';
   if (!plain(entry) || entry.targetId !== target.id || entry.viewportId !== viewport.id || entry.state !== 'captured') return 'entry';
   if (!same(entry.recipe, recipe) || entry.settleHash !== settleHash || entry.scopeHash !== settingsHash(recipe.scope)) return 'recipe';
   const files = expectedFiles(target.id, viewport.id, requested);

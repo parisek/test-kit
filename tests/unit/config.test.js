@@ -85,6 +85,19 @@ test('a remote side may set challenge cloudflare, and it stays out of the captur
   assert.throws(() => normalizeConfig(local), /challenge requires remote true/);
 });
 
+test('a side may set perfBlockPaths for speed, and it stays out of the capture settings (R6.16, #383)', () => {
+  const source = input(); source.sides.local.perfBlockPaths = ['/analytics/*', '/wp-json/hit'];
+  const result = normalizeConfig(source);
+  assert.deepEqual(result.sides.local.perfBlockPaths, ['/analytics/*', '/wp-json/hit']);
+  assert.equal(settingsHash(captureSettings(result, 'local')), settingsHash(captureSettings(normalizeConfig(input()), 'local')));
+  const remote = input(); remote.sides.production = { origin: 'https://example.com', remote: true, perfBlockPaths: ['/a'] };
+  assert.deepEqual(normalizeConfig(remote).sides.production.perfBlockPaths, ['/a']);
+  for (const value of [[], ['analytics'], ['/a b'], ['/a', '/a'], ['/' + 'a'.repeat(200)], [1], '/a', Array.from({ length: 21 }, (_, i) => `/p${i}`)]) {
+    const bad = input(); bad.sides.local.perfBlockPaths = value;
+    assert.throws(() => normalizeConfig(bad), /Invalid configuration/, JSON.stringify(value));
+  }
+});
+
 test('per-side paths must cover every side and remain on the origin', () => {
   const source = input(); source.sides.other = { origin: 'http://localhost:8081' };
   source.targets[0] = { id: 'home', kind: 'page', paths: { local: '/', other: '/different?lang=en' } };
@@ -252,4 +265,16 @@ test('a side marks production with a boolean flag, not with its id (R6.5)', () =
     const bad = input(); bad.sides.local.production = value;
     assert.throws(() => normalizeConfig(bad), /Invalid configuration/);
   }
+});
+
+// R8.17, #349 item 4.
+test('target.expectStatus takes one HTTP status code and enters no capture settings', async () => {
+  const { normalizeConfig } = await import('../../src/config/normalize.js');
+  const { captureSettings } = await import('../../src/config/settings.js');
+  const base = { schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8000' } }, targets: [{ id: 'missing', kind: 'page', path: '/missing' }], viewports: [{ id: 'desktop', width: 1280, height: 900 }], artifacts: ['screenshot'], checks: [] };
+  const withStatus = { ...base, targets: [{ ...base.targets[0], expectStatus: 404 }] };
+  assert.equal(normalizeConfig(withStatus).targets[0].expectStatus, 404);
+  assert.equal(normalizeConfig(base).targets[0].expectStatus, undefined);
+  assert.deepEqual(captureSettings(normalizeConfig(withStatus), 'local'), captureSettings(normalizeConfig(base), 'local'));
+  for (const bad of [99, 600, 404.5, '404', null, [404]]) assert.throws(() => normalizeConfig({ ...base, targets: [{ ...base.targets[0], expectStatus: bad }] }), /expectStatus/, String(bad));
 });

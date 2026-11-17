@@ -11,6 +11,7 @@ The query command returns bounded HTML windows or HTTP metadata (R11.1).
 It requires a target, viewport, and artifact. It strips unknown sidecar fields.
 The artifacts `lint` and `a11y` are absolute results (R9.9). They need no viewport. A lint result sits at target scope. Their query returns the artifact `result`, `scope` and `evidence` path, and reads no sidecar.
 `summarizeReport` returns `pair` or `subject`, and `null` for the other (R11.6).
+Both `summary` and `query` add a `decisions` key with the count of decision entries by status (R11.9). The key appears only when the report holds an entry. `query --artifact layout` adds the `decision` label of its key to each listed difference.
 Both `summary` and `query` add an `allowlist` key with the count of allowlist entries by status (R9.12). The key appears only when the report holds an entry, so the pinned output stays the same.
 
 
@@ -21,3 +22,5 @@ use the same requested display-line cap (R11.6).
 Every `summary` and `query` answer stays under one byte limit, `OUTPUT_BYTE_LIMIT` in `bound.js` (60000 bytes, the first limit of the behavior query). It implements the size limit of R11.2. `summary` copies the documented keys of `pair`. It cuts a target id to 200 characters, ends it with an ellipsis and sets `idTruncated`, so `--target` with that id does not match. A run id of `pair` or `subject` gets the same cut with `aRunIdTruncated`, `bRunIdTruncated` or `runIdTruncated`. `query` halves the longest list of the difference first (lines, findings, steps, redirects). If the answer still does not fit, it drops the difference and sets `diffOmitted`. Only then does it cut the rules and `scope.checks`, so an oversize difference does not cost the rules. Each cut adds an omitted count (`omitted`, `checksOmitted`, `rulesOmitted`, `redirectsOmitted`).
 
 For `content`, `diff.oneSided` comes first. It holds `sides` (the side names), `lines` (`side`, `name`, `text`; at most `--max-lines`, 200 characters each) and `omittedLines`. A byte bound that halves lists must treat `oneSided.lines` as one of them. `summary` adds `lineGapTargets`, one integer, when a target has a gap (#281).
+
+`summary` adds `sizeMismatches` and `sizeMismatchesOmitted` when the two screenshots of a cell differ in size (R8.18, #390). It derives each entry from `diff.size` with `src/report/size.js` and never copies a stored value.

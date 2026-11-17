@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOKEN_FAMILIES, LAYOUT_VERSION, MAX_COLOUR_TEXT } from '../../src/layout/record.js';
+import { colour, length, firstFamily, normaliseRecord, tokenTable, tokenFor, TOKEN_FAMILIES, LAYOUT_VERSION, MAX_COLOUR_TEXT, MAX_NUMBER, radius } from '../../src/layout/record.js';
 import { compareLayout, compareRecords, sameValue, sameToken, differenceMessage } from '../../src/layout/compare.js';
-import { normalizeLayoutParts, normalizeLayoutConfig } from '../../src/layout/declaration.js';
-import { validateLayoutSnapshot } from '../../src/layout/snapshot.js';
+import { normalizeLayoutParts, normalizeLayoutConfig, partsForSide } from '../../src/layout/declaration.js';
+import { normalizeConfig } from '../../src/config/normalize.js';
+import { validateLayoutSnapshot, INVALID_LAYOUT } from '../../src/layout/snapshot.js';
 import { layoutSnapshot } from '../../src/layout/extract.js';
 
 const raw = (changes = {}) => ({
@@ -190,6 +191,30 @@ test('declarations: 1 to 50 parts, unique safe IDs, bounded selectors, boolean r
   for (const value of [null, { other: 1 }, { aliases: [] }, { aliases: { a: '--b' } }, { aliases: { '--a': 'b' } }, { aliases: { '--a': 7 } }]) assert.throws(() => normalizeLayoutConfig(value));
 });
 
+test('selectorBySide: a part may name its selector per side, validation is pure, and a side reads its own (#350, part C)', () => {
+  const declared = normalizeLayoutParts({ parts: [{ id: 'card', selector: '.card', selectorBySide: { site: '.c', design: '[data-part=card]' }, repeat: true }, { id: 'title', selector: 'h1' }] }, ['site', 'design']);
+  // The keys are sorted, so two equal maps give one stored form.
+  assert.deepEqual(declared.parts[0], { id: 'card', selector: '.card', selectorBySide: { design: '[data-part=card]', site: '.c' }, repeat: true });
+  assert.deepEqual(partsForSide(declared, 'design'), { parts: [{ id: 'card', selector: '[data-part=card]', repeat: true }, { id: 'title', selector: 'h1' }] });
+  assert.deepEqual(partsForSide(declared, 'site').parts[0].selector, '.c');
+  // A side that the map does not name falls back to the selector of the part.
+  assert.deepEqual(partsForSide(declared, 'other').parts[0].selector, '.card');
+  // `__proto__` and other inherited names are not entries of the map.
+  assert.equal(partsForSide(normalizeLayoutParts({ parts: [{ id: 'a', selector: 'a', selectorBySide: { site: 'b' } }] }), 'toString').parts[0].selector, 'a');
+  const part = selectorBySide => ({ parts: [{ id: 'a', selector: 'a', selectorBySide }] });
+  for (const value of [null, [], 'x', {}, { '../x': 'a' }, { site: '' }, { site: 'a\n' }, { site: 'x'.repeat(2049) }, { site: 7 },
+    Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`s${i}`, 'a']))]) assert.throws(() => normalizeLayoutParts(part(value)), JSON.stringify(value)?.slice(0, 60));
+  // With the side list, an unknown side fails. Without it (a stored declaration), only the form of a key counts.
+  assert.throws(() => normalizeLayoutParts(part({ elsewhere: 'a' }), ['site']), /unknown side elsewhere/);
+  assert.deepEqual(normalizeLayoutParts(part({ elsewhere: 'a' })).parts[0].selectorBySide, { elsewhere: 'a' });
+  const config = side => ({ schemaVersion: 1, sides: { site: { origin: 'http://127.0.0.1:1' } }, viewports: [{ id: 'wide', width: 800, height: 600 }],
+    targets: [{ id: 'home', kind: 'page', path: '/', layout: part({ [side]: '.x' }) }] });
+  assert.equal(normalizeConfig(config('site')).targets[0].layout.parts[0].selectorBySide.site, '.x');
+  assert.throws(() => normalizeConfig(config('nowhere')), /unknown side nowhere/);
+  // A declaration without the key normalises to the same object as before.
+  assert.deepEqual(normalizeLayoutParts({ parts: [{ id: 'a', selector: 'a' }] }), { parts: [{ id: 'a', selector: 'a' }] });
+});
+
 test('a stored layout file is untrusted: any shape outside the bounds refuses the whole file', () => {
   const record = normaliseRecord(raw(), table);
   const good = snapshot([part('card', [record], true), part('title', [record])]);
@@ -219,6 +244,105 @@ test('a stored layout file is untrusted: any shape outside the bounds refuses th
   for (const value of bad) assert.throws(() => validateLayoutSnapshot(value));
   // A repeat may count more elements than it stores: the first 50 are kept.
   assert.equal(validateLayoutSnapshot(snapshot([part('a', Array(50).fill(record), true, 80)])).parts[0].count, 80);
+});
+
+test('a radius above the bound is stored as the bound, so two fully rounded corners match (#384, R6.14)', () => {
+  assert.equal(MAX_NUMBER, 1_000_000);
+  assert.equal(radius('1000000px'), MAX_NUMBER);
+  assert.equal(radius('999999.999px'), 999999.999, 'A radius at or below the bound keeps its 3 decimals.');
+  assert.equal(radius('1000000.001px'), MAX_NUMBER);
+  // `calc(infinity * 1px)` computes to 33554400px in Chromium.
+  assert.equal(radius('33554400px'), MAX_NUMBER);
+  assert.equal(radius('1e300px'), MAX_NUMBER);
+  assert.equal(radius('1e400px'), null, 'A value that is not finite stays unmeasured.');
+  assert.equal(radius('8px'), 8);
+  // CSS has no negative radius, so only the upper bound applies: a negative value is not changed.
+  assert.equal(radius('-2000000px'), -2000000);
+  // Two radii above the bound have one stored form, so they compare equal, and the file validates.
+  const full = normaliseRecord(raw({ borderTopLeftRadius: '33554400px' }), table);
+  const other = normaliseRecord(raw({ borderTopLeftRadius: '2000000px' }), table);
+  assert.equal(full.paint.radius, MAX_NUMBER);
+  assert.deepEqual(compareRecords('pill', full, other), []);
+  assert.deepEqual(validateLayoutSnapshot(snapshot([part('pill', [full])])).parts[0].records[0], full);
+  // A radius token above the bound takes the same stored form, so it still names a fully rounded corner.
+  assert.equal(normaliseRecord(raw({ borderTopLeftRadius: '33554400px' }), tokenTable([{ name: '--radius-full', length: '33554400px', colour: null }])).tokens['paint.radius'], '--radius-full');
+});
+
+test('only a radius takes the bound: every other number above it stays, and the reader refuses the file (#384, R6.14)', () => {
+  // A length that is no radius keeps its value. Failed evidence never becomes a match (vision principle 1, R8.7).
+  assert.equal(length('33554400px'), 33554400);
+  const cases = [
+    ['box.height', { rect: { width: 100, height: 1_200_000 } }],
+    ['layout.gap', { columnGap: '2000000px' }],
+    ['layout.padding[0]', { paddingTop: '2000000px' }],
+    ['type.letterSpacing', { letterSpacing: '2000000px' }],
+    ['paint.borderWidth', { borderTopWidth: '2000000px' }],
+    ['box.width', { rect: { width: 1_200_000, height: 48 } }],
+    ['type.size', { fontSize: '2000000px' }],
+    ['type.weight', { fontWeight: '2000000' }],
+    // A line height of 2000px over a font size of 0.001px is a ratio of 2000000.
+    ['type.lineHeight', { fontSize: '0.001px', lineHeight: '2000px' }],
+  ];
+  for (const [property, changes] of cases) {
+    const record = normaliseRecord(raw(changes), table);
+    const [group, key] = property.replace(/\[\d\]$/, '').split('.');
+    assert.ok(Math.abs([record[group][key]].flat()[0]) > MAX_NUMBER, `${property} is stored unbounded.`);
+    assert.throws(() => validateLayoutSnapshot(snapshot([part('box', [record])])), new RegExp(`part box, property ${property.replace(/[[\]]/g, '\\$&')}, value`), property);
+  }
+  // Two box heights above the bound are not made equal: each record keeps its own value.
+  const a = normaliseRecord(raw({ rect: { width: 100, height: 1_200_000 } }), table);
+  const b = normaliseRecord(raw({ rect: { width: 100, height: 2_400_000 } }), table);
+  assert.equal(a.box.height, 1_200_000);
+  assert.notDeepEqual(compareRecords('box', a, b), []);
+  // A token that is no radius keeps its length, so it never names a value it does not have.
+  const tokens = tokenTable([{ name: '--spacing-huge', length: '33554400px', colour: null }, { name: '--radius-full', length: '33554400px', colour: null }]);
+  assert.equal(tokens.find(item => item.name === '--spacing-huge').length, 33554400);
+  assert.equal(tokenFor('layout.gap', MAX_NUMBER, tokens), null);
+  assert.equal(tokenFor('paint.radius', MAX_NUMBER, tokens), '--radius-full');
+  // A name that fits the radius family and another family takes the bound only for the radius.
+  // For the gap and the size it keeps its own length, so it names no value it does not have.
+  const both = tokenTable([{ name: '--gap-radius', length: '33554400px', colour: null }, { name: '--text-rounded', length: '33554400px', colour: null }]);
+  assert.equal(tokenFor('layout.gap', MAX_NUMBER, both), null);
+  assert.equal(tokenFor('type.size', MAX_NUMBER, both), null);
+  assert.equal(tokenFor('layout.gap', 33554400, both), '--gap-radius');
+  assert.equal(tokenFor('paint.radius', MAX_NUMBER, both), '--gap-radius');
+});
+
+test('known gap: the record reads only the top-left radius, so two boxes with another large corner can match (owner decision, 2026-11-11, #384)', () => {
+  // When the corners overflow a side, CSS scales all radii of a box by one factor. In Chromium a 400x400 box with a
+  // top-left radius of 3000000px renders differently from one with 2000000px when another corner, adjacent or opposite,
+  // is large against the box (500000px or more). Both top-left radii store the bound.
+  // This test pins the documented behaviour, so a change to it is deliberate.
+  const a = normaliseRecord(raw({ borderTopLeftRadius: '3000000px' }), table);
+  const b = normaliseRecord(raw({ borderTopLeftRadius: '2000000px' }), table);
+  assert.equal(a.paint.radius, MAX_NUMBER);
+  assert.deepEqual(compareRecords('pill', a, b), []);
+});
+
+test('a refused layout file names the part, the property and the value, and is still refused as a whole (#384, R6.14)', () => {
+  const record = normaliseRecord(raw(), table);
+  const refusal = value => { try { validateLayoutSnapshot(value); } catch (error) { return error; } assert.fail('The file was accepted.'); };
+  const pill = { ...record, paint: { ...record.paint, radius: 33554400 } };
+  const error = refusal(snapshot([part('text', [record]), part('pill', [pill])]));
+  assert.equal(error.code, INVALID_LAYOUT);
+  assert.equal(error.message, 'Invalid layout snapshot: part pill, property paint.radius, value 33554400 (the bound is 1000000).');
+  // A repeat names the index of the record.
+  assert.equal(refusal(snapshot([part('card', [record, pill], true)])).message,
+    'Invalid layout snapshot: part card[1], property paint.radius, value 33554400 (the bound is 1000000).');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, layout: { ...record.layout, padding: [0, 0, -2e6, 0] } }])])).message,
+    'Invalid layout snapshot: part a, property layout.padding[2], value -2000000 (the bound is 1000000).');
+  // Text from the file never enters the message: a bad part ID gives its index, a bad value gives its type.
+  assert.equal(refusal(snapshot([part('<script>', [record])])).message, 'Invalid layout snapshot: part at index 0 has an invalid shape.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, paint: { ...record.paint, color: 'RED<b>' } }])])).message,
+    'Invalid layout snapshot: part a, property paint.color, value a string.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, paint: { ...record.paint, radius: {} } }])])).message,
+    'Invalid layout snapshot: part a, property paint.radius, value an object.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, paint: { ...record.paint, radius: true } }])])).message,
+    'Invalid layout snapshot: part a, property paint.radius, value a boolean.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, box: { width: Infinity, height: 1 } }])])).message,
+    'Invalid layout snapshot: part a, property box.width, value Infinity.');
+  assert.equal(refusal(snapshot([part('a', [{ ...record, extra: {} }])])).message, 'Invalid layout snapshot: part a, property record.');
+  assert.equal(refusal({ schemaVersion: 2 }).message, 'Invalid layout snapshot.');
 });
 
 test('the snapshot builder turns raw page values into the stored shape', () => {

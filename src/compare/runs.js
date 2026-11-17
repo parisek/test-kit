@@ -15,6 +15,7 @@ import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS, LAYOUT_CHECK, LAYOUT_CHECK_ID } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
+import { sizeMismatch } from '../report/size.js';
 import { warningsForRow } from '../report/warnings.js';
 import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
@@ -22,6 +23,8 @@ import { isDesignRun, designPairProblem } from '../design/compare.js';
 import { sha256 } from '../design/png.js';
 import { absoluteFingerprints } from '../allowlist/fingerprint.js';
 import { allowlistForReport, normalizeAllowlist } from '../allowlist/model.js';
+import { normalizeDecisions, decisionsForReport, decisionLabel } from '../decisions/model.js';
+import { decisionFingerprint, checkFingerprints } from '../decisions/fingerprint.js';
 
 // The text of a status finding: each differing field with both values, bounded in size.
 // A path is cut around the first character where A and B differ. A chain shows the steps around its first differing step.
@@ -131,9 +134,12 @@ function effectiveSettings(run) {
 	return JSON.stringify({ viewports: run.settings?.viewports, settle: run.settings?.sides?.[run.side]?.settle, screenshot: run.settings?.screenshot });
 }
 
-function available(capture) {
+// R8.17: a target may name the one status it answers on purpose. That status reads `ok`, any other status from 400 up stays `http-error`.
+export function available(capture, expectStatus) {
 	if (capture?.state === 'failed') return 'capture-error';
-	return capture?.statusCode == null ? 'unknown' : capture.statusCode >= 400 ? 'http-error' : 'ok';
+	if (capture?.statusCode == null) return 'unknown';
+	if (Number.isInteger(expectStatus) && capture.statusCode === expectStatus) return 'ok';
+	return capture.statusCode >= 400 ? 'http-error' : 'ok';
 }
 
 // R8.9: a pair that is incompatible names each differing setting and both values, so a person finds the cause.
@@ -224,16 +230,36 @@ export function comparisonState(a, b, runA, runB) {
 	return 'complete';
 }
 
-export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind: kindInput, rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput, allowlistEntries = [], now = new Date() }) {
+export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, kind: kindInput, rules: inputRules, known_diffs: inputKnown, contentChecks, contentExpectedLanguage, failOnBudget = false, filter: filterInput, allowlistEntries = [], decisionEntries = [], now = new Date() }) {
 	const rules = normalizeRules(inputRules), known_diffs = normalizeKnown(inputKnown);
 	if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new Error('now must be a valid Date.');
 	// R9.12: a bad allowlist fails the run before the output directory exists. It never falls back to an empty list.
 	const allowlist = normalizeAllowlist({ schemaVersion: 1, entries: allowlistEntries }).entries;
+	// R9.14: a bad decisions list fails the run before the output directory exists, as the allowlist does.
+	const decisionList = checkFingerprints(normalizeDecisions({ schemaVersion: 1, entries: decisionEntries }).entries);
 	const key = pairKey(aId, bId);
 	const a = await readRun(runsRoot, aId);
 	const b = await readRun(runsRoot, bId);
 	// R8.15: a pair with a design run reads as a convergence pair unless the caller names a kind.
 	const kind = kindInput ?? (isDesignRun(a) || isDesignRun(b) ? 'convergence' : 'update');
+	// R3.12: `drift` is what changed in a design between two imports of one design side. Any other pair is refused
+	// before the output directory exists, so the kind never names a pair it does not describe.
+	if (kind === 'drift' && !(isDesignRun(a) && isDesignRun(b) && a.side === b.side)) throw new Error('A drift pair needs two design runs of the same design side.');
+	// R3.12: run B gives the design value (R9.14), so run A must be the earlier import. A reversed pair would bind the
+	// older value. The time is the `at` of each run.json. The message prints the parsed time, never the stored text.
+	if (kind === 'drift') {
+		const time = (run) => {
+			const value = typeof run.at === 'string' ? Date.parse(run.at) : Number.NaN;
+			if (Number.isNaN(value)) throw new Error(`A drift pair needs the import time of each run. Run ${run.id} has no valid time.`);
+			return value;
+		};
+		const timeA = time(a), timeB = time(b);
+		if (timeA >= timeB) throw new Error(`A drift pair needs the earlier import as run A. Run A ${a.id} is from ${new Date(timeA).toISOString()} and run B ${b.id} is from ${new Date(timeB).toISOString()}. Give the earlier run first.`);
+	}
+	// R9.14: the design side of the pair gives the design value of a layout difference. In a drift pair both runs are
+	// design runs, and run B is the newer design. A pair without a design run has no design value and takes no decision.
+	const designSide = isDesignRun(b) ? 'b' : isDesignRun(a) ? 'a' : null;
+	const layoutCells = new Map();
 	const { PNG } = await import('pngjs');
 	const { default: pixelmatch } = await import('pixelmatch');
 	const { extractRegions } = await import('./regions.js');
@@ -264,7 +290,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			compared++;
 			const ac = a.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
 			const bc = b.captures.find((item) => item.targetId === target.id && item.viewportId === viewport.id);
-			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac), b: available(bc) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
+			const row = { id: viewport.id, state: comparisonState(ac, bc, a, b), availability: { a: available(ac, target.expectStatus), b: available(bc, target.expectStatus) }, artifacts: { screenshot: { a: null, b: null, diff: null } } };
 			// R3.8: a remote side aborts subresources of other origins. Carry the record to the report.
 			const dropped = droppedForRow(ac, bc);
 			if (dropped) row.dropped = dropped;
@@ -312,6 +338,9 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				await writeFile(join(output, src), PNG.sync.write(diff));
 				row.ratio = ratio;
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
+				// R8.18, #390: `ratio` counts the white padding of the smaller image as a match. The size signal names the change.
+				const mismatch = sizeMismatch(row.artifacts.screenshot.diff.size);
+				if (mismatch) row.artifacts.screenshot.diff.sizeMismatch = mismatch;
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
 			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b, ac, bc) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
@@ -344,7 +373,17 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 			// R6.15: a target with layout parts. A target without them has no layout artifact.
 			if (requested.has('layout')) {
 				const layout = await compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, targetId: target.id, viewportId: viewport.id });
-				if (layout) { row.artifacts.layout = layout.artifact; checks[LAYOUT_CHECK_ID] ??= { ...LAYOUT_CHECK }; findings.push(...layout.findings); }
+				if (layout) {
+					row.artifacts.layout = layout.artifact; checks[LAYOUT_CHECK_ID] ??= { ...LAYOUT_CHECK };
+					if (designSide) {
+						// R9.14: the fingerprint of each design value, for the full list. A finding carries the one of its difference.
+						const differences = (layout.differences ?? []).map(item => ({ part: item.part, property: item.property, designValue: item[designSide],
+							fingerprint: decisionFingerprint({ targetId: target.id, viewportId: viewport.id, part: item.part, property: item.property, designValue: item[designSide] }) }));
+						layoutCells.set(`${target.id}\u0000${viewport.id}`, { state: layout.artifact.state, differences });
+						layout.findings.forEach((finding, index) => { finding.designFingerprint = differences[index].fingerprint; });
+					}
+					findings.push(...layout.findings);
+				}
 			}
 			if (requested.has('lighthouse')) {
 				const budgets = b.performance?.budgets ?? {};
@@ -429,6 +468,18 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 	const copied = allowlistForReport(allowlist, report, now);
 	if (copied.allowlist.length) report.allowlist = copied.allowlist;
 	if (copied.omitted) report.meta.allowlistOmitted = copied.omitted;
+	// R9.14: the producer decides the status of each decision once. A finding gets the label of its key. Only the
+	// classifier decides what explains: an active `report-only` entry with the fingerprint of the finding.
+	if (designSide) {
+		const decided = decisionsForReport(decisionList, layoutCells);
+		if (decided.decisions.length) report.decisions = decided.decisions;
+		if (decided.omitted) report.meta.decisionsOmitted = decided.omitted;
+		for (const finding of findings) {
+			if (finding.artifact !== 'layout' || !finding.designFingerprint) continue;
+			const label = decisionLabel(decided.decisions, { ...finding, fingerprint: finding.designFingerprint });
+			if (label) finding.decision = label;
+		}
+	}
 	const problems = validateReport(report);
 	if (problems.length) throw new Error(problems.join(' '));
 	const reportPath = join(output, 'report.json');

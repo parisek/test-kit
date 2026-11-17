@@ -1,4 +1,4 @@
-// The Node floor must read the same in package.json, the CI Node 20 job, AGENTS.md and the preflight script.
+// The Node floor must read the same in package.json, the CI job of the lowest Node version, AGENTS.md and the preflight script.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

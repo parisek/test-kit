@@ -14,6 +14,8 @@ import { resolve, relative, isAbsolute, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { MAX_DESIGN_BYTES, sha256 } from './png.js';
 import { PROJECT_DIR, RUNTIME_FILE, RENDER_STATE, STILL_STYLE, NO_SOCKETS_SCRIPT, chromiumArgs, servedPathProblem, contentType, captureClip } from './claude-design-refs.js';
+import { extractLayoutSnapshot } from '../layout/extract.js';
+import { MAX_LAYOUT_BYTES } from '../layout/snapshot.js';
 
 const require = createRequire(import.meta.url);
 
@@ -178,12 +180,28 @@ export async function loadChromium() {
 
 const artboardUrl = (base, artboard) => `${base}/${artboard.split('/').map(encodeURIComponent).join('/')}`;
 
+// Read the layout records of one cell (R6.14, #350 part C). Same extractor and normalisation as a browser capture.
+// It runs after the screenshot, so its probe element cannot change the pixels. A failure fails the import:
+// a design run is all-or-nothing (R4.6), so it never holds a failed artifact.
+async function readLayout(page, layout, name) {
+  let snapshot;
+  try { snapshot = await extractLayoutSnapshot(page, layout); } catch (error) {
+    if (error?.code === 'LAYOUT_SELECTOR_INVALID') throw new Error(`${error.message.replace(/\.$/, '')} for ${name}.`);
+    throw new Error(`Layout record is unavailable for ${name}.`);
+  }
+  const bytes = Buffer.from(JSON.stringify(snapshot));
+  if (bytes.length > MAX_LAYOUT_BYTES) throw new Error(`Layout record exceeds ${MAX_LAYOUT_BYTES} bytes for ${name}.`);
+  return bytes;
+}
+
 // Render one cell. Throws an Error that names the target, the viewport and the reference.
+// `layout`, when set, is the declaration of the parts as this side reads them (`partsForSide`). The cell then also
+// returns the layout records, read from the same page after the screenshot.
 // One deadline of `timeoutMs` covers the whole cell: the new page, the load, the readiness wait, the style tag, the
 // font and frame wait, the box read and the screenshot. `page.evaluate` takes no timeout, so the deadline is a timer
 // that closes the page and fails the cell. Each step that takes a timeout gets the time left. The readiness wait
 // keeps a short reserve, so its diagnostic read still runs before the deadline.
-async function renderCell(context, base, { target, viewport, artboard, selector, source }, timeoutMs) {
+async function renderCell(context, base, { target, viewport, artboard, selector, source, layout = null }, timeoutMs) {
   const name = `target ${target.id}, viewport ${viewport.id}: ${source}`;
   const deadline = Date.now() + timeoutMs;
   const left = () => Math.max(1, deadline - Date.now());
@@ -251,8 +269,10 @@ async function renderCell(context, base, { target, viewport, artboard, selector,
     const clip = captureClip(viewport.width, box);
     if (!clip) throw new Error(`The artboard area of ${name} has no height.`);
     const bytes = await page.screenshot({ type: 'png', clip, fullPage: true, animations: 'disabled', caret: 'hide', timeout: left() });
+    const layoutBytes = layout ? await readLayout(page, layout, name) : null;
+    // One check after both reads: the screenshot and the layout records come from the loaded document.
     if (!(await sameDocument())) throw away();
-    return bytes;
+    return { bytes, layoutBytes };
   };
   try {
     return await Promise.race([steps(), late]);
@@ -289,7 +309,7 @@ export async function renderCanvas({ canvas, cells, timeoutMs, chromium }) {
           blocked++;
           return route.abort('blockedbyclient');
         });
-        for (const cell of cells.filter(item => item.viewport.id === viewport.id)) images.push({ ...cell, bytes: await renderCell(context, server.base, cell, timeoutMs) });
+        for (const cell of cells.filter(item => item.viewport.id === viewport.id)) images.push({ ...cell, ...(await renderCell(context, server.base, cell, timeoutMs)) });
       } finally { await context.close().catch(() => {}); }
     }
     return { images, blocked, served: server.stats.requests, version: browser.version() };

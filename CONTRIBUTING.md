@@ -6,7 +6,7 @@
 npm test
 ```
 
-The suite needs Node 20.19 or newer and nothing else. CI runs it on Node 20.19 and 22.
+The suite needs Node 22.19 or newer and nothing else. CI runs it on Node 22.19 and 24.
 
 ## Add a test
 

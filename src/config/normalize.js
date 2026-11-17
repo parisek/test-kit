@@ -79,6 +79,17 @@ function allowOrigins(value, name) {
   unique(result.map(entry => entry.origin), `${name} origin`);
   return result;
 }
+// R6.16 (#383): paths of the own origin that a speed run blocks, for example a first-party analytics endpoint.
+// Each path is a Lighthouse URL pattern after the origin: it starts with "/" and may hold "*". Capture ignores the key.
+const PERF_BLOCK_PATHS_MAX = 20;
+function perfBlockPaths(value, name) {
+  const items = dense(list(value, name, PERF_BLOCK_PATHS_MAX, 1), name);
+  for (const [index, path] of items.entries()) {
+    if (typeof path !== 'string' || !/^\/[\x21-\x7e]{0,199}$/.test(path)) fail(`${name}[${index}] must start with "/" and hold 1..200 printable ASCII characters without spaces`);
+  }
+  unique(items, name);
+  return [...items];
+}
 function targetPath(value, name) {
   text(value, name, 2000);
   if (!value.startsWith('/') || value.startsWith('//') || /[\\\s]/.test(value)) fail(`${name} must be origin-relative`);
@@ -197,7 +208,7 @@ export function normalizeConfig(input) {
     id(sideId, 'side ID');
     // R5.5: a side with a `kind` key is a design side. A side without it is a browser side, as before.
     if (side && typeof side === 'object' && !Array.isArray(side) && Object.hasOwn(side, 'kind')) return [sideId, normalizeDesignSide(side, `sides.${sideId}`)];
-    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins', 'thirdParty']);
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins', 'thirdParty', 'role', 'perfBlockPaths']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
     // R6.5: the flag, not the side id, marks a production side.
     if (Object.hasOwn(side, 'production') && typeof side.production !== 'boolean') fail(`sides.${sideId}.production must be a boolean`);
@@ -208,13 +219,17 @@ export function normalizeConfig(input) {
     if (Object.hasOwn(side, 'challenge') && side.challenge !== 'cloudflare') fail(`sides.${sideId}.challenge must be "cloudflare"`);
     // R3.10: the mode for a frame or subresource of another origin. Both sides accept it.
     if (Object.hasOwn(side, 'thirdParty') && !['block', 'drop'].includes(side.thirdParty)) fail(`sides.${sideId}.thirdParty must be "block" or "drop"`);
+    // R3.11, #387: the role of a side in a pair. A reference side against a local side gives `convergence`.
+    if (Object.hasOwn(side, 'role') && side.role !== 'reference') fail(`sides.${sideId}.role must be "reference"`);
     return [sideId, { origin: origin(side.origin, `sides.${sideId}.origin`, remote),
       ...(remote ? { remote: true } : {}),
       ...(Object.hasOwn(side, 'userAgent') ? { userAgent: userAgent(side.userAgent, `sides.${sideId}.userAgent`) } : {}),
       ...(Object.hasOwn(side, 'challenge') ? { challenge: side.challenge } : {}),
       ...(Object.hasOwn(side, 'allowOrigins') ? { allowOrigins: allowOrigins(side.allowOrigins, `sides.${sideId}.allowOrigins`) } : {}),
       ...(Object.hasOwn(side, 'thirdParty') ? { thirdParty: side.thirdParty } : {}),
+      ...(Object.hasOwn(side, 'perfBlockPaths') ? { perfBlockPaths: perfBlockPaths(side.perfBlockPaths, `sides.${sideId}.perfBlockPaths`) } : {}),
       ...(side.production === true ? { production: true } : {}),
+      ...(side.role === 'reference' ? { role: 'reference' } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
   }));
   // R5.5: one map serves every design side, so all design sides share one provider (paths, node IDs and artboard references do not mix).
@@ -224,7 +239,7 @@ export function normalizeConfig(input) {
   const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
   if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');
   const targets = list(targetSource ? [] : input.targets, 'targets', 1000, targetSource ? 0 : 1).map(target => {
-    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design', 'layout']);
+    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design', 'layout', 'expectStatus', 'expectText']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
     const result = { id: targetId, kind: target.kind, title: text(target.title ?? targetId, 'target.title') };
@@ -259,9 +274,23 @@ export function normalizeConfig(input) {
       if (!designProviders.length) fail('target.design needs a side of kind "design"');
       result.design = normalizeDesignMap(target.design, designProviders[0]);
     }
+    // R8.17, #349 item 4: the one HTTP status that this target answers on purpose (for example a 404 page). It enters no hash.
+    if (target.expectStatus !== undefined) {
+      if (!Number.isInteger(target.expectStatus) || target.expectStatus < 100 || target.expectStatus > 599) fail('target.expectStatus must be an HTTP status code from 100 to 599');
+      result.expectStatus = target.expectStatus;
+    }
+    // R7.8, #378: strings that the page of this target must contain. The key enters no hash.
+    if (target.expectText !== undefined) {
+      if (!Array.isArray(target.expectText) || target.expectText.length < 1 || target.expectText.length > 20) fail('target.expectText must be a list of 1 to 20 strings');
+      result.expectText = target.expectText.map(value => {
+        if (typeof value !== 'string' || !value.length || value.length > 500 || /[\x00-\x1f\x7f]/.test(value)) fail('target.expectText entries must be text of 1 to 500 characters without control characters');
+        return value;
+      });
+      if (new Set(result.expectText).size !== result.expectText.length) fail('target.expectText entries must be unique');
+    }
     // R6.14: the parts of the layout artifact. The key is optional and enters no hash.
     if (target.layout !== undefined) {
-      try { result.layout = normalizeLayoutParts(target.layout); } catch (error) { fail(error.message); }
+      try { result.layout = normalizeLayoutParts(target.layout, Object.keys(sides)); } catch (error) { fail(error.message); }
     }
     return result;
   });
@@ -284,7 +313,7 @@ export function normalizeConfig(input) {
   const artifacts = list(input.artifacts ?? DEFAULT_ARTIFACTS, 'artifacts', CAPTURE_ARTIFACTS.length, 1);
   if (artifacts.some(kind => !CAPTURE_ARTIFACTS.includes(kind))) fail('unsupported artifact');
   unique(artifacts, 'artifact');
-  const checks = list(input.checks ?? [], 'checks', 6).map(value => id(value, 'check ID'));
+  const checks = list(input.checks ?? [], 'checks', Object.keys(builtinChecks).length).map(value => id(value, 'check ID'));
   unique(checks, 'check');
   if (checks.some(check => !Object.hasOwn(builtinChecks, check))) fail('unknown content check');
   if (checks.length && !artifacts.includes('content')) fail('checks require the content artifact');

@@ -1,7 +1,7 @@
-import { isLocalUrl } from '../capture/helpers.js';
 import { settingsHash } from '../config/settings.js';
-import { METRICS, performanceSettings, summarizeSamples } from './core.js';
-export { METRICS, performanceSettings, summarizeSamples } from './core.js';
+import { METRICS, rebuildPerformanceSettings, summarizeSamples } from './core.js';
+import { storedBlocked } from './isolation.js';
+export { METRICS, performanceSettings, rebuildPerformanceSettings, networkPolicy, summarizeSamples } from './core.js';
 export { validatePerformanceComparison } from './schema.js';
 
 export function performanceProvenance(settings, version, browserVersion) {
@@ -90,37 +90,13 @@ export function comparePerformance(a, b, { environmentA, environmentB, budgets =
   return { compatible: true, metrics, findings, exitCode: failOnBudget && findings.some(finding => finding.cause === 'performance-budget') ? 1 : 0 };
 }
 
-export function assertPerformanceNetwork(events, blockedRequests = []) {
-  const canonicalUrl = value => {
-    try { const url = new URL(value); url.hash = ''; return url.href; } catch { return null; }
-  };
-  const blockedUrls = new Set(blockedRequests.map(request => canonicalUrl(request.url)).filter(Boolean));
-  if (!Array.isArray(events)) throw new Error('Performance request evidence is unavailable.');
-  for (const event of events) {
-    if (event.method === 'Network.responseReceived' && Object.entries(event.params?.response?.headers ?? {})
-      .some(([key, value]) => key.toLowerCase() === 'x-test-kit-proxy-blocked' && String(value) === '1')) {
-      throw new Error('Performance proxy blocked a measured page response.');
-    }
-    if (event.method === 'Network.webSocketCreated') throw new Error('Performance WebSocket request is unsupported.');
-    if (event.method !== 'Network.requestWillBeSent') continue;
-    const request = event.params?.request;
-    const url = new URL(request.url);
-    if (blockedUrls.has(canonicalUrl(request.url))) throw new Error('Performance proxy blocked a measured page request.');
-    if (['data:', 'blob:'].includes(url.protocol)) continue;
-    if (!isLocalUrl(url.href) || url.protocol !== 'http:' || !['GET', 'HEAD'].includes(request.method)) {
-      throw new Error('Performance blocked a page request outside the local HTTP policy.');
-    }
-  }
-}
-
 export function validatePerformanceSnapshot(value) {
   if (!value || value.kind !== 'lighthouse' || value.state !== 'captured' || value.tool !== 'lighthouse'
     || typeof value.version !== 'string' || !value.version || value.version.length > 200
     || typeof value.browserVersion !== 'string' || !value.browserVersion || value.browserVersion === 'unknown' || value.browserVersion.length > 200
     || typeof value.suspect !== 'boolean') throw new Error('Invalid performance snapshot provenance.');
   const input = value.settings;
-  const settings = performanceSettings({ runs: input?.runs, formFactor: input?.formFactor,
-    throttling: input?.throttlingMethod === 'simulate' ? 'simulated' : input?.throttlingMethod });
+  const settings = rebuildPerformanceSettings(input);
   if (settingsHash(input) !== settingsHash(settings)
     || performanceProvenance(settings, value.version, value.browserVersion).settingsHash !== value.settingsHash) throw new Error('Performance settings do not match their hash.');
   const samples = Array.from({ length: settings.runs }, (_, index) => Object.fromEntries(Object.keys(METRICS)
@@ -130,7 +106,7 @@ export function validatePerformanceSnapshot(value) {
   if (!Array.isArray(value.reports) || value.reports.length !== settings.runs) throw new Error('Performance raw reports are incomplete.');
   return { kind: 'lighthouse', state: 'captured', tool: value.tool, version: value.version,
     browserVersion: value.browserVersion, settingsHash: value.settingsHash, settings, metrics, suspect: value.suspect,
-    ...(value.load && typeof value.load === 'object' ? { load: value.load } : {}), reports: value.reports };
+    ...(value.load && typeof value.load === 'object' ? { load: value.load } : {}), reports: value.reports, ...storedBlocked(value) };
 }
 
 

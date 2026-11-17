@@ -2,7 +2,7 @@
 
 Requirements: R10.1, R10.7, R13.5, R13.28.
 
-Use Node 22.18 or later. The engine still supports Node 20.
+Use Node 22.18 or later. The engine needs Node 22.19 or later.
 
 ```sh
 npm ci --prefix frontend

@@ -13,9 +13,8 @@ test('performance CLI plan selects only explicit page IDs and applies side paths
   assert.equal(planPerfCommand(config, { side: 'local', targetIds: ['home'], formFactor: 'mobile' }).viewport.id, 'performance');
   assert.deepEqual(config.artifacts, ['screenshot']);
 });
-test('performance CLI plan rejects missing, duplicate, unknown, component and HTTPS selections', () => {
+test('performance CLI plan rejects missing, duplicate, unknown and component selections', () => {
   for (const targetIds of [undefined, [], ['home', 'home'], ['unknown'], ['button']]) assert.throws(() => planPerfCommand(config, { side: 'local', targetIds }));
-  assert.throws(() => planPerfCommand(config, { side: 'other', targetIds: ['home'] }), /HTTPS/);
   assert.throws(() => planPerfCommand(config, { side: 'missing', targetIds: ['home'] }));
   assert.throws(() => planPerfCommand(config, { side: 'local', targetIds: ['home'], budgets: { lcp_ms: -1 } }));
 });
@@ -28,9 +27,23 @@ test('performance CLI plan on a production side waits for consent for one target
   const named = { ...config, sides: { production: { origin: 'http://localhost:8080' } } };
   assert.equal(planPerfCommand(named, { side: 'production', targetIds: ['home'] }).cost.targets, 1);
 });
-test('performance CLI plan refuses a remote side, also with a local HTTP origin and consent (R3.3)', () => {
-  for (const origin of ['http://localhost:8080', 'https://example.com']) {
-    const remote = { ...config, sides: { live: { origin, remote: true } } };
-    assert.throws(() => planPerfCommand(remote, { side: 'live', targetIds: ['home'], consent: true }), /refuses a remote side/);
-  }
+test('performance CLI plan accepts a local HTTPS side (R6.16, #383)', () => {
+  const plan = planPerfCommand(config, { side: 'other', targetIds: ['home'] });
+  assert.deepEqual(plan.urls, [{ id: 'home', url: 'https://localhost:8443/' }]);
+  assert.deepEqual(plan.network, { origin: 'https://localhost:8443', remote: false, allowOrigins: [], blockPaths: [] });
+  assert.deepEqual(plan.settings.networkPolicy, { version: 'host-allowlist-v1' });
+});
+test('performance CLI plan measures a remote side; production waits for consent (R3.3, R6.5, #383)', () => {
+  const side = { origin: 'https://example.com', remote: true, userAgent: 'example-agent/1.0', challenge: 'cloudflare',
+    allowOrigins: [{ origin: 'https://fonts.example.net', types: ['font'] }], perfBlockPaths: ['/analytics/*'] };
+  const remote = { ...config, sides: { live: side } };
+  const plan = planPerfCommand(remote, { side: 'live', targetIds: ['home'] });
+  assert.deepEqual(plan.network, { origin: 'https://example.com', remote: true, allowOrigins: ['https://fonts.example.net'],
+    blockPaths: ['/analytics/*'], userAgent: 'example-agent/1.0', challenge: 'cloudflare' });
+  // R6.9: the policy enters the settings; the User-Agent does not (R3.4).
+  assert.deepEqual(plan.settings.networkPolicy, { version: 'host-allowlist-v1', allowOrigins: ['https://fonts.example.net'], blockPaths: ['/analytics/*'] });
+  assert.doesNotMatch(JSON.stringify(plan.settings), /example-agent/);
+  const production = { ...config, sides: { live: { ...side, production: true } } };
+  assert.throws(() => planPerfCommand(production, { side: 'live', targetIds: ['home'] }), (error) => error.code === 'PERFORMANCE_COST_CONSENT_REQUIRED');
+  assert.equal(planPerfCommand(production, { side: 'live', targetIds: ['home'], consent: true }).cost.targets, 1);
 });

@@ -12,7 +12,7 @@ The Node engine belongs here. PHP and Twig lint belong to
 
 ## Install
 
-Use Node 20.19 or later. Install from an exact git tag, not the npm registry.
+Use Node 22.19 or later. Install from an exact git tag, not the npm registry.
 Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
@@ -50,6 +50,12 @@ An explicit `--store` keeps the old store for `run`, `before`, `after`, `report`
   "checks": []
 }
 ```
+
+A target that answers an error on purpose, for example a missing page, may set `"expectStatus": 404`. That status then reads `ok`, so the report verdict is not `availability-problems`. Any other error status still reads `http-error`. The key enters no hash, so a baseline stays valid (R8.17).
+
+A target may also name text that its page must contain: `"expectText": ["component-page-header-home"]`. Select the check `expect-text` (it needs the `content` artifact). It reports each string that the stored DOM of the page lacks, so a cached error page or a language fallback that answers 200 shows. The match is exact and case-sensitive, and it may name markup, for example `id="wpforms-form-125"`. The key enters no hash (R7.8).
+
+Recipe: a tag manager. The Google Tag Manager snippet inserts a script element with the address `https://www.googletagmanager.com/gtm.js?id=GTM-…` into the page. The element stays in the stored DOM also when a remote capture drops the request (R3.3). So `"expectText": ["gtm.js?id=GTM-EXAMPLE"]` proves that the page holds the container ID and tries to load the tag manager. Do not include the rest of the query: the browser writes `&` as `&amp;` in the stored DOM. The check cannot prove that the tag manager loaded, because a remote capture never sends the request. On a local side, set `"thirdParty": "drop"` (R3.10). Without it, the request to the tag manager fails the capture, and the check has no stored DOM to read. A setup that inserts the snippet only after consent shows no element before consent (#379).
 
 ## Compare
 
@@ -99,7 +105,9 @@ npx test-kit after --side local
 
 The report has kind `migration`. A remote side first and a local side second give
 `migration`. The same local side twice gives `update`. The same remote side twice
-gives `deploy`. Any other pair of different sides gives `adhoc`. A second `before`
+gives `deploy`. A side with `"role": "reference"` first and a local side second
+give `convergence`, for example a static reference served locally against the styleguide.
+Any other pair of different sides gives `adhoc`. A second `before`
 with another side replaces the first baseline. A baseline made before 1.2 needs
 `before` again.
 
@@ -215,13 +223,21 @@ test-kit perf --side local --ddev --path /example --runs 3
 Use `--ddev` to discover the current DDEV loopback HTTP origin. With `--ddev` the
 origin in the configuration is not used. The loopback origin from `ddev describe`
 replaces it. So the side may name an `https://*.ddev.site` origin in the
-configuration. Run the browser
+configuration. A page that redirects away from the discovered origin (for
+example a canonical redirect that drops the port) fails with
+`DDEV_REDIRECT_LEFT_ORIGIN`, which names the target origin. Capture such pages
+without `--ddev`. Run the browser
 on the host. Install dependencies and build inside DDEV. Flush Mutagen before
 capture when the project uses it. `--side` defaults to `local`.
 
 `--store PATH` selects a stable directory relative to the config file (default `test-kit`).
 It holds runs, reports, baseline state and the store viewer. A new store ignores itself in Git.
 A selection has its own baseline. A partial capture cannot replace it.
+`after` may select a subset of a baseline: fewer targets or fewer viewports.
+For example `before --target gallery`, then `after --target gallery --viewport desktop`.
+`after` then compares only the selected cells. A cell that the baseline does not hold
+stays an error. With `targetSource`, only fewer viewports work: select the same components.
+A baseline made before 1.4.0 serves only its own selection: run `before` once more.
 A standalone run records one capture. It does not invent a comparison verdict.
 History lists all stored evidence and opens existing A/B reports. No automatic
 retention or deletion is enabled.
@@ -235,6 +251,38 @@ A skipped contract or empty selection is not evidence of a passed assertion.
 Use `--checks none` or `--contracts none` to disable that group for one run.
 Component selector capture supports visual evidence. Component content
 extraction remains unsupported.
+
+### Recipe: the consent bar
+
+`templates/contracts/consent-bar.contract.js` is a sample project contract
+(#380). Copy it into the behavior `source` directory and select
+`consent-bar`. It checks that the bar renders (its element has a visible
+box) and that the first layer offers refusal: a reject control, a refusal
+sentence or a refusal control in the description. With
+`createConsentBar({ clickRefusal: true })` it also clicks the refusal and
+checks that the choice cookie holds the necessary categories and no other. Use the
+click on a local side only. The defaults fit the markup of CookieConsent v3
+(`#cc-main .cm`). test-kit did not verify them against a release of that
+library, so check them against your page. Two traps: a selector without a
+box of its own (`#cc-main` instead of `#cc-main .cm`) reads as not visible,
+and a bar library that hides from bots shows no bar to an automated browser.
+When the page has no bar element and the browser reports
+`navigator.webdriver`, the failure message names it. It does not hide the tool.
+Keep one instance for each page. The contracts run in turn on the same
+page, so an instance that clicks the refusal hides the bar from the next
+one. `clickRefusal: true` also checks the render and the refusal, so it
+replaces the plain instance on a local side. Contract names in a project
+are unique: an instance needs its own `name` when the source folder holds
+more than one.
+The copy always exports the plain `consentBar`. When a second file in the
+source folder imports `createConsentBar` from it, list only the wanted
+instance in `behavior.enabled`. Without that list, every contract runs.
+The contract runs only for the contract projects `desktop-1280` and
+`mobile-390`. Map the viewport IDs of the project to them with
+`behavior.projects`, or pass `projects` to `createConsentBar`. Otherwise the
+contract is skipped.
+The sample is a copy that the project owns (R13.41). It is not the
+versioned `cookieconsent` pack of R13.42 and detects no library version.
 
 ## Static export
 
@@ -274,7 +322,7 @@ cd test-kit && python3 -m http.server --bind 127.0.0.1 8080
 
 The viewer reads `runs/<id>/run.json` and `reports/<id>/report.json` in place. It copies nothing. Each file is written as a temp file plus a rename, so there is no folder swap and no lock folder. Deleting the store loses the viewer. The next command writes it again. The first refresh writes a marker `.test-kit-viewer`. A store that holds a viewer file name (`index.html`, `app.js`, `style.css`, `favicon.svg`, `index.json`) and no marker is left untouched, and the refresh prints a warning. The guarantee covers files that exist when a refresh checks the store; the store belongs to test-kit, so do not write your own files into it, except under `inputs/`.
 
-A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server. The viewer guards only report links. A run can hold raw HTML (the Lighthouse `<base>.html` from `perf`), and a static server sends it as active content from the viewer's origin. Use the viewer on a local site only. Never deploy the store. The store is web-reachable when the theme folder is under the local document root. It holds page captures and, while a command runs, a 0600 copy of the configuration.
+A report whose evidence holds raw HTML (a Lighthouse report) is listed without a path, with a warning. A static server would send that file as active content. Use `history --publish DIR`, which makes inert copies. A failed refresh is a warning and never changes the exit code. The store holds page captures. Keep it out of deploys, and do not expose it on a public server. rsync does not read `.gitignore`, so add the store to the rsync exclude list. When the store is under the web root (for example a theme folder that is the web root), also deny it in the web server. The viewer guards only report links. A run can hold raw HTML (the Lighthouse `<base>.html` from `perf`), and a static server sends it as active content from the viewer's origin. Use the viewer on a local site only. Never deploy the store. The store is web-reachable when the theme folder is under the local document root. It holds page captures and, while a command runs, a 0600 copy of the configuration.
 
 ### Remove old runs
 
@@ -287,6 +335,17 @@ test-kit history --prune --keep 5 --yes  # remove the rest
 ```
 
 The command orders runs by the time in their `run.json`, not by file time. A run stays when a report names it (A or B of a pair, a single-run subject, a run in the report run list), when the workflow state holds it as a baseline, or when its time or side is unreadable. The store index does not protect a run. The command does not read a published `index.json`: a published directory holds its own copies. It works only on a store with the `.test-kit-viewer` marker, refuses links in the store path and in `runs/`, and removes only `runs/<id>/`. It stops at the first failed removal and leaves the later runs. Stdout is one JSON line with `removed`, `failed`, `kept` and `skipped`. After a removal it refreshes the store viewer.
+
+### Attach server facts to a run
+
+`note` attaches facts that do not come from a page to a stored run: versions before and after an update, database updates, the error-log high-water mark, a backup point (R12.7, #381). The facts are one JSON object of at most 256 KiB, with no schema.
+
+```sh
+test-kit note 2026-11-17T08-00-00-000Z-4242-abc1234 --file facts.json   # add a note
+test-kit note 2026-11-17T08-00-00-000Z-4242-abc1234                     # list the notes of the run
+```
+
+The command writes `runs/<id>/notes/001.json`, then `002.json`, and changes no other file of the run. A note never changes a verdict. `history --publish` does not copy notes, and `history --prune` removes them with their run. Do not put credentials in a note. The viewer does not show notes yet.
 
 ### Publish a stable directory
 
@@ -409,7 +468,7 @@ test-kit summary report/report.json
 test-kit query report/report.json --target home --viewport desktop --artifact layout --max-lines 20
 ```
 
-The viewer has no layout view yet: the findings show in its findings list. The artifact applies to browser sides only (R6.14, R6.15, #350).
+The viewer has no layout view yet: the findings show in its findings list. The artifact applies to browser sides and to `claude-design` design sides (R6.14, R6.15, #350). A part may set `selectorBySide` when two sides have other markup. A `claude-design` import reads the records in the artboard, `diff --kind drift` compares two imports, and `record-decision` records `implement` or `report-only` per difference, bound to the design value (R3.12, R9.14). See `docs/usage.md`, "Design revisions and decisions".
 
 ### Project behavior contracts
 
@@ -433,10 +492,32 @@ under #25 and #45.
 
 ### Local Lighthouse measurements
 
-The engine and pure helpers support Node 20.19. Lighthouse 13.6 requires
-Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
-is pinned to 13.6.0. Measurement accepts local HTTP page targets only.
-HTTPS and component targets fail explicitly.
+The package needs Node 22.19 or newer. Lighthouse 13.6 needs the same version
+and the optional `lighthouse` peer. The development dependency
+is pinned to 13.6.0. Measurement accepts page targets on a local or a remote
+side, over HTTP or HTTPS. Component targets fail explicitly.
+
+Speed isolates its requests without a proxy (R6.16). Chrome resolves only the
+own host and the hosts of `allowOrigins`. Every other host does not resolve.
+A local side must resolve to loopback. A local HTTPS side with a self-signed or
+mkcert certificate works: Chrome accepts that one certificate and verifies all
+others. A blocked request does not fail the measurement. The run lists it as
+`blocked` (resource type, origin, count) in `run.json`, and the viewer shows it
+under "Blocked requests" (R6.17). A write method
+(POST, PUT, ...) that leaves the browser, a WebSocket or a page that leaves its
+origin fails the target. A blocked write does not.
+Chrome sends a request before test-kit can read it, so a page that writes on load
+reaches the site, or an `allowOrigins` host, once, in the discarded warmup. Block such a path of the own
+origin with `perfBlockPaths`:
+
+```json
+"production": { "origin": "https://example.com", "remote": true, "production": true,
+  "perfBlockPaths": ["/wp-admin/admin-ajax.php", "/analytics/*"] }
+```
+
+The policy (`allowOrigins`, `perfBlockPaths`) enters the speed settings hash.
+Speed runs of 1.3 used a proxy policy, so they do not compare with new runs.
+On a remote side, one failed target stops the run.
 
 ```bash
 test-kit perf --side local --targets home --label before --runs 3

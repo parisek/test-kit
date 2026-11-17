@@ -37,7 +37,7 @@ The package is not on an npm registry (specification section 13.2). A project in
 
 ```sh
 npm install -D github:parisek/test-kit#v1.0.0
-npm install -D @playwright/test@1.64.1
+npm install -D @playwright/test@1.65.0
 npx playwright install chromium
 ```
 
@@ -45,7 +45,7 @@ You can pin a commit instead of the tag: `npm install -D github:parisek/test-kit
 
 One consumer project saw this once, with npm 11.19 and 11.20. `package-lock.json` held a `git+ssh://git@github.com/...` URL for this dependency. The spec was `git+https`. This is npm behaviour, not a choice of this package. A project whose rules require HTTPS can set the `resolved` scheme to `git+https://github.com/parisek/test-kit.git#<commit>` by hand. Then install with `npm ci`. Verified once on one consumer project on 2026-10-19: `GIT_SSH_COMMAND=false npm ci` in a clean cache installs and leaves the lockfile unchanged, and `npm ls` shows the https URL. `npm ci`, `npm ls` and `npx test-kit --version` leave the scheme alone. `npm install` and `npm install --package-lock-only` write `git+ssh://` back (measured on a copy). One project script that runs npm commands also rewrote it, and the cause is not found. Run `git diff package-lock.json` before every commit.
 
-`@playwright/test@1.64.1` is the version that CI uses and the tested one. It is not a requirement. The peer range is `>=1.49`. One consumer project ran `1.63.0` without a problem.
+`@playwright/test@1.65.0` is the version that CI uses and the tested one. It is not a requirement. The peer range is `>=1.49`. One consumer project ran `1.63.0` without a problem.
 
 Check it:
 
@@ -58,7 +58,7 @@ npx test-kit --help
 
 Notes:
 
-- Node 20.19 or newer (`engines`).
+- Node 22.19 or newer (`engines`). Playwright 1.65 no longer tests on Node 20.
 - `@playwright/test` is a peer dependency (`>=1.49`). `capture` and `run` need it and a browser. See [Playwright browsers](https://playwright.dev/docs/browsers).
 - `axe-core` (`^4.10.0`) is an optional peer. Install it only for the a11y runner. `lighthouse` is an optional peer for `perf`.
 - Verified: `npm install -D github:parisek/test-kit#<commit>` installs this package from GitHub into a clean project, and `--version` prints `1.0.0`. Verified once on one consumer project on 2026-10-19 against a local site: the form with the tag `#v1.0.0-rc.2`, then the steps in section 3 and the exports. Not run there: a remote side, `perf`, the `packs` key with a pack ID and the viewer in a browser. A tag ref uses the same npm syntax as a commit ref. R13.27 gives the same form.
