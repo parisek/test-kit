@@ -17,14 +17,19 @@ Only `failOnBudget` changes the budget exit code.
 `evaluateBudgets()` checks an absolute budget for one complete, nonsuspect run.
 This is separate from a comparison between two environments.
 
-The first runner supports loopback HTTP only. HTTPS is unsupported.
-The plan refuses a side with `remote: true`, also when its origin is local (R3.3).
-For DDEV, use its local HTTP URL if it does not redirect to HTTPS.
-A forced browser proxy checks every request. It resolves each allowed host to a loopback address.
-It connects to the checked address. It blocks remote redirects, non-GET/HEAD methods, HTTPS tunnels and WebSockets.
-Chrome background requests also pass through the proxy and stay blocked.
-The captured page request log identifies policy violations in the measured page.
-This policy can block page features. Such measurements fail rather than imply a valid result.
+The runner measures a local or a remote side over HTTP or HTTPS (R6.16, #383).
+It uses no proxy. `isolation.js` builds the Chrome flag `--host-resolver-rules`:
+every host resolves to "not found", except the own host and the hosts of `allowOrigins`.
+`network.js` checks that a local side resolves only to loopback. The rules pin the own host to that address.
+A local HTTPS side passes the public key hash of its own certificate (`--ignore-certificate-errors-spki-list`).
+Chrome accepts that one certificate and verifies every other one.
+`perfBlockPaths` become Lighthouse `blockedUrlPatterns` of the own origin.
+After each audit, `requestEvidence` reads the DevTools log. A blocked request is evidence:
+the artifact lists `blocked` groups `{ resourceType, origin, count }` (R6.17).
+The comparison detail copies the checked groups of each side (`storedBlocked`), so the viewer and the query show them.
+A write method that Chrome sends, a WebSocket, a failed allowed origin, a runtime error or a navigation that leaves the origin fails the target.
+A blocked write is evidence too: its failure event shows the block. Chrome sends a request before the runner reads the log, so a write of the own origin or of an `allowOrigins` host that no rule blocks reaches that server once, in the warmup. A failed request of the own origin does not fail the target: the Lighthouse report shows it. A request that Chrome cancels does not count as a failed allowed origin. Each audit is read without the 50-group cap; the cap applies once, to the sum.
+On a remote side, one failed target stops the run.
 
 The runner refuses high machine load.
 Windows does not expose this load value through Node. It needs an explicit suspect-run override. An explicit override marks measurements suspect.

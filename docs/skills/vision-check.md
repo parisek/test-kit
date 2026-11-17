@@ -56,7 +56,7 @@ Answer the four questions of `docs/vision.md`, "Test for a new issue":
 
 ## Output
 
-Write one review record: the line `<!-- test-kit-review -->` and one JSON block. The fields, the accepted values and the parse rules are in `docs/process-skills.md`, "Review record" and "Record validation". Check your block with `node scripts/milestone/check-record.js <file> --sha <head SHA> --spec <file>`. Write the specification of the base branch to `<file>` first (`git show origin/main:docs/specification.md`), so a change cannot add its own R-number. Then add a short list of findings, most severe first. Each finding has a citation `path:line`.
+Write one review record: the line `<!-- agent:review -->` and one JSON block. The fields and the approval rule are in `docs/process.md`, section 5; the parse rules in `docs/process-skills.md`, "Record validation". Check your block with `node scripts/process/check-record.mjs <file> --sha <head SHA> --spec <file>`. Write the specification of the base branch to `<file>` first (`git show origin/main:docs/specification.md`), so a change cannot add its own R-number. Then add a short list of findings, most severe first. Each finding has a citation `path:line` or `path:start-end`.
 
 In the mode `issue` use `"mode": "issue"`. Leave out `sha`, `evidence`, `unverified`, `unexpected_files` and `tests`.
 

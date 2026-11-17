@@ -155,6 +155,9 @@ test('a failed frame gets its own warning and the counts are validated', () => {
 test('a frame lost to a gate or a navigation is unreachable, any other break is failed (R13.51)', () => {
   for (const message of ['TEST_KIT_FRAME_ORIGIN', 'Execution context was destroyed, most likely because of a navigation.', 'Cannot find context with specified id', 'Frame with the given id was not found.']) assert.equal(isLostFrameError(message), true, message);
   for (const message of ['axe did not load.', 'No axe rule has the tag x.', 'violations has a bad rule.', undefined]) assert.equal(isLostFrameError(message), false, String(message));
+  // #347: the exact texts only. An axe error that contains "not found" or "detached" counts as failed.
+  for (const message of ['No frame for given id found', 'Target closed', 'Frame was detached', 'Frame has been detached.', 'Protocol error (Runtime.evaluate): Session closed. Most likely the page has been closed.', 'Error: TEST_KIT_FRAME_ORIGIN\n    at <anonymous>:1:46', 'cdpSession.send: Target page, context or browser has been closed', 'Protocol error (Runtime.evaluate): Internal server error, session closed.', 'Inspected target navigated or closed', 'page.evaluate: Execution context was destroyed, most likely because of a navigation', 'cdpSession.send: Protocol error (Runtime.evaluate): Cannot find context with specified id', 'Session already detached. Most likely the page has been closed.', 'cdpSession.send: Protocol error (DOM.resolveNode): No node with given id found', 'Protocol error (Runtime.evaluate): Session already detached. Most likely the page has been closed.']) assert.equal(isLostFrameError(message), true, message);
+  for (const message of ['Rule landmark-one-main: element not found', 'A detached node was checked.', 'Rule x: TEST_KIT_FRAME_ORIGIN', 'Rule x: Cannot find context with specified id', 'Check failed: Target closed', 'The rule found that the session closed', 'axe: Frame was detached', 'Rule x: Session already detached', 'Rule x: No node with given id found']) assert.equal(isLostFrameError(message), false, message);
 });
 
 test('addedFrames counts by frame id across the whole tree, also at the 10000 bound', () => {
@@ -164,6 +167,11 @@ test('addedFrames counts by frame id across the whole tree, also at the 10000 bo
   assert.equal(addedFrames(before, flattenFrameTree(tree(['a', 'c']))), 1); // replaced at an unchanged total
   assert.equal(addedFrames(before, flattenFrameTree(tree(['a']))), 0);
   assert.equal(addedFrames(before, flattenFrameTree({ childFrames: [...tree(['a', 'b']).childFrames, { frame: { url: 'about:blank' } }] })), 1); // no id counts as new
+  // #347: a frame with no id that the first read held is not new. Only the growth of frames with no id counts.
+  const noId = flattenFrameTree({ childFrames: [...tree(['a']).childFrames, { frame: { url: 'about:blank' } }] });
+  assert.equal(addedFrames(noId, noId), 0);
+  assert.equal(addedFrames(noId, flattenFrameTree(tree(['a']))), 0); // fewer frames with no id never count below 0
+  assert.equal(addedFrames(noId, flattenFrameTree({ childFrames: [...tree(['a']).childFrames, { frame: { url: 'about:blank' } }, { frame: { url: 'about:blank' } }] })), 1);
   // At the bound: one new frame pushes an old one into the dropped tail, and still counts once.
   const full = many(10000);
   const atBound = flattenFrameTree(tree(full));

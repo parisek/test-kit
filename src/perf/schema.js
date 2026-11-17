@@ -1,4 +1,5 @@
-import { METRICS, performanceSettings, summarizeSamples } from './core.js';
+import { METRICS, rebuildPerformanceSettings, summarizeSamples } from './core.js';
+import { storedBlocked } from './isolation.js';
 
 function structural(value) {
   const canonical = input => {
@@ -16,14 +17,16 @@ export function validatePerformanceComparison(value) {
   const text = (input, maximum = 1000) => typeof input === 'string' && input.length > 0 && input.length <= maximum && !/[\x00-\x1f\x7f]/.test(input);
   const side = input => {
     if (!object(input) || typeof input.suspect !== 'boolean' || !object(input.settings) || !object(input.metrics)) return fail();
-    const settings = performanceSettings({ runs: input.settings.runs, formFactor: input.settings.formFactor,
-      throttling: input.settings.throttlingMethod === 'simulate' ? 'simulated' : input.settings.throttlingMethod });
+    let settings;
+    try { settings = rebuildPerformanceSettings(input.settings); } catch { return fail(); }
     if (structural(settings) !== structural(input.settings)) return fail();
     const samples = Array.from({ length: settings.runs }, (_, index) => Object.fromEntries(Object.keys(METRICS)
       .map(metric => [metric, input.metrics[metric]?.samples?.[index]])));
     const metrics = summarizeSamples(samples, settings.runs);
     if (structural(metrics) !== structural(input.metrics)) return fail();
-    return { settings, metrics, suspect: input.suspect };
+    // R6.17: the blocked evidence is optional. A reader leaves out a malformed group and adds
+    // its requests to `blockedOmitted`; the rest of the detail stays usable.
+    return { settings, metrics, suspect: input.suspect, ...storedBlocked(input) };
   };
   if (!object(value) || typeof value.compatible !== 'boolean' || !object(value.metrics)
     || !Array.isArray(value.findings) || value.findings.length > 20 || ![0, 1].includes(value.exitCode)) return fail();

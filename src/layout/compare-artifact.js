@@ -9,7 +9,7 @@ import { settingsHash, settleRecipe, settlementMatches } from '../config/setting
 import { isDesignRun } from '../design/compare.js';
 import { LAYOUT_CHECK_ID } from '../report/catalog.js';
 import { normalizeLayoutConfig, normalizeLayoutParts } from './declaration.js';
-import { validateLayoutSnapshot, MAX_LAYOUT_BYTES } from './snapshot.js';
+import { validateLayoutSnapshot, MAX_LAYOUT_BYTES, INVALID_LAYOUT } from './snapshot.js';
 import { compareLayout, boundComparison, differenceMessage, LENGTH_TOLERANCE, RATIO_TOLERANCE } from './compare.js';
 import { LAYOUT_VERSION } from './record.js';
 
@@ -26,23 +26,38 @@ const declared = (run, targetId) => {
 // The comparison binds the part IDs and repeat flags. A selector may differ between the two sides.
 const shape = declaration => declaration.parts.map(part => [part.id, part.repeat === true]);
 
+// The state of the two stored entries of a pair with a design run (R8.15, #350 part C). The extractor must be the
+// same: tool and version. The settings hash and the browser version do not decide, as for the screenshot of a design
+// pair: a design run binds the provider and the viewports, a browser run its settle recipe and browser settings.
+export function designPairState(a, b) {
+  if (!a || !b) return 'missing';
+  if (a.state !== 'captured' || b.state !== 'captured') return 'failed';
+  if (!['tool', 'version', 'settingsHash', 'browserVersion'].every(key => [a, b].every(index => typeof index[key] === 'string' && index[key].length > 0 && index[key].length <= 200))
+    || a.tool !== b.tool || a.version !== b.version) return 'incompatible';
+  return 'complete';
+}
+
 export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, targetId, viewportId }) {
   const indexes = [ac?.artifacts?.layout, bc?.artifacts?.layout];
   const declarations = [declared(a, targetId), declared(b, targetId)];
   // A target that declares no parts on either side has no layout artifact (R6.14).
   if (!indexes.some(Boolean) && declarations.every(item => item === null)) return null;
-  const artifact = { kind: 'layout', state: artifactState(...indexes), scope: { checks: [LAYOUT_CHECK_ID] }, a: null, b: null, diff: null };
+  const design = isDesignRun(a) || isDesignRun(b);
+  const artifact = { kind: 'layout', state: design ? designPairState(...indexes) : artifactState(...indexes), scope: { checks: [LAYOUT_CHECK_ID] }, a: null, b: null, diff: null };
   const fail = (state, diagnostic) => { artifact.state = state; artifact.diagnostic ??= diagnostic; return { artifact, findings: [] }; };
-  // The claude-design provider and the layout of a design side are later work (#350).
-  if (isDesignRun(a) || isDesignRun(b)) return fail('missing', 'The layout artifact applies to browser sides only.');
+  // A `files` or `figma` design run holds raster images only. A `claude-design` run renders a document, so its
+  // import reads layout records like a browser capture (#350 part C).
+  const raster = run => isDesignRun(run) && run.settings.sides[run.side].provider !== 'claude-design';
+  if (raster(a) || raster(b)) return fail('missing', 'The layout artifact applies to browser sides and claude-design sides only.');
   if (declarations.includes('invalid')) return fail('failed', 'A stored layout declaration is invalid.');
   if (artifact.state !== 'complete') return fail(artifact.state, 'Requested layout evidence is missing, failed, or incompatible.');
   const viewport = run => run.settings.viewports.find(item => item.id === viewportId);
   if (declarations.includes(null) || JSON.stringify(shape(declarations[0])) !== JSON.stringify(shape(declarations[1])))
     return fail('incompatible', 'Layout parts differ: the two runs declare other part IDs or repeat flags.');
-  if (settingsHash(viewport(a)) !== settingsHash(viewport(b)) || settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null))
+  if (settingsHash(viewport(a)) !== settingsHash(viewport(b)) || (!design && settingsHash(a.captureSettings?.browser ?? null) !== settingsHash(b.captureSettings?.browser ?? null)))
     return fail('incompatible', 'Layout viewports or browser settings differ.');
-  try {
+  // R8.15: a design run has no browser and no settle recipe that decides compatibility. The viewport and the part shape do.
+  if (!design) try {
     const targets = [a, b].map(run => run.settings.targets.find(target => target.id === targetId));
     const recipes = [a, b].map((run, index) => settleRecipe(run.settings, run.side, targets[index]));
     if (![a, b].every((run, index) => settlementMatches([ac, bc][index], run.settings, run.side, targets[index])) || settingsHash(recipes[0]) !== settingsHash(recipes[1]))
@@ -64,7 +79,12 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
       await mkdir(dirname(join(output, src)), { recursive: true }); await writeFile(join(output, src), bytes);
       artifact[side] = { kind: 'layout', src, tool: index.tool, version: index.version, settingsHash: index.settingsHash, browserVersion: index.browserVersion, bytes: bytes.length };
       snapshots.push(snapshot);
-    } catch { return fail('failed', 'A layout file is missing, changed, invalid, or exceeds its limit.'); }
+    } catch (error) {
+      // A refusal of the reader names the run side, the part, the property and the value (#384). It is built from safe
+      // text only (`snapshot.js`). Any other error keeps the generic text: a path, a hash or a parse error stays out.
+      if (error?.code === INVALID_LAYOUT && typeof error.message === 'string') return fail('failed', `The layout file of run ${side.toUpperCase()} is invalid. ${error.message.slice(0, 400)}`);
+      return fail('failed', 'A layout file is missing, changed, invalid, or exceeds its limit.');
+    }
   }
   const detail = compareLayout(...snapshots, { aliases });
   const src = `diff/layout/${targetId}/${viewportId}.json`;
@@ -75,7 +95,9 @@ export async function compareLayoutArtifact({ a, b, ac, bc, runsRoot, output, ta
     checks: 1, counts: detail.counts, differences: detail.differences.slice(0, REPORT_DIFFERENCES), differencesOmitted: Math.max(0, detail.differences.length - REPORT_DIFFERENCES),
     // The findings stop at MAX_FINDINGS. The key says how many differences have no finding, so a reader sees the cut.
     ...(detail.differences.length > MAX_FINDINGS ? { findingsOmitted: detail.differences.length - MAX_FINDINGS } : {}) };
+  // A finding names its part and property, so a decision binds it without reading the message (R9.14).
   const findings = detail.differences.slice(0, MAX_FINDINGS).map((item, index) => ({ id: `layout-${targetId}-${viewportId}-${index}`, targetId, viewportId,
-    artifact: 'layout', checkId: LAYOUT_CHECK_ID, layer: 'package', severity: 'warning', message: differenceMessage(item) }));
-  return { artifact, findings };
+    artifact: 'layout', checkId: LAYOUT_CHECK_ID, layer: 'package', severity: 'warning', message: differenceMessage(item), part: item.part, property: item.property }));
+  // The full list stays in memory for the decisions of this cell: a decided difference beyond the finding cap still gets a status.
+  return { artifact, findings, differences: detail.differences };
 }

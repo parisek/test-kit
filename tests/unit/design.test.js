@@ -264,6 +264,64 @@ test('diff: match, changed, missing viewport and wrong size read as set (R8.7, R
     // A kind the caller names is kept.
     const named = await compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: id, outputDir: join(dir, 'report3'), kind: 'adhoc', filter: { targets: ['hero'], viewports: ['desktop'] } });
     assert.equal(named.report.pair.kind, 'adhoc');
+
+    // R3.12: a drift pair is two imports of one design side. It holds no other pair, and a refused pair writes nothing.
+    await writeFile(join(design.runDir, 'screenshots/tag/desktop.png'), png(40, 20, [9, 9, 9]));
+    await new Promise(done => setTimeout(done, 5));
+    const second = await importDesign({ configPath, side: 'design', label: 'refs 2' });
+    const drift = await compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: second.run.id, outputDir: join(dir, 'drift'), kind: 'drift' });
+    assert.equal(drift.report.pair.kind, 'drift');
+    const plain = await compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: second.run.id, outputDir: join(dir, 'plain') });
+    assert.equal(plain.report.pair.kind, 'convergence', 'Without --kind a pair of two design runs keeps the kind of R8.15.');
+    await assert.rejects(compareRuns({ runsRoot: join(dir, 'runs'), runA: design.run.id, runB: id, outputDir: join(dir, 'not-drift'), kind: 'drift' }), /two design runs of the same design side/);
+    await assert.rejects(readFile(join(dir, 'not-drift', 'report.json')));
+    assert.equal(parseCommand(['diff', 'a', 'b', '--output', 'o', '--kind', 'drift']).options.kind, 'drift');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+// R3.12: each refusal of a drift pair has its own case. A refused pair creates no output directory.
+test('diff --kind drift refuses two design sides, a browser run and the reversed order (R3.12)', async () => {
+  const dir = await project();
+  try {
+    const configPath = join(dir, 'config.json');
+    const input = designConfig();
+    input.sides.other = { kind: 'design', provider: 'files', root: 'design-refs' };
+    await writeFile(configPath, JSON.stringify(input));
+    await writeFile(join(dir, 'design-refs/hero/desktop.png'), png(40, 20, [1, 2, 3]));
+    await writeFile(join(dir, 'design-refs/hero/mobile.png'), png(20, 20, [1, 2, 3]));
+    await writeFile(join(dir, 'design-refs/card/desktop.png'), png(40, 20, [4, 5, 6]));
+    const pause = () => new Promise(done => setTimeout(done, 5));
+    const first = await importDesign({ configPath, side: 'design', label: 'first' });
+    await pause();
+    const later = await importDesign({ configPath, side: 'design', label: 'later' });
+    await pause();
+    const other = await importDesign({ configPath, side: 'other', label: 'other' });
+    const browser = await fakeCapture(dir, normalizeConfig(input), [['hero', 'desktop', [40, 20, [1, 2, 3]]]]);
+    const runsRoot = join(dir, 'runs');
+    const refused = async (runA, runB, name, pattern) => {
+      const outputDir = join(dir, name);
+      await assert.rejects(compareRuns({ runsRoot, runA, runB, outputDir, kind: 'drift' }), pattern);
+      await assert.rejects(readdir(outputDir), { code: 'ENOENT' }, `${name}: no output directory exists`);
+    };
+    const sides = /two design runs of the same design side/;
+    await refused(first.run.id, other.run.id, 'two-sides', sides);
+    await refused(first.run.id, browser, 'browser-b', sides);
+    await refused(browser, first.run.id, 'browser-a', sides);
+    // The reversed order names both runs and both times.
+    const at = run => new Date(run.run.at).toISOString();
+    const reversed = new RegExp(`earlier import as run A\\. Run A ${later.run.id} is from ${at(later).replace(/\./g, '\\.')} and run B ${first.run.id} is from ${at(first).replace(/\./g, '\\.')}`);
+    await refused(later.run.id, first.run.id, 'reversed', reversed);
+    // The same time is not an order. A run without a valid time has no order.
+    const stored = join(runsRoot, later.run.id, 'run.json');
+    const run = JSON.parse(await readFile(stored, 'utf8'));
+    await writeFile(stored, JSON.stringify({ ...run, at: first.run.at }));
+    await refused(first.run.id, later.run.id, 'same-time', /earlier import as run A/);
+    await writeFile(stored, JSON.stringify({ ...run, at: 'not a time' }));
+    await refused(first.run.id, later.run.id, 'no-time', new RegExp(`Run ${later.run.id} has no valid time`));
+    // The right order passes.
+    await writeFile(stored, JSON.stringify(run));
+    const drift = await compareRuns({ runsRoot, runA: first.run.id, runB: later.run.id, outputDir: join(dir, 'drift'), kind: 'drift' });
+    assert.equal(drift.report.pair.kind, 'drift');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

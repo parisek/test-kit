@@ -56,7 +56,8 @@ export async function runPerfCommand(options = {}, dependencies = {}) {
   for (const flag of ['consent', 'allowHighLoad', 'failOnBudget']) {
     if (options[flag] !== undefined && typeof options[flag] !== 'boolean') throw new Error(`Performance ${flag} must be boolean.`);
   }
-  await verifyDdev(loaded.configDir, loaded.config.sides[options.side].origin);
+  // A remote side is never a DDEV project of this checkout (R3.3).
+  if (!plan.network.remote) await verifyDdev(loaded.configDir, loaded.config.sides[options.side].origin);
   let version;
   try { version = JSON.parse(await readFile(require.resolve('lighthouse/package.json'), 'utf8')).version; }
   catch { throw new Error('Install the optional lighthouse peer before performance capture.'); }
@@ -80,7 +81,7 @@ export async function runPerfCommand(options = {}, dependencies = {}) {
   try {
     const measured = await (dependencies.runPerformance ?? runPerformance)({ targets: plan.urls, runDir,
       settings: { runs: options.runs, formFactor: options.formFactor, throttling: options.throttling },
-      consent: options.consent ?? false, allowHighLoad: options.allowHighLoad ?? false, chromePath: options.chromePath });
+      consent: options.consent ?? false, allowHighLoad: options.allowHighLoad ?? false, chromePath: options.chromePath, network: plan.network });
     for (const { targetId, artifact } of measured.results) {
       run.captures.push({ targetId, viewportId: plan.viewport.id, state: artifact.state,
         ...(artifact.error ? { error: artifact.error } : {}), artifacts: { lighthouse: artifact } });

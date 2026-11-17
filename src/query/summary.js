@@ -5,6 +5,7 @@ import { summarize, targetClass, targetState } from '../report/classify.js';
 import { isHash } from '../rules/model.js';
 import { noFixtureIds } from '../report/scope.js';
 import { allowlistCounts } from '../allowlist/model.js';
+import { decisionCounts } from '../decisions/model.js';
 import { layoutTotals } from '../report/layout.js';
 import { clip, markCut, wasCut, outputBytes, OUTPUT_BYTE_LIMIT } from './bound.js';
 
@@ -45,6 +46,8 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 	const layout = layoutTotals(report, target);
 	const allowlisted = { counts: allowlistCounts(report, target) };
 	allowlisted.total = Object.values(allowlisted.counts).reduce((sum, count) => sum + count, 0);
+	// R9.14: the decision entries of the report, counted by status. The key appears only when the report holds an entry.
+	const decided = decisionCounts(report, target);
 	// One answer for a number of listed targets. The count limit comes first. The byte limit cuts further.
 	const build = (max) => ({
 		pair: safePair(report.pair),
@@ -70,6 +73,7 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		...(noFixture.length ? { noFixture: { count: noFixture.length, ids: noFixture.slice(0, max), omitted: Math.max(0, noFixture.length - max) } } : {}),
 		// R9.12: the allowlist entries of the report, counted by status. The key appears only when the report holds an entry, so the pinned output stays the same.
 		...(allowlisted.total ? { allowlist: allowlisted.counts } : {}),
+		...(Object.values(decided).some((count) => count > 0) ? { decisions: decided } : {}),
 		...(Object.keys(layout).length ? { layout } : {}),
 		// R4.5: cells outside a recorded selection or filter. The key appears only when the report skipped one, so the pinned output stays the same.
 		...(Number.isSafeInteger(report.meta?.skipped) && report.meta.skipped > 0 ? { skipped: report.meta.skipped } : {}),

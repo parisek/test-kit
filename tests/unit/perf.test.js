@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { performanceSettings, performanceConsent, machineLoad, summarizeSamples, comparePerformance, extractMetrics, METRICS, evaluateBudgets, assertPerformanceNetwork, performanceProvenance, validatePerformanceSnapshot } from '../../src/perf/model.js';
+import { performanceSettings, performanceConsent, machineLoad, summarizeSamples, comparePerformance, extractMetrics, METRICS, evaluateBudgets, performanceProvenance, rebuildPerformanceSettings, networkPolicy, validatePerformanceSnapshot } from '../../src/perf/model.js';
 import { validatePerformanceComparison } from '../../src/perf/schema.js';
 const sample = value => Object.fromEntries(Object.keys(METRICS).map(key => [key, value]));
 const captured = values => ({ state: 'captured', settingsHash: `sha256:${'a'.repeat(64)}`, version: '13', browserVersion: '145', metrics: summarizeSamples(values.map(sample), values.length) });
@@ -51,18 +51,31 @@ test('regressions exceed observed noise and only explicit budgets change exit co
   assert.equal(improvement.exitCode, 0);
 });
 
-test('local proxy address guards reject credentials, HTTPS and nonloopback DNS', async () => {
-  const { resolveLocalAddress, isLoopbackAddress } = await import('../../src/perf/proxy.js');
+test('local address guards accept HTTP and HTTPS loopback and reject credentials and nonloopback DNS', async () => {
+  const { resolveLocalAddress, isLoopbackAddress } = await import('../../src/perf/network.js');
   assert.equal(isLoopbackAddress('127.0.0.1'), true);
   assert.equal(isLoopbackAddress('::1'), true);
   assert.equal(isLoopbackAddress('10.0.0.1'), false);
   const local = async () => [{ address: '127.0.0.1' }];
   const remote = async () => [{ address: '203.0.113.1' }];
   assert.equal(await resolveLocalAddress(new URL('http://example-site.ddev.site/'), local), '127.0.0.1');
-  for (const url of ['https://localhost/', 'http://user:password@localhost/', 'http://example.com/']) {
+  assert.equal(await resolveLocalAddress(new URL('https://example-site.ddev.site/'), local), '127.0.0.1');
+  for (const url of ['http://user:password@localhost/', 'http://example.com/', 'ftp://localhost/']) {
     await assert.rejects(resolveLocalAddress(new URL(url), local));
   }
   await assert.rejects(resolveLocalAddress(new URL('http://example-site.ddev.site/'), remote));
+});
+
+test('the runner pins the first loopback address that answers (CI resolves localhost to ::1 first)', async () => {
+  const { reachableLocalAddress } = await import('../../src/perf/network.js');
+  const both = async () => [{ address: '::1' }, { address: '127.0.0.1' }];
+  const probed = [];
+  const probe = async (address, port) => { probed.push([address, port]); return address === '127.0.0.1'; };
+  assert.equal(await reachableLocalAddress(new URL('https://localhost:8443/'), { resolver: both, probe }), '127.0.0.1');
+  assert.deepEqual(probed, [['::1', 8443], ['127.0.0.1', 8443]]);
+  assert.equal(await reachableLocalAddress(new URL('http://localhost/'), { resolver: both, probe: async () => true }), '::1');
+  await assert.rejects(reachableLocalAddress(new URL('http://localhost/'), { resolver: both, probe: async () => false }), /does not answer/);
+  await assert.rejects(reachableLocalAddress(new URL('http://localhost/'), { resolver: async () => [{ address: '127.0.0.1' }, { address: '203.0.113.1' }], probe }), /loopback/);
 });
 
 test('absolute budgets are explicit per-run judgments and reject missing metrics', () => {
@@ -74,15 +87,6 @@ test('absolute budgets are explicit per-run judgments and reject missing metrics
   assert.throws(() => evaluateBudgets({ ...artifact, metrics: {} }, { lcp_ms: 90 }));
 });
 
-test('measured page network evidence rejects remote, HTTPS, mutation and WebSockets', () => {
-  const event = (url, method = 'GET') => ({ method: 'Network.requestWillBeSent', params: { request: { url, method } } });
-  assertPerformanceNetwork([event('http://localhost/'), event('data:text/plain,local')]);
-  for (const events of [[event('https://localhost/')], [event('http://example.com/')], [event('http://localhost/', 'POST')], [{ method: 'Network.webSocketCreated' }]]) {
-    assert.throws(() => assertPerformanceNetwork(events));
-  }
-  assert.throws(() => assertPerformanceNetwork(undefined));
-});
-
 test('performance snapshots bind settings, summaries and complete report counts', () => {
   const settings = performanceSettings();
   const artifact = { ...captured([100, 110, 120]), kind: 'lighthouse', settings, suspect: false,
@@ -91,14 +95,32 @@ test('performance snapshots bind settings, summaries and complete report counts'
   assert.equal(validatePerformanceSnapshot(artifact).metrics.lcp_ms.median, 110);
   assert.throws(() => validatePerformanceSnapshot({ ...artifact, settings: { ...settings, runs: 5 } }));
   assert.throws(() => validatePerformanceSnapshot({ ...artifact, reports: [] }));
+  // R6.17: the snapshot keeps valid blocked groups and leaves out a malformed one.
+  const kept = validatePerformanceSnapshot({ ...artifact, blocked: [{ resourceType: 'font', origin: 'https://fonts.example.net', count: 1 },
+    { resourceType: 'font', origin: 'file:///etc', count: 1 }], blockedOmitted: 2 });
+  assert.deepEqual(kept.blocked, [{ resourceType: 'font', origin: 'https://fonts.example.net', count: 1 }]);
+  // The left-out group still counts: its request joins blockedOmitted.
+  assert.equal(kept.blockedOmitted, 3);
+  assert.equal(Object.hasOwn(validatePerformanceSnapshot(artifact), 'blocked'), false);
   assert.throws(() => validatePerformanceSnapshot({ ...artifact, metrics: { ...artifact.metrics, lcp_ms: { ...artifact.metrics.lcp_ms, median: 999 } } }));
 });
 
-test('suppressed local redirects and DNS failures remain measured page failures', () => {
-  const event = { method: 'Network.requestWillBeSent', params: { request: { url: 'http://localhost/script.js', method: 'GET' } } };
-  assert.throws(() => assertPerformanceNetwork([event], [{ reason: 'redirect', url: 'http://localhost:80/script.js', method: 'GET' }]));
-  assertPerformanceNetwork([event], [{ reason: 'url-or-dns', url: 'https://example.com/', method: 'GET' }]);
-  assert.throws(() => assertPerformanceNetwork([{ method: 'Network.responseReceived', params: { response: { headers: { 'X-Test-Kit-Proxy-Blocked': '1' } } } }]));
+test('the network policy is canonical, bounded and rebuilds from a stored artifact (R6.9, R6.16)', () => {
+  const policy = networkPolicy({ allowOrigins: ['https://b.example.com', 'https://a.example.com'], blockPaths: ['/z', '/a*'] });
+  assert.deepEqual(policy, { version: 'host-allowlist-v1', allowOrigins: ['https://a.example.com', 'https://b.example.com'], blockPaths: ['/a*', '/z'] });
+  assert.deepEqual(networkPolicy(), { version: 'host-allowlist-v1' });
+  for (const input of [{ allowOrigins: ['http://a.example.com'] }, { allowOrigins: ['https://a.example.com/x'] }, { blockPaths: ['no-slash'] },
+    { blockPaths: ['/a b'] }, { blockPaths: ['/a', '/a'] }, { allowOrigins: Array.from({ length: 21 }, (_, i) => `https://a${i}.example.com`) }]) {
+    assert.throws(() => networkPolicy(input));
+  }
+  const settings = performanceSettings({ network: { blockPaths: ['/analytics/*'] } });
+  assert.deepEqual(rebuildPerformanceSettings(settings), settings);
+  // A run of 1.3 keeps its proxy policy string. It rebuilds, and it never equals a new policy.
+  const legacy = { ...performanceSettings(), networkPolicy: 'loopback-http-get-head-v1' };
+  assert.deepEqual(rebuildPerformanceSettings(legacy), legacy);
+  assert.notEqual(performanceProvenance(legacy, '13.6.0', 'b').settingsHash, performanceProvenance(performanceSettings(), '13.6.0', 'b').settingsHash);
+  assert.notEqual(performanceProvenance(settings, '13.6.0', 'b').settingsHash, performanceProvenance(performanceSettings(), '13.6.0', 'b').settingsHash);
+  assert.throws(() => rebuildPerformanceSettings({ ...settings, networkPolicy: { version: 'other' } }));
 });
 
 test('performance comparison validator keeps bounded structured evidence and rejects invalid metrics and findings', () => {
@@ -114,6 +136,22 @@ test('performance comparison validator keeps bounded structured evidence and rej
     value => { value.findings[0].message = 'x'.repeat(1001); }, value => { value.findings = []; },
     value => { value.a.metrics.lcp_ms.samples[0] = NaN; }];
   for (const change of changes) { const malformed = structuredClone(detail); change(malformed); assert.throws(() => validatePerformanceComparison(malformed)); }
+  // R6.17: a side may carry its blocked requests. A reader leaves out a malformed group,
+  // adds its requests to `blockedOmitted` and keeps the rest of the detail.
+  const withBlocked = structuredClone(detail);
+  const script = { resourceType: 'script', origin: 'https://cdn.example.net', count: 2 };
+  withBlocked.b.blocked = [script, { resourceType: 'image', origin: 'https://img.example.net', count: 3 }]; withBlocked.b.blockedOmitted = 4;
+  assert.deepEqual(validatePerformanceComparison(withBlocked).b.blocked, withBlocked.b.blocked);
+  assert.equal(validatePerformanceComparison(withBlocked).b.blockedOmitted, 4);
+  const read = change => { const malformed = structuredClone(withBlocked); change(malformed); return validatePerformanceComparison(malformed).b; };
+  const unsafe = read(value => { value.b.blocked[1].origin = 'javascript:alert(1)'; });
+  assert.deepEqual(unsafe.blocked, [script]);
+  assert.equal(unsafe.blockedOmitted, 7, 'the left-out group adds its 3 requests');
+  assert.equal(read(value => { value.b.blocked[1].count = 0; }).blockedOmitted, 4, 'a group without a valid count adds nothing');
+  assert.equal(read(value => { value.b.blockedOmitted = -1; }).blockedOmitted, undefined);
+  assert.equal(read(value => { value.b.blocked = 'x'; }).blocked, undefined);
+  assert.equal(read(value => { value.b.blocked = 'x'; }).blockedOmitted, 4);
+  assert.equal(validatePerformanceComparison(structuredClone(withBlocked)).metrics.lcp_ms.state, 'regression', 'the metrics stay usable');
   const incompatible = { ...comparePerformance(a, b, { environmentA: 'local', environmentB: 'other' }), a: detail.a, b: detail.b };
   assert.equal(validatePerformanceComparison(incompatible).compatible, false);
 });

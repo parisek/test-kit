@@ -13,6 +13,7 @@ const MAX_FILE_BYTES = 80_000_000;
 const PNG = Buffer.from('89504e470d0a1a0a', 'hex');
 const IHDR = Buffer.from('IHDR');
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_CONTENT_BYTES = 16 * 1024 * 1024; // chosen bound for the decompressed content index of one cell
 
 // The run IDs of a store, newest first. A run ID starts with its ISO time, so the order of the names is the order of time.
 export async function listRunIds(root) {
@@ -63,6 +64,11 @@ export async function copyKeptFiles({ sourceDir, runDir, entry, requested }) {
       } else {
         const kind = Object.keys(files).find(name => files[name] === path);
         if (bytes.length !== stored[kind]?.bytes) throw new Error('A stored file does not match its entry.');
+        // #347: the content index is gzip. Its CRC and a JSON parse catch a changed file of the same size.
+        if (path === files.content) {
+          try { JSON.parse(gunzipSync(bytes, { maxOutputLength: MAX_CONTENT_BYTES }).toString('utf8')); }
+          catch { throw new Error('A stored file does not match its entry.'); }
+        }
       }
       const target = join(runDir, path);
       await mkdir(dirname(target), { recursive: true });
