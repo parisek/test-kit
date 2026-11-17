@@ -58,10 +58,10 @@ Everything in this repository is English: code, comments, documents, commit mess
 - One logical change for each pull request. A pull request is a draft, assigned to `parisek`.
 - The process standard is `docs/process.md`. The same file lives in styleguide and portadesign-mcp; a change to a generic section goes to all three. The configuration of this repository is `.agent/project.conf`.
 - An owner decision outside a design question is a decision request in the format of `docs/process.md`, section 6. `scripts/process/check-decision-request.sh` checks it before you post it.
-- One merge rule applies. It is the rule "Review and merge" in `docs/vision.md`, section "How the agent decides". The owner merges; an agent merges with merge permission for the session, or under the milestone delegation (`docs/process.md`, section 4): a change of an approved milestone, also Tier 3, with green CI and no open finding in either review record. A change to `docs/vision.md` or to the generic sections of `docs/process.md`, a release and work outside an approved milestone stay with the owner. A change is ready to merge when all of these hold:
+- One merge rule applies. It is the rule "Review and merge" in `docs/vision.md`, section "How the agent decides". The owner merges; an agent merges only with merge permission for the session, or for a milestone in writing on the milestone's issue (`docs/process.md`, section 4). A milestone permission covers a Tier 3 change only when it names the change; the record check then uses `--tier3-named`. A change is ready to merge when all of these hold:
   - Codex and Claude review it independently and both approve. Each review is bound to the commit SHA that merges.
   - CI is green, including the checkable items below.
-  - The change is not a Tier 3 item of the vision, or the milestone delegation covers it.
+  - The change is not a Tier 3 item of the vision, or the owner named it in a milestone permission.
   - The author gives no decisive approval for the change.
   - Each reviewer states the evidence it examined (diff, specification lines, test output) and what it left unverified.
   - The change names its tier, the principle number and the requirement number it serves. It adds no default behavior and no runtime dependency. It carries tests and touches no security-relevant path.

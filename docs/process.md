@@ -1,6 +1,6 @@
 # Process standard v1
 
-Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10 and section 4 on 2026-11-17, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
+Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10 and sections 4 and 5 on 2026-11-17, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
 
 The same file lives in each repository below, with only the section "This repository" different. Each repository is autonomous: it carries the standard and its tools itself and depends on no shared plugin (owner decision, 2026-11-09). A change to a generic section is one pull request in each repository, with the same text.
 
@@ -47,23 +47,13 @@ A repository adds its own Tier 3 items in its `docs/vision.md`. It never removes
 
 ## 4. Review and merge
 
-The owner merges (decision A1). An agent merges in two cases:
-
-- Session permission: the owner gives merge permission for one session. It ends with the session and never reaches a scheduled routine.
-- Milestone delegation (owner decision, 2026-11-17): the agent merges a change of a milestone that the owner approved, also a Tier 3 change, when the change fits `docs/vision.md` and neither review record holds an open finding. An open finding is a finding that the head does not fix and that the reviewer did not accept as a trade-off. The delegation holds in every session and never reaches a scheduled routine. The agent may post the record of the Codex gate on the pull request.
-
-These always wait for the owner, in both cases:
-
-- a change to `docs/vision.md` or to sections 1 to 12 of this standard,
-- a release: a stable tag, or a pre-release that the owner did not name,
-- work outside an approved milestone,
-- a disagreement between the reviewers that evidence does not settle.
+The owner merges (decision A1). An agent merges only when the owner gives it merge permission for that session, or for one milestone in writing on the milestone's issue. A session permission ends with the session; a milestone permission ends when the milestone closes or the owner withdraws it. Neither reaches a scheduled routine. A Tier 3 change always waits for the owner, unless the owner named it in a milestone permission.
 
 A change is ready to merge when all of these hold:
 
 1. Codex and Claude review it independently. Each review is a valid review record (section 5) on the head SHA, and both count as an approval.
 2. CI is green on the head SHA.
-3. The change is not Tier 3, or the milestone delegation covers it.
+3. The change is not Tier 3, or the owner named it in a milestone permission.
 4. The author gives no decisive approval.
 5. The change names its tier, its principle number and the identifiers it meets or changes.
 
@@ -101,7 +91,7 @@ A review is one pull request comment. Its first line is `<!-- agent:review -->`.
 | `risk` | `none`, or one sentence |
 | `citations` | `path:line` or `path:start-end` entries |
 
-A record counts as an approval only with verdict `fits`, a reviewer other than `author`, tier 1 or 2, and `none` in `default_behavior`, `security`, `unexpected_files` and `risk`.
+A record counts as an approval only with verdict `fits`, a reviewer other than `author`, tier 1 or 2 (or tier 3 for a change the owner named in a milestone permission, section 4), and `none` in `default_behavior`, `security`, `unexpected_files` and `risk`. The validator counts a tier 3 record only with `--tier3-named`; pass it only when the milestone permission names the change.
 
 The validator also reads the older markers `<!-- test-kit-review -->` and `<!-- styleguide-review -->`, so records posted before the standard still count.
 
