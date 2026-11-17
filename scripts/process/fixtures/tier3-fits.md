@@ -22,4 +22,3 @@
 - No findings. The test covers host Twig extensions reaching component renders in production and with the profiler enabled, matching R5.1; it also checks that Symfony’s `twig.extension` tag alone does not provide the catalogue’s Twig environment.
 ---
 _Codex review run locally on the owner's Mac; posted by [Claude Code](https://claude.ai/code)_
-
