@@ -15,12 +15,12 @@ const bar = ({ reject = true, botAware = false, sticky = false, noCookie = false
 const main = document.getElementById('cc-main');
 if (${botAware} && navigator.webdriver) main.remove();
 document.querySelectorAll('[data-role]').forEach(button => button.addEventListener('click', () => {
-  const categories = button.dataset.role === 'all' ? ['necessary', 'analytics'] : (location.pathname === '/unsorted' ? ['necessary', 'functional'] : ['necessary']);
+  const categories = button.dataset.role === 'all' ? ['necessary', 'analytics'] : (location.pathname === '/unsorted' ? ['necessary', 'functional'] : location.pathname === '/empty' ? [] : ['necessary']);
   if (!${noCookie}) document.cookie = 'cc_cookie=' + encodeURIComponent(JSON.stringify({ categories })) + '; path=/';
   if (!${sticky}) main.querySelector('.cm').style.display = 'none';
 }));
 </script></body></html>`;
-const pages = { '/': bar({}), '/sticky': bar({ sticky: true }), '/no-cookie': bar({ noCookie: true }), '/desc-link': bar({ reject: false, descLink: true }), '/hidden': bar({ hidden: true }), '/unsorted': bar({}), '/no-reject': bar({ reject: false }), '/bot-aware': bar({ botAware: true }), '/no-bar': '<!doctype html><p>Example site</p>' };
+const pages = { '/': bar({}), '/sticky': bar({ sticky: true }), '/no-cookie': bar({ noCookie: true }), '/desc-link': bar({ reject: false, descLink: true }), '/hidden': bar({ hidden: true }), '/unsorted': bar({}), '/empty': bar({}), '/no-reject': bar({ reject: false }), '/bot-aware': bar({ botAware: true }), '/no-bar': '<!doctype html><p>Example site</p>' };
 const server = createServer((request, response) => { response.setHeader('Content-Type', 'text/html'); response.end(pages[new URL(request.url, 'http://x').pathname] ?? ''); });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -64,6 +64,8 @@ try {
   assert.equal(inDescription.state, 'complete', inDescription.error); assert.equal(inDescription.result.refusal, 'in-description');
   const unsorted = await measure('/unsorted', createConsentBar({ clickRefusal: true, necessary: ['functional', 'necessary'] }));
   assert.equal(unsorted.state, 'complete', unsorted.error); assert.deepEqual(unsorted.result.categories, ['functional', 'necessary']);
+  const empty = await measure('/empty', createConsentBar({ clickRefusal: true }));
+  assert.equal(empty.state, 'failed'); assert.match(empty.error, /stored no necessary category/);
   assert.equal(createConsentBar({ name: 'consent-bar-refusal' }).name, 'consent-bar-refusal');
-  console.log('Consent contract: a visible bar with refusal passes, a refusal click keeps only the necessary category, and a missing refusal, a missing bar, a bar without a box, a bot-aware bar, a bar that stays after the refusal and a missing choice cookie fail with a reason.');
+  console.log('Consent contract: a visible bar with refusal passes, a refusal click keeps only the necessary category, and a missing refusal, a missing bar, a bar without a box, a bot-aware bar, a bar that stays after the refusal, a missing choice cookie and a choice without the necessary category fail with a reason.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); await rm(directory, { recursive: true, force: true }); }

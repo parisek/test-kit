@@ -66,6 +66,8 @@ export function createConsentBar(options = {}) {
       try { await bar.waitFor({ state: 'hidden', timeout: o.timeoutMs }); } catch { throw new Error('The consent bar stays visible after the refusal.'); }
       const categories = categoriesOf(await page.context().cookies(), o.choiceCookie);
       if (!categories) throw new Error(`The refusal stored no readable ${o.choiceCookie} cookie.`);
+      const missing = o.necessary.filter(name => !categories.includes(name));
+      if (missing.length) throw new Error(`The refusal stored no ${missing.join(', ')} category.`);
       const extra = categories.filter(name => !o.necessary.includes(name));
       if (extra.length) throw new Error(`The refusal stored more than the necessary categories: ${extra.join(', ')}.`);
       return { rendered: true, refusal, categories };

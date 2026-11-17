@@ -257,7 +257,7 @@ extraction remains unsupported.
 box) and that the first layer offers refusal: a reject control, a refusal
 sentence or a refusal control in the description. With
 `createConsentBar({ clickRefusal: true })` it also clicks the refusal and
-checks that the choice cookie keeps only the necessary category. Use the
+checks that the choice cookie holds the necessary categories and no other. Use the
 click on a local side only. The defaults fit the markup of CookieConsent v3
 (`#cc-main .cm`). test-kit did not verify them against a release of that
 library, so check them against your page. Two traps: a selector without a
