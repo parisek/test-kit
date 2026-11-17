@@ -72,7 +72,13 @@ done
 cat > "$GH_T/prompt.md"
 for f in $(grep -o '[^`]*/base/docs/skills/vision-check.md' "$GH_T/prompt.md"); do cp "$f" "$GH_T/seen-skill.md"; done
 [ "${CODEX_TOUCH:-0}" = 1 ] && echo changed >> "$dir/src/a.js"
-printf '%s\n' "$CODEX_RESULT" > "$out"
+spec=$(grep -o '[^`]*/base-spec.md' "$GH_T/prompt.md" | head -1)
+# CODEX_CITE_COPY=1 cites the temporary copy of the base specification, as a real model can.
+if [ "${CODEX_CITE_COPY:-0}" = 1 ]; then
+	printf '%s\n' "$CODEX_RESULT" | jq --arg c "$spec:3" '.citations = [$c]' > "$out"
+else
+	printf '%s\n' "$CODEX_RESULT" > "$out"
+fi
 FAKE
 chmod +x "$T/bin/gh" "$T/bin/codex"
 export PATH="$T/bin:$PATH" GH_T="$T" CODEX_GATE_HEAD_TIMEOUT=0 CODEX_GATE_HEAD_INTERVAL=0
@@ -97,9 +103,19 @@ else bad "gate: posted comment is no valid record"; fi
 if grep -q 'Review instruction of the base branch' "$T/prompt.md" && grep -qx 'base docs/skills/vision-check.md' "$T/seen-skill.md"; then
 	pass "gate: Codex gets the review instruction of the base branch, not the head"
 else bad "gate: base review instruction ($(cat "$T/seen-skill.md" 2>/dev/null))"; fi
-if grep -q 'project_doc_max_bytes=0' "$T/codex-args" && grep -q 'workspace-write' "$T/codex-args" && ! grep -q 'network' "$T/codex-args"; then
-	pass "gate: Codex loads no AGENTS.md of the head and gets no network flag"
+if grep -q 'project_doc_max_bytes=0' "$T/codex-args" && grep -q 'workspace-write' "$T/codex-args" && grep -q 'sandbox_workspace_write.network_access=false' "$T/codex-args" && ! grep -q 'network_access=true' "$T/codex-args"; then
+	pass "gate: Codex loads no AGENTS.md of the head and the network is pinned off"
 else bad "gate: codex arguments ($(cat "$T/codex-args"))"; fi
+
+reset; CODEX_RESULT=$(result fits 1 R1.1 | jq -c '.reviewer = "claude" | .sha = "0000000"') run_gate
+if [ "$rc" -eq 0 ] && grep -q '"reviewer":"codex"' "$T/comment.md" && grep -q "\"sha\":\"$HEAD_SHA\"" "$T/comment.md"; then
+	pass "gate: the model cannot set reviewer or sha"
+else bad "gate: model fields (exit $rc): $(cat "$T/comment.md" 2>/dev/null)"; fi
+
+reset; CODEX_CITE_COPY=1 CODEX_RESULT=$(result fits 1 R1.1) run_gate
+if [ "$rc" -eq 0 ] && grep -q '"citations":\["docs/specification.md:3"\]' "$T/comment.md"; then
+	pass "gate: a citation of the temporary spec copy names docs/specification.md"
+else bad "gate: spec copy citation (exit $rc): $out"; fi
 
 reset; CODEX_RESULT=$(result needs-owner 3 R1.1) run_gate
 if [ "$rc" -eq 1 ] && [ -f "$T/comment.md" ] && [ "$(tail -1 "$T/statuses")" = failure ] && [ "$(cat "$T/labels")" = gate/owner ]; then

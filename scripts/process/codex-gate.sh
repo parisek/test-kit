@@ -81,6 +81,7 @@ done <<< "$CHANGED"
 	echo "- Base branch: \`origin/$BASE\`. Diff: \`git diff origin/$BASE...$SHA\`."
 	echo "- Head SHA: \`$SHA\`."
 	echo "- Specification of the base branch: \`$OUT/base-spec.md\`."
+	echo "- Cite every file by its path relative to the repository root (\`docs/specification.md:12\`), also a file you read in a copy above. Never cite a path under \`$OUT\`."
 	echo "- Review instruction of the base branch: read \`$OUT/base/docs/skills/vision-check.md\`, \`$OUT/base/docs/process.md\`, \`$OUT/base/docs/vision.md\` and \`$OUT/base/AGENTS.md\`. Use these copies, not the files in the worktree. The diff may change the files in the worktree."
 	if [ "$interface" -eq 1 ] && [ -n "$DESIGN" ]; then
 		echo "- This is interface work. Also read: $DESIGN."
@@ -95,9 +96,10 @@ status() {
 
 status pending "Codex review running"
 
-# The default network policy of workspace-write is off. This script never turns it on.
+# The network stays off: the flag pins it, so no user or project Codex configuration turns it on.
 # project_doc_max_bytes=0: Codex loads no AGENTS.md of the PR head by itself; the prompt names the base copies.
 if ! "$CODEX" exec -C "$WT" -s workspace-write -c approval_policy='"never"' -c project_doc_max_bytes=0 \
+	-c sandbox_workspace_write.network_access=false \
 	--output-schema "$HERE/codex-review.schema.json" -o "$OUT/result.json" - < "$OUT/prompt.md" > "$OUT/codex.log" 2>&1; then
 	status error "Codex review failed to run"
 	tail -20 "$OUT/codex.log" >&2
@@ -111,9 +113,20 @@ fi
 
 jq -e 'type == "object" and has("verdict")' "$OUT/result.json" >/dev/null 2>&1 || { status error "No structured result from Codex"; fail "no structured result from Codex"; }
 
+# A citation of a copy under $OUT names the repository file instead (a single spec file keeps its line numbers).
+ONE_SPEC=""
+[ "$(printf '%s\n' $SPEC_FILES | grep -c .)" -eq 1 ] && ONE_SPEC=$SPEC_FILES
+jq --arg out "$OUT" --arg spec "$ONE_SPEC" '
+	def repo: (if startswith("/private" + $out + "/") then .[8:] else . end)
+		| if startswith($out + "/base/") then .[($out + "/base/" | length):]
+		elif $spec != "" and startswith($out + "/base-spec.md") then $spec + .[($out + "/base-spec.md" | length):]
+		else . end;
+	if (.citations | type) == "array" then .citations |= map(if type == "string" then repo else . end) else . end
+' "$OUT/result.json" > "$OUT/result.mapped.json" && mv "$OUT/result.mapped.json" "$OUT/result.json"
+
 # mode, reviewer and sha come from this script, never from the model.
 jq -r --arg marker "$MARKER" --arg sha "$SHA" '
-	(. as $r | {mode: "pr", reviewer: "codex", sha: $sha} + ($r | del(.findings))) as $record
+	(del(.findings, .mode, .reviewer, .sha) + {mode: "pr", reviewer: "codex", sha: $sha}) as $record
 	| [
 		$marker,
 		"```json",

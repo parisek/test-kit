@@ -5,7 +5,7 @@
       "Bash(npm test:*)",
       "Bash(npm run test:viewer:*)",
       "Bash(npm run check:viewer:*)",
-      "Bash(npm ci:*)",
+      "Bash(npm ci --ignore-scripts:*)",
       "Bash(bash scripts/process/test.sh:*)",
       "Bash(scripts/process/codex-gate.sh:*)",
       "Bash(git status:*)",
