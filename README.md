@@ -301,6 +301,17 @@ test-kit history --prune --keep 5 --yes  # remove the rest
 
 The command orders runs by the time in their `run.json`, not by file time. A run stays when a report names it (A or B of a pair, a single-run subject, a run in the report run list), when the workflow state holds it as a baseline, or when its time or side is unreadable. The store index does not protect a run. The command does not read a published `index.json`: a published directory holds its own copies. It works only on a store with the `.test-kit-viewer` marker, refuses links in the store path and in `runs/`, and removes only `runs/<id>/`. It stops at the first failed removal and leaves the later runs. Stdout is one JSON line with `removed`, `failed`, `kept` and `skipped`. After a removal it refreshes the store viewer.
 
+### Attach server facts to a run
+
+`note` attaches facts that do not come from a page to a stored run: versions before and after an update, database updates, the error-log high-water mark, a backup point (R12.7, #381). The facts are one JSON object of at most 256 KiB, with no schema.
+
+```sh
+test-kit note 2026-11-17T08-00-00-000Z-4242-abc1234 --file facts.json   # add a note
+test-kit note 2026-11-17T08-00-00-000Z-4242-abc1234                     # list the notes of the run
+```
+
+The command writes `runs/<id>/notes/001.json`, then `002.json`, and changes no other file of the run. A note never changes a verdict. `history --publish` does not copy notes, and `history --prune` removes them with their run. Do not put credentials in a note. The viewer does not show notes yet.
+
 ### Publish a stable directory
 
 `history --publish DIR` refreshes one stable directory in place (R10.12, R10.13, ADR 0005). It is opt-in. `DIR` has no default and no config key. It comes from the flag and is relative to the config directory.
