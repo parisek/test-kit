@@ -36,7 +36,12 @@ export async function summarizeRunFeedback(run, runsRoot, { maxFindings = 20, pe
         if (!index.path?.endsWith('.json.gz')) throw new Error('Invalid content path.');
         const bytes = await readSidecar(runDir, index.path, 2 * 1024 * 1024);
         const snapshot = validateContentSnapshot(JSON.parse(gunzipSync(bytes, { maxOutputLength: 2 * 1024 * 1024 })));
-        const findings = runContentChecks(snapshot, run.settings.checks, { ...scope, expectedLanguage: run.settings.content?.expectedLanguage, responses: storedResponses(run, viewport.id) });
+        // R7.8: `expect-text` reads the strings of the target and the stored DOM body, as the compare path does.
+        let html;
+        if (run.settings.checks.includes('expect-text') && typeof index.bodyPath === 'string' && index.bodyPath.endsWith('.body.html.gz')) {
+          try { html = gunzipSync(await readSidecar(runDir, index.bodyPath), { maxOutputLength: 2 * 1024 * 1024 }).toString('utf8'); } catch { html = undefined; }
+        }
+        const findings = runContentChecks(snapshot, run.settings.checks, { ...scope, expectedLanguage: run.settings.content?.expectedLanguage, expectText: target.expectText, html, responses: storedResponses(run, viewport.id) });
         result.content.checksExecuted += run.settings.checks.length;
         for (const finding of findings) {
           result.content.findings++;
