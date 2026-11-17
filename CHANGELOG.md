@@ -15,6 +15,8 @@ Stable release of 1.4. It holds `1.4.0-rc.1` (commit 1bc74e9) and one fix that t
 - `perf` on a local HTTPS side: three measurements, no blocked request (#383).
 - `expectStatus: 404` reads `ok` in `availability` (#349). `expectText` in `before` and `after` reports a missing string (#378). `run` did not: see Fixed.
 
+The trial did not run the `run` fix itself, `note --file` (#381), the consent-bar contract (#380), `"role": "reference"` (#387), `sizeMismatch` (#390) or the `capture --packs` fixes (#347). Unit tests and CI cover them.
+
 ### Fixed
 
 - `run`: the check `expect-text` now reads the `expectText` strings of the target and the stored DOM body, as `before` and `after` do. Before, `run` reported "No expected text is configured for this target." for every target (R7.8, #378). Found in the downstream trial of `1.4.0-rc.1`. README: a target without `expectText` gives an `unknown` finding when the check is selected.
