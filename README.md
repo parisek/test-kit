@@ -223,7 +223,10 @@ test-kit perf --side local --ddev --path /example --runs 3
 Use `--ddev` to discover the current DDEV loopback HTTP origin. With `--ddev` the
 origin in the configuration is not used. The loopback origin from `ddev describe`
 replaces it. So the side may name an `https://*.ddev.site` origin in the
-configuration. Run the browser
+configuration. A page that redirects away from the discovered origin (for
+example a canonical redirect that drops the port) fails with
+`DDEV_REDIRECT_LEFT_ORIGIN`, which names the target origin. Capture such pages
+without `--ddev`. Run the browser
 on the host. Install dependencies and build inside DDEV. Flush Mutagen before
 capture when the project uses it. `--side` defaults to `local`.
 
