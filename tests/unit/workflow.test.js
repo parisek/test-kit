@@ -436,6 +436,18 @@ test('config accepts role "reference" on a browser side, refuses any other value
  for (const role of ['source', 'target', '']) assert.throws(() => normalizeConfig({ ...config, sides: { local: { origin: 'http://127.0.0.1:8000', role } } }), /role must be "reference"/);
 });
 
+// R6.16, #383: `perfBlockPaths` changes no capture, so the side digest and the pair kind stay.
+test('adding sides.<id>.perfBlockPaths keeps the baseline and the pair kind (#383)', async t => {
+ const { options, kinds, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'local' }, dependencies);
+ await runWorkflow('after', { ...options, side: 'local' }, dependencies);
+ const sides = Object.fromEntries(Object.entries(pairConfig.sides).map(([id, side]) => [id, { ...side, perfBlockPaths: ['/analytics/*'] }]));
+ await writeFile(options.config, JSON.stringify({ ...pairConfig, sides }));
+ await runWorkflow('after', { ...options, side: 'local' }, dependencies);
+ assert.equal(kinds.length, 2);
+ assert.equal(kinds[1], kinds[0]);
+});
+
 // R8.17, #349 item 4: `target.expectStatus` enters no digest, so a baseline still serves after the key is added.
 test('adding target.expectStatus keeps the baseline (#349)', async t => {
  const { options, kinds, dependencies } = await pairFixture(t);

@@ -213,9 +213,10 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
       built.runsRoot = `${offset.split('\\').join('/')}/runs`;
       const normalized = normalizeConfig(built);
       // R8.17: `expectStatus` changes no capture, so it enters neither the scope nor the policy digest.
+      // R6.16: `perfBlockPaths` changes no capture either, so it stays out of the side digest.
       const { sides: allSides, ...withStatus } = normalized;
       const shared = { ...withStatus, targets: withStatus.targets.map(({ expectStatus, ...target }) => target) };
-      return { config: normalized, shared, sideDigest: digest(JSON.stringify(allSides[side])), scope: digest(JSON.stringify({ config: shared })) };
+      return { config: normalized, shared, sideDigest: digest(JSON.stringify((({ perfBlockPaths, ...rest }) => rest)(allSides[side]))), scope: digest(JSON.stringify({ config: shared })) };
     };
     let { config, shared, sideDigest, scope } = await build({});
     let sourceFingerprint = null;

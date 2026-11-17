@@ -15,6 +15,7 @@ async function perform(options, budgets, dependencies) {
   const directory = dirname(configPath);
   const store = await ensureStore(options);
   const config = selectConfig(JSON.parse(await readFile(configPath, 'utf8')), { path: options.path, suite: 'visual' });
+  if (options.ddev && config.sides[options.side]?.remote === true) throw new Error('A remote side has no DDEV origin. Remove --ddev.');
   if (options.ddev) {
     config.sides[options.side].origin = loopbackOrigin(await describeDdev(directory));
   }

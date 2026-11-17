@@ -79,6 +79,17 @@ function allowOrigins(value, name) {
   unique(result.map(entry => entry.origin), `${name} origin`);
   return result;
 }
+// R6.16 (#383): paths of the own origin that a speed run blocks, for example a first-party analytics endpoint.
+// Each path is a Lighthouse URL pattern after the origin: it starts with "/" and may hold "*". Capture ignores the key.
+const PERF_BLOCK_PATHS_MAX = 20;
+function perfBlockPaths(value, name) {
+  const items = dense(list(value, name, PERF_BLOCK_PATHS_MAX, 1), name);
+  for (const [index, path] of items.entries()) {
+    if (typeof path !== 'string' || !/^\/[\x21-\x7e]{0,199}$/.test(path)) fail(`${name}[${index}] must start with "/" and hold 1..200 printable ASCII characters without spaces`);
+  }
+  unique(items, name);
+  return [...items];
+}
 function targetPath(value, name) {
   text(value, name, 2000);
   if (!value.startsWith('/') || value.startsWith('//') || /[\\\s]/.test(value)) fail(`${name} must be origin-relative`);
@@ -197,7 +208,7 @@ export function normalizeConfig(input) {
     id(sideId, 'side ID');
     // R5.5: a side with a `kind` key is a design side. A side without it is a browser side, as before.
     if (side && typeof side === 'object' && !Array.isArray(side) && Object.hasOwn(side, 'kind')) return [sideId, normalizeDesignSide(side, `sides.${sideId}`)];
-    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins', 'thirdParty', 'role']);
+    object(side, `sides.${sideId}`, ['origin', 'settle', 'remote', 'production', 'userAgent', 'challenge', 'allowOrigins', 'thirdParty', 'role', 'perfBlockPaths']);
     if (Object.hasOwn(side, 'remote') && typeof side.remote !== 'boolean') fail(`sides.${sideId}.remote must be a boolean`);
     // R6.5: the flag, not the side id, marks a production side.
     if (Object.hasOwn(side, 'production') && typeof side.production !== 'boolean') fail(`sides.${sideId}.production must be a boolean`);
@@ -216,6 +227,7 @@ export function normalizeConfig(input) {
       ...(Object.hasOwn(side, 'challenge') ? { challenge: side.challenge } : {}),
       ...(Object.hasOwn(side, 'allowOrigins') ? { allowOrigins: allowOrigins(side.allowOrigins, `sides.${sideId}.allowOrigins`) } : {}),
       ...(Object.hasOwn(side, 'thirdParty') ? { thirdParty: side.thirdParty } : {}),
+      ...(Object.hasOwn(side, 'perfBlockPaths') ? { perfBlockPaths: perfBlockPaths(side.perfBlockPaths, `sides.${sideId}.perfBlockPaths`) } : {}),
       ...(side.production === true ? { production: true } : {}),
       ...(side.role === 'reference' ? { role: 'reference' } : {}),
       settle: normalizeSettlement(side.settle ?? {}, `sides.${sideId}.settle`) }];
