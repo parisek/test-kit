@@ -66,6 +66,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `targets[].box` | string | none | no | `border` or `content`. Needs `selector`. |
 | `targets[].settle`, `targets[].settleBySide` | object | none | no | Partial settle recipe, for all sides or for one side. |
 | `targets[].layout` | object | none | no | R6.14. `{ parts: [ { id, selector, selectorBySide?, repeat? } ] }`, 1 to 50 parts with unique safe IDs. `selectorBySide` maps a configured side ID to the selector of the part on that side (an addition, owner direction to an agent in a session, 2026-11-08, #350, part C). Read only when the run selects the `layout` artifact. Not in the capture settings hash. An addition: old input passes (owner direction, 2026-11-08, #350). |
+| `targets[].expectText` | list | none | no | R7.8. 1 to 20 unique strings of 1 to 500 characters. The check `expect-text` reports each string that the stored DOM body lacks. In no hash. Added in 1.4 (#378). |
 | `targets[].expectStatus` | number | none | no | R8.17. One HTTP status code from 100 to 599. A capture with that code reads `ok` in `availability`. In no hash. Added in 1.4 (#349). |
 | `targetSource` | object | none | no | R13.3. Component targets from a styleguide side. Needs `source: "styleguide"` and `side`. Optional `mount` (default `/styleguide`), `include` (target IDs) and the booleans `variants` and `pages` (R13.52, default off). `targets` must be absent or empty. Not in the capture settings hash. An addition: old input passes. Added after 1.0.0. |
 | `viewports` | list | none | yes | 1 to 20 entries. |
@@ -73,7 +74,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `viewports[].deviceScaleFactor` | number | `1` | no | 0.5 to 3. |
 | `artifacts` | list | `["screenshot"]` | no | 1 to 6 of `screenshot`, `html`, `status`, `content`, `behavior`, `layout`. Additive only. `layout` and the cap of 6 (was 5) are an addition: every old list still passes (R6.14, #350). |
 | `layout` | object | none | no | R6.15. `{ aliases? }`: a token name of side A to a token name of side B, at most 500 entries. Comparison policy only. Not in the capture settings hash. An addition (#350). |
-| `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
+| `checks` | list | `[]` | no | At most 7 built-in content check IDs (one of each). Needs the `content` artifact. |
 | `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
 | `runsRoot` | string | `test-kit/runs` | no | Plain relative path. The default was `.test-kit/runs` before 1.2.0 (one-time exception to the freeze rule, #312) and `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. Since R12.6 (#352) a path equal to or inside `test-kit/inputs` fails. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
@@ -153,7 +154,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
+| The built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`, and `expect-text` since 1.4, R7.8) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
 | The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` is part of the shape since `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 

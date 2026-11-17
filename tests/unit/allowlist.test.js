@@ -90,9 +90,9 @@ const snapshot = (extra = {}) => ({ schemaVersion: 1, extractorVersion: '1.1.0',
 	links: [{ path: '/missing', text: 'Missing' }], omitted: { headings: 0, images: 0, links: 0, text: false }, ...extra });
 
 test('R9.8: the same stored snapshot gives the same fingerprints in any run, for every absolute built-in check', () => {
-	const context = (extra) => ({ targetId: 'home', viewportId: 'desktop', expectedLanguage: 'en', responses: { '/missing': 404 }, ...extra });
+	const context = (extra) => ({ targetId: 'home', viewportId: 'desktop', expectedLanguage: 'en', responses: { '/missing': 404 }, expectText: ['component-page-header-home'], html: '<main></main>', ...extra });
 	const ids = Object.keys(builtinChecks).filter((id) => builtinChecks[id].basis === 'absolute');
-	assert.deepEqual(ids.sort(), ['empty-alt', 'empty-title', 'heading-outline', 'internal-links', 'lang']);
+	assert.deepEqual(ids.sort(), ['empty-alt', 'empty-title', 'expect-text', 'heading-outline', 'internal-links', 'lang']);
 	for (const id of ids) {
 		const prints = (ctx) => {
 			const findings = builtinChecks[id].check(snapshot(), ctx);

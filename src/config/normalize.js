@@ -239,7 +239,7 @@ export function normalizeConfig(input) {
   const targetSource = Object.hasOwn(input, 'targetSource') ? normalizeTargetSource(input.targetSource, sides) : undefined;
   if (targetSource && input.targets !== undefined && !(Array.isArray(input.targets) && input.targets.length === 0)) fail('targets must be absent or empty when targetSource is set');
   const targets = list(targetSource ? [] : input.targets, 'targets', 1000, targetSource ? 0 : 1).map(target => {
-    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design', 'layout', 'expectStatus']);
+    object(target, 'target', ['id', 'kind', 'title', 'path', 'paths', 'selector', 'box', 'settle', 'settleBySide', 'design', 'layout', 'expectStatus', 'expectText']);
     const targetId = id(target.id, 'target ID');
     if (!['page', 'component'].includes(target.kind)) fail('target.kind must be page or component');
     const result = { id: targetId, kind: target.kind, title: text(target.title ?? targetId, 'target.title') };
@@ -279,6 +279,15 @@ export function normalizeConfig(input) {
       if (!Number.isInteger(target.expectStatus) || target.expectStatus < 100 || target.expectStatus > 599) fail('target.expectStatus must be an HTTP status code from 100 to 599');
       result.expectStatus = target.expectStatus;
     }
+    // R7.8, #378: strings that the page of this target must contain. The key enters no hash.
+    if (target.expectText !== undefined) {
+      if (!Array.isArray(target.expectText) || target.expectText.length < 1 || target.expectText.length > 20) fail('target.expectText must be a list of 1 to 20 strings');
+      result.expectText = target.expectText.map(value => {
+        if (typeof value !== 'string' || !value.length || value.length > 500 || /[\x00-\x1f\x7f]/.test(value)) fail('target.expectText entries must be text of 1 to 500 characters without control characters');
+        return value;
+      });
+      if (new Set(result.expectText).size !== result.expectText.length) fail('target.expectText entries must be unique');
+    }
     // R6.14: the parts of the layout artifact. The key is optional and enters no hash.
     if (target.layout !== undefined) {
       try { result.layout = normalizeLayoutParts(target.layout, Object.keys(sides)); } catch (error) { fail(error.message); }
@@ -304,7 +313,7 @@ export function normalizeConfig(input) {
   const artifacts = list(input.artifacts ?? DEFAULT_ARTIFACTS, 'artifacts', CAPTURE_ARTIFACTS.length, 1);
   if (artifacts.some(kind => !CAPTURE_ARTIFACTS.includes(kind))) fail('unsupported artifact');
   unique(artifacts, 'artifact');
-  const checks = list(input.checks ?? [], 'checks', 6).map(value => id(value, 'check ID'));
+  const checks = list(input.checks ?? [], 'checks', Object.keys(builtinChecks).length).map(value => id(value, 'check ID'));
   unique(checks, 'check');
   if (checks.some(check => !Object.hasOwn(builtinChecks, check))) fail('unknown content check');
   if (checks.length && !artifacts.includes('content')) fail('checks require the content artifact');
