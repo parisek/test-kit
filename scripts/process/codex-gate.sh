@@ -127,7 +127,12 @@ jq -r --arg marker "$MARKER" --arg sha "$SHA" '
 	] | join("\n")
 ' "$OUT/result.json" > "$OUT/comment.md"
 
-CHECK=(node "$HERE/check-record.mjs" "$OUT/comment.md" --sha "$SHA" --spec "$OUT/base-spec.md")
+# Read the base specification again: the sandbox may write to $OUT (TMPDIR), so the copy Codex saw is not trusted here.
+: > "$OUT/check-spec.md"
+for f in $SPEC_FILES; do
+	git -C "$WT" show "origin/$BASE:$f" >> "$OUT/check-spec.md" || fail "cannot read $f on origin/$BASE"
+done
+CHECK=(node "$HERE/check-record.mjs" "$OUT/comment.md" --sha "$SHA" --spec "$OUT/check-spec.md")
 [ -z "$PATTERN" ] || CHECK+=(--pattern "$PATTERN")
 if ! RESULT=$("${CHECK[@]}" 2>&1); then
 	status error "Codex record is invalid"

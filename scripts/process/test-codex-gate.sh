@@ -147,4 +147,29 @@ grep -q 'head outside this repository' <<<"$out" && ! grep -q 'would review' <<<
 rc=0; (cd "$T/wt" && "$HERE/codex-queue.sh" --now >/dev/null 2>&1) || rc=$?
 [ "$rc" -eq 64 ] && pass "queue: unknown option is a usage error" || bad "queue: usage (exit $rc)"
 
+# Setup split: a head that changes a setup input gets the trusted setup at the owner's HEAD first, then the untrusted setup.
+g checkout -q -b pr-npmrc
+echo 'registry=https://example.invalid/' > "$T/wt/.npmrc"
+g add -A && g commit -q -m npmrc
+PR_SHA=$(g rev-parse HEAD)
+g checkout -q feature
+echo 'setup_inputs = package.json .npmrc' >> "$T/wt/.agent/project.conf"
+cat > "$T/bin/fake-gate" <<'FAKE'
+#!/usr/bin/env bash
+echo "gate $(git -C "$2" rev-parse HEAD)" >> "$GH_T/setup"
+FAKE
+chmod +x "$T/bin/fake-gate"
+queue() { (cd "$T/wt" && CODEX_GATE="$T/bin/fake-gate" GATE_LABEL=true \
+	CODEX_QUEUE_SETUP='echo "trusted $(git rev-parse HEAD)" >> "$GH_T/setup"' \
+	CODEX_QUEUE_SETUP_UNTRUSTED='echo "untrusted $(git rev-parse HEAD)" >> "$GH_T/setup"' \
+	"$HERE/codex-queue.sh" 2>&1) || true; }
+rm -f "$T/setup"; out=$(HEAD_SHA=$PR_SHA queue)
+if [ "$(cat "$T/setup" 2>/dev/null)" = "$(printf 'trusted %s\nuntrusted %s\ngate %s' "$HEAD_SHA" "$PR_SHA" "$PR_SHA")" ]; then
+	pass "queue: a head that changes .npmrc gets the trusted setup first, then the untrusted setup"
+else bad "queue: setup split ($(cat "$T/setup" 2>/dev/null); $out)"; fi
+rm -f "$T/setup"; out=$(queue)
+if [ "$(cat "$T/setup" 2>/dev/null)" = "$(printf 'trusted %s\ngate %s' "$HEAD_SHA" "$HEAD_SHA")" ]; then
+	pass "queue: a head without a setup input change gets only the setup"
+else bad "queue: plain setup ($(cat "$T/setup" 2>/dev/null); $out)"; fi
+
 exit "$fail"

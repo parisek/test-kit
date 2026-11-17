@@ -20,7 +20,7 @@ The cloud agent learns the verdict from the record comment on its watched pull r
 - The prompt holds `scripts/process/codex-review-prompt.md`, the base branch and the head SHA. It holds no pull request title, body or comment (`docs/process.md`, section 4, reviewer rule 1).
 - Codex runs with `project_doc_max_bytes=0`, so it loads no `AGENTS.md` of the PR head by itself. The queue cleans the shared worktree before each pull request.
 - The specification, `.agent/project.conf` and the review instruction (`docs/skills/vision-check.md`, `docs/process.md`, `docs/vision.md`, `AGENTS.md`) come from the base branch. A change cannot add its own R-number or rewrite its own review.
-- The queue runs `setup` in the PR worktree outside the Codex sandbox. Here it is `npm ci --ignore-scripts`, so no install script of the PR head runs. The queue reviews only heads in this repository, never a fork head.
+- The queue runs `setup` in the PR worktree outside the Codex sandbox. Here it is `npm ci --ignore-scripts`, so no install script of the PR head runs. A head that changes a setup input (`setup_inputs`: the package files and `.npmrc`) gets the trusted setup at the HEAD of the owner's checkout, then `setup_untrusted` (here: nothing). So no `.npmrc` of a PR head can send a token of the owner's shell to another registry. The queue reviews only heads in this repository, never a fork head.
 - The gate posts at most 20 findings of at most 500 characters each.
 - `mode`, `reviewer` and `sha` come from the script, never from the model.
 - `check-record.mjs` checks the record before it is posted. An invalid record is not posted. The status is then `error` and the label stays.

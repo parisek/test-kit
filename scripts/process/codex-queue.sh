@@ -3,7 +3,8 @@
 # lost its approval. It runs on the owner's machine (by hand, cron, launchd or a Remote Control session).
 # A PR is reviewed only when every check run on its head is green. A gate that cannot run keeps the label for the next run.
 # Usage: scripts/process/codex-queue.sh [--dry-run]
-# Env: GH, CODEX_GATE, GATE_LABEL (binaries and scripts); CODEX_QUEUE_SETUP (else `setup` of .agent/project.conf).
+# Env: GH, CODEX_GATE, GATE_LABEL (binaries and scripts); CODEX_QUEUE_SETUP, CODEX_QUEUE_SETUP_UNTRUSTED
+#      (else `setup`, `setup_untrusted` of .agent/project.conf).
 # Exit: 0 queue processed (or empty), 1 a gate could not run, 64 usage.
 set -euo pipefail
 
@@ -101,7 +102,18 @@ for pr in $PENDING; do
 		git worktree add -q --detach "$WT" "$sha"
 	fi
 	[ -n "$SETUP" ] || SETUP=$("$HERE/project-config.sh" setup --default true)
-	if ! (cd "$WT" && eval "$SETUP"); then
+	# A head that changes a setup input (package files, .npmrc) is not trusted: its .npmrc could send a token
+	# of the owner's shell to another registry. The trusted setup runs at this checkout's HEAD first; then
+	# setup_untrusted runs at the PR head (default: nothing). Same split as portadesign-mcp (#943).
+	run_setup=$SETUP
+	trusted=$(git rev-parse HEAD)
+	inputs=$("$HERE/project-config.sh" setup_inputs --default "")
+	if [ -n "$inputs" ] && ! git -C "$WT" diff --quiet "$trusted" "$sha" -- $inputs; then
+		untrusted=${CODEX_QUEUE_SETUP_UNTRUSTED:-$("$HERE/project-config.sh" setup_untrusted --default true)}
+		echo "codex-queue: #$pr changes a setup input; trusted setup at ${trusted:0:7}, then untrusted setup"
+		run_setup="git checkout -q --detach $trusted && { $SETUP; } && git checkout -q --detach $sha && { $untrusted; }"
+	fi
+	if ! (cd "$WT" && eval "$run_setup"); then
 		echo "codex-queue: setup failed for #$pr; label kept" >&2; failed=1; continue
 	fi
 	# A gate/codex-approved PR whose head lost its approval moves to pending while it is reviewed.
