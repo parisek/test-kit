@@ -21,6 +21,7 @@ The cloud agent learns the verdict from the record comment on its watched pull r
 - Codex runs with `project_doc_max_bytes=0`, so it loads no `AGENTS.md` of the PR head by itself. The queue cleans the shared worktree before each pull request.
 - The specification, `.agent/project.conf` and the review instruction (`docs/skills/vision-check.md`, `docs/process.md`, `docs/vision.md`, `AGENTS.md`) come from the base branch. A change cannot add its own R-number or rewrite its own review.
 - The queue runs `setup` in the PR worktree outside the Codex sandbox. Here it is `npm ci --ignore-scripts`, so no install script of the PR head runs. A head that changes a setup input (`setup_inputs`: the package files, a shrinkwrap and `.npmrc`) gets the trusted setup at the HEAD of the owner's checkout, then `setup_untrusted` (here: nothing). So no `.npmrc` of a PR head can send a token of the owner's shell to another registry. The queue reviews only heads in this repository, never a fork head.
+- The gate reviews only a PR against the default branch, and only a head in this repository. A PR against another branch could bring its own "base" rules.
 - The gate posts at most 20 findings of at most 500 characters each.
 - `mode`, `reviewer` and `sha` come from the script, never from the model.
 - `check-record.mjs` checks the record before it is posted. An invalid record is not posted. The status is then `error` and the label stays.
@@ -53,7 +54,7 @@ scripts/process/codex-queue.sh
 
 A Remote Control session runs the same command. Each `codex exec` call happens inside the script, so the session needs one permission for the script and none for Codex. `.claude/settings.json` of the repository holds the `allow` and `ask` lists of `portadesign/portadesign-mcp`, adapted to npm. Its PreToolUse guard hook (`guard-bash.sh`) and its SessionStart worktree prune are not ported yet:
 
-- `allow`: `codex-gate.sh`, the test commands, `npm ci --ignore-scripts`, and read-only `git` and `gh` commands. There is no rule for a bare `codex exec`. `codex-queue.sh` and `gate-label.sh` ask first in a session; launchd or a person runs the queue.
+- `allow`: `codex-gate.sh`, the test commands, `npm ci --ignore-scripts`, `git status`, `git worktree list` and read-only `gh` commands. `git diff`, `git log` and `git fetch` ask first: their options can write a file (`--output=`) or run a command (`--upload-pack=`). There is no rule for a bare `codex exec`. `codex-queue.sh` and `gate-label.sh` ask first in a session; launchd or a person runs the queue.
 - `ask`: `gh pr merge`, `gh release`, `git tag`, a force push, `git reset --hard`, `ssh` and `scp`. These always need the owner.
 
 The scripts call `gh` for the GitHub API and `npm ci` (the `setup` key) for dependencies. Codex itself gets no network.

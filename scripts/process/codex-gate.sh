@@ -38,6 +38,12 @@ done
 
 BASE=$("$GH" pr view "$PR" --json baseRefName --jq .baseRefName) || fail "cannot read the base branch of #$PR"
 case "$BASE" in '' | -* | *..* | *[!A-Za-z0-9._/-]*) fail "unexpected base branch name '$BASE'" ;; esac
+# Only a PR against the default branch: an agent could push another branch and pick its own "base" rules.
+DEFAULT=$("$GH" api "repos/{owner}/{repo}" --jq .default_branch) || fail "cannot read the default branch"
+[ "$BASE" = "$DEFAULT" ] || fail "#$PR targets '$BASE', not the default branch '$DEFAULT'; not reviewed"
+# A fork head is never reviewed, also when a person runs the gate by hand.
+SAME=$("$GH" api "repos/{owner}/{repo}/pulls/$PR" --jq '.head.repo.full_name == .base.repo.full_name') || fail "cannot read the head repository of #$PR"
+[ "$SAME" = true ] || fail "#$PR has a head outside this repository; not reviewed"
 git -C "$WT" fetch -q origin "$BASE" || fail "cannot fetch origin/$BASE"
 
 OUT=$(mktemp -d)
