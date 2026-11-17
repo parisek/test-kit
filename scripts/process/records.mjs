@@ -73,12 +73,13 @@ export function validateRecord(record, { headSha, requirementIds, idFormat = R_N
 }
 
 // Reasons the record does not count as an approval (docs/process.md, section 5). Empty means approve.
-export function approvalBlockers(record) {
+// tier3Named: the owner named this change in a milestone permission (section 4). The caller decides it, never the record.
+export function approvalBlockers(record, { tier3Named = false } = {}) {
 	const blockers = [];
 	if (record.mode !== 'pr') blockers.push('A record in mode issue never counts as a merge review.');
 	if (record.verdict !== 'fits') blockers.push(`verdict is ${record.verdict}.`);
 	if (record.reviewer === 'author') blockers.push('The author is not a reviewer.');
-	if (record.tier === 3) blockers.push('tier is 3.');
+	if (record.tier === 3 && tier3Named !== true) blockers.push('tier is 3.');
 	if (record.default_behavior !== 'none') blockers.push('default_behavior is not none.');
 	if (record.security !== 'none') blockers.push('security is not none.');
 	if (record.unexpected_files !== 'none') blockers.push('unexpected_files is not none.');
