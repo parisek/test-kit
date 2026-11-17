@@ -52,6 +52,7 @@ case "$1 $2" in
 			*"/labels?"*) cat "$GH_T/labels" 2>/dev/null || true ;;
 			*"issues?labels=gate/codex-pending"*) cat "$GH_T/pending" 2>/dev/null || true ;;
 			*"issues?labels=gate/codex-approved"*) : ;;
+			*"--jq .default_branch"*) echo "${GH_DEFAULT:-main}" ;;
 			*"/pulls/"*"head.repo"*) echo "${GH_SAME_REPO:-true}" ;;
 			*"/pulls/"*) echo "$HEAD_SHA" ;;
 			*"/check-runs"*) cat "$GH_T/checks" ;;
@@ -143,6 +144,16 @@ reset
 
 GH_STALE=1 CODEX_RESULT=$(result fits 1 R1.1) run_gate
 if [ "$rc" -eq 2 ] && grep -q 'is not the head' <<<"$out"; then pass "gate: a worktree off the PR head does not run"; else bad "gate: stale head (exit $rc): $out"; fi
+
+reset; GH_DEFAULT=release CODEX_RESULT=$(result fits 1 R1.1) run_gate
+if [ "$rc" -eq 2 ] && [ ! -f "$T/comment.md" ] && grep -q 'not the default branch' <<<"$out"; then
+	pass "gate: a PR against another branch than the default is not reviewed"
+else bad "gate: default branch (exit $rc): $out"; fi
+reset; GH_SAME_REPO=false CODEX_RESULT=$(result fits 1 R1.1) run_gate
+if [ "$rc" -eq 2 ] && [ ! -f "$T/comment.md" ] && grep -q 'head outside this repository' <<<"$out"; then
+	pass "gate: a fork head is not reviewed by the gate itself"
+else bad "gate: fork (exit $rc): $out"; fi
+reset
 
 rc=0; "$HERE/gate-label.sh" 7 merged >/dev/null 2>&1 || rc=$?
 [ "$rc" -eq 64 ] && pass "label: unknown state is a usage error" || bad "label: unknown state (exit $rc)"
