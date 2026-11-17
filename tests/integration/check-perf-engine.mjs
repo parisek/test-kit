@@ -78,6 +78,8 @@ try {
   // This is A/A evidence validation, not a claim of a second measured capture.
   await cp(runDir, join(root, 'runs', 'run-b'), { recursive: true });
   const replay = { ...structuredClone(run), id: 'run-b' };
+  // R6.17: the blocked list of a side reaches the comparison detail and the query. A malformed group is left out.
+  replay.captures[0].artifacts.lighthouse.blocked = [{ resourceType: 'script', origin: 'https://cdn.example.net', count: 2 }, { resourceType: 'script', origin: 'file:///etc', count: 1 }];
   await writeFile(join(root, 'runs', 'run-b', 'run.json'), JSON.stringify(replay));
   const compared = await compareRuns({ runsRoot: join(root, 'runs'), runA: run.id, runB: 'run-b', outputDir: join(root, 'command-pair'), kind: 'adhoc' });
   assert.equal(compared.exitCode, 0);
@@ -87,6 +89,9 @@ try {
   const queried = await queryArtifact(compared.reportPath, { target: 'example-site', viewport: 'desktop', artifact: 'lighthouse' });
   assert.deepEqual(queried.diff.a.metrics, artifact.metrics);
   assert.equal(queried.diff.compatible, !artifact.suspect);
+  assert.deepEqual(queried.diff.b.blocked, [{ resourceType: 'script', origin: 'https://cdn.example.net', count: 2 }]);
+  assert.equal(queried.diff.b.blockedOmitted, 1);
+  assert.equal(Object.hasOwn(queried.diff.a, 'blocked'), false);
   const viewer = await serve({ reportPath: compared.reportPath });
   try {
     const html = entry.viewports[0].artifacts.lighthouse.a.reports[0].html.src;

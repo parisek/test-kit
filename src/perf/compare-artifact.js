@@ -5,6 +5,7 @@ import { artifactState } from '../artifacts/state.js';
 import { relativePath } from '../report/safe.js';
 import { settingsHash } from '../config/settings.js';
 import { comparePerformance, validatePerformanceSnapshot, extractMetrics, METRICS } from './model.js';
+import { storedBlocked } from './isolation.js';
 
 const MAX_RAW_BYTES = 20 * 1024 * 1024;
 const MAX_SUMMARY_BYTES = 2 * 1024 * 1024;
@@ -14,6 +15,11 @@ async function store(root, src, bytes) {
   if (!relativePath(src)) throw new Error('Unsafe performance output path.');
   await mkdir(dirname(join(root, src)), { recursive: true });
   await writeFile(join(root, src), bytes, { mode: 0o600 });
+}
+
+// R6.17: each side of the detail carries its blocked requests, so the viewer and the query show them.
+export function comparisonSide(snapshot) {
+  return { settings: snapshot.settings, metrics: snapshot.metrics, suspect: snapshot.suspect, ...storedBlocked(snapshot) };
 }
 
 export async function comparePerformanceArtifact({ a, b, ac, bc, runsRoot, output, targetId, viewportId,
@@ -65,8 +71,7 @@ export async function comparePerformanceArtifact({ a, b, ac, bc, runsRoot, outpu
     return { artifact: result, findings: [], exitCode: 0 };
   }
   const comparison = comparePerformance(...snapshots, { environmentA, environmentB, budgets, failOnBudget });
-  const detail = { ...comparison, a: { settings: snapshots[0].settings, metrics: snapshots[0].metrics, suspect: snapshots[0].suspect },
-    b: { settings: snapshots[1].settings, metrics: snapshots[1].metrics, suspect: snapshots[1].suspect } };
+  const detail = { ...comparison, a: comparisonSide(snapshots[0]), b: comparisonSide(snapshots[1]) };
   const bytes = Buffer.from(JSON.stringify(detail));
   if (bytes.length > MAX_SUMMARY_BYTES) throw new Error('Performance comparison exceeds its limit.');
   const src = `diff/lighthouse/${targetId}/${viewportId}.json`;

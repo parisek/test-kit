@@ -1,5 +1,6 @@
 import { settingsHash } from '../config/settings.js';
 import { METRICS, rebuildPerformanceSettings, summarizeSamples } from './core.js';
+import { storedBlocked } from './isolation.js';
 export { METRICS, performanceSettings, rebuildPerformanceSettings, networkPolicy, summarizeSamples } from './core.js';
 export { validatePerformanceComparison } from './schema.js';
 
@@ -105,7 +106,7 @@ export function validatePerformanceSnapshot(value) {
   if (!Array.isArray(value.reports) || value.reports.length !== settings.runs) throw new Error('Performance raw reports are incomplete.');
   return { kind: 'lighthouse', state: 'captured', tool: value.tool, version: value.version,
     browserVersion: value.browserVersion, settingsHash: value.settingsHash, settings, metrics, suspect: value.suspect,
-    ...(value.load && typeof value.load === 'object' ? { load: value.load } : {}), reports: value.reports };
+    ...(value.load && typeof value.load === 'object' ? { load: value.load } : {}), reports: value.reports, ...storedBlocked(value) };
 }
 
 

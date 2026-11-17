@@ -95,6 +95,13 @@ test('performance snapshots bind settings, summaries and complete report counts'
   assert.equal(validatePerformanceSnapshot(artifact).metrics.lcp_ms.median, 110);
   assert.throws(() => validatePerformanceSnapshot({ ...artifact, settings: { ...settings, runs: 5 } }));
   assert.throws(() => validatePerformanceSnapshot({ ...artifact, reports: [] }));
+  // R6.17: the snapshot keeps valid blocked groups and leaves out a malformed one.
+  const kept = validatePerformanceSnapshot({ ...artifact, blocked: [{ resourceType: 'font', origin: 'https://fonts.example.net', count: 1 },
+    { resourceType: 'font', origin: 'file:///etc', count: 1 }], blockedOmitted: 2 });
+  assert.deepEqual(kept.blocked, [{ resourceType: 'font', origin: 'https://fonts.example.net', count: 1 }]);
+  // The left-out group still counts: its request joins blockedOmitted.
+  assert.equal(kept.blockedOmitted, 3);
+  assert.equal(Object.hasOwn(validatePerformanceSnapshot(artifact), 'blocked'), false);
   assert.throws(() => validatePerformanceSnapshot({ ...artifact, metrics: { ...artifact.metrics, lcp_ms: { ...artifact.metrics.lcp_ms, median: 999 } } }));
 });
 
@@ -129,6 +136,22 @@ test('performance comparison validator keeps bounded structured evidence and rej
     value => { value.findings[0].message = 'x'.repeat(1001); }, value => { value.findings = []; },
     value => { value.a.metrics.lcp_ms.samples[0] = NaN; }];
   for (const change of changes) { const malformed = structuredClone(detail); change(malformed); assert.throws(() => validatePerformanceComparison(malformed)); }
+  // R6.17: a side may carry its blocked requests. A reader leaves out a malformed group,
+  // adds its requests to `blockedOmitted` and keeps the rest of the detail.
+  const withBlocked = structuredClone(detail);
+  const script = { resourceType: 'script', origin: 'https://cdn.example.net', count: 2 };
+  withBlocked.b.blocked = [script, { resourceType: 'image', origin: 'https://img.example.net', count: 3 }]; withBlocked.b.blockedOmitted = 4;
+  assert.deepEqual(validatePerformanceComparison(withBlocked).b.blocked, withBlocked.b.blocked);
+  assert.equal(validatePerformanceComparison(withBlocked).b.blockedOmitted, 4);
+  const read = change => { const malformed = structuredClone(withBlocked); change(malformed); return validatePerformanceComparison(malformed).b; };
+  const unsafe = read(value => { value.b.blocked[1].origin = 'javascript:alert(1)'; });
+  assert.deepEqual(unsafe.blocked, [script]);
+  assert.equal(unsafe.blockedOmitted, 7, 'the left-out group adds its 3 requests');
+  assert.equal(read(value => { value.b.blocked[1].count = 0; }).blockedOmitted, 4, 'a group without a valid count adds nothing');
+  assert.equal(read(value => { value.b.blockedOmitted = -1; }).blockedOmitted, undefined);
+  assert.equal(read(value => { value.b.blocked = 'x'; }).blocked, undefined);
+  assert.equal(read(value => { value.b.blocked = 'x'; }).blockedOmitted, 4);
+  assert.equal(validatePerformanceComparison(structuredClone(withBlocked)).metrics.lcp_ms.state, 'regression', 'the metrics stay usable');
   const incompatible = { ...comparePerformance(a, b, { environmentA: 'local', environmentB: 'other' }), a: detail.a, b: detail.b };
   assert.equal(validatePerformanceComparison(incompatible).compatible, false);
 });

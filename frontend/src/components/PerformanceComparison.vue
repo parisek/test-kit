@@ -1,7 +1,9 @@
 <script setup>
+import { computed } from 'vue';
 const props = defineProps({ data: Object });
 const metrics = { lcp_ms: ['Largest contentful paint', 'ms'], fcp_ms: ['First contentful paint', 'ms'], tbt_ms: ['Total blocking time', 'ms'], cls: ['Cumulative layout shift', ''], speed_index_ms: ['Speed index', 'ms'] };
 const format = (value, key) => Number.isFinite(value) ? Math.abs(value) >= 1e9 ? value.toExponential(2) : key === 'cls' ? value.toFixed(3) : Math.round(value).toLocaleString('en') : 'Unknown';
+const blockedSides = computed(() => ['a', 'b'].filter(side => props.data[side]?.blocked?.length || props.data[side]?.blockedOmitted));
 const width = (side, key) => {
   const a = props.data.a.metrics[key]?.median ?? 0, b = props.data.b.metrics[key]?.median ?? 0;
   return Math.max(0, Math.min(100, (side === 'a' ? a : b) / Math.max(1, a, b) * 100)) + '%';
@@ -18,6 +20,8 @@ const width = (side, key) => {
     <p v-if="data.compatible" class="mt-4 text-xs text-ui-muted">Δ {{ data.metrics[key].delta > 0 ? '+' : '' }}{{ format(data.metrics[key].delta, key) }} {{ unit }} · noise {{ format(data.metrics[key].noiseFloor, key) }} {{ unit }}</p>
     <details class="mt-4 border-t border-ui-border pt-3 text-xs text-ui-muted"><summary class="cursor-pointer">Samples and spread</summary><p v-for="side in ['a','b']" :key="side" class="mt-2 break-words">{{ side.toUpperCase() }}: {{ data[side].metrics[key].samples.map(value => format(value,key)).join(', ') }} {{ unit }} · spread {{ format(data[side].metrics[key].spread,key) }} {{ unit }}</p></details>
   </article></div>
+  <!-- R6.17: requests that the host rules or a block path stopped. Evidence only: they never fail a measurement. -->
+  <details v-if="blockedSides.length" class="rounded-ui-panel border border-ui-border p-4 text-sm"><summary class="cursor-pointer font-semibold">Blocked requests</summary><p class="mt-2 text-xs text-ui-muted">The measurement did not load these requests. Their origin is not allowed, or a block path stopped them.</p><div v-for="side in blockedSides" :key="side" class="mt-3"><h3 class="text-xs font-semibold text-ui-muted">{{ side.toUpperCase() }}</h3><ul class="mt-1 space-y-1"><li v-for="item in data[side].blocked ?? []" :key="item.resourceType + ' ' + item.origin" class="break-words">{{ item.count }} {{ item.resourceType }} · {{ item.origin }}</li></ul><p v-if="data[side].blockedOmitted" class="mt-1 text-xs text-ui-muted">{{ data[side].blockedOmitted }} more not listed</p></div></details>
   <div v-if="data.findings.length" class="rounded-ui-panel border border-ui-border p-4"><h3 class="text-sm font-semibold">Measured findings</h3><ul class="mt-3 space-y-2 text-sm"><li v-for="(finding,index) in data.findings" :key="index" class="break-words">{{ finding.message }} <span class="text-xs text-ui-muted">{{ finding.metric }} · {{ finding.severity }}</span></li></ul><p class="mt-3 text-xs text-ui-muted">Only an explicit fail-on-budget option changes the command exit code for a budget breach.</p></div>
 </section>
 </template>

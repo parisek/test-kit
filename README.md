@@ -271,6 +271,9 @@ one. `clickRefusal: true` also checks the render and the refusal, so it
 replaces the plain instance on a local side. Contract names in a project
 are unique: an instance needs its own `name` when the source folder holds
 more than one.
+The copy always exports the plain `consentBar`. When a second file in the
+source folder imports `createConsentBar` from it, list only the wanted
+instance in `behavior.enabled`. Without that list, every contract runs.
 The sample is a copy that the project owns (R13.41). It is not the
 versioned `cookieconsent` pack of R13.42 and detects no library version.
 
@@ -492,7 +495,8 @@ own host and the hosts of `allowOrigins`. Every other host does not resolve.
 A local side must resolve to loopback. A local HTTPS side with a self-signed or
 mkcert certificate works: Chrome accepts that one certificate and verifies all
 others. A blocked request does not fail the measurement. The run lists it as
-`blocked` (resource type, origin, count) in `run.json` (R6.17). A write method
+`blocked` (resource type, origin, count) in `run.json`, and the viewer shows it
+under "Blocked requests" (R6.17). A write method
 (POST, PUT, ...) that leaves the browser, a WebSocket or a page that leaves its
 origin fails the target. A blocked write does not.
 Chrome sends a request before test-kit can read it, so a page that writes on load
