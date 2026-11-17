@@ -4,6 +4,17 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-17
+
+Stable release of 1.4. It holds `1.4.0-rc.1` (commit 1bc74e9) and one fix that the trial found. Read the migration note of `1.4.0-rc.1` before you update: 1.4 needs Node 22.19 or newer, and speed runs of 1.3 do not compare with new speed runs. A trial on a downstream skeleton project ran the candidate on 2026-11-17 under DDEV, with Node 26 and Playwright 1.65.0. The trial checked these steps:
+
+- Install from the tag `v1.4.0-rc.1`: `--version` prints `1.4.0`. `npm ls` shows commit 1bc74e9.
+- `before`, then `after` and `summary` on two targets and two viewports: both runs are `complete`, and the verdict is the same as with 1.3.0.
+- `after` with one target and one viewport of the baseline: it compares only that cell (#386). 1.3.0 refuses the same command.
+- `before --ddev`: every cell has status 200 and its own path, with no DDEV router page (#348).
+- `perf` on a local HTTPS side: three measurements, no blocked request (#383).
+- `expectStatus: 404` reads `ok` in `availability` (#349). `expectText` in `before` and `after` reports a missing string (#378). `run` did not: see Fixed.
+
 ### Fixed
 
 - `run`: the check `expect-text` now reads the `expectText` strings of the target and the stored DOM body, as `before` and `after` do. Before, `run` reported "No expected text is configured for this target." for every target (R7.8, #378). Found in the downstream trial of `1.4.0-rc.1`. README: a target without `expectText` gives an `unknown` finding when the check is selected.
