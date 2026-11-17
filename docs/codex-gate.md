@@ -48,20 +48,10 @@ scripts/process/codex-queue.sh --dry-run   # list what it would review
 scripts/process/codex-queue.sh
 ```
 
-A Remote Control session runs the same command. Each `codex exec` call happens inside the script, so the session needs one permission for the script and none for Codex. These rules go into `.claude/settings.local.json` of the checkout on the owner's machine, or into `.claude/settings.json` of the repository:
+A Remote Control session runs the same command. Each `codex exec` call happens inside the script, so the session needs one permission for the script and none for Codex. `.claude/settings.json` of the repository holds these rules, in the same shape as in `portadesign/portadesign-mcp`:
 
-```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(scripts/process/codex-queue.sh)",
-      "Bash(scripts/process/codex-queue.sh --dry-run)",
-      "Bash(scripts/process/codex-gate.sh:*)",
-      "Bash(scripts/process/gate-label.sh:*)"
-    ]
-  }
-}
-```
+- `allow`: the three gate scripts, the test commands, and read-only `git` and `gh` commands. There is no rule for a bare `codex exec`.
+- `ask`: `gh pr merge`, `gh release`, `git tag`, a force push, `git reset --hard`, `ssh` and `scp`. These always need the owner.
 
 The scripts call `gh` for the GitHub API and `npm ci` (the `setup` key) for dependencies. Codex itself gets no network.
 
