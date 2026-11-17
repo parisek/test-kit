@@ -1,6 +1,6 @@
 # Process standard v1
 
-Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
+Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10 and section 4 on 2026-11-17, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
 
 The same file lives in each repository below, with only the section "This repository" different. Each repository is autonomous: it carries the standard and its tools itself and depends on no shared plugin (owner decision, 2026-11-09). A change to a generic section is one pull request in each repository, with the same text.
 
@@ -47,13 +47,23 @@ A repository adds its own Tier 3 items in its `docs/vision.md`. It never removes
 
 ## 4. Review and merge
 
-The owner merges (decision A1). An agent merges only when the owner gives it merge permission for that session. The permission ends with the session and never reaches a scheduled routine. A Tier 3 change always waits for the owner.
+The owner merges (decision A1). An agent merges in two cases:
+
+- Session permission: the owner gives merge permission for one session. It ends with the session and never reaches a scheduled routine.
+- Milestone delegation (owner decision, 2026-11-17): the agent merges a change of a milestone that the owner approved, also a Tier 3 change, when the change fits `docs/vision.md` and neither review record holds an open finding. An open finding is a finding that the head does not fix and that the reviewer did not accept as a trade-off. The delegation holds in every session and never reaches a scheduled routine. The agent may post the record of the Codex gate on the pull request.
+
+These always wait for the owner, in both cases:
+
+- a change to `docs/vision.md` or to sections 1 to 12 of this standard,
+- a release: a stable tag, or a pre-release that the owner did not name,
+- work outside an approved milestone,
+- a disagreement between the reviewers that evidence does not settle.
 
 A change is ready to merge when all of these hold:
 
 1. Codex and Claude review it independently. Each review is a valid review record (section 5) on the head SHA, and both count as an approval.
 2. CI is green on the head SHA.
-3. The change is not Tier 3.
+3. The change is not Tier 3, or the milestone delegation covers it.
 4. The author gives no decisive approval.
 5. The change names its tier, its principle number and the identifiers it meets or changes.
 
