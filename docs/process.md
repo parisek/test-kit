@@ -167,9 +167,9 @@ Process documents, code, commits and pull requests are in English, in ASD-STE100
 
 ## 13. This repository
 
-- Tools: `scripts/process/check-record.mjs` (with `records.mjs`), `scripts/process/check-decision-request.sh`, `scripts/process/project-config.sh`; their tests are `scripts/process/test.sh`.
+- Tools: `scripts/process/check-record.mjs` (with `records.mjs`), `scripts/process/check-decision-request.sh`, `scripts/process/project-config.sh`; their tests are `scripts/process/test.sh`. The Codex gate is `scripts/process/codex-gate.sh`, its queue `scripts/process/codex-queue.sh` and the hand-over labels `scripts/process/gate-label.sh` (`docs/codex-gate.md`).
 - Files: generic part in `docs/process.md`, `docs/skills/vision-check.md` and `scripts/process/`; project part in `docs/vision.md`, `docs/specification.md`, `PRODUCT.md`, `DESIGN.md`, `docs/viewer-workflow.md` and `.agent/project.conf`.
 - Normative source: `docs/specification.md` (R-numbers).
 - Gate: `npm test`; for viewer work also `npm run test:viewer` and `npm run check:viewer`.
 - Maturity: alpha (`docs/vision.md`, "Maturity"). A break needs a changelog entry and a migration note, not an owner decision by itself. It stays Tier 3 only where the core list in section 3 names it.
-- Origins of the shared parts: the texts and the record schema come from this repository, the decision format and the scripts `project-config.sh` and `check-decision-request.sh` from `portadesign/portadesign-mcp`.
+- Origins of the shared parts: the texts and the record schema come from this repository, the decision format, the scripts `project-config.sh` and `check-decision-request.sh`, and the design of the Codex gate, its queue and the `gate/*` labels from `portadesign/portadesign-mcp`.
