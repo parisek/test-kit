@@ -168,6 +168,8 @@ test('a --ddev capture names a top-level redirect that leaves the discovered ori
   assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location: `${origin}/page/`, origin }), null);
   assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location: 'https://example-site.ddev.site/page/', origin }), 'https://example-site.ddev.site');
   assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location: 'http://[::1', origin }), null);
+  // A redirect to a non-HTTP URL is not an origin; R3.7 refuses it with its own code.
+  for (const location of ['mailto:info@example-site.test', 'data:text/html,x']) assert.equal(redirectLeavesOrigin({ from: `${origin}/page`, location, origin }), null, location);
   assert.equal(originBoundMessage('http://127.0.0.1'), 'The page redirects from the DDEV origin to http://127.0.0.1. --ddev captures the direct port of the web container, so the redirect leaves it. Capture without --ddev.');
   assert.doesNotMatch(originBoundMessage('http://a\nb'), /\n/);
 });

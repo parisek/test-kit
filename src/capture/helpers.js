@@ -143,6 +143,7 @@ export function describeBlockedRequest({ url, method, resourceType, topLevel, na
 export function redirectLeavesOrigin({ from, location, origin }) {
   let target;
   try { target = new URL(location, from); } catch { return null; }
+  if (!/^https?:$/.test(target.protocol)) return null;
   return target.origin === new URL(origin).origin ? null : target.origin;
 }
 

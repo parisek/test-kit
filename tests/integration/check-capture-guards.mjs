@@ -63,7 +63,7 @@ try {
   const origin = `http://127.0.0.1:${server.address().port}`;
   const ddevConfig = join(directory, 'ddev.json');
   await writeFile(ddevConfig, JSON.stringify({ schemaVersion: 1, sides: { local: { origin, settle: { waitMs: 0 } } },
-    targets: [{ id: 'port-redirect', kind: 'page', path: '/port-redirect' }, { id: 'home', kind: 'page', path: '/' }],
+    targets: [{ id: 'port-redirect', kind: 'page', path: '/port-redirect' }, { id: 'external', kind: 'page', path: '/external-redirect' }, { id: 'home', kind: 'page', path: '/' }],
     viewports: [{ id: 'desktop', width: 400, height: 300 }], artifacts: ['status'], checks: [], runsRoot: 'runs-ddev' }));
   const open = await capture({ configPath: ddevConfig, side: 'local' });
   const followed = open.run.captures.find(row => row.targetId === 'port-redirect');
@@ -79,6 +79,8 @@ try {
   assert.equal(stopped.error.code, 'DDEV_REDIRECT_LEFT_ORIGIN');
   assert.match(stopped.error.message, new RegExp(`redirects from the DDEV origin to http://127\\.0\\.0\\.1:${router.address().port}\\.`));
   assert.equal(bound.run.captures.find(row => row.targetId === 'home').state, 'captured');
+  // R3.7: a redirect that leaves the local environment keeps its own code, also with --ddev.
+  assert.equal(bound.run.captures.find(row => row.targetId === 'external').error.code, 'LOCAL_NAVIGATION_REQUIRED');
   assert.equal(routerRequests, 1);
   console.log('Capture guards pass: assets, frames, popups, redirects, submissions, sockets, font deadline, DDEV origin redirect.');
 } finally {

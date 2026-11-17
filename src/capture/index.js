@@ -183,16 +183,19 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
           const write = !['GET', 'HEAD'].includes(request.method());
           // R3.9: a subresource may also redirect to an allowed origin, for its own resource type.
           // A redirect from an allowed origin may lead only to an allowed origin.
-          // R13.13, #348: on a --ddev side a top-level redirect must stay on the side origin, also when the port alone differs.
-          const left = originBound && topLevel && location && response.status() >= 300 && response.status() < 400
-            ? redirectLeavesOrigin({ from: request.url(), location, origin: config.sides[side].origin }) : null;
           const permitted = href => redirectPermitted({ from: request.url(), to: href, ownTarget: allowedUrl(href), navigation: request.isNavigationRequest(), resourceType: request.resourceType(), allowOrigins: config.sides[side].allowOrigins });
+          const redirect = response.status() >= 300 && response.status() < 400;
+          const refused = redirect && (write || (location && !permitted(new URL(location, request.url()).href)));
+          // R13.13, #348: on a --ddev side a top-level redirect must stay on the side origin, also when the port alone
+          // differs. Only a redirect that R3.10 permits gets this code; a refused one keeps the R3.7 code.
+          const left = originBound && topLevel && location && redirect && !refused
+            ? redirectLeavesOrigin({ from: request.url(), location, origin: config.sides[side].origin }) : null;
           if (left) {
             blocked = true;
-            leftOrigin ??= left;
+            // The first blocked request names the failure (R3.7).
+            if (!firstBlocked) leftOrigin ??= left;
             await route.abort('blockedbyclient');
-          } else if (response.status() >= 300 && response.status() < 400 && (write || (location
-            && !permitted(new URL(location, request.url()).href)))) {
+          } else if (refused) {
             blocked = true;
             let target = request.url();
             try { if (location) target = new URL(location, request.url()).href; } catch { /* Keep the request URL. */ }
