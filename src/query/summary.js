@@ -7,6 +7,7 @@ import { noFixtureIds } from '../report/scope.js';
 import { allowlistCounts } from '../allowlist/model.js';
 import { decisionCounts } from '../decisions/model.js';
 import { layoutTotals } from '../report/layout.js';
+import { sizeMismatches } from '../report/size.js';
 import { clip, markCut, wasCut, outputBytes, OUTPUT_BYTE_LIMIT } from './bound.js';
 
 const ID = 200;
@@ -44,6 +45,8 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		&& entry.viewports.some((row) => Number.isSafeInteger(row.artifacts?.content?.diff?.lineGaps) && row.artifacts.content.diff.lineGaps > 0)).length;
 	// R6.15: layout differences by kind. The key appears only above zero, so the pinned output stays the same.
 	const layout = layoutTotals(report, target);
+	// R8.18, #390: cells whose screenshots differ in size. The key appears only when there is one, so the pinned output stays the same.
+	const sized = sizeMismatches(report, target);
 	const allowlisted = { counts: allowlistCounts(report, target) };
 	allowlisted.total = Object.values(allowlisted.counts).reduce((sum, count) => sum + count, 0);
 	// R9.14: the decision entries of the report, counted by status. The key appears only when the report holds an entry.
@@ -75,6 +78,7 @@ export function summarizeReport(input, { maxTargets = 20, filter = 'all', target
 		...(allowlisted.total ? { allowlist: allowlisted.counts } : {}),
 		...(Object.values(decided).some((count) => count > 0) ? { decisions: decided } : {}),
 		...(Object.keys(layout).length ? { layout } : {}),
+		...(sized.length ? { sizeMismatches: sized.slice(0, max).map((item) => ({ id: cut(item.id), ...flag(item.id), viewport: cut(item.viewport), axis: item.axis, percent: item.percent })), sizeMismatchesOmitted: Math.max(0, sized.length - max) } : {}),
 		// R4.5: cells outside a recorded selection or filter. The key appears only when the report skipped one, so the pinned output stays the same.
 		...(Number.isSafeInteger(report.meta?.skipped) && report.meta.skipped > 0 ? { skipped: report.meta.skipped } : {}),
 		next: ['Open the report with test-kit serve.', 'Use summary --filter unexplained or --filter incomplete for scoped evidence.'],

@@ -7,12 +7,18 @@ function integer(value, max = 2 * 1024 * 1024) {
   return Number.isSafeInteger(value) && value >= 0 && value <= max;
 }
 function path(value) { return typeof value === 'string' && value.length <= 2000 && value.startsWith('/') && !value.startsWith('//') && !/[\x00-\x1f\x7f]/.test(value); }
+// #348: an origin of the status sidecar. Scheme, host and port only.
+function finalOrigin(value) {
+  if (typeof value !== 'string' || value.length > 200) return false;
+  try { const url = new URL(value); return /^https?:$/.test(url.protocol) && url.origin === value; } catch { return false; }
+}
 export function statusDetail(value) {
   if (!value || !Number.isInteger(value.statusCode) || value.statusCode < 100 || value.statusCode > 599
     || !path(value.finalPath) || !Array.isArray(value.redirects) || value.redirects.length > 20
     || !value.redirects.every(path) || !value.assets
-    || !['requests', 'failed', 'httpErrors'].every(key => integer(value.assets[key], 1_000_000))) throw new Error('Invalid HTTP status metadata.');
-  return { statusCode: value.statusCode, finalPath: value.finalPath, redirects: [...value.redirects],
+    || !['requests', 'failed', 'httpErrors'].every(key => integer(value.assets[key], 1_000_000))
+    || (value.finalOrigin !== undefined && !finalOrigin(value.finalOrigin))) throw new Error('Invalid HTTP status metadata.');
+  return { statusCode: value.statusCode, finalPath: value.finalPath, ...(value.finalOrigin !== undefined ? { finalOrigin: value.finalOrigin } : {}), redirects: [...value.redirects],
     assets: { requests: value.assets.requests, failed: value.assets.failed, httpErrors: value.assets.httpErrors } };
 }
 // The fields of a status pair that make a finding: the final status, the final path and the redirect chain.

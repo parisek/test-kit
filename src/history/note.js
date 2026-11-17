@@ -68,7 +68,7 @@ async function noteFiles(dir) {
   return { notes, names: (await readdir(notes)).filter(name => NAME.test(name)).sort() };
 }
 
-// Add one note. The file name is the next free number, and the write fails if the file exists.
+// Add one note. The file name is one more than the highest number (a gap is not reused), and the write fails if the file exists.
 export async function addNote({ configDir, store, run, text, now = () => new Date().toISOString() }) {
   const facts = parseFacts(text);
   const dir = await runDirectory({ configDir, store, run });

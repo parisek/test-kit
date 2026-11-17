@@ -52,6 +52,7 @@ case "$1 $2" in
 			*"/labels?"*) cat "$GH_T/labels" 2>/dev/null || true ;;
 			*"issues?labels=gate/codex-pending"*) cat "$GH_T/pending" 2>/dev/null || true ;;
 			*"issues?labels=gate/codex-approved"*) : ;;
+			*"--jq .default_branch"*) echo "${GH_DEFAULT:-main}" ;;
 			*"/pulls/"*"head.repo"*) echo "${GH_SAME_REPO:-true}" ;;
 			*"/pulls/"*) echo "$HEAD_SHA" ;;
 			*"/check-runs"*) cat "$GH_T/checks" ;;
@@ -144,6 +145,16 @@ reset
 GH_STALE=1 CODEX_RESULT=$(result fits 1 R1.1) run_gate
 if [ "$rc" -eq 2 ] && grep -q 'is not the head' <<<"$out"; then pass "gate: a worktree off the PR head does not run"; else bad "gate: stale head (exit $rc): $out"; fi
 
+reset; GH_DEFAULT=release CODEX_RESULT=$(result fits 1 R1.1) run_gate
+if [ "$rc" -eq 2 ] && [ ! -f "$T/comment.md" ] && grep -q 'not the default branch' <<<"$out"; then
+	pass "gate: a PR against another branch than the default is not reviewed"
+else bad "gate: default branch (exit $rc): $out"; fi
+reset; GH_SAME_REPO=false CODEX_RESULT=$(result fits 1 R1.1) run_gate
+if [ "$rc" -eq 2 ] && [ ! -f "$T/comment.md" ] && grep -q 'head outside this repository' <<<"$out"; then
+	pass "gate: a fork head is not reviewed by the gate itself"
+else bad "gate: fork (exit $rc): $out"; fi
+reset
+
 rc=0; "$HERE/gate-label.sh" 7 merged >/dev/null 2>&1 || rc=$?
 [ "$rc" -eq 64 ] && pass "label: unknown state is a usage error" || bad "label: unknown state (exit $rc)"
 reset; echo gate/codex-changes > "$T/labels"
@@ -187,5 +198,16 @@ rm -f "$T/setup"; out=$(queue)
 if [ "$(cat "$T/setup" 2>/dev/null)" = "$(printf 'trusted %s\ngate %s' "$HEAD_SHA" "$HEAD_SHA")" ]; then
 	pass "queue: a head without a setup input change gets only the setup"
 else bad "queue: plain setup ($(cat "$T/setup" 2>/dev/null); $out)"; fi
+
+# The output schema rejects most values that check-record.mjs rejects: a list of ranges, an absolute path
+# and a free tests text. It accepts a `..` segment (`../x.md:1`); check-record.mjs rejects that before the post.
+if node -e '
+const s = require(process.argv[1]).properties;
+const cite = new RegExp(s.citations.items.pattern), tests = new RegExp(s.tests.pattern);
+const ok = cite.test("src/a.js:48-49") && cite.test("docs/spec.md:3") && !cite.test("src/a.js:48-49,81") && !cite.test("/tmp/x.md:1")
+	&& tests.test("present") && tests.test("docs-only") && tests.test("none: no code") && !tests.test("present, docs-only");
+process.exit(ok ? 0 : 1);' "$HERE/codex-review.schema.json"; then
+	pass "schema: citations and tests follow the rules of check-record.mjs"
+else bad "schema: citations or tests pattern"; fi
 
 exit "$fail"

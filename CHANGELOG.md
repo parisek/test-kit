@@ -4,8 +4,13 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.4.0-rc.1] - 2026-11-17
+
+First release candidate for 1.4.0. It is not a stable release. `package.json` says `1.4.0`, so `--version` prints `1.4.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration note under Changed before you update: 1.4 needs Node 22.19 or newer. Speed runs of 1.3 do not compare with new speed runs, because the speed settings hash changes. The capture engine version stays `1`. The release security review (full audit, `docs/process.md` section 6) passed with no critical and no high finding; the medium and low findings are #423 to #427 in milestone 1.4.1.
+
 ### Fixed
 
+- `before`, `after` and `run` with `--ddev`: a page that redirects away from the discovered origin now fails with `DDEV_REDIRECT_LEFT_ORIGIN` and names the target origin. Before, a canonical redirect that dropped the port captured the DDEV router 404 page (#348, R13.13). The `status` sidecar records `finalOrigin` when a page ends on another origin than its side, and the viewer shows it.
 - `capture --packs`: an axe error that only contains the words "not found" or "detached" now counts as a failed frame, not an unreachable one. Only the exact CDP and Playwright messages for a gate, a lost context, a missing frame, a closed target or session or a detached frame count as unreachable (#347, R13.51). The list holds the texts of Playwright 1.64 and Chromium. The error text must start with one of them, so an axe error that quotes one later counts as failed.
 - `capture --packs`: a frame with no id that the first read of the frame tree held no longer counts as added at the end read (#347, R13.51).
 - `capture --keep-existing`: a kept content index must also pass its gzip CRC and parse as JSON, not only match the stored byte count (#347, R5.13).
@@ -25,7 +30,9 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- A screenshot pair of two sizes carries `sizeMismatch` (`axis`, both sizes, `percent`) in its difference, and `summary` lists such cells in `sizeMismatches` (#390, R8.18). `ratio` does not change: it counts the white padding of the smaller image as a match, so a side that is a third shorter could read 1.4 %. The viewer does not show the signal yet (#433).
 - `note RUN --file FILE` attaches a free JSON object of server facts to a stored run (#381, R12.7). Without `--file`, it lists the notes of the run. A note is a new file in `runs/<id>/notes/`. It changes no evidence and no verdict, and `history --publish` does not copy it.
+- A sample project contract for the consent bar, `templates/contracts/consent-bar.contract.js` (#380, R13.41). It checks that the bar renders and that its first layer offers refusal, and on request it clicks the refusal and checks the stored choice. It runs only when a project copies it into its behavior source folder and selects the `behavior` artifact.
 - `perf` measures a local HTTPS side and a remote side (#383, R3.3, R6.5, R6.16, R6.17). It uses Chrome host rules and Lighthouse URL blocking instead of the local proxy. A blocked request is evidence (`blocked` in `run.json`), not a failure. A write method, a WebSocket or a page that leaves its origin fails the target. A side may set `perfBlockPaths`. The viewer and `query --artifact lighthouse` show the blocked requests of each side. **The speed settings hash changes: speed runs of 1.3 do not compare with new runs.**
 - A target may set `expectText`, a list of strings that its page must contain (#378, R7.8). The new opt-in check `expect-text` reports each string that the stored DOM body of the page lacks. The key enters no hash, so a baseline stays valid. The `checks` list now takes up to 7 IDs.
 - A target may set `expectStatus`, one HTTP status code (#349 item 4, R8.17). A capture with that code reads `ok` in `availability`, so a missing page that answers 404 on purpose no longer gives the verdict `availability-problems`. Any other status from 400 up stays `http-error`. The key enters no hash and changes no capture, so a baseline and a kept cell stay valid. Without the key nothing changes.
