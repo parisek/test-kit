@@ -249,6 +249,23 @@ Use `--checks none` or `--contracts none` to disable that group for one run.
 Component selector capture supports visual evidence. Component content
 extraction remains unsupported.
 
+### Recipe: the consent bar
+
+`templates/contracts/consent-bar.contract.js` is a sample project contract
+(#380). Copy it into the behavior `source` directory and select
+`consent-bar`. It checks that the bar renders (its element has a visible
+box) and that the first layer offers refusal: a reject control, a refusal
+sentence or a refusal control in the description. With
+`createConsentBar({ clickRefusal: true })` it also clicks the refusal and
+checks that the choice cookie keeps only the necessary category. Use the
+click on a local side only. The defaults fit the markup of CookieConsent v3
+(`#cc-main .cm`). test-kit did not verify them against a release of that
+library, so check them against your page. Two traps: a selector without a
+box of its own (`#cc-main` instead of `#cc-main .cm`) reads as not visible,
+and a bar library that hides from bots shows no bar to an automated browser.
+The contract names `navigator.webdriver` in its failure message when that
+can be the cause. It does not hide the tool.
+
 ## Static export
 
 Static export requires v0.4.0 or newer.
