@@ -62,6 +62,7 @@ FAKE
 # Fake codex: writes $CODEX_RESULT to the -o argument. CODEX_TOUCH=1 changes a tracked file.
 cat > "$T/bin/codex" <<'FAKE'
 #!/usr/bin/env bash
+printf '%s\n' "$*" > "$GH_T/codex-args"
 out="" dir=""
 while [ $# -gt 0 ]; do
 	case "$1" in -o) out=$2 ;; -C) dir=$2 ;; esac
@@ -95,6 +96,9 @@ else bad "gate: posted comment is no valid record"; fi
 if grep -q 'Review instruction of the base branch' "$T/prompt.md" && grep -qx 'base docs/skills/vision-check.md' "$T/seen-skill.md"; then
 	pass "gate: Codex gets the review instruction of the base branch, not the head"
 else bad "gate: base review instruction ($(cat "$T/seen-skill.md" 2>/dev/null))"; fi
+if grep -q 'project_doc_max_bytes=0' "$T/codex-args" && grep -q 'workspace-write' "$T/codex-args" && ! grep -q 'network' "$T/codex-args"; then
+	pass "gate: Codex loads no AGENTS.md of the head and gets no network flag"
+else bad "gate: codex arguments ($(cat "$T/codex-args"))"; fi
 
 reset; CODEX_RESULT=$(result needs-owner 3 R1.1) run_gate
 if [ "$rc" -eq 1 ] && [ -f "$T/comment.md" ] && [ "$(tail -1 "$T/statuses")" = failure ] && [ "$(cat "$T/labels")" = gate/owner ]; then

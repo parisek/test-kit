@@ -18,6 +18,7 @@ The cloud agent learns the verdict from the record comment on its watched pull r
 
 - Codex runs with `codex exec -s workspace-write -c approval_policy="never"`. The sandbox has no network. No script turns the network on.
 - The prompt holds `scripts/process/codex-review-prompt.md`, the base branch and the head SHA. It holds no pull request title, body or comment (`docs/process.md`, section 4, reviewer rule 1).
+- Codex runs with `project_doc_max_bytes=0`, so it loads no `AGENTS.md` of the PR head by itself. The queue cleans the shared worktree before each pull request.
 - The specification, `.agent/project.conf` and the review instruction (`docs/skills/vision-check.md`, `docs/process.md`, `docs/vision.md`, `AGENTS.md`) come from the base branch. A change cannot add its own R-number or rewrite its own review.
 - The queue runs `setup` (`npm ci`) in the PR worktree outside the Codex sandbox. The install scripts of the PR head run there with network. This is the same trade-off as in portadesign-mcp (`composer install`).
 - `mode`, `reviewer` and `sha` come from the script, never from the model.
@@ -49,7 +50,7 @@ scripts/process/codex-queue.sh --dry-run   # list what it would review
 scripts/process/codex-queue.sh
 ```
 
-A Remote Control session runs the same command. Each `codex exec` call happens inside the script, so the session needs one permission for the script and none for Codex. `.claude/settings.json` of the repository holds the rules of `portadesign/portadesign-mcp`, adapted to npm:
+A Remote Control session runs the same command. Each `codex exec` call happens inside the script, so the session needs one permission for the script and none for Codex. `.claude/settings.json` of the repository holds the `allow` and `ask` lists of `portadesign/portadesign-mcp`, adapted to npm. Its PreToolUse guard hook (`guard-bash.sh`) and its SessionStart worktree prune are not ported yet:
 
 - `allow`: `codex-gate.sh`, the test commands, `npm ci`, and read-only `git` and `gh` commands. There is no rule for a bare `codex exec`. `codex-queue.sh` and `gate-label.sh` ask first in a session; launchd or a person runs the queue.
 - `ask`: `gh pr merge`, `gh release`, `git tag`, a force push, `git reset --hard`, `ssh` and `scp`. These always need the owner.

@@ -96,7 +96,8 @@ status() {
 status pending "Codex review running"
 
 # The default network policy of workspace-write is off. This script never turns it on.
-if ! "$CODEX" exec -C "$WT" -s workspace-write -c approval_policy='"never"' \
+# project_doc_max_bytes=0: Codex loads no AGENTS.md of the PR head by itself; the prompt names the base copies.
+if ! "$CODEX" exec -C "$WT" -s workspace-write -c approval_policy='"never"' -c project_doc_max_bytes=0 \
 	--output-schema "$HERE/codex-review.schema.json" -o "$OUT/result.json" - < "$OUT/prompt.md" > "$OUT/codex.log" 2>&1; then
 	status error "Codex review failed to run"
 	tail -20 "$OUT/codex.log" >&2
@@ -138,8 +139,12 @@ URL=$("$GH" pr comment "$PR" --body-file "$OUT/comment.md") || { status error "C
 VERDICT=$(jq -r .verdict "$OUT/result.json")
 
 if printf '%s\n' "$RESULT" | grep -q 'Counts as an approval'; then
+	# The label moves first: a failed move never leaves a success status behind.
+	if ! "$HERE/gate-label.sh" "$PR" codex-approved >/dev/null; then
+		status error "Codex approved, but the hand-over label failed" -f target_url="$URL"
+		fail "approved, but could not move #$PR to gate/codex-approved"
+	fi
 	status success "Codex: fits" -f target_url="$URL"
-	"$HERE/gate-label.sh" "$PR" codex-approved >/dev/null || echo "codex-gate: could not set gate/codex-approved on #$PR" >&2
 	echo "approval $URL"
 	exit 0
 fi
