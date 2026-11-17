@@ -120,9 +120,9 @@ Labels: `awaiting-owner` for an open owner decision. A repository that runs agen
 
 Every release tag, stable or pre-release, waits for a security review. The agent that prepares the release runs the review and drives it to a result. It never hands the review to the owner.
 
-- Range: from the newest earlier release tag on the branch to the head of the release pull request. When `main` gets a change other than the version and the changelog before the tag, the agent reviews the new commits too.
+- Range: from the newest earlier release tag on the branch to the head of the release pull request. When `main` gets a change other than the version and the changelog before the tag, the agent reviews the new commits too and posts a new record whose range ends at the new head.
 - Reviewer: Codex or Claude in a fresh context, never the author of a change in the range. Reviewer rules 2 to 4 of section 4 apply. The reviewer reads the diff and the code that the diff calls, and gives each finding one severity: Critical, High, Medium or Low.
-- A Critical or High finding blocks the tag. Its fix is a normal pull request. After the merge of the fix, the agent reviews the range again.
+- A Critical or High finding blocks the tag. Its fix is a pull request under sections 3 and 4, so a fix on a security path waits for the owner. After the merge of the fix, the agent reviews the range again.
 - A Medium or Low finding does not block the tag. Each one becomes an issue with the label `security`, in the milestone of the next patch release.
 - Once for each minor version, the review is a full audit of every security path, not only the diff. A full audit made after the previous minor stable tag counts. A repository with no earlier tag starts with a full audit.
 
