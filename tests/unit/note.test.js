@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { parseFacts, noteRecord, validNote, addNote, listNotes, MAX_NOTE_BYTES, MAX_NOTES } from '../../src/history/note.js';
 import { parseCommand, dispatch } from '../../src/cli/run.js';
 
@@ -75,4 +77,53 @@ test('note takes one run and --file, --config and --store (R12.7)', async t => {
   const listed = await dispatch(parseCommand(['note', 'run-1', '--config', config]));
   assert.deepEqual(listed.output.notes[0].facts, { log: { highWater: 120 } });
   assert.ok(local);
+});
+
+test('addNote refuses a linked store, runs or notes folder and a held lock (R12.7)', async t => {
+  const { root, local } = await store(t);
+  const add = (options = {}) => addNote({ configDir: root, store: local, run: 'run-1', text: '{}', ...options });
+  const outside = join(root, 'outside');
+  await mkdir(join(outside, 'runs', 'run-1'), { recursive: true });
+  await writeFile(join(outside, 'runs', 'run-1', 'run.json'), '{}');
+  const linkedStore = join(root, 'linked-store');
+  await symlink(outside, linkedStore);
+  await assert.rejects(addNote({ configDir: root, store: linkedStore, run: 'run-1', text: '{}' }), /symbolic links/);
+  await assert.rejects(addNote({ configDir: root, store: join(root, 'absent'), run: 'run-1', text: '{}' }), error => error.message === `There is no store at ${join(root, 'absent')}.`);
+  await mkdir(join(local, 'lock'));
+  await assert.rejects(add(), /already owns this store/);
+  await rm(join(local, 'lock'), { recursive: true });
+  await mkdir(join(outside, 'notes'));
+  await symlink(join(outside, 'notes'), join(local, 'runs', 'run-1', 'notes'));
+  await assert.rejects(add(), /notes folder must be a plain directory/);
+  assert.deepEqual(await readdir(join(outside, 'notes')), []);
+  await rm(join(local, 'runs', 'run-1', 'notes'));
+  await rm(join(local, 'runs', 'run-1'), { recursive: true });
+  await rm(join(local, 'runs'), { recursive: true });
+  await symlink(join(outside, 'runs'), join(local, 'runs'));
+  await assert.rejects(add(), /runs folder must not be a symbolic link/);
+  assert.deepEqual(await readdir(join(outside, 'runs', 'run-1')), ['run.json']);
+});
+
+test('addNote never replaces a file that appears under its name (R12.7)', async t => {
+  const { root, local } = await store(t);
+  const notes = join(local, 'runs', 'run-1', 'notes');
+  await mkdir(notes);
+  // The clock runs after the name is chosen. It plants a file under that name, as a second writer would.
+  const now = () => { writeFileSync(join(notes, '001.json'), 'planted'); return '2026-11-17T08:00:00.000Z'; };
+  await assert.rejects(addNote({ configDir: root, store: local, run: 'run-1', text: '{}', now }), { code: 'EEXIST' });
+  assert.equal(await readFile(join(notes, '001.json'), 'utf8'), 'planted');
+});
+
+test('listNotes marks a note of the wrong shape and note refuses a FIFO as --file (R12.7)', async t => {
+  const { root, local } = await store(t);
+  const notes = join(local, 'runs', 'run-1', 'notes');
+  await mkdir(notes);
+  await writeFile(join(notes, '001.json'), JSON.stringify({ schemaVersion: 2, createdAt: '2026-11-17T08:00:00.000Z', facts: {} }));
+  assert.deepEqual((await listNotes({ configDir: root, store: local, run: 'run-1' })).notes, [{ note: 'notes/001.json', error: 'The note is unreadable or malformed.' }]);
+  await writeFile(join(root, 'test-kit.config.json'), '{}');
+  const fifo = join(root, 'facts.fifo');
+  try { execFileSync('mkfifo', [fifo]); } catch { t.skip('mkfifo is not available'); return; }
+  const started = Date.now();
+  await assert.rejects(dispatch(parseCommand(['note', 'run-1', '--file', fifo, '--config', join(root, 'test-kit.config.json')])), /--file: The file must be a regular file/);
+  assert.ok(Date.now() - started < 2000);
 });

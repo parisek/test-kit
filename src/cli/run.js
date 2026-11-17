@@ -159,21 +159,14 @@ export async function dispatch({ command, positions, options }, dependencies = {
   if (command === 'note') {
     // R12.7: a note is a new file beside the run. It changes no evidence and no verdict.
     const { resolveStore } = await import('../workflow/index.js');
-    const { addNote, listNotes } = await import('../history/note.js');
+    const { addNote, listNotes, readBounded, MAX_NOTE_BYTES } = await import('../history/note.js');
     const { resolve, dirname } = await import('node:path');
     const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
     const store = resolveStore(options);
     if (options.file === undefined) return { output: await listNotes({ configDir, store, run: positions[0] }), exitCode: 0 };
-    const { open } = await import('node:fs/promises');
-    const { MAX_NOTE_BYTES } = await import('../history/note.js');
-    const handle = await open(resolve(options.file), 'r');
     let text;
-    try {
-      const info = await handle.stat();
-      if (!info.isFile()) throw new Error('--file must name a regular file.');
-      if (info.size > MAX_NOTE_BYTES) throw new Error(`The facts file must be at most ${MAX_NOTE_BYTES} bytes.`);
-      text = (await handle.readFile()).toString('utf8');
-    } finally { await handle.close(); }
+    try { text = await readBounded(resolve(options.file), MAX_NOTE_BYTES); }
+    catch (error) { throw new Error(`--file: ${error.code === 'ENOENT' ? 'the file does not exist.' : error.message}`); }
     return { output: await addNote({ configDir, store, run: positions[0], text }), exitCode: 0 };
   }
   if (command === 'perf') {

@@ -1,7 +1,8 @@
 // R12.7, #381: server facts of a run. A note is a free JSON object that a workflow attaches to a stored run.
 // The run directory keeps its files. A note is a new file in `runs/<id>/notes/`. Nothing reads a note for a verdict.
+import { constants } from 'node:fs';
 import { lstat, mkdir, open, readdir, realpath, writeFile } from 'node:fs/promises';
-import { join, relative, isAbsolute } from 'node:path';
+import { dirname, join, relative, isAbsolute } from 'node:path';
 import { validId } from './valid-id.js';
 import { assertPlainStorePath } from './prune.js';
 
@@ -32,7 +33,8 @@ export function validNote(value) {
 
 async function runDirectory({ configDir, store, run }) {
   if (!validId(run)) throw new Error('Invalid run ID.');
-  await assertPlainStorePath(configDir, store);
+  try { await assertPlainStorePath(configDir, store); }
+  catch (error) { if (error.message.startsWith('There is no store')) throw new Error(`There is no store at ${store}.`); throw error; }
   const root = await realpath(store);
   const dir = join(root, 'runs', run);
   let info;
@@ -46,11 +48,13 @@ async function runDirectory({ configDir, store, run }) {
   return dir;
 }
 
-async function readBounded(path) {
-  const handle = await open(path, 'r');
+// O_NONBLOCK: a FIFO in the place of a file opens at once and then fails the regular-file test. It does not hang.
+export async function readBounded(path, limit = MAX_NOTE_BYTES + 1024) {
+  const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
     const info = await handle.stat();
-    if (!info.isFile() || info.size > MAX_NOTE_BYTES + 1024) throw new Error();
+    if (!info.isFile()) throw new Error('The file must be a regular file.');
+    if (info.size > limit) throw new Error(`The file must be at most ${limit} bytes.`);
     return (await handle.readFile()).toString('utf8');
   } finally { await handle.close(); }
 }
@@ -67,11 +71,15 @@ async function noteFiles(dir) {
 export async function addNote({ configDir, store, run, text, now = () => new Date().toISOString() }) {
   const facts = parseFacts(text);
   const dir = await runDirectory({ configDir, store, run });
+  // A running workflow or `history --prune --yes` holds the store lock. A note waits for neither: it stops.
+  if (await lstat(join(dirname(dirname(dir)), 'lock')).catch(() => null)) throw new Error('A workflow already owns this store. No note was written.');
   const { notes, names } = await noteFiles(dir);
   if (names.length >= MAX_NOTES) throw new Error(`The run already has ${MAX_NOTES} notes.`);
   const next = names.length ? Number(NAME.exec(names.at(-1))[1]) + 1 : 1;
   if (next > 999) throw new Error('No free note number is left.');
-  await mkdir(notes, { recursive: true, mode: 0o700 });
+  // Not recursive: when the run folder is gone, the write fails. It never makes a run folder without run.json.
+  try { await mkdir(notes, { mode: 0o700 }); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+  if ((await lstat(notes)).isSymbolicLink()) throw new Error('The notes folder must be a plain directory.');
   const name = `${String(next).padStart(3, '0')}.json`;
   const record = noteRecord(facts, now());
   await writeFile(join(notes, name), `${JSON.stringify(record, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
