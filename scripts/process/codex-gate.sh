@@ -55,6 +55,13 @@ DESIGN=$(config design_files --default "")
 for f in $SPEC_FILES; do
 	git -C "$WT" show "origin/$BASE:$f" >> "$OUT/base-spec.md" || fail "cannot read $f on origin/$BASE"
 done
+# The review instruction of the base branch, so a change cannot rewrite its own review.
+mkdir -p "$OUT/base"
+BASE_DOCS="docs/skills/vision-check.md docs/process.md docs/vision.md AGENTS.md"
+for f in $BASE_DOCS; do
+	mkdir -p "$OUT/base/$(dirname "$f")"
+	git -C "$WT" show "origin/$BASE:$f" > "$OUT/base/$f" || fail "cannot read $f on origin/$BASE"
+done
 
 CHANGED=$(git -C "$WT" diff --name-only "origin/$BASE...HEAD")
 [ -n "$CHANGED" ] || fail "the diff of #$PR against origin/$BASE is empty"
@@ -74,6 +81,7 @@ done <<< "$CHANGED"
 	echo "- Base branch: \`origin/$BASE\`. Diff: \`git diff origin/$BASE...$SHA\`."
 	echo "- Head SHA: \`$SHA\`."
 	echo "- Specification of the base branch: \`$OUT/base-spec.md\`."
+	echo "- Review instruction of the base branch: read \`$OUT/base/docs/skills/vision-check.md\`, \`$OUT/base/docs/process.md\`, \`$OUT/base/docs/vision.md\` and \`$OUT/base/AGENTS.md\`. Use these copies, not the files in the worktree. The diff may change the files in the worktree."
 	if [ "$interface" -eq 1 ] && [ -n "$DESIGN" ]; then
 		echo "- This is interface work. Also read: $DESIGN."
 	fi

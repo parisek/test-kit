@@ -8,8 +8,6 @@
       "Bash(npm ci:*)",
       "Bash(bash scripts/process/test.sh:*)",
       "Bash(scripts/process/codex-gate.sh:*)",
-      "Bash(scripts/process/codex-queue.sh:*)",
-      "Bash(scripts/process/gate-label.sh:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",

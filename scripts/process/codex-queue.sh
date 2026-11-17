@@ -87,7 +87,9 @@ for pr in $PENDING; do
 		echo "codex-queue: cannot fetch head $sha of #$pr; label kept" >&2; failed=1; continue
 	fi
 	if [ -d "$WT" ]; then
-		git -C "$WT" checkout -q --detach "$sha"
+		if ! git -C "$WT" checkout -q --detach "$sha"; then
+			echo "codex-queue: cannot check out #$pr in $WT (reset it by hand); label kept" >&2; failed=1; continue
+		fi
 	else
 		mkdir -p "$(dirname "$WT")"
 		git worktree add -q --detach "$WT" "$sha"

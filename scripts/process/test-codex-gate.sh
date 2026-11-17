@@ -17,11 +17,14 @@ g() { git -C "$T/wt" -c user.name=t -c user.email=t@example.com "$@"; }
 mkdir -p "$T/wt/.agent" "$T/wt/docs" "$T/wt/src"
 printf 'spec = docs/specification.md\nsetup = true\n' > "$T/wt/.agent/project.conf"
 printf '# Spec\n\n- R1.1 A rule.\n' > "$T/wt/docs/specification.md"
+mkdir -p "$T/wt/docs/skills"
+for f in docs/skills/vision-check.md docs/process.md docs/vision.md AGENTS.md; do echo "base $f" > "$T/wt/$f"; done
 g add -A && g commit -q -m base
 g remote add origin "$T/origin.git"
 g -c push.negotiate=false push -q origin main 2>/dev/null
 g checkout -q -b feature
 echo 'x' > "$T/wt/src/a.js"
+echo 'head rewrites the review' > "$T/wt/docs/skills/vision-check.md"
 g add -A && g commit -q -m change
 HEAD_SHA=$(g rev-parse HEAD)
 export HEAD_SHA
@@ -64,7 +67,8 @@ while [ $# -gt 0 ]; do
 	case "$1" in -o) out=$2 ;; -C) dir=$2 ;; esac
 	shift
 done
-cat > /dev/null
+cat > "$GH_T/prompt.md"
+for f in $(grep -o '[^`]*/base/docs/skills/vision-check.md' "$GH_T/prompt.md"); do cp "$f" "$GH_T/seen-skill.md"; done
 [ "${CODEX_TOUCH:-0}" = 1 ] && echo changed >> "$dir/src/a.js"
 printf '%s\n' "$CODEX_RESULT" > "$out"
 FAKE
@@ -87,6 +91,10 @@ else bad "gate: fits (exit $rc): $out"; fi
 if node "$HERE/check-record.mjs" "$T/comment.md" --sha "$HEAD_SHA" | grep -q 'Counts as an approval'; then
 	pass "gate: the posted comment passes check-record.mjs"
 else bad "gate: posted comment is no valid record"; fi
+
+if grep -q 'Review instruction of the base branch' "$T/prompt.md" && grep -qx 'base docs/skills/vision-check.md' "$T/seen-skill.md"; then
+	pass "gate: Codex gets the review instruction of the base branch, not the head"
+else bad "gate: base review instruction ($(cat "$T/seen-skill.md" 2>/dev/null))"; fi
 
 reset; CODEX_RESULT=$(result needs-owner 3 R1.1) run_gate
 if [ "$rc" -eq 1 ] && [ -f "$T/comment.md" ] && [ "$(tail -1 "$T/statuses")" = failure ] && [ "$(cat "$T/labels")" = gate/owner ]; then

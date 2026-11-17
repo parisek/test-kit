@@ -18,7 +18,8 @@ The cloud agent learns the verdict from the record comment on its watched pull r
 
 - Codex runs with `codex exec -s workspace-write -c approval_policy="never"`. The sandbox has no network. No script turns the network on.
 - The prompt holds `scripts/process/codex-review-prompt.md`, the base branch and the head SHA. It holds no pull request title, body or comment (`docs/process.md`, section 4, reviewer rule 1).
-- The specification and `.agent/project.conf` come from the base branch, so a change cannot add its own R-number.
+- The specification, `.agent/project.conf` and the review instruction (`docs/skills/vision-check.md`, `docs/process.md`, `docs/vision.md`, `AGENTS.md`) come from the base branch. A change cannot add its own R-number or rewrite its own review.
+- The queue runs `setup` (`npm ci`) in the PR worktree outside the Codex sandbox. The install scripts of the PR head run there with network. This is the same trade-off as in portadesign-mcp (`composer install`).
 - `mode`, `reviewer` and `sha` come from the script, never from the model.
 - `check-record.mjs` checks the record before it is posted. An invalid record is not posted. The status is then `error` and the label stays.
 - A reviewer that changes a tracked file fails the gate.
@@ -48,9 +49,9 @@ scripts/process/codex-queue.sh --dry-run   # list what it would review
 scripts/process/codex-queue.sh
 ```
 
-A Remote Control session runs the same command. Each `codex exec` call happens inside the script, so the session needs one permission for the script and none for Codex. `.claude/settings.json` of the repository holds these rules, in the same shape as in `portadesign/portadesign-mcp`:
+A Remote Control session runs the same command. Each `codex exec` call happens inside the script, so the session needs one permission for the script and none for Codex. `.claude/settings.json` of the repository holds the rules of `portadesign/portadesign-mcp`, adapted to npm:
 
-- `allow`: the three gate scripts, the test commands, and read-only `git` and `gh` commands. There is no rule for a bare `codex exec`.
+- `allow`: `codex-gate.sh`, the test commands, `npm ci`, and read-only `git` and `gh` commands. There is no rule for a bare `codex exec`. `codex-queue.sh` and `gate-label.sh` ask first in a session; launchd or a person runs the queue.
 - `ask`: `gh pr merge`, `gh release`, `git tag`, a force push, `git reset --hard`, `ssh` and `scp`. These always need the owner.
 
 The scripts call `gh` for the GitHub API and `npm ci` (the `setup` key) for dependencies. Codex itself gets no network.
