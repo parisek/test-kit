@@ -15,6 +15,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- Rebuild the viewer (`viewer/app.js`, `viewer/style.css`) with Vue 3.5.45 and Tailwind CSS 4.3.5. `THIRD_PARTY_NOTICES.txt` names both versions. The other `frontend/` dev dependencies move to `vite` 8.3.7, `@tailwindcss/vite` 4.3.5 and `vitest` 5.1.0. Replaces the Dependabot pull request #405, which could not pass `check:viewer` without the rebuild.
 - R12.5 and R13.51 name two behaviours the code already had: `history --prune` refuses an explicit `--store` outside the configuration directory, and above 100000 frames the count of added frames falls back to the growth of the total (#347).
 
 ### Documentation

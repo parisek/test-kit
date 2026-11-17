@@ -8,3 +8,6 @@ runs/
 test-kit/
 
 /frontend/node_modules/
+
+# Worktrees of agents and of the Codex queue (scripts/process/codex-queue.sh).
+.claude/worktrees/

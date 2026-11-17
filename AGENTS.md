@@ -67,6 +67,8 @@ Everything in this repository is English: code, comments, documents, commit mess
   - The change names its tier, the principle number and the requirement number it serves. It adds no default behavior and no runtime dependency. It carries tests and touches no security-relevant path.
   - The change has no security impact, no unexpected file, no missing test and no material risk. Send any of these to the owner, even when both reviewers agree.
 
+  Codex gate: `scripts/process/codex-gate.sh` posts the Codex record and sets `review/codex`. A cloud agent does not post a Codex record. It sets `gate/codex-pending` once CI is green, and `scripts/process/codex-queue.sh` on the owner's machine runs the gate (`docs/codex-gate.md`). On `gate/codex-changes` the agent fixes or rebuts each finding and sets `gate/codex-pending` again.
+
   Reviewer skill: `docs/skills/vision-check.md` holds the steps, the verdicts and the review record format. A reviewer follows it. Claude Code loads it as the skill `vision-check`. `node scripts/process/check-record.mjs <file> --sha <head SHA> --spec <base spec file>` checks a record.
 
   Reviewer rules:
