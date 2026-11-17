@@ -120,6 +120,7 @@ fi
 jq -e 'type == "object" and has("verdict")' "$OUT/result.json" >/dev/null 2>&1 || { status error "No structured result from Codex"; fail "no structured result from Codex"; }
 
 # A citation of a copy under $OUT names the repository file instead (a single spec file keeps its line numbers).
+# The output schema rejects an absolute citation, so this mapping is a fallback for a Codex that does not enforce `pattern`.
 ONE_SPEC=""
 [ "$(printf '%s\n' $SPEC_FILES | grep -c .)" -eq 1 ] && ONE_SPEC=$SPEC_FILES
 jq --arg out "$OUT" --arg spec "$ONE_SPEC" '

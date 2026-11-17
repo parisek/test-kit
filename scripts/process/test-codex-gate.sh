@@ -199,7 +199,8 @@ if [ "$(cat "$T/setup" 2>/dev/null)" = "$(printf 'trusted %s\ngate %s' "$HEAD_SH
 	pass "queue: a head without a setup input change gets only the setup"
 else bad "queue: plain setup ($(cat "$T/setup" 2>/dev/null); $out)"; fi
 
-# The output schema rejects what check-record.mjs rejects, so Codex cannot return such a value.
+# The output schema rejects most values that check-record.mjs rejects: a list of ranges, an absolute path
+# and a free tests text. It accepts a `..` segment (`../x.md:1`); check-record.mjs rejects that before the post.
 if node -e '
 const s = require(process.argv[1]).properties;
 const cite = new RegExp(s.citations.items.pattern), tests = new RegExp(s.tests.pattern);
