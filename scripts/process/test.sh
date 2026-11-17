@@ -48,4 +48,7 @@ for f in docs/process.md docs/skills/vision-check.md scripts/process/records.mjs
 	grep -q '<!-- agent:review -->' "$root/$f" && pass "$f names the record marker" || bad "$f does not name <!-- agent:review -->"
 done
 
+# The Codex gate, the gate labels and the queue, with fake gh and codex binaries.
+bash "$here/test-codex-gate.sh" || fail=1
+
 exit "$fail"
