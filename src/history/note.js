@@ -49,8 +49,9 @@ async function runDirectory({ configDir, store, run }) {
 }
 
 // O_NONBLOCK: a FIFO in the place of a file opens at once and then fails the regular-file test. It does not hang.
-export async function readBounded(path, limit = MAX_NOTE_BYTES + 1024) {
-  const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
+// `follow: false` adds O_NOFOLLOW: a note file that is a symbolic link fails to open, so a note never reads outside the store.
+export async function readBounded(path, limit = MAX_NOTE_BYTES + 1024, { follow = true } = {}) {
+  const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK | (follow ? 0 : constants.O_NOFOLLOW));
   try {
     const info = await handle.stat();
     if (!info.isFile()) throw new Error('The file must be a regular file.');
@@ -93,7 +94,7 @@ export async function listNotes({ configDir, store, run }) {
   const result = [];
   for (const name of names) {
     try {
-      const value = JSON.parse(await readBounded(join(notes, name)));
+      const value = JSON.parse(await readBounded(join(notes, name), undefined, { follow: false }));
       if (!validNote(value)) throw new Error();
       result.push({ note: `notes/${name}`, createdAt: value.createdAt, facts: value.facts });
     } catch { result.push({ note: `notes/${name}`, error: 'The note is unreadable or malformed.' }); }

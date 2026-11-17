@@ -23,7 +23,6 @@ Versions follow semver. Each release uses an immutable git tag.
 ### Added
 
 - `note RUN --file FILE` attaches a free JSON object of server facts to a stored run (#381, R12.7). Without `--file`, it lists the notes of the run. A note is a new file in `runs/<id>/notes/`. It changes no evidence and no verdict, and `history --publish` does not copy it.
-
 - `perf` measures a local HTTPS side and a remote side (#383, R3.3, R6.5, R6.16, R6.17). It uses Chrome host rules and Lighthouse URL blocking instead of the local proxy. A blocked request is evidence (`blocked` in `run.json`), not a failure. A write method, a WebSocket or a page that leaves its origin fails the target. A side may set `perfBlockPaths`. **The speed settings hash changes: speed runs of 1.3 do not compare with new runs.**
 - A target may set `expectText`, a list of strings that its page must contain (#378, R7.8). The new opt-in check `expect-text` reports each string that the stored DOM body of the page lacks. The key enters no hash, so a baseline stays valid. The `checks` list now takes up to 7 IDs.
 - A target may set `expectStatus`, one HTTP status code (#349 item 4, R8.17). A capture with that code reads `ok` in `availability`, so a missing page that answers 404 on purpose no longer gives the verdict `availability-problems`. Any other status from 400 up stays `http-error`. The key enters no hash and changes no capture, so a baseline and a kept cell stay valid. Without the key nothing changes.

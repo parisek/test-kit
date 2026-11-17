@@ -127,3 +127,25 @@ test('listNotes marks a note of the wrong shape and note refuses a FIFO as --fil
   await assert.rejects(dispatch(parseCommand(['note', 'run-1', '--file', fifo, '--config', join(root, 'test-kit.config.json')])), /--file: The file must be a regular file/);
   assert.ok(Date.now() - started < 2000);
 });
+
+test('listNotes never follows a link and bounds what it reads (R12.7)', async t => {
+  const { root, local } = await store(t);
+  const notes = join(local, 'runs', 'run-1', 'notes');
+  const outside = join(root, 'outside');
+  await mkdir(outside);
+  const good = JSON.stringify({ schemaVersion: 1, createdAt: '2026-11-17T08:00:00.000Z', facts: { secret: 1 } });
+  await writeFile(join(outside, 'note.json'), good);
+  await symlink(outside, notes);
+  await assert.rejects(listNotes({ configDir: root, store: local, run: 'run-1' }), /notes folder must be a plain directory/);
+  await rm(notes);
+  await mkdir(notes);
+  await symlink(join(outside, 'note.json'), join(notes, '001.json'));
+  await writeFile(join(notes, '002.json'), JSON.stringify({ schemaVersion: 1, createdAt: '2026-11-17T08:00:00.000Z', facts: { pad: 'x'.repeat(MAX_NOTE_BYTES + 2048) } }));
+  await writeFile(join(notes, '003.json'), good);
+  const listed = (await listNotes({ configDir: root, store: local, run: 'run-1' })).notes;
+  assert.deepEqual(listed.map(item => item.error ?? 'ok'), ['The note is unreadable or malformed.', 'The note is unreadable or malformed.', 'ok']);
+  await writeFile(join(root, 'test-kit.config.json'), '{}');
+  await writeFile(join(root, 'big.json'), `{"pad":"${'x'.repeat(MAX_NOTE_BYTES)}"}`);
+  await assert.rejects(dispatch(parseCommand(['note', 'run-1', '--file', join(root, 'big.json'), '--config', join(root, 'test-kit.config.json')])), /--file: The file must be at most 262144 bytes/);
+  await assert.rejects(dispatch(parseCommand(['note', 'run-1', '--file', join(root, 'none.json'), '--config', join(root, 'test-kit.config.json')])), /--file: the file does not exist/);
+});
