@@ -10,6 +10,7 @@ import { normalizeConfig } from '../../src/config/normalize.js';
 import { captureSettings } from '../../src/config/settings.js';
 import { compareContentArtifact } from '../../src/content/compare-artifact.js';
 import { validateContentComparison } from '../../src/content/compare.js';
+import { parseCommand } from '../../src/cli/run.js';
 
 // R7.8, #378: a target names text that its page must contain.
 const doc = { schemaVersion: 1, extractorVersion: '1.1.0', source: 'settled-dom', title: 'Example site', lang: 'en', text: 'Hello', headings: [{ level: 1, text: 'Hello' }], images: [], links: [], omitted: { headings: 0, images: 0, links: 0, text: false } };
@@ -79,4 +80,11 @@ test('compareContentArtifact reads the stored DOM body of each side for expect-t
     const missing = await compare(good, old, 'out-old');
     assert.equal(missing.result.artifact.state, 'missing'); assert.equal(missing.detail.checks[0].b.findings[0].evidence.state, 'unknown');
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('--checks takes all seven built-in checks and no more (R7.8)', () => {
+  const all = Object.keys(builtinChecks).join(',');
+  assert.equal(parseCommand(['diff', 'a', 'b', '--output', 'out', '--checks', all]).options.checks, all);
+  assert.equal(parseCommand(['run', '--checks', 'expect-text']).options.checks, 'expect-text');
+  assert.throws(() => parseCommand(['run', '--checks', `${all},lang`]), /duplicate/);
 });
