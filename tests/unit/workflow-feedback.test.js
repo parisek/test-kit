@@ -56,3 +56,27 @@ test('detect-only behavior remains missing and does not pass', async t => {
  assert.equal(result.state, 'incomplete'); assert.equal(result.behavior.passed, 0); assert.equal(result.behavior.missing, 1);
  assert.equal(result.findings[0].message, 'No behavior assertion completes.');
 });
+
+test('run feedback gives expect-text the strings of the target and the stored DOM body (R7.8)', async t => {
+ const { root, dir, run } = await fixture(t);
+ run.settings.artifacts = ['content'];
+ run.settings.checks = ['expect-text'];
+ run.settings.targets = [{ id: 'home', path: '/', expectText: ['id="example-form"', 'Missing footer'] }];
+ run.captures[0].artifacts.content.bodyPath = 'content.body.html.gz';
+ await writeFile(join(dir, 'content.body.html.gz'), gzipSync('<main><form id="example-form"></form></main>'));
+ const result = await summarizeRunFeedback(run, root, { persist: false });
+ assert.equal(result.content.unknown, 0);
+ assert.equal(result.content.findings, 1);
+ assert.equal(result.findings[0].checkId, 'expect-text');
+ assert.equal(result.findings[0].message, 'The page does not contain an expected text.');
+ assert.equal(result.state, 'complete');
+ // A target without the key stays unknown, as in the compare path.
+ run.settings.targets = [{ id: 'home', path: '/' }];
+ const plain = await summarizeRunFeedback(run, root, { persist: false });
+ assert.equal(plain.content.unknown, 1); assert.equal(plain.findings[0].message, 'No expected text is configured for this target.');
+ // A missing DOM body is unknown, not a pass.
+ run.settings.targets = [{ id: 'home', path: '/', expectText: ['x'] }];
+ delete run.captures[0].artifacts.content.bodyPath;
+ const nobody = await summarizeRunFeedback(run, root, { persist: false });
+ assert.equal(nobody.content.unknown, 1); assert.match(nobody.findings[0].message, /stored DOM body is unavailable/);
+});

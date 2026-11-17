@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Fixed
+
+- `run`: the check `expect-text` now reads the `expectText` strings of the target and the stored DOM body, as `before` and `after` do. Before, `run` reported "No expected text is configured for this target." for every target (R7.8, #378). Found in the downstream trial of `1.4.0-rc.1`. README: a target without `expectText` gives an `unknown` finding when the check is selected.
+
 ## [1.4.0-rc.1] - 2026-11-17
 
 First release candidate for 1.4.0. It is not a stable release. `package.json` says `1.4.0`, so `--version` prints `1.4.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration note under Changed before you update: 1.4 needs Node 22.19 or newer. Speed runs of 1.3 do not compare with new speed runs, because the speed settings hash changes. The capture engine version stays `1`. The release security review (full audit, `docs/process.md` section 6) passed with no critical and no high finding; the medium and low findings are #423 to #427 in milestone 1.4.1.
