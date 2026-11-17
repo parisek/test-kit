@@ -274,6 +274,10 @@ more than one.
 The copy always exports the plain `consentBar`. When a second file in the
 source folder imports `createConsentBar` from it, list only the wanted
 instance in `behavior.enabled`. Without that list, every contract runs.
+The contract runs only for the contract projects `desktop-1280` and
+`mobile-390`. Map the viewport IDs of the project to them with
+`behavior.projects`, or pass `projects` to `createConsentBar`. Otherwise the
+contract is skipped.
 The sample is a copy that the project owns (R13.41). It is not the
 versioned `cookieconsent` pack of R13.42 and detects no library version.
 

@@ -66,6 +66,8 @@ try {
   assert.equal(unsorted.state, 'complete', unsorted.error); assert.deepEqual(unsorted.result.categories, ['functional', 'necessary']);
   const empty = await measure('/empty', createConsentBar({ clickRefusal: true }));
   assert.equal(empty.state, 'failed'); assert.match(empty.error, /stored no necessary category/);
+  assert.deepEqual(createConsentBar({ projects: ['desktop'] }).projects, ['desktop']);
+  assert.equal('projects' in consentBar, false);
   assert.equal(createConsentBar({ name: 'consent-bar-refusal' }).name, 'consent-bar-refusal');
   console.log('Consent contract: a visible bar with refusal passes, a refusal click keeps only the necessary category, and a missing refusal, a missing bar, a bar without a box, a bot-aware bar, a bar that stays after the refusal, a missing choice cookie and a choice without the necessary category fail with a reason.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); await rm(directory, { recursive: true, force: true }); }

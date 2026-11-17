@@ -48,6 +48,8 @@ export function createConsentBar(options = {}) {
   const o = { ...DEFAULTS, ...options, refusal: { ...DEFAULTS.refusal, ...(options.refusal ?? {}) } };
   return {
     name: o.name,
+    // Contract project names (src/behavior/README.md). Without them the engine uses its default project list.
+    ...(o.projects ? { projects: o.projects } : {}),
     // One instance for each page. A page without a bar must fail, not skip, so detect always returns the bar locator.
     detect: async page => [page.locator(o.bar).first()],
     async run(page, bar) {
@@ -64,7 +66,7 @@ export function createConsentBar(options = {}) {
       if (refusal !== 'control') throw new Error('clickRefusal needs the reject control variant.');
       await bar.locator(o.refusal.control).first().click();
       try { await bar.waitFor({ state: 'hidden', timeout: o.timeoutMs }); } catch { throw new Error('The consent bar stays visible after the refusal.'); }
-      const categories = categoriesOf(await page.context().cookies(), o.choiceCookie);
+      const categories = categoriesOf(await page.context().cookies(page.url()), o.choiceCookie);
       if (!categories) throw new Error(`The refusal stored no readable ${o.choiceCookie} cookie.`);
       const missing = o.necessary.filter(name => !categories.includes(name));
       if (missing.length) throw new Error(`The refusal stored no ${missing.join(', ')} category.`);
