@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { audited } from '../../src/perf/index.js';
+import { comparisonSide } from '../../src/perf/compare-artifact.js';
 import { hostResolverRules, blockedUrlPatterns, requestEvidence, mergeBlocked, finalOriginProblem } from '../../src/perf/isolation.js';
 
 const sent = (requestId, url, type, method = 'GET') => ({ method: 'Network.requestWillBeSent', params: { requestId, type, request: { url, method } } });
@@ -85,6 +87,8 @@ test('blocked groups stop at 50 and count the rest; merged audits add up', () =>
   const evidence = requestEvidence(events, { origin: 'https://example.com' });
   assert.equal(evidence.blocked.length, 50);
   assert.equal(evidence.omitted, 2);
+  // The runner reads each audit without the cap, so a group outside the top 50 of one audit still sums.
+  assert.equal(requestEvidence(events, { origin: 'https://example.com', limit: Infinity }).blocked.length, 52);
   const one = [{ resourceType: 'script', origin: 'https://a.example', count: 1 }];
   assert.deepEqual(mergeBlocked(mergeBlocked([], one), one), [{ resourceType: 'script', origin: 'https://a.example', count: 2 }]);
 });
@@ -93,4 +97,17 @@ test('the page navigation must end on the own origin', () => {
   assert.equal(finalOriginProblem({ finalDisplayedUrl: 'https://example.com/page' }, 'https://example.com'), null);
   assert.equal(finalOriginProblem({ finalDisplayedUrl: 'https://cdn.example.net/' }, 'https://example.com'), 'The page navigation ended on https://cdn.example.net.');
   assert.equal(finalOriginProblem({}, 'https://example.com'), 'The final page URL is unavailable.');
+});
+
+test('the runner reads each audit without the cap; the detail side keeps the checked list (R6.17)', () => {
+  const events = [];
+  for (let index = 0; index < 52; index++) events.push(sent(String(index), `https://host${index}.example/a.js`, 'Script'), failed(String(index), notFound));
+  const result = { lhr: { finalDisplayedUrl: 'https://example.com/' }, artifacts: { DevtoolsLog: events } };
+  const evidence = audited(result, { origin: 'https://example.com', allowOrigins: [], blockPaths: [] });
+  assert.equal(evidence.blocked.length, 52);
+  assert.equal(evidence.omitted, 0);
+  const side = comparisonSide({ settings: {}, metrics: {}, suspect: false, blocked: [{ resourceType: 'script', origin: 'https://a.example', count: 2 }, { resourceType: 'x', origin: 'file:///etc', count: 1 }], blockedOmitted: 3 });
+  assert.deepEqual(side.blocked, [{ resourceType: 'script', origin: 'https://a.example', count: 2 }]);
+  assert.equal(side.blockedOmitted, 4);
+  assert.equal(Object.hasOwn(comparisonSide({ settings: {}, metrics: {}, suspect: false }), 'blocked'), false);
 });

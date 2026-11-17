@@ -1,4 +1,5 @@
 import { METRICS, rebuildPerformanceSettings, summarizeSamples } from './core.js';
+import { storedBlocked } from './isolation.js';
 
 function structural(value) {
   const canonical = input => {
@@ -23,7 +24,9 @@ export function validatePerformanceComparison(value) {
       .map(metric => [metric, input.metrics[metric]?.samples?.[index]])));
     const metrics = summarizeSamples(samples, settings.runs);
     if (structural(metrics) !== structural(input.metrics)) return fail();
-    return { settings, metrics, suspect: input.suspect };
+    // R6.17: the blocked evidence is optional. A reader leaves out a malformed group and adds
+    // its requests to `blockedOmitted`; the rest of the detail stays usable.
+    return { settings, metrics, suspect: input.suspect, ...storedBlocked(input) };
   };
   if (!object(value) || typeof value.compatible !== 'boolean' || !object(value.metrics)
     || !Array.isArray(value.findings) || value.findings.length > 20 || ![0, 1].includes(value.exitCode)) return fail();
