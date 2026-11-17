@@ -31,7 +31,7 @@ expect "record: short SHA" 1 'sha must be 40 hex' -- rec "$fx/bad-sha.md"
 expect "record: Tier 3 is valid but no approval" 0 'Not an approval: verdict is needs-owner. tier is 3.' -- rec "$fx/needs-owner.md"
 expect "record: Tier 3 fits is no approval" 0 'Not an approval: tier is 3.$' -- rec "$fx/tier3-fits.md"
 expect "record: Tier 3 named in a milestone permission" 0 'Counts as an approval' -- rec "$fx/tier3-fits.md" --tier3-named
-expect "record: --tier3-named keeps other blockers" 0 'Not an approval: verdict is needs-owner.' -- rec "$fx/needs-owner.md" --tier3-named
+expect "record: --tier3-named keeps other blockers" 0 'Not an approval: verdict is needs-owner.$' -- rec "$fx/needs-owner.md" --tier3-named
 expect "record: marker required" 1 'not the marker' -- rec "$fx/no-marker.md"
 expect "record: custom identifier pattern" 1 'not in the specification' -- rec "$fx/valid-record.md" --spec "$fx/spec.md" --pattern '^(ADR-[0-9]{4})'
 expect "record: a line range is a citation" 0 'Counts as an approval' -- rec "$fx/range-citation.md"

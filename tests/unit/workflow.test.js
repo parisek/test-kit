@@ -448,6 +448,15 @@ test('adding sides.<id>.perfBlockPaths keeps the baseline and the pair kind (#38
  assert.equal(kinds[1], kinds[0]);
 });
 
+// R7.8, #378: `target.expectText` enters no digest, so a baseline still serves after the key is added.
+test('adding target.expectText keeps the baseline (#378)', async t => {
+ const { options, kinds, dependencies } = await pairFixture(t);
+ await runWorkflow('before', { ...options, side: 'local' }, dependencies);
+ await writeFile(options.config, JSON.stringify({ ...pairConfig, targets: pairConfig.targets.map(target => ({ ...target, expectText: ['component-page-header-home'] })) }));
+ await runWorkflow('after', { ...options, side: 'local' }, dependencies);
+ assert.deepEqual(kinds, ['update']);
+});
+
 // R8.17, #349 item 4: `target.expectStatus` enters no digest, so a baseline still serves after the key is added.
 test('adding target.expectStatus keeps the baseline (#349)', async t => {
  const { options, kinds, dependencies } = await pairFixture(t);

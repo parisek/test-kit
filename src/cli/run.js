@@ -2,7 +2,7 @@ import { builtinChecks } from '../checks/index.js';
 import { parseIdList } from '../capture/selection.js';
 import { CAPTURE_ARTIFACTS } from '../config/normalize.js';
 import { PAIR_KINDS } from '../report/model.js';
-export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'record-allowed', 'record-decision', 'perf', 'run', 'before', 'after', 'report', 'history', 'import'].map(name => [name, {}]));
+export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'record-allowed', 'record-decision', 'perf', 'run', 'before', 'after', 'report', 'history', 'import', 'note'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
@@ -20,6 +20,7 @@ Usage: test-kit <command> [options]
   record-decision REPORT --target ID --viewport ID --part ID --property P --decision implement|report-only --reason TEXT --owner TEXT [--config FILE] [--decisions FILE]
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
+  note RUN [--file FILE] [--config FILE] [--store PATH]   Attach the JSON object in FILE to a stored run as server facts. Without --file, list the notes of the run.
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
@@ -40,6 +41,8 @@ FLAGS.after = [...workflowFlags, 'allowlist'];
 FLAGS.import = ['config', 'side', 'label', 'target', 'viewport'];
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
 FLAGS.history = ['config', 'store', 'port', 'export', 'publish', 'prune', 'keep', 'yes'];
+// R12.7: `note` reads and writes the notes of one run in the store.
+FLAGS.note = ['config', 'store', 'file'];
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -60,7 +63,7 @@ export function parseCommand(argv) {
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
-  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, 'record-allowed': 1, 'record-decision': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0 }[command];
+  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, 'record-allowed': 1, 'record-decision': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0, note: 1 }[command];
   if (options.publish !== undefined && (options.export !== undefined || options.port !== undefined)) throw new Error('Use --publish alone. Do not combine it with --export or --port.');
   // R12.5: --prune deletes on request only. --keep and --yes mean nothing without it.
   if ((options.keep !== undefined || options.yes) && !options.prune) throw new Error('--keep and --yes need --prune.');
@@ -87,7 +90,7 @@ export function parseCommand(argv) {
   if (options.artifacts && options.artifacts.split(',').some(kind => !CAPTURE_ARTIFACTS.includes(kind))) throw new Error('Unknown capture artifact');
   if (options.checks && !(options.checks === 'none' && ['run', 'before', 'after'].includes(command))) {
     const ids = options.checks.split(',');
-    if (ids.length > 6 || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');
+    if (ids.length > Object.keys(builtinChecks).length || new Set(ids).size !== ids.length || ids.some(id => !Object.hasOwn(builtinChecks, id))) throw new Error('Unknown or duplicate content check');
   }
   if (options['max-lines']) options.maxLines = integer(options['max-lines'], '--max-lines', 1, 100);
   if (options.kind && !PAIR_KINDS.includes(options.kind)) throw new Error('Unknown pair kind');
@@ -152,6 +155,19 @@ export async function dispatch({ command, positions, options }, dependencies = {
     }
     const result = await startHistory({ local, port: options.port ?? 0 });
     return { output: { url: result.origin, storePath: local }, exitCode: 0 };
+  }
+  if (command === 'note') {
+    // R12.7: a note is a new file beside the run. It changes no evidence and no verdict.
+    const { resolveStore } = await import('../workflow/index.js');
+    const { addNote, listNotes, readBounded, MAX_NOTE_BYTES } = await import('../history/note.js');
+    const { resolve, dirname } = await import('node:path');
+    const configDir = dirname(resolve(options.config ?? 'test-kit.config.json'));
+    const store = resolveStore(options);
+    if (options.file === undefined) return { output: await listNotes({ configDir, store, run: positions[0] }), exitCode: 0 };
+    let text;
+    try { text = await readBounded(resolve(options.file), MAX_NOTE_BYTES); }
+    catch (error) { throw new Error(`--file: ${error.code === 'ENOENT' ? 'the file does not exist.' : error.message}`); }
+    return { output: await addNote({ configDir, store, run: positions[0], text }), exitCode: 0 };
   }
   if (command === 'perf') {
     const { runPerfCommand } = await import('./perf.js');
@@ -247,7 +263,7 @@ export async function dispatch({ command, positions, options }, dependencies = {
   const result = await serve({ reportPath: positions[0], port: options.port ?? 0 });
   return { output: { url: result.origin }, exitCode: 0 };
 }
-const STORE_COMMANDS = ['run', 'before', 'after', 'report', 'history'];
+const STORE_COMMANDS = ['run', 'before', 'after', 'report', 'history', 'note'];
 const RUNSROOT_COMMANDS = ['capture', 'import', 'diff'];
 // One line per invocation when the default store is in use and an old `.test-kit/` sits beside the config (#312).
 async function legacyNotice({ command, options }) {

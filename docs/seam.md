@@ -66,6 +66,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `targets[].box` | string | none | no | `border` or `content`. Needs `selector`. |
 | `targets[].settle`, `targets[].settleBySide` | object | none | no | Partial settle recipe, for all sides or for one side. |
 | `targets[].layout` | object | none | no | R6.14. `{ parts: [ { id, selector, selectorBySide?, repeat? } ] }`, 1 to 50 parts with unique safe IDs. `selectorBySide` maps a configured side ID to the selector of the part on that side (an addition, owner direction to an agent in a session, 2026-11-08, #350, part C). Read only when the run selects the `layout` artifact. Not in the capture settings hash. An addition: old input passes (owner direction, 2026-11-08, #350). |
+| `targets[].expectText` | list | none | no | R7.8. 1 to 20 unique strings of 1 to 500 characters. The check `expect-text` reports each string that the stored DOM body lacks. In no hash. Added in 1.4 (#378). |
 | `targets[].expectStatus` | number | none | no | R8.17. One HTTP status code from 100 to 599. A capture with that code reads `ok` in `availability`. In no hash. Added in 1.4 (#349). |
 | `targetSource` | object | none | no | R13.3. Component targets from a styleguide side. Needs `source: "styleguide"` and `side`. Optional `mount` (default `/styleguide`), `include` (target IDs) and the booleans `variants` and `pages` (R13.52, default off). `targets` must be absent or empty. Not in the capture settings hash. An addition: old input passes. Added after 1.0.0. |
 | `viewports` | list | none | yes | 1 to 20 entries. |
@@ -73,7 +74,7 @@ Marking of the file as a whole: frozen for the keys in the table, with `schemaVe
 | `viewports[].deviceScaleFactor` | number | `1` | no | 0.5 to 3. |
 | `artifacts` | list | `["screenshot"]` | no | 1 to 6 of `screenshot`, `html`, `status`, `content`, `behavior`, `layout`. Additive only. `layout` and the cap of 6 (was 5) are an addition: every old list still passes (R6.14, #350). |
 | `layout` | object | none | no | R6.15. `{ aliases? }`: a token name of side A to a token name of side B, at most 500 entries. Comparison policy only. Not in the capture settings hash. An addition (#350). |
-| `checks` | list | `[]` | no | At most 6 built-in content check IDs. Needs the `content` artifact. |
+| `checks` | list | `[]` | no | At most 7 built-in content check IDs (one of each). Needs the `content` artifact. |
 | `packs` | list | `[]` | no | Built-in pack IDs: `a11y`, `lint`, `swiper`. No duplicates. No options. Nothing runs when the key is absent (R13.44, R5.1). Added after 0.5.0. |
 | `runsRoot` | string | `test-kit/runs` | no | Plain relative path. The default was `.test-kit/runs` before 1.2.0 (one-time exception to the freeze rule, #312) and `tests/visual/runs` before 1.0.0 (R12.1). See section 8, gap 6. Since R12.6 (#352) a path equal to or inside `test-kit/inputs` fails. |
 | `screenshot.timeoutMs` | number | `30000` | no | 1 to 120000. |
@@ -136,6 +137,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | `run`, `before`, `after` | none (`--config`, `--side`, `--target` or `--path`, `--selector`, `--viewport`, `--suite`, `--checks`, `--contracts`, `--store`, `--ddev`) | Experimental | Shipped in 0.3.0. R13.13. Addition in 1.2: `before --side A` and `after --side B` may name two sides. The scope hash no longer holds the side, and the report kind follows the pair of sides (R3.11): the same local side gives `update`, the same remote side gives `deploy` (it gave `update` in 1.2.0-rc.1), a remote side then a local side gives `migration`, any other pair of different sides gives `adhoc` (#324). No new flag and no new command. Old input passes, but a baseline made before 1.2 never matches and needs `before` again. The owner decided this on 2026-11-06 (#240, option 1). The store keeps all runs. Nothing removes them automatically (specification section 17, item 4). `after` also takes `--allowlist` (R9.12), as `diff` does. |
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 | `history` | none (`--config`, `--store`, `--port`, `--export`, `--publish` or `--prune`) | Experimental | Same reason as `run`. `--prune [--keep N] [--yes]` is new (R12.5, #161): the owner approved this flag on a frozen command on 2026-11-06. It removes runs only with `--yes`, and nothing runs by default. |
+| `note` | `RUN` (`--file`, `--config`, `--store`) | Experimental, Tier 3 | R12.7. A new command in 1.4 (#381). With `--file` it adds one note (a free JSON object of at most 256 KiB) as `runs/<RUN>/notes/<NNN>.json`. Without it, it lists the notes. A note changes no evidence and no verdict. |
 
 Other command facts:
 
@@ -153,7 +155,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| The six built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
+| The built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`, and `expect-text` since 1.4, R7.8) | Experimental | They ship and a project names them in `checks`. The first six export no `basis` (measured: no `export const basis` in their files). `expect-text` exports `basis: 'absolute'`. R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
 | The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` is part of the shape since `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 

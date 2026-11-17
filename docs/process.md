@@ -1,6 +1,6 @@
 # Process standard v1
 
-Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10 and sections 4 and 5 on 2026-11-17, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
+Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
 
 The same file lives in each repository below, with only the section "This repository" different. Each repository is autonomous: it carries the standard and its tools itself and depends on no shared plugin (owner decision, 2026-11-09). A change to a generic section is one pull request in each repository, with the same text.
 
