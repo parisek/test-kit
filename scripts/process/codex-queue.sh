@@ -36,6 +36,8 @@ labelled() {
 		--jq '.[] | select(.pull_request) | .number'
 }
 head_sha() { "$GH" api "repos/{owner}/{repo}/pulls/$1" --jq .head.sha; }
+# "true" when the head branch lives in this repository. A fork head is never set up or reviewed here.
+same_repo() { "$GH" api "repos/{owner}/{repo}/pulls/$1" --jq '.head.repo.full_name == .base.repo.full_name'; }
 # The newest review/codex state of a SHA. Empty when it has none.
 codex_state() {
 	"$GH" api "repos/{owner}/{repo}/commits/$1/statuses?per_page=100" --paginate \
@@ -68,10 +70,13 @@ if [ -z "$PENDING" ]; then
 	exit "$failed"
 fi
 
-# All PRs share one worktree, detached at each head, so node_modules is reused.
+# All PRs share one worktree, detached at each head. It is cleaned before each PR.
 WT="$MAIN/.claude/worktrees/codex-queue"
 for pr in $PENDING; do
 	sha=$(head_sha "$pr") || { echo "codex-queue: cannot read the head of #$pr" >&2; failed=1; continue; }
+	if [ "$(same_repo "$pr" || echo error)" != true ]; then
+		echo "codex-queue: #$pr has a head outside this repository (or it cannot be read); not reviewed here" >&2; failed=1; continue
+	fi
 	rc=0; ci_green "$sha" || rc=$?
 	if [ "$rc" -eq 2 ]; then
 		echo "codex-queue: cannot read the check runs of #$pr" >&2; failed=1; continue

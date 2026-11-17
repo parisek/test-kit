@@ -52,6 +52,7 @@ case "$1 $2" in
 			*"/labels?"*) cat "$GH_T/labels" 2>/dev/null || true ;;
 			*"issues?labels=gate/codex-pending"*) cat "$GH_T/pending" 2>/dev/null || true ;;
 			*"issues?labels=gate/codex-approved"*) : ;;
+			*"/pulls/"*"head.repo"*) echo "${GH_SAME_REPO:-true}" ;;
 			*"/pulls/"*) echo "$HEAD_SHA" ;;
 			*"/check-runs"*) cat "$GH_T/checks" ;;
 			*) exit 1 ;;
@@ -140,6 +141,9 @@ grep -q "would review #7 at ${HEAD_SHA:0:7}" <<<"$out" && pass "queue: a pending
 printf 'success\npending\n' > "$T/checks"
 out=$(cd "$T/wt" && "$HERE/codex-queue.sh" --dry-run 2>&1) || true
 grep -q 'CI is not green yet; label kept' <<<"$out" && pass "queue: a pending PR waits for green CI" || bad "queue: not green ($out)"
+printf 'success\n' > "$T/checks"
+out=$(cd "$T/wt" && GH_SAME_REPO=false "$HERE/codex-queue.sh" --dry-run 2>&1) || true
+grep -q 'head outside this repository' <<<"$out" && ! grep -q 'would review' <<<"$out" && pass "queue: a fork head is not reviewed" || bad "queue: fork ($out)"
 rc=0; (cd "$T/wt" && "$HERE/codex-queue.sh" --now >/dev/null 2>&1) || rc=$?
 [ "$rc" -eq 64 ] && pass "queue: unknown option is a usage error" || bad "queue: usage (exit $rc)"
 

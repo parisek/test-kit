@@ -120,7 +120,7 @@ jq -r --arg marker "$MARKER" --arg sha "$SHA" '
 		($record | tojson),
 		"```",
 		"",
-		(if ((.findings // []) | length) == 0 then "- No findings." else ((.findings // [])[] | "- " + gsub("\n"; " ")) end),
+		(if ((.findings // []) | length) == 0 then "- No findings." else ((.findings // [])[:20][] | "- " + (gsub("\n"; " ") | .[0:500])) end),
 		"",
 		"---",
 		"_Codex review of `\($sha[0:7])`, run by `scripts/process/codex-gate.sh` on the owner'"'"'s machine._"
