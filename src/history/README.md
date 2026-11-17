@@ -22,3 +22,7 @@ The server does not expose arbitrary files or accept writes.
 It refuses a store without the `.test-kit-viewer` marker, a link in the path, a `runs/` folder that is a link, and a store with a workflow lock.
 It keeps a run that a report, the workflow state or a baseline names. It keeps a run with no readable time or side.
 It removes only `runs/<id>/` with a safe id and checks the real path again before each removal.
+
+`addNote` and `listNotes` (`note.js`) write and read the notes of one run (R12.7).
+A note is a new file `runs/<id>/notes/<NNN>.json`. The other files of the run do not change.
+`parseFacts`, `noteRecord` and `validNote` are pure.
