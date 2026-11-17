@@ -47,6 +47,6 @@ It creates the GitHub Release only after these checks pass.
 ddev npm install -D github:parisek/test-kit#v0.1.0
 ```
 
-The container needs git and Node 20 or later. Chromium capture uses the host
+The container needs git and Node 22.19 or later. Chromium capture uses the host
 browser. The package has no build step. `files` in `package.json` selects the
 installed files. Keep pilot paths and capture evidence outside the repository.

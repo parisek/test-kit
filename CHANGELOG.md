@@ -14,6 +14,8 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- Breaking: Node 22.19 or newer is required (`engines.node` `>=22.19`, was `>=20.19`). Playwright 1.65 no longer tests on Node 20, and Lighthouse 13.6 already needed Node 22.19. The owner allowed the narrowing in the minor release 1.4.0 (`docs/seam.md`, "Runtime requirement"). Migration: run `node --version` and install Node 22.19 or newer before you update the pin. CI runs on Node 22.19 and 24.
+- Pin the dev dependency `@playwright/test` to 1.65.0 (Chromium 158). `docs/rc-trial.md` installs the same version. The peer range stays `>=1.49`. Replaces the Dependabot pull request #372.
 - Rebuild the viewer (`viewer/app.js`, `viewer/style.css`) with Vue 3.5.45 and Tailwind CSS 4.3.5. `THIRD_PARTY_NOTICES.txt` names both versions. The other `frontend/` dev dependencies move to `vite` 8.3.7, `@tailwindcss/vite` 4.3.5 and `vitest` 5.1.0. Replaces the Dependabot pull request #405, which could not pass `check:viewer` without the rebuild.
 - R12.5 and R13.51 name two behaviours the code already had: `history --prune` refuses an explicit `--store` outside the configuration directory, and above 100000 frames the count of added frames falls back to the growth of the total (#347).
 

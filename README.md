@@ -12,7 +12,7 @@ The Node engine belongs here. PHP and Twig lint belong to
 
 ## Install
 
-Use Node 20.19 or later. Install from an exact git tag, not the npm registry.
+Use Node 22.19 or later. Install from an exact git tag, not the npm registry.
 Run installation in the project theme directory. DDEV projects may use
 `ddev npm install` there. Run Chromium capture on the host against the DDEV URL.
 
@@ -457,8 +457,8 @@ under #25 and #45.
 
 ### Local Lighthouse measurements
 
-The engine and pure helpers support Node 20.19. Lighthouse 13.6 requires
-Node 22.19 or newer and the optional `lighthouse` peer. The development dependency
+The package needs Node 22.19 or newer. Lighthouse 13.6 needs the same version
+and the optional `lighthouse` peer. The development dependency
 is pinned to 13.6.0. Measurement accepts page targets on a local or a remote
 side, over HTTP or HTTPS. Component targets fail explicitly.
 

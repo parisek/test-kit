@@ -16,7 +16,7 @@ The specification is `docs/specification.md`. Read it before any change. Require
 
 ```yaml
 PACKAGE_NAME: "@parisek/test-kit"
-NODE_REQUIRES: ">=20.19"
+NODE_REQUIRES: ">=22.19"
 TESTS_DIR: "tests"
 PLAN: "docs/specification.md section 14"
 ```
