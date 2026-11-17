@@ -16,7 +16,7 @@ export const IMPLICIT_ARTIFACTS = Object.freeze(['screenshot', 'html', 'status']
 export const TARGET_SCOPE_ARTIFACTS = Object.freeze(['lint']);
 export const CHECK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
-// The six built-in content checks. A test compares this table with `src/checks`.
+// The seven built-in content checks. A test compares this table with `src/checks`.
 export const BUILTIN_CONTENT_CHECKS = Object.freeze({
 	'heading-outline': Object.freeze({ basis: 'absolute', layer: 'package', title: 'Heading outline' }),
 	lang: Object.freeze({ basis: 'absolute', layer: 'package', title: 'Declared page language' }),
@@ -24,6 +24,7 @@ export const BUILTIN_CONTENT_CHECKS = Object.freeze({
 	'empty-title': Object.freeze({ basis: 'absolute', layer: 'package', title: 'Page title' }),
 	'internal-links': Object.freeze({ basis: 'absolute', layer: 'package', title: 'Stored internal link responses' }),
 	'text-difference': Object.freeze({ basis: 'relative', layer: 'package', title: 'Stored text difference' }),
+	'expect-text': Object.freeze({ basis: 'absolute', layer: 'package', title: 'Expected text on the page' }),
 });
 
 // The two Lighthouse checks. `cause` of a speed finding picks one (ADR 0004, "Speed").
