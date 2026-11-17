@@ -1,12 +1,15 @@
 // Sample project contract: the consent bar renders and offers refusal on its first layer (#380).
 // Copy this file into the behavior `source` directory of a project and set the constants below.
 // It is trusted project code (src/behavior/README.md). test-kit does not run it unless the project selects it.
+// It is a copy that the project owns (R13.41, R13.43). It is not the versioned `cookieconsent` pack of R13.42, and it detects no library version.
 //
 // The defaults fit the markup of CookieConsent v3 (`#cc-main`). Check them against the page of your project:
 // test-kit did not verify them against a release of that library.
 
 // Copy the file and change DEFAULTS, or import createConsentBar from a copy and pass your own options.
 export const DEFAULTS = Object.freeze({
+  // The contract name. Contract names in a project are unique: give each extra instance its own name.
+  name: 'consent-bar',
   // The element of the bar that has a box of its own. A wrapper without a box (for example `#cc-main`) reads as not visible.
   bar: '#cc-main .cm',
   // The refusal variants of the first layer. The first one that is visible counts. Set a variant to null to leave it out.
@@ -44,7 +47,7 @@ function categoriesOf(cookies, name) {
 export function createConsentBar(options = {}) {
   const o = { ...DEFAULTS, ...options, refusal: { ...DEFAULTS.refusal, ...(options.refusal ?? {}) } };
   return {
-    name: o.name ?? 'consent-bar',
+    name: o.name,
     // One instance for each page. A page without a bar must fail, not skip, so detect always returns the bar locator.
     detect: async page => [page.locator(o.bar).first()],
     async run(page, bar) {

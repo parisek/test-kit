@@ -265,6 +265,11 @@ box of its own (`#cc-main` instead of `#cc-main .cm`) reads as not visible,
 and a bar library that hides from bots shows no bar to an automated browser.
 The contract names `navigator.webdriver` in its failure message when that
 can be the cause. It does not hide the tool.
+Contract names in a project are unique. A second instance in the same
+`source` directory needs its own name, for example
+`createConsentBar({ name: 'consent-bar-refusal', clickRefusal: true })`.
+The sample is a copy that the project owns (R13.41). It is not the
+versioned `cookieconsent` pack of R13.42 and detects no library version.
 
 ## Static export
 
