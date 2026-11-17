@@ -136,9 +136,10 @@ Reviewer: codex | claude
 Findings: critical N, high N, medium N, low N
 Issues: #N, #N | none
 Verdict: pass | blocked
+Full audit: <40-character SHA> (<issue or link>)
 ```
 
-The verdict is `blocked` when critical or high is not 0. `Issues` lists the issues of the Medium and Low findings. A repository with no earlier tag writes `none` as the base tag. A tag needs a `pass` record whose range ends at the commit that it tags, or at a commit that differs from it only in the version and the changelog.
+The verdict is `blocked` when critical or high is not 0. `Issues` lists the issues of the Medium and Low findings. `Full audit` names the commit that the newest full audit covered, and where its result is; a `full` record names its own head. A repository with no earlier tag writes `none` as the base tag. A tag needs a `pass` record whose base is the newest tag before the commit to tag, whose range ends at that commit or at a commit that differs from it only in the version and the changelog, and whose full audit covers the previous minor stable tag.
 
 ## 7. Stop conditions
 

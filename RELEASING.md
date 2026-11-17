@@ -9,7 +9,7 @@ Before 1.0, projects pin an exact tag. The lockfile records its commit.
 ## Release gates
 
 - Independent review covers the final implementation head.
-- The release security review (`docs/process.md`, section 6) has a `pass` record on the release PR. A Critical or High finding blocks the tag.
+- The release security review (`docs/process.md`, section 6) has a `pass` record on the release PR. A Critical or High finding blocks the tag. Section 6 also sets the full audit once per minor version, the issue for each Medium or Low finding, and a new review when `main` changes before the tag.
 - CI and relevant local integration checks pass.
 - Capture, comparison, viewer, and summary work on synthetic local evidence.
 - Package contents and installation in DDEV are verified.
