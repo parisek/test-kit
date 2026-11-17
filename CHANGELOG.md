@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.4.0-rc.1] - 2026-11-17
+
+First release candidate for 1.4.0. It is not a stable release. `package.json` says `1.4.0`, so `--version` prints `1.4.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. Read the migration note under Changed before you update: 1.4 needs Node 22.19 or newer. Speed runs of 1.3 do not compare with new speed runs, because the speed settings hash changes. The capture engine version stays `1`. The release security review (full audit, `docs/process.md` section 6) passed with no critical and no high finding; the medium and low findings are #423 to #427 in milestone 1.4.1.
+
 ### Fixed
 
 - `before`, `after` and `run` with `--ddev`: a page that redirects away from the discovered origin now fails with `DDEV_REDIRECT_LEFT_ORIGIN` and names the target origin. Before, a canonical redirect that dropped the port captured the DDEV router 404 page (#348, R13.13). The `status` sidecar records `finalOrigin` when a page ends on another origin than its side, and the viewer shows it.
