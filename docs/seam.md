@@ -154,7 +154,7 @@ Source of truth: `src/checks/index.js`, `src/checks/builtin/*.js`, specification
 
 | Item | Marking | Reason |
 | --- | --- | --- |
-| The built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`, and `expect-text` since 1.4, R7.8) | Experimental | They ship and a project names them in `checks`. None of the six exports `basis` (measured: no `export const basis` in `src/checks/builtin/`). R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
+| The built-in check IDs (`heading-outline`, `lang`, `empty-alt`, `empty-title`, `internal-links`, `text-difference`, and `expect-text` since 1.4, R7.8) | Experimental | They ship and a project names them in `checks`. The first six export no `basis` (measured: no `export const basis` in their files). `expect-text` exports `basis: 'absolute'`. R7.2 requires it. `src/packs/README.md` keeps them as they are. Deferred (decided): `basis` on the six waits for `schemaVersion` 3. |
 | The check module shape `id`, `title`, `applies`, `check(value, ctx)` | Experimental | `basis` is part of the shape since `schemaVersion` 3 (specification section 7, first note). |
 | A project adds its own stored content check by file | Not frozen, change planned | `builtinChecks` is a fixed list. A project selects a custom check through `resolveChecks` (section 5). |
 
