@@ -24,7 +24,7 @@ export async function storeResponse({ response, origin = null, requested, runDir
         }
         // #348: the final origin, only when the page ends on another origin than the side origin.
         const final = new URL(response.url());
-        const finalOrigin = origin && final.origin !== new URL(origin).origin && /^https?:$/.test(final.protocol) ? final.origin.slice(0, 200) : null;
+        const finalOrigin = finalOriginOf(final, origin);
         bytes = Buffer.from(JSON.stringify({ statusCode: response.status(),
           finalPath: final.pathname.slice(0, 2000), ...(finalOrigin ? { finalOrigin } : {}), redirects,
           assets: { requests: assets.requests, failed: assets.failed, httpErrors: assets.httpErrors } }));
@@ -41,4 +41,13 @@ export async function storeResponse({ response, origin = null, requested, runDir
     }
   }
   return artifacts;
+}
+
+// #348: the origin where a page ends, only when it differs from the side origin. An origin
+// over 200 characters is left out: a cut origin is not an origin (statusDetail). Pure (R4.4).
+export function finalOriginOf(url, origin) {
+  if (!origin) return null;
+  const final = new URL(url);
+  if (!/^https?:$/.test(final.protocol) || final.origin === new URL(origin).origin || final.origin.length > 200) return null;
+  return final.origin;
 }
