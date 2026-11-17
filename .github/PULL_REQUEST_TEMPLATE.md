@@ -64,6 +64,7 @@
 - [ ] CI green on the head SHA.
 - [ ] Codex record `<!-- agent:review -->` on the head SHA.
 - [ ] Claude record `<!-- agent:review -->` on the head SHA.
+- [ ] Release PR only: `<!-- agent:security-review -->` record with `Verdict: pass` on the head (`docs/process.md`, section 6).
 - [ ] Release, workflow change, security path or security finding: the owner decides.
 
 </details>

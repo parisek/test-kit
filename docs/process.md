@@ -1,6 +1,6 @@
 # Process standard v1
 
-Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
+Status: approved by the owner on 2026-11-09. Section 10 changed on 2026-11-10, with the approval of the owner. Section 6 (release security review) changed on 2026-11-17, with the approval of the owner. This file is the normative text of the process. `docs/vision.md` adds the project part and never weakens a rule here.
 
 The same file lives in each repository below, with only the section "This repository" different. Each repository is autonomous: it carries the standard and its tools itself and depends on no shared plugin (owner decision, 2026-11-09). A change to a generic section is one pull request in each repository, with the same text.
 
@@ -115,6 +115,30 @@ Reason: <one sentence>
 The answer is a comment that starts with `<!-- agent:decision -->` and `Chosen: <N>` or `Chosen: other`. When the owner answers in words, the agent posts that comment and quotes the reply.
 
 Labels: `awaiting-owner` for an open owner decision. A repository that runs agents on its own also uses `status/ready`, `status/in-progress`, `status/needs-decision` and `agent/ok`.
+
+### Release security review
+
+Every release tag, stable or pre-release, waits for a security review. The agent that prepares the release runs the review and drives it to a result. It never hands the review to the owner.
+
+- Range: from the newest earlier release tag on the branch to the head of the release pull request. When `main` gets a change other than the version and the changelog before the tag, the agent reviews the new commits too.
+- Reviewer: Codex or Claude in a fresh context, never the author of a change in the range. Reviewer rules 2 to 4 of section 4 apply. The reviewer reads the diff and the code that the diff calls, and gives each finding one severity: Critical, High, Medium or Low.
+- A Critical or High finding blocks the tag. Its fix is a normal pull request. After the merge of the fix, the agent reviews the range again.
+- A Medium or Low finding does not block the tag. Each one becomes an issue with the label `security`, in the milestone of the next patch release.
+- Once for each minor version, the review is a full audit of every security path, not only the diff. A full audit made after the previous minor stable tag counts. A repository with no earlier tag starts with a full audit.
+
+The result is one comment on the release pull request, in this form. The agent record of the pull request repeats the verdict and links the comment. A release without a pull request puts the comment on the milestone's `[Roadmap]` issue.
+
+```
+<!-- agent:security-review -->
+Range: <base tag>..<40-character head SHA>
+Scope: diff | full
+Reviewer: codex | claude
+Findings: critical N, high N, medium N, low N
+Issues: #N, #N | none
+Verdict: pass | blocked
+```
+
+The verdict is `blocked` when critical or high is not 0. `Issues` lists the issues of the Medium and Low findings. A repository with no earlier tag writes `none` as the base tag. A tag needs a `pass` record whose range ends at the commit that it tags, or at a commit that differs from it only in the version and the changelog.
 
 ## 7. Stop conditions
 
