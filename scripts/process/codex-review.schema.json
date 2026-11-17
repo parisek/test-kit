@@ -13,9 +13,9 @@
     "unverified": { "type": "array", "items": { "type": "string" }, "description": "What you could not check, or [\"none\"]." },
     "security": { "type": "string", "description": "none, or the path and the reason." },
     "unexpected_files": { "type": "string", "description": "none, or the paths." },
-    "tests": { "type": "string", "description": "present, docs-only or none: <reason>." },
+    "tests": { "type": "string", "pattern": "^(present|docs-only|none: .+)$", "description": "Exactly present, docs-only, or none: <reason>." },
     "risk": { "type": "string", "description": "none, or one sentence." },
-    "citations": { "type": "array", "items": { "type": "string" }, "description": "path:line or path:start-end." },
+    "citations": { "type": "array", "items": { "type": "string", "pattern": "^[^\\s:/][^\\s]*:[0-9]+(-[0-9]+)?$" }, "description": "One location per entry: path:line or path:start-end. Never two ranges in one entry." },
     "findings": { "type": "array", "items": { "type": "string" }, "description": "Most severe first. Each finding cites path:line." }
   }
 }

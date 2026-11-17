@@ -199,4 +199,14 @@ if [ "$(cat "$T/setup" 2>/dev/null)" = "$(printf 'trusted %s\ngate %s' "$HEAD_SH
 	pass "queue: a head without a setup input change gets only the setup"
 else bad "queue: plain setup ($(cat "$T/setup" 2>/dev/null); $out)"; fi
 
+# The output schema rejects what check-record.mjs rejects, so Codex cannot return such a value.
+if node -e '
+const s = require(process.argv[1]).properties;
+const cite = new RegExp(s.citations.items.pattern), tests = new RegExp(s.tests.pattern);
+const ok = cite.test("src/a.js:48-49") && cite.test("docs/spec.md:3") && !cite.test("src/a.js:48-49,81") && !cite.test("/tmp/x.md:1")
+	&& tests.test("present") && tests.test("docs-only") && tests.test("none: no code") && !tests.test("present, docs-only");
+process.exit(ok ? 0 : 1);' "$HERE/codex-review.schema.json"; then
+	pass "schema: citations and tests follow the rules of check-record.mjs"
+else bad "schema: citations or tests pattern"; fi
+
 exit "$fail"
