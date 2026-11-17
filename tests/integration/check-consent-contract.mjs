@@ -8,8 +8,8 @@ import { runBehavior } from '../../src/behavior/index.js';
 import { consentBar, createConsentBar } from '../../templates/contracts/consent-bar.contract.js';
 
 // #380: the sample consent contract against fixture pages with the markup of the defaults. No consent library is loaded.
-const bar = ({ reject = true, botAware = false, sticky = false, noCookie = false, descLink = false }) => `<!doctype html><html><body><p>Example site</p>
-<div id="cc-main"><div class="cm" style="position:fixed;bottom:0;width:300px;height:80px">
+const bar = ({ reject = true, botAware = false, sticky = false, noCookie = false, descLink = false, hidden = false }) => `<!doctype html><html><body><p>Example site</p>
+<div id="cc-main"><div class="cm" style="position:fixed;bottom:0;width:300px;height:80px${hidden ? ';display:none' : ''}">
 <p class="cm__desc">We use cookies.${descLink ? ' <a href="#" class="cm__link">Refuse</a>' : ''}</p><button data-role="all">Accept all</button>${reject ? '<button data-role="necessary">Reject all</button>' : ''}</div></div>
 <script>
 const main = document.getElementById('cc-main');
@@ -20,7 +20,7 @@ document.querySelectorAll('[data-role]').forEach(button => button.addEventListen
   if (!${sticky}) main.querySelector('.cm').style.display = 'none';
 }));
 </script></body></html>`;
-const pages = { '/': bar({}), '/sticky': bar({ sticky: true }), '/no-cookie': bar({ noCookie: true }), '/desc-link': bar({ reject: false, descLink: true }), '/no-reject': bar({ reject: false }), '/bot-aware': bar({ botAware: true }), '/no-bar': '<!doctype html><p>Example site</p>' };
+const pages = { '/': bar({}), '/sticky': bar({ sticky: true }), '/no-cookie': bar({ noCookie: true }), '/desc-link': bar({ reject: false, descLink: true }), '/hidden': bar({ hidden: true }), '/no-reject': bar({ reject: false }), '/bot-aware': bar({ botAware: true }), '/no-bar': '<!doctype html><p>Example site</p>' };
 const server = createServer((request, response) => { response.setHeader('Content-Type', 'text/html'); response.end(pages[new URL(request.url, 'http://x').pathname] ?? ''); });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -44,7 +44,11 @@ try {
   const botAware = await measure('/bot-aware');
   assert.equal(botAware.state, 'failed'); assert.match(botAware.error, /navigator\.webdriver/);
   const noBar = await measure('/no-bar');
-  assert.equal(noBar.state, 'failed'); assert.match(noBar.error, /no visible box/);
+  assert.equal(noBar.state, 'failed'); assert.match(noBar.error, /has no consent bar/);
+  const hidden = await measure('/hidden');
+  assert.equal(hidden.state, 'failed'); assert.match(hidden.error, /exists but has no visible box/); assert.doesNotMatch(hidden.error, /webdriver/);
+  const guard = await measure('/no-reject', createConsentBar({ clickRefusal: true, refusal: { control: null, sentence: 'we use cookies' } }));
+  assert.equal(guard.state, 'failed'); assert.match(guard.error, /clickRefusal needs the reject control variant/);
   const clicked = await measure('/', createConsentBar({ clickRefusal: true }));
   assert.equal(clicked.state, 'complete', clicked.error);
   assert.deepEqual(clicked.result, { rendered: true, refusal: 'control', categories: ['necessary'] });
@@ -59,5 +63,5 @@ try {
   const inDescription = await measure('/desc-link', createConsentBar({ refusal: { control: null, inDescription: '.cm__desc a' } }));
   assert.equal(inDescription.state, 'complete', inDescription.error); assert.equal(inDescription.result.refusal, 'in-description');
   assert.equal(createConsentBar({ name: 'consent-bar-refusal' }).name, 'consent-bar-refusal');
-  console.log('Consent contract: a visible bar with refusal passes, a refusal click keeps only the necessary category, and a missing refusal, a hidden bar, a bot-aware bar, a bar that stays after the refusal and a missing choice cookie fail with a reason.');
+  console.log('Consent contract: a visible bar with refusal passes, a refusal click keeps only the necessary category, and a missing refusal, a missing bar, a bar without a box, a bot-aware bar, a bar that stays after the refusal and a missing choice cookie fail with a reason.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); await rm(directory, { recursive: true, force: true }); }

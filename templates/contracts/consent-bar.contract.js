@@ -1,6 +1,6 @@
 // Sample project contract: the consent bar renders and offers refusal on its first layer (#380).
 // Copy this file into the behavior `source` directory of a project and set the constants below.
-// It is trusted project code (src/behavior/README.md). test-kit does not run it unless the project selects it.
+// It is trusted project code (src/behavior/README.md). It runs only from the behavior source folder of a project, when a capture selects the `behavior` artifact.
 // It is a copy that the project owns (R13.41, R13.43). It is not the versioned `cookieconsent` pack of R13.42, and it detects no library version.
 //
 // The defaults fit the markup of CookieConsent v3 (`#cc-main`). Check them against the page of your project:
@@ -52,8 +52,11 @@ export function createConsentBar(options = {}) {
     detect: async page => [page.locator(o.bar).first()],
     async run(page, bar) {
       try { await bar.waitFor({ state: 'visible', timeout: o.timeoutMs }); } catch {
+        // The hint applies only when no element exists: a library that hides from bots often adds no bar at all.
+        // An element that exists but has no box is a markup or CSS problem, so it gets no hint.
+        if (await bar.count().catch(() => 0)) throw new Error(`The consent bar ${o.bar} exists but has no visible box.`);
         const webdriver = await page.evaluate(() => navigator.webdriver === true).catch(() => false);
-        throw new Error(`The consent bar ${o.bar} has no visible box.${webdriver ? ' The browser reports navigator.webdriver. A bar library that hides from bots shows no bar to an automated browser.' : ''}`);
+        throw new Error(`The page has no consent bar ${o.bar}.${webdriver ? ' The browser reports navigator.webdriver. A bar library that hides from bots shows no bar to an automated browser.' : ''}`);
       }
       const refusal = await refusalVariant(bar, o.refusal);
       if (!refusal) throw new Error('The first layer of the consent bar offers no visible refusal.');

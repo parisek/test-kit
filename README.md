@@ -263,11 +263,14 @@ click on a local side only. The defaults fit the markup of CookieConsent v3
 library, so check them against your page. Two traps: a selector without a
 box of its own (`#cc-main` instead of `#cc-main .cm`) reads as not visible,
 and a bar library that hides from bots shows no bar to an automated browser.
-The contract names `navigator.webdriver` in its failure message when that
-can be the cause. It does not hide the tool.
-Contract names in a project are unique. A second instance in the same
-`source` directory needs its own name, for example
-`createConsentBar({ name: 'consent-bar-refusal', clickRefusal: true })`.
+When the page has no bar element and the browser reports
+`navigator.webdriver`, the failure message names it. It does not hide the tool.
+Keep one instance for each page. The contracts run in turn on the same
+page, so an instance that clicks the refusal hides the bar from the next
+one. `clickRefusal: true` also checks the render and the refusal, so it
+replaces the plain instance on a local side. Contract names in a project
+are unique: an instance needs its own `name` when the source folder holds
+more than one.
 The sample is a copy that the project owns (R13.41). It is not the
 versioned `cookieconsent` pack of R13.42 and detects no library version.
 
