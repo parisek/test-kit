@@ -15,6 +15,7 @@ import { SCHEMA_VERSION, validateReport } from '../report/model.js';
 import { LIGHTHOUSE_CAUSE_CHECK, LIGHTHOUSE_CHECKS, LAYOUT_CHECK, LAYOUT_CHECK_ID } from '../report/catalog.js';
 import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
+import { sizeMismatch } from '../report/size.js';
 import { warningsForRow } from '../report/warnings.js';
 import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
@@ -337,6 +338,9 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				await writeFile(join(output, src), PNG.sync.write(diff));
 				row.ratio = ratio;
 				row.artifacts.screenshot.diff = { src, kind: 'screenshot', tool: 'pixelmatch', version: '8.0.0', settingsHash: diffSettingsHash, ratio, size: { a: { width: ai.width, height: ai.height }, b: { width: bi.width, height: bi.height } }, regions: extractRegions(diff.data, width, height, { minPixels: 1 }).map(({ x, y, w, h, pixels }) => ({ x, y, width: w, height: h, pixels, unit: 'px' })) };
+				// R8.18, #390: `ratio` counts the white padding of the smaller image as a match. The size signal names the change.
+				const mismatch = sizeMismatch(row.artifacts.screenshot.diff.size);
+				if (mismatch) row.artifacts.screenshot.diff.sizeMismatch = mismatch;
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
 			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b, ac, bc) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
