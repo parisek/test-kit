@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { unionArea, masksCoveringTarget, MASK_COVER_RATIO } from '../../src/capture/mask-cover.js';
+import { unionArea, masksCoveringTarget, MASK_COVER_RATIO, MASK_RECT_LIMIT } from '../../src/capture/mask-cover.js';
 import { captureWarnings, captureWarningLines, warningTotals, MASK_COVERS_TARGET } from '../../src/report/warnings.js';
 import { readMaskCover } from '../../src/capture/settle.js';
 
@@ -29,6 +29,14 @@ test('masks warn from 95 % of the captured area, and the count names the masks i
   assert.equal(masksCoveringTarget([[]], area), 0);
   assert.equal(masksCoveringTarget([[box(0, 0, 100, 100)]], box(0, 0, 0, 0)), 0, 'An area with no size gives no warning.');
   assert.equal(masksCoveringTarget('x', area), 0);
+});
+
+test('the rule reads at most 500 boxes of each mask selector (R5.18)', () => {
+  assert.equal(MASK_RECT_LIMIT, 500);
+  const tall = { x: 0, y: 0, width: 100, height: 1000 };
+  const strips = Array.from({ length: 1000 }, (_, index) => box(0, index, 100, 1));
+  assert.equal(masksCoveringTarget([strips], tall), 0, 'Only the first 500 strips of one selector count.');
+  assert.equal(masksCoveringTarget([strips.slice(0, 500), strips.slice(500)], tall), 2, 'Two selectors read 500 boxes each.');
 });
 
 test('the warning and its stderr line name counts only (R5.11, R5.18)', () => {
