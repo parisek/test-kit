@@ -16,6 +16,10 @@ Versions follow semver. Each release uses an immutable git tag.
 - A comparison row for a cell that one run does not hold now names the run and the cell, for example `Target news at desktop is not in run B (<run id>). Capture that side again.` Before, it said only `Evidence is missing.` (R8.19, #412).
 - `capture`, `run`, `before` and `after` print one stderr line for each failed cell: the target, the viewport, the error code, and the status and final path when the entry holds them. At most 20 lines, then `and N more` (R5.16, #416). Before, the output said only `state: "incomplete"`.
 
+### Changed
+
+- The optional Stylelint peers accept the next major: `stylelint` `^17.15.0 || ^18.0.0` and `stylelint-config-standard` `^40.0.0 || ^41.0.0` (R13.46, #351). Before, a project on Stylelint 18 failed `npm install` with `ERESOLVE`, also when it used only the CLI. The devDependencies move to Stylelint 18.1.0 and `stylelint-config-standard` 41.1.0, so the tests run the `portadesign` rules on 18. Stylelint 18 needs Node 22.22.2, 24.15 or 26. A project on an earlier Node 22 keeps Stylelint 17. The `overrides` workaround in a project can go.
+
 ### Fixed
 
 - `diff` with a path in place of a run ID now fails with `Run IDs are the directory names under runsRoot, not paths. Got: <value>.` The value shows only when it is a plain relative path. Before, the message was `Run must be a safe ID.` (#415).
