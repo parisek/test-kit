@@ -99,6 +99,7 @@ try {
       { id: 'pair', kind: 'component', path: '/components', selector: ['#news', 'h2.lone'] },
       { id: 'absent', kind: 'component', path: '/components', selector: '#absent' },
       { id: 'overlap', kind: 'component', path: '/components', selector: ['#news h2', '#news', 'section'] },
+      { id: 'same', kind: 'component', path: '/components', selector: ['#news', 'section'] },
       { id: 'whole', kind: 'page', path: '/components', expectText: ['Footer text'] }],
     viewports: config.viewports, artifacts: ['content'], checks: ['expect-text', 'heading-outline'], runsRoot: 'component-runs' }));
   const ca = await capture({ configPath: componentPath, side: 'local' });
@@ -118,6 +119,8 @@ try {
   assert.deepEqual(overlap.headings.map(item => item.text), ['News'], 'A match inside another match counts once.');
   assert.equal(overlap.links.length, 1); assert.equal(overlap.text.match(/Newest post/g).length, 1);
   assert.equal(await bodyOf('overlap'), await bodyOf('news'), 'The body holds each element once.');
+  assert.equal(cell('same').state, 'captured', 'Two selectors with one match keep that match once.');
+  assert.equal(await bodyOf('same'), await bodyOf('news'));
   assert.equal(cell('absent').state, 'failed'); assert.equal(cell('absent').error.code, 'CONTENT_CAPTURE_FAILED');
   assert.equal(cell('absent').bodyPath, undefined);
   assert.notEqual(cell('news').settingsHash, cell('whole').settingsHash, 'A component snapshot has its own settings hash.');
