@@ -99,6 +99,8 @@ export async function settlePage({ page, recipe, active = () => true, progress =
   });
   const growth = lazyGrowthError(swept);
   if (growth) throw growth;
+  // Fail closed: a growth signal with heights that are not safe integers is still growth.
+  if (swept !== null) throw new Error('Lazy-image page grows during settlement.');
   check();
   // R5.15: after the restore, wait for the state the page returns to on its own time (a debounced scroll listener, a timer).
   if ((recipe.afterSweep ?? []).length > 20) throw new Error('Capture settlement accepts at most 20 afterSweep selectors.');
