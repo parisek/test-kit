@@ -13,6 +13,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
+- `diff` with a path in place of a run ID now fails with `Run IDs are the directory names under runsRoot, not paths. Got: <value>.` The value shows only when it is a plain relative path. Before, the message was `Run must be a safe ID.` (#415).
 - A capture that fails because the page grows during the lazy-image sweep now stores the message with both heights and a hint, for example `Lazy-image page grows during settlement (3120 px to 3480 px). Set settle.lazyImages only on targets with native lazy images.` Before, the stored message was `The settlement step fails. Check the local page and capture recipe.` (R5.9, #413).
 - `run`, `before` and `after` print every capture warning line that `capture` prints, not only the line of `LAZY_IMAGES_NOT_SWEPT` (R5.11).
 
