@@ -196,6 +196,10 @@ Set the same `settle` on both sides. The recipe enters the settings hash. A pair
 
 Some headers return to their top state on their own time, for example by a debounced scroll listener. The sweep restores the scroll, but the screenshot then shows the scrolled header. Set `settle.afterSweep` to a list of at most 20 selectors that name the top state, for example `["header:not(.scrolled)"]`. After the restore, the capture waits until each selector matches a visible element, then for fonts and two animation frames. The key needs `lazyImages: true`. A selector that stays hidden fails the capture and the message names it. The key is off by default (R5.15).
 
+## Masks
+
+`settle.masks` paints a box over each match of each selector before the screenshot. Mask the media element (`#hero video`), not a container that holds the content (`#hero`). A mask on a container hides the text and the buttons too, and the diff is then 0 % for a reason that is not a match. When the masks cover at least 95 % of the captured area, the capture stores the warning `MASK_COVERS_TARGET` and the command prints one stderr line (R5.18). The capture does not change.
+
 ## Sticky and fixed headers
 
 A `position: sticky` or `position: fixed` header can show again, lower in a full-page screenshot, when the page scrolls before the capture. Two captures of one page then differ in a band as tall as the header. Set `settle.pin` to a list of at most 20 selectors, for example `["header.site-header"]`. For the capture only, each match gets `position: static`. The key is off by default and sends no request, so it works on a `remote` side.

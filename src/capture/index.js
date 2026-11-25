@@ -1,4 +1,5 @@
-import { settlePage, countUnloadedLazyImages, countSelectorMatches, afterSweepError } from './settle.js';
+import { settlePage, countUnloadedLazyImages, countSelectorMatches, readMaskCover, afterSweepError } from './settle.js';
+import { masksCoveringTarget } from './mask-cover.js';
 import { captureWarnings, warningFields, withWarning } from '../report/warnings.js';
 import { captureScopedScreenshot } from './scope.js';
 import { captureRecipe, settleRecipe } from '../config/settings.js';
@@ -319,8 +320,10 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     // R5.11: a target without the lazy-image sweep may hold images that never loaded. Read the count; it is no hash input.
     // A selector target counts only the images inside the selected elements.
     // R5.17: a scope selector with more than one match warns. Capture takes the first match. The count is no hash input.
+    // R5.18: masks that cover at least 95 % of the captured area warn. The read changes nothing and is no hash input.
+    const cover = await readMaskCover(page, { selector: target.selector, masks: recipe.masks, fullPage: config.screenshot.fullPage });
     const warnings = captureWarnings({ lazyImages: recipe.lazyImages, unloaded: await countUnloadedLazyImages(page, target.selector),
-      matches: await countSelectorMatches(page, target.selector) });
+      matches: await countSelectorMatches(page, target.selector), covering: cover ? masksCoveringTarget(cover.masks, cover.area) : 0 });
     let locator;
     let size;
     if (target.selector && !Array.isArray(target.selector) && target.box !== 'content') {

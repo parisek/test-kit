@@ -9,16 +9,20 @@ export const REFERENCE_KEPT = 'REFERENCE_KEPT';
 export const CAPTURE_RETRIED = 'CAPTURE_RETRIED';
 // R5.17: a scope selector that matches more than one element. Capture takes the first match.
 export const SELECTOR_MULTIPLE_MATCHES = 'SELECTOR_MULTIPLE_MATCHES';
+// R5.18: the masks cover at least 95 % of the captured area, so the capture compares almost nothing.
+export const MASK_COVERS_TARGET = 'MASK_COVERS_TARGET';
 
 const CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 // The warnings a capture writes. `lazyImages` is the effective setting of the recipe.
 // `unloaded` is the count of lazy images that were not loaded when the page was captured.
 // `matches` is the highest match count of the scope selectors (R5.17). A count of 1 or less adds nothing.
-export function captureWarnings({ lazyImages, unloaded, matches }) {
+// `covering` is the count of masks that cover the captured area (R5.18). 0 adds nothing.
+export function captureWarnings({ lazyImages, unloaded, matches, covering }) {
 	const warnings = [];
 	if (lazyImages !== true && Number.isSafeInteger(unloaded) && unloaded > 0) warnings.push({ code: LAZY_IMAGES_NOT_SWEPT, count: Math.min(unloaded, WARNING_COUNT_LIMIT) });
 	if (Number.isSafeInteger(matches) && matches > 1) warnings.push({ code: SELECTOR_MULTIPLE_MATCHES, count: Math.min(matches, WARNING_COUNT_LIMIT) });
+	if (Number.isSafeInteger(covering) && covering > 0) warnings.push({ code: MASK_COVERS_TARGET, count: Math.min(covering, WARNING_COUNT_LIMIT) });
 	return warnings;
 }
 
@@ -88,7 +92,7 @@ export function warningLine(run) {
 	return cells ? `Warning ${LAZY_IMAGES_NOT_SWEPT}: ${cells} ${cells === 1 ? 'capture holds' : 'captures hold'} lazy images that did not load (${images} in all). Set settle.lazyImages to true to load them.` : null;
 }
 
-// The stderr lines of the `capture` command, one for each code that the run holds (R5.11, R5.13, R5.14, R5.17).
+// The stderr lines of the `capture` command, one for each code that the run holds (R5.11, R5.13, R5.14, R5.17, R5.18).
 // Each starts with `Warning <CODE>:`. No line names a page or a URL.
 export function captureWarningLines(run) {
 	const lines = [];
@@ -108,6 +112,8 @@ export function captureWarningLines(run) {
 		const most = Math.max(...multiple.map((item) => item.count));
 		lines.push(`Warning ${SELECTOR_MULTIPLE_MATCHES}: ${multiple.length} ${multiple.length === 1 ? 'capture uses a selector' : 'captures use a selector'} that matches more than one element (up to ${most} matches). The capture takes the first match.`);
 	}
+	const covered = count(MASK_COVERS_TARGET);
+	if (covered) lines.push(`Warning ${MASK_COVERS_TARGET}: ${covered} ${covered === 1 ? 'capture has' : 'captures have'} masks that cover at least 95 % of the captured area. The comparison checks almost nothing there. Mask the media element, not its container.`);
 	return lines;
 }
 

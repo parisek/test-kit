@@ -132,3 +132,26 @@ export async function countSelectorMatches(page, selector) {
     return Number.isSafeInteger(most) && most > 0 ? most : 0;
   } catch { return 0; }
 }
+
+// R5.18: the rectangles that the masks and the captured area hold, in document coordinates. Read only.
+// The captured area is the bounding box of the first match of each scope selector, else the full page
+// (`fullPage`) or the viewport. It gives null when there is no mask or a read fails, so a warning never fails a capture.
+export async function readMaskCover(page, { selector, masks, fullPage }) {
+  if (!Array.isArray(masks) || !masks.length) return null;
+  try {
+    const toDocument = elements => elements.map(element => { const rect = element.getBoundingClientRect(); return { x: rect.x + scrollX, y: rect.y + scrollY, width: rect.width, height: rect.height }; });
+    const rects = [];
+    for (const mask of masks) rects.push(await page.locator(mask).evaluateAll(toDocument));
+    let area;
+    if (selector !== undefined) {
+      const boxes = [];
+      for (const value of Array.isArray(selector) ? selector : [selector]) boxes.push(...await page.locator(value).first().evaluateAll(toDocument));
+      if (!boxes.length) return null;
+      const left = Math.min(...boxes.map(box => box.x)), top = Math.min(...boxes.map(box => box.y));
+      area = { x: left, y: top, width: Math.max(...boxes.map(box => box.x + box.width)) - left, height: Math.max(...boxes.map(box => box.y + box.height)) - top };
+    } else area = await page.evaluate(full => full
+      ? { x: 0, y: 0, width: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0, innerWidth), height: Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight) }
+      : { x: scrollX, y: scrollY, width: innerWidth, height: innerHeight }, fullPage === true);
+    return { masks: rects, area };
+  } catch { return null; }
+}

@@ -21,6 +21,7 @@ const site = createServer((request, response) => {
   if (request.url === '/stalled') response.end('<!doctype html><style>body{height:2000px}img{position:absolute;top:1600px;width:40px;height:40px}</style><img loading="lazy" src="/stalled.svg">');
   else if (request.url === '/far') response.end('<!doctype html><title>Far</title><style>body{margin:0;height:6000px}img{position:absolute;top:5000px;width:40px;height:40px}</style><img id="far" loading="lazy" src="/image.svg">');
   else if (request.url === '/scoped') response.end('<!doctype html><title>Scoped</title><style>body{margin:0;height:7000px}div{position:absolute;left:0;width:60px;height:60px}img{width:40px;height:40px}#a{top:4000px}#b{top:4800px}#c{top:5600px}</style><div id="a"><img loading="lazy" src="/image.svg"></div><div id="b"><img loading="lazy" src="/image.svg"><img loading="lazy" src="/image.svg"></div><div id="c"><img loading="lazy" src="/image.svg"></div>');
+  else if (request.url === '/hero') response.end('<!doctype html><title>Hero</title><style>body{margin:0;min-height:100vh}#hero{position:relative;width:400px;height:200px}#hero video,#hero .bg{position:absolute;inset:0;width:400px;height:200px;background:#333}#hero .half{position:absolute;left:0;top:0;width:200px;height:200px}#hero h1{position:relative;margin:0}</style><div id="hero"><div class="bg"></div><div class="half"></div><h1>Title</h1><a href="#">Button</a></div><p>Below</p>');
   else if (request.url === '/tall') response.end('<!doctype html><style>body{height:30001px}</style>');
   else if (request.url === '/growing') response.end('<!doctype html><style>body{margin:0;height:1500px}</style><script>addEventListener("scroll",()=>{if(scrollY>0)document.body.style.height="2500px";});</script>');
   else response.end(`<!doctype html><title>Example site</title><style>body{margin:0;height:2000px}#shown,#focus-result,#hover-result{display:none}#focus:focus+#focus-result{display:block}#hover:hover #hover-result{display:block}img{position:absolute;top:1600px;width:40px;height:40px}</style><button id="open" onclick="document.querySelector('#shown').style.display='block'">Open</button><h1 id="shown">Revealed</h1><button id="focus">Focus</button><span id="focus-result">Focused</span><div id="hover">Hover<span id="hover-result">Hovered</span></div><a id="navigate" href="/other">Other page</a><a id="popup" target="_blank" href="/other">Popup</a><button id="blank" onclick="window.open('about:blank')">Blank popup</button><button id="submit" onclick="fetch('/submit',{method:'POST'}).catch(()=>{})">Submit</button><img id="lazy" loading="lazy" src="/image.svg"><img loading="lazy" src="/broken.svg">`);
@@ -146,6 +147,26 @@ try {
   assert.equal(warningsOf('swept'), undefined, 'A selector target with lazyImages on stores no warning.');
   assert.deepEqual(warningsOf('many'), [{ code: 'SELECTOR_MULTIPLE_MATCHES', count: 4 }], 'A selector with four matches stores the match count (R5.17).');
   assert.equal(warningsOf('picked'), undefined, 'A selector that picks one match stores no warning (R5.17).');
+  // R5.18: masks that cover at least 95 % of the captured area warn; a partial mask does not.
+  const settleOf = masks => ({ selectors: [], reveal: [], lazyImages: true, masks });
+  await writeFile(configPath, JSON.stringify({ ...config, targets: [
+    { id: 'covered', kind: 'page', path: '/hero', selector: '#hero', settle: settleOf(['#hero .bg']) },
+    { id: 'halves', kind: 'page', path: '/hero', selector: '#hero', settle: settleOf(['#hero .half', '#hero h1', '#hero .bg']) },
+    { id: 'partial', kind: 'page', path: '/hero', selector: '#hero', settle: settleOf(['#hero .half']) },
+    { id: 'outside', kind: 'page', path: '/hero', selector: 'p', settle: settleOf(['#hero .bg']) },
+    { id: 'unmasked', kind: 'page', path: '/hero', selector: '#hero', settle: settleOf([]) },
+    { id: 'body', kind: 'page', path: '/hero', settle: settleOf(['body']) },
+    { id: 'page-hero', kind: 'page', path: '/hero', settle: settleOf(['#hero .bg']) }], artifacts: ['screenshot'], checks: [] }));
+  const masked = await capture({ configPath, side: 'local' });
+  const maskedOf = id => masked.run.captures.find(entry => entry.targetId === id).warnings;
+  assert.equal(masked.run.state, 'complete');
+  assert.deepEqual(maskedOf('covered'), [{ code: 'MASK_COVERS_TARGET', count: 1 }], 'A mask over the whole selected box warns (R5.18).');
+  assert.deepEqual(maskedOf('halves'), [{ code: 'MASK_COVERS_TARGET', count: 3 }], 'The count names every mask with a box in the captured area (R5.18).');
+  assert.equal(maskedOf('partial'), undefined, 'A mask over half of the box stores no warning (R5.18).');
+  assert.equal(maskedOf('outside'), undefined, 'A mask outside the selected box stores no warning (R5.18).');
+  assert.equal(maskedOf('unmasked'), undefined, 'A target without masks stores no warning (R5.18).');
+  assert.deepEqual(maskedOf('body'), [{ code: 'MASK_COVERS_TARGET', count: 1 }], 'A mask over the whole page warns on a page target (R5.18).');
+  assert.equal(maskedOf('page-hero'), undefined, 'A mask over a part of the page stores no warning on a page target (R5.18).');
   await writeFile(configPath, JSON.stringify(config));
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);
