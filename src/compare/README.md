@@ -26,3 +26,5 @@ A pair may hold a design run (R8.15). Its cells are `incompatible` when the view
 Comparison also takes the parsed `decisionEntries` (R9.14). It validates them and their fingerprints before the output directory exists. In a pair with a design run it fingerprints the design value of each layout difference, writes `report.decisions` with the status of each entry and puts the label on each layout finding. See `src/decisions/README.md`.
 
 `packs.js` reads the pack results that `capture --packs` stored in run B (R13.51). It runs the pack checks over each stored sidecar and writes an absolute artifact index (R9.9), findings and a catalog entry. Only side B enters the report. A run with no stored pack result adds nothing (R5.1).
+
+`missing.js` builds the diagnostic of a cell that one run does not hold (R8.19). It is pure.
