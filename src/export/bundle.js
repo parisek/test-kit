@@ -15,7 +15,9 @@ const PIXEL_LIMIT = 40_000_000;
 const TEXT_LIMIT = 500;
 
 const whole = (value, max) => Number.isSafeInteger(value) && value >= 0 && value <= max;
-const text = (value, max = TEXT_LIMIT) => (typeof value === 'string' ? value : '').replace(/[\x00-\x1f\x7f]+/g, ' ').slice(0, max);
+// C0 and C1 control characters and the Unicode direction controls become spaces, so a value cannot
+// reorder the text around it.
+const text = (value, max = TEXT_LIMIT) => (typeof value === 'string' ? value : '').replace(/[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]+/g, ' ').slice(0, max);
 
 // The regions of a diff that are whole numbers inside the canvas. Report data is untrusted.
 export function validRegions(regions, canvas) {
@@ -44,9 +46,10 @@ export function cropBox(regions, canvas) {
 }
 
 // Text for a Markdown task. A value from the report is plain text: control characters become
-// spaces, and Markdown punctuation is escaped, so a value cannot add a link, an image or a heading.
+// spaces, and Markdown punctuation is escaped. "." , ":" and "@" are escaped too, so a bare URL, a
+// `www.` name or an e-mail address is not an autolink of GitHub-flavored Markdown.
 export function markdownText(value, max = TEXT_LIMIT) {
-  return text(value, max).replace(/[\\`*_{}\[\]()<>#+!|~-]/g, character => `\\${character}`);
+  return text(value, max).replace(/[\\`*_{}\[\]()<>#+!|~.:@-]/g, character => `\\${character}`);
 }
 
 export function bundleMarkdown(record) {
@@ -62,15 +65,34 @@ export function bundleMarkdown(record) {
   if (images.a) {
     lines.push('', '## Images', '', `- ${images.a}: side A`, `- ${images.b}: side B`, `- ${images.diff}: the difference`);
     lines.push(`- Crop: x ${crop.x}, y ${crop.y}, ${crop.width} × ${crop.height} px of the full screenshot${crop.truncated ? ' (cut at the size limit)' : ''}`);
-    lines.push(`- Regions: ${regions.length + regionsOmitted}${regionsOmitted ? ` (the first ${regions.length} are in finding.json)` : ''}`);
+    lines.push(`- Regions: ${regions.length} in finding.json${regionsOmitted ? `, ${regionsOmitted} more not listed` : ''}${record.regionsInvalid ? `, ${record.regionsInvalid} invalid in the report` : ''}`);
   }
   lines.push('', 'The tool wrote this text from the report. The images are evidence, not a verdict.', '');
   return lines.join('\n');
 }
 
+const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+// The size of a PNG from its chunks, before a decoder allocates memory. The first chunk must be IHDR,
+// and no later chunk may be IHDR: a decoder can take its size from a second header. Pure (R4.4).
+export function pngPixels(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 33 || !bytes.subarray(0, 8).equals(SIGNATURE)) throw new Error('The image is not a PNG.');
+  let pixels = null;
+  for (let at = 8; at + 8 <= bytes.length;) {
+    const length = bytes.readUInt32BE(at), type = bytes.toString('latin1', at + 4, at + 8);
+    if (pixels === null && (type !== 'IHDR' || length !== 13)) throw new Error('The PNG does not start with one IHDR chunk.');
+    if (type === 'IHDR' && pixels !== null) throw new Error('The PNG has more than one IHDR chunk.');
+    if (type === 'IHDR') pixels = bytes.readUInt32BE(at + 8) * bytes.readUInt32BE(at + 12);
+    if (type === 'IEND') break;
+    at += 12 + length;
+  }
+  return pixels;
+}
+
 function decode(PNG, bytes) {
-  if (bytes.length < 24 || bytes.readUInt32BE(16) * bytes.readUInt32BE(20) > PIXEL_LIMIT) throw new Error('PNG exceeds the pixel limit.');
-  return PNG.sync.read(bytes);
+  if (pngPixels(bytes) > PIXEL_LIMIT) throw new Error('PNG exceeds the pixel limit.');
+  const image = PNG.sync.read(bytes);
+  if (image.width * image.height > PIXEL_LIMIT) throw new Error('PNG exceeds the pixel limit.');
+  return image;
 }
 
 // Copies the crop of one image to a new PNG. A side smaller than the crop is padded with white,
@@ -112,7 +134,7 @@ export async function writeBundle({ reportPath, findingId, output }) {
     report: { file: basename(path), generated: typeof report.meta?.generated === 'string' ? text(report.meta.generated, 64) : null,
       ...(report.pair ? { pair: { kind: text(report.pair.kind, 64), aRunId: text(report.pair.aRunId, 200), bRunId: text(report.pair.bRunId, 200) } } : {}),
       ...(report.subject ? { subject: { runId: text(report.subject.runId, 200) } } : {}) },
-    crop: null, regions: [], regionsOmitted: 0, images: {},
+    crop: null, regions: [], regionsOmitted: 0, regionsInvalid: 0, images: {},
   };
   const files = {};
   const shot = finding.artifact === 'screenshot' ? row?.artifacts?.screenshot : null;
@@ -123,9 +145,10 @@ export async function writeBundle({ reportPath, findingId, output }) {
     const [a, b, diff] = await Promise.all([shot.a.src, shot.b.src, shot.diff.src].map(async src => decode(PNG, await readSidecar(root, src, 256 * 1024 * 1024))));
     const canvas = { width: diff.width, height: diff.height };
     const regions = validRegions(shot.diff.regions, canvas);
+    const given = Array.isArray(shot.diff.regions) ? Math.min(shot.diff.regions.length, 10_000) : 0;
     const crop = cropBox(regions, canvas);
     const inside = regions.filter(r => r.x < crop.x + crop.width && r.y < crop.y + crop.height && r.x + r.width > crop.x && r.y + r.height > crop.y);
-    Object.assign(record, { crop, regions: inside.slice(0, REGION_LIMIT), regionsOmitted: regions.length - Math.min(inside.length, REGION_LIMIT), images: { a: 'a.png', b: 'b.png', diff: 'diff.png' } });
+    Object.assign(record, { crop, regions: inside.slice(0, REGION_LIMIT), regionsOmitted: regions.length - Math.min(inside.length, REGION_LIMIT), regionsInvalid: given - regions.length, images: { a: 'a.png', b: 'b.png', diff: 'diff.png' } });
     Object.assign(files, { 'a.png': cropImage(PNG, a, crop), 'b.png': cropImage(PNG, b, crop), 'diff.png': cropImage(PNG, diff, crop) });
   }
   files['finding.json'] = `${JSON.stringify(record, null, 2)}\n`;

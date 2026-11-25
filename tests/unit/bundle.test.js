@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { validRegions, cropBox, markdownText, bundleMarkdown, CROP_MARGIN, CROP_LIMIT, REGION_LIMIT } from '../../src/export/bundle.js';
+import { validRegions, cropBox, markdownText, bundleMarkdown, pngPixels, CROP_MARGIN, CROP_LIMIT, REGION_LIMIT } from '../../src/export/bundle.js';
 import { parseCommand } from '../../src/cli/run.js';
 
 test('validRegions keeps whole-number boxes inside the canvas only (R11.10)', () => {
@@ -19,10 +19,33 @@ test('cropBox takes the union of the regions plus a margin, inside the canvas an
     { x: 100 - CROP_MARGIN, y: 200 - CROP_MARGIN, width: 55 + 2 * CROP_MARGIN, height: 50 + 2 * CROP_MARGIN });
   assert.deepEqual(cropBox([{ x: 5, y: 5, width: 10, height: 10 }], { width: 20, height: 20 }), { x: 0, y: 0, width: 20, height: 20 });
   assert.deepEqual(cropBox([], { width: 3000, height: 9000 }), { x: 0, y: 0, width: CROP_LIMIT, height: CROP_LIMIT, truncated: true });
+  // A union larger than the limit keeps its top-left corner (R11.10).
+  assert.deepEqual(cropBox([{ x: 100, y: 100, width: 10, height: 10 }, { x: 5000, y: 50, width: 10, height: 10 }], { width: 6000, height: 6000 }),
+    { x: 76, y: 26, width: CROP_LIMIT, height: 108, truncated: true });
+});
+
+// A PNG of `chunks`, each [type, data]. The CRC is not checked here, so it is zero.
+const pngOf = chunks => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), ...chunks.map(([type, data]) => {
+  const head = Buffer.alloc(8); head.writeUInt32BE(data.length, 0); head.write(type, 4, 'latin1');
+  return Buffer.concat([head, data, Buffer.alloc(4)]);
+})]);
+const ihdr = (width, height) => { const data = Buffer.alloc(13); data.writeUInt32BE(width, 0); data.writeUInt32BE(height, 4); data[8] = 8; data[9] = 6; return ['IHDR', data]; };
+
+test('pngPixels reads the size from the one IHDR chunk and refuses a second one (R11.10)', () => {
+  assert.equal(pngPixels(pngOf([ihdr(20, 30), ['IDAT', Buffer.alloc(4)], ['IEND', Buffer.alloc(0)]])), 600);
+  // A small first header and a large second one: a decoder can allocate by the second.
+  assert.throws(() => pngPixels(pngOf([ihdr(2, 2), ihdr(20000, 20000), ['IEND', Buffer.alloc(0)]])), /more than one IHDR/);
+  assert.throws(() => pngPixels(pngOf([['tEXt', Buffer.alloc(13)], ihdr(2, 2)])), /start with one IHDR/);
+  assert.throws(() => pngPixels(Buffer.from('not a png, but long enough to read the header')), /not a PNG/);
+  assert.throws(() => pngPixels('x'), /not a PNG/);
 });
 
 test('markdownText keeps report text plain', () => {
-  assert.equal(markdownText('a\n# b [x](http://e) ![i](y) `c` <b>'), 'a \\# b \\[x\\]\\(http://e\\) \\!\\[i\\]\\(y\\) \\`c\\` \\<b\\>');
+  assert.equal(markdownText('a\n# b [x](http://e) ![i](y) `c` <b>'), 'a \\# b \\[x\\]\\(http\\://e\\) \\!\\[i\\]\\(y\\) \\`c\\` \\<b\\>');
+  // No autolink of GitHub-flavored Markdown: a bare URL, a www. name and an e-mail address.
+  assert.equal(markdownText('https://e.example www.e.example a@e.example'), 'https\\://e\\.example www\\.e\\.example a\\@e\\.example');
+  // C1 controls and direction controls become spaces.
+  assert.equal(markdownText('a\u202eb\u0085c\u2066d'), 'a b c d');
   assert.equal(markdownText(42), '');
   assert.equal(markdownText('x'.repeat(600)).length, 500);
 });
@@ -31,8 +54,9 @@ test('bundleMarkdown names the finding, the pair and the images', () => {
   const record = { finding: { id: 'home-desktop', targetId: 'home', viewportId: 'desktop', artifact: 'screenshot', message: 'Screenshot pixels differ.', class: 'unexplained' },
     report: { pair: { kind: 'update', aRunId: 'run-a', bRunId: 'run-b' } }, crop: { x: 0, y: 4, width: 40, height: 20 }, regions: [{}], regionsOmitted: 2, images: { a: 'a.png', b: 'b.png', diff: 'diff.png' } };
   const text = bundleMarkdown(record);
-  assert.match(text, /^# Screenshot pixels differ\.\n/);
-  for (const line of ['- Target: home', '- Viewport: desktop', '- Class: unexplained', '- Pair: update, run A run\\-a, run B run\\-b', '- diff.png: the difference', '- Crop: x 0, y 4, 40 × 20 px of the full screenshot', '- Regions: 3 (the first 1 are in finding.json)']) assert.ok(text.includes(line), line);
+  assert.match(text, /^# Screenshot pixels differ\\\.\n/);
+  for (const line of ['- Target: home', '- Viewport: desktop', '- Class: unexplained', '- Pair: update, run A run\\-a, run B run\\-b', '- diff.png: the difference', '- Crop: x 0, y 4, 40 × 20 px of the full screenshot', '- Regions: 1 in finding.json, 2 more not listed']) assert.ok(text.includes(line), line);
+  assert.ok(bundleMarkdown({ ...record, regions: [], regionsInvalid: 3 }).includes('- Regions: 0 in finding.json, 2 more not listed, 3 invalid in the report'));
   const plain = bundleMarkdown({ ...record, crop: null, regions: [], regionsOmitted: 0, images: {}, finding: { ...record.finding, artifact: 'html', viewportId: null } });
   assert.equal(plain.includes('## Images'), false);
   assert.equal(plain.includes('Viewport'), false);
@@ -91,7 +115,8 @@ test('writeBundle writes the crops, finding.json and finding.md of one finding (
     assert.deepEqual(at(b, CROP_MARGIN, CROP_MARGIN), [255, 0, 0]);
     assert.deepEqual(at(b, 0, 0), [255, 255, 255]);
     assert.deepEqual(at(PNG.sync.read(await readFile(join(result.bundle, 'a.png'))), CROP_MARGIN, CROP_MARGIN), [255, 255, 255]);
-    assert.match(await readFile(join(result.bundle, 'finding.md'), 'utf8'), /^# Screenshot pixels differ\.\n[\s\S]*- a\.png: side A/);
+    assert.match(await readFile(join(result.bundle, 'finding.md'), 'utf8'), /^# Screenshot pixels differ\\\.\n[\s\S]*- a\.png: side A/);
+    assert.equal(record.regionsInvalid, 0);
     // A bundle never replaces an earlier one.
     await assert.rejects(writeBundle({ reportPath, findingId: finding.id, output: out }), /exists/);
     await assert.rejects(writeBundle({ reportPath, findingId: 'missing', output: out }), /no finding missing/);
@@ -110,6 +135,29 @@ test('writeBundle writes the crops, finding.json and finding.md of one finding (
     const html = await writeBundle({ reportPath: tampered, findingId: 'html-home-desktop', output: join(dir, 'other') });
     assert.deepEqual(html.files, ['finding.json', 'finding.md']);
     assert.equal(JSON.parse(await readFile(join(html.bundle, 'finding.json'), 'utf8')).crop, null);
-    assert.ok(REGION_LIMIT >= 1);
+    // At most REGION_LIMIT regions are listed. The rest are counted, and invalid ones apart.
+    const many = JSON.parse(JSON.stringify(stored));
+    many.findings = [finding];
+    many.entries[0].viewports[0].artifacts.screenshot.diff.regions = [...Array.from({ length: REGION_LIMIT + 10 }, (_, i) => ({ x: i, y: 0, width: 1, height: 1 })), { x: -1, y: 0, width: 1, height: 1 }, { x: 0, y: 0, width: 0, height: 1 }];
+    const manyPath = join(dir, 'report', 'many.json');
+    await writeFile(manyPath, JSON.stringify(many));
+    const listed = JSON.parse(await readFile(join((await writeBundle({ reportPath: manyPath, findingId: finding.id, output: join(dir, 'many') })).bundle, 'finding.json'), 'utf8'));
+    assert.deepEqual([listed.regions.length, listed.regionsOmitted, listed.regionsInvalid], [REGION_LIMIT, 10, 2]);
+    // A listed finding whose id is not a valid --finding value says so.
+    many.findings = [finding, { ...finding, id: '../x' }];
+    await writeFile(manyPath, JSON.stringify(many));
+    assert.deepEqual((await listFindings({ reportPath: manyPath })).findings.map(item => item.bundle), [undefined, false]);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('bundle refuses an --output inside inputs/ of the default store before it reads the report (R12.6)', async () => {
+  const { dispatch } = await import('../../src/cli/run.js');
+  const dir = await mkdtemp(join(tmpdir(), 'test-kit-bundle-inputs-'));
+  try {
+    const config = join(dir, 'test-kit.config.json');
+    for (const output of [join(dir, 'test-kit', 'inputs'), join(dir, 'test-kit', 'inputs', 'bundles')]) {
+      await assert.rejects(dispatch({ command: 'bundle', positions: [join(dir, 'missing.json')], options: { finding: 'x', output, config } }), /--output must not be inside inputs\//, output);
+    }
+    await assert.rejects(readdir(join(dir, 'test-kit')), { code: 'ENOENT' });
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
