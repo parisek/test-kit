@@ -47,7 +47,7 @@ export function selectConfig(input, options = {}) {
   if (options.contracts && !config.artifacts.includes('behavior')) throw new Error('Contracts require the behavior artifact.');
   if (!config.artifacts.includes('behavior')) delete config.behavior;
   else {
-    if (!config.behavior) throw new Error('Configure behavior before selecting this suite.');
+    if (!config.behavior) throw new Error('Configure behavior before selecting the behavior suite or artifact.');
     if (config.behavior.projects) config.behavior.projects = Object.fromEntries(Object.entries(config.behavior.projects).filter(([id]) => config.viewports.some(viewport => viewport.id === id)));
     if (options.contracts) config.behavior.enabled = options.contracts === 'none' ? [] : validateContractSelection(options.contracts.split(','));
   }
