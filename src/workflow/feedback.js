@@ -7,6 +7,7 @@ import { storedResponses } from '../content/responses.js';
 import { runContentChecks } from '../checks/index.js';
 import { validateBehaviorSnapshot } from '../behavior/snapshot.js';
 import { behaviorCheckId } from '../report/catalog.js';
+import { cellSelected } from '../capture/selection.js';
 
 // A single run has check feedback. It does not have an A/B verdict.
 export async function summarizeRunFeedback(run, runsRoot, { maxFindings = 20, persist = true } = {}) {
@@ -25,6 +26,8 @@ export async function summarizeRunFeedback(run, runsRoot, { maxFindings = 20, pe
     }
   };
   for (const target of run.settings.targets) for (const viewport of run.settings.viewports) {
+    // R4.5, R5.19: a cell outside the recorded selection is no missing evidence. A null path records such a selection.
+    if (!cellSelected(run.selection, target.id, viewport.id)) continue;
     const scope = { targetId: target.id, viewportId: viewport.id };
     const capture = run.captures.find(row => row.targetId === target.id && row.viewportId === viewport.id);
     if (run.settings.artifacts.includes('content')) {

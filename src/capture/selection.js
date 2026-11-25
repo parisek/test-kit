@@ -57,3 +57,13 @@ export function cellSelected(selection, targetId, viewportId) {
   return (selection.targets === undefined || selection.targets.includes(targetId))
     && (selection.viewports === undefined || selection.viewports.includes(viewportId));
 }
+
+// #414: a target with `paths: { <side>: null }` does not run on that side. Capture records it as a selection,
+// so a pair with that side has no cell for the target (R4.5). Without a null path nothing changes (R5.1).
+export function withoutSkippedTargets(settings, side, selection) {
+  const skipped = new Set(settings.targets.filter(target => target.paths && Object.hasOwn(target.paths, side) && target.paths[side] === null).map(target => target.id));
+  if (!skipped.size) return selection;
+  const chosen = (selection?.targets ?? settings.targets.map(target => target.id)).filter(id => !skipped.has(id));
+  if (!chosen.length) throw new Error(`No selected target runs on side ${side}: each one has a null path there.`);
+  return { ...(selection ?? {}), targets: chosen };
+}

@@ -12,6 +12,8 @@ export function planPerfCommand(config, { side, label = '', targetIds, runs, for
   const targets = targetIds.map(id => {
     const target = config.targets.find(target => target.id === id);
     if (!target) throw new Error(`Unknown performance target: ${id}`);
+    // #414: a null path means the target does not run on that side.
+    if (targetPath(target, side) === null) throw new Error(`Target ${id} does not run on side ${side}: its path there is null.`);
     if (target.kind !== 'page') throw new Error('Lighthouse measures full pages. Component targets are unsupported.');
     return target;
   });
