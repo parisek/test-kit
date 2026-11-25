@@ -22,6 +22,8 @@ const site = createServer((request, response) => {
   else if (request.url === '/far') response.end('<!doctype html><title>Far</title><style>body{margin:0;height:6000px}img{position:absolute;top:5000px;width:40px;height:40px}</style><img id="far" loading="lazy" src="/image.svg">');
   else if (request.url === '/scoped') response.end('<!doctype html><title>Scoped</title><style>body{margin:0;height:7000px}div{position:absolute;left:0;width:60px;height:60px}img{width:40px;height:40px}#a{top:4000px}#b{top:4800px}#c{top:5600px}</style><div id="a"><img loading="lazy" src="/image.svg"></div><div id="b"><img loading="lazy" src="/image.svg"><img loading="lazy" src="/image.svg"></div><div id="c"><img loading="lazy" src="/image.svg"></div>');
   else if (request.url === '/hero') response.end('<!doctype html><title>Hero</title><style>body{margin:0;min-height:100vh}#hero{position:relative;width:400px;height:200px}#hero video,#hero .bg{position:absolute;inset:0;width:400px;height:200px;background:#333}#hero .half{position:absolute;left:0;top:0;width:200px;height:200px}#hero h1{position:relative;margin:0}</style><div id="hero"><div class="bg"></div><div class="half"></div><h1>Title</h1><a href="#">Button</a></div><p>Below</p>');
+  else if (request.url === '/fake-growth') response.end('<!doctype html><style>body{margin:0;height:1500px}img{width:40px;height:40px}</style><img src="/image.svg"><script>HTMLImageElement.prototype.decode=function(){throw new Error("Lazy-image page grows during settlement (1 px to 999 px).");};</script>');
+  else if (request.url === '/odd-growth') response.end('<!doctype html><style>body{margin:0;height:1500px}</style><script>const real=Object.getOwnPropertyDescriptor(Element.prototype,"scrollHeight").get;Object.defineProperty(document.documentElement,"scrollHeight",{get(){return scrollY>0?2500.5:real.call(this);}});</script>');
   else if (request.url === '/tall') response.end('<!doctype html><style>body{height:30001px}</style>');
   else if (request.url === '/growing') response.end('<!doctype html><style>body{margin:0;height:1500px}</style><script>addEventListener("scroll",()=>{if(scrollY>0)document.body.style.height="2500px";});</script>');
   else response.end(`<!doctype html><title>Example site</title><style>body{margin:0;height:2000px}#shown,#focus-result,#hover-result{display:none}#focus:focus+#focus-result{display:block}#hover:hover #hover-result{display:block}img{position:absolute;top:1600px;width:40px;height:40px}</style><button id="open" onclick="document.querySelector('#shown').style.display='block'">Open</button><h1 id="shown">Revealed</h1><button id="focus">Focus</button><span id="focus-result">Focused</span><div id="hover">Hover<span id="hover-result">Hovered</span></div><a id="navigate" href="/other">Other page</a><a id="popup" target="_blank" href="/other">Popup</a><button id="blank" onclick="window.open('about:blank')">Blank popup</button><button id="submit" onclick="fetch('/submit',{method:'POST'}).catch(()=>{})">Submit</button><img id="lazy" loading="lazy" src="/image.svg"><img loading="lazy" src="/broken.svg">`);
@@ -58,7 +60,14 @@ try {
   await page.goto(`${origin}/tall`);
   await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), /height limit/);
   await page.goto(`${origin}/growing`);
-  await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), /grows during settlement/);
+  // #413: a page exception with the same words, thrown inside the sweep (image decode), is not a growth failure.
+  await page.goto(`${origin}/fake-growth`);
+  await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), error => error.code !== 'LAZY_PAGE_GROWS' && !/^Lazy-image page grows/.test(error.message));
+  // #413: a growth signal without safe integer heights still fails the capture (fail closed).
+  await page.goto(`${origin}/odd-growth`);
+  await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), error => error.code === undefined && error.message === 'Lazy-image page grows during settlement.');
+  await page.goto(`${origin}/growing`);
+  await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), { code: 'LAZY_PAGE_GROWS', message: 'Lazy-image page grows during settlement (1500 px to 2500 px). Set settle.lazyImages only on targets with native lazy images.' }, 'The message names both heights (#413).');
   assert.equal(await page.evaluate(() => scrollY), 0, 'Failure restores the initial scroll position.');
   await page.setViewportSize({ width: 500, height: 10 });
   await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), /step limit/);
@@ -167,6 +176,11 @@ try {
   assert.equal(maskedOf('unmasked'), undefined, 'A target without masks stores no warning (R5.18).');
   assert.deepEqual(maskedOf('body'), [{ code: 'MASK_COVERS_TARGET', count: 1 }], 'A mask over the whole page warns on a page target (R5.18).');
   assert.equal(maskedOf('page-hero'), undefined, 'A mask over a part of the page stores no warning on a page target (R5.18).');
+  // #413, R5.9: a stored growth failure names both heights and the setting.
+  await writeFile(configPath, JSON.stringify({ ...config, targets: [{ id: 'growing', kind: 'page', path: '/growing', settle: { selectors: [], reveal: [], lazyImages: true } }], artifacts: ['screenshot'], checks: [] }));
+  const grew = await capture({ configPath, side: 'local' });
+  assert.equal(grew.run.state, 'partial');
+  assert.deepEqual(grew.run.captures[0].error, { code: 'CAPTURE_SETTLEMENT_FAILED', message: 'Lazy-image page grows during settlement (1500 px to 2500 px). Set settle.lazyImages only on targets with native lazy images.' });
   await writeFile(configPath, JSON.stringify(config));
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);
