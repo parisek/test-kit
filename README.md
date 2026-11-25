@@ -70,6 +70,8 @@ npx test-kit summary tests/visual/report/report.json --filter all --max-targets 
 npx test-kit serve tests/visual/report/report.json
 ```
 
+`<run-a>` and `<run-b>` are run IDs: the directory names under `runsRoot`, for example `2026-11-25T10-15-00-000Z-4242-1a2b3c4`. `capture` prints the ID of its run as `id` on stdout. A path in place of an ID fails with a message that says so.
+
 The server prints its loopback URL. Stop it after review. A failed capture is
 incomplete evidence. An HTTP error remains visible even when screenshots match.
 An unknown noise floor is explicit. A pixel ratio is a compass, not a verdict.

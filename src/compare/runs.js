@@ -70,7 +70,8 @@ function noFixtureField(run) {
 }
 
 export async function readRun(root, id) {
-	if (!relativePath(id) || id.includes('/')) throw new Error('Run must be a safe ID.');
+	// #415: name what a run ID is. The value is printed only when it is a plain relative path, so no other input reaches the text.
+	if (!relativePath(id) || id.includes('/')) throw new Error(`Run IDs are the directory names under runsRoot, not paths.${relativePath(id) && id.length <= 200 ? ` Got: ${id}.` : ''}`);
 	const path = await contained(root, `${id}/run.json`);
 	const handle = await open(path, 'r');
 	let bytes;
