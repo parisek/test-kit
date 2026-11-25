@@ -51,6 +51,22 @@ test('run, before and after print the lazy-image warning line on stderr and keep
  const after = await runWorkflow('after', options, { capture: async () => ({ run: { id: 'after-1', state: 'complete', captures } }), compareRuns: async input => ({ reportPath: join(input.outputDir, 'report.json') }) });
  assert.match(after.stderr[0], /^Warning LAZY_IMAGES_NOT_SWEPT:/);
 });
+test('run, before and after print one stderr line for each failed cell and keep stdout clean (R5.16)', async t => {
+ const { dir, options } = await fixture(t);
+ const captures = [{ targetId: 'home', viewportId: 'desktop', state: 'captured', artifacts: {} }, { targetId: 'contact', viewportId: 'mobile', state: 'failed', statusCode: 404, finalPath: '/contact', error: { code: 'CAPTURE_NAVIGATION_FAILED' } }];
+ const line = 'test-kit: failed contact at mobile: CAPTURE_NAVIGATION_FAILED (status 404, final path /contact)';
+ const ran = await runWorkflow('run', options, { capture: async () => ({ run: { id: 'run-1', state: 'partial', captures }, manifestPath: 'evidence' }), summarizeRunFeedback: async () => ({ state: 'incomplete' }) });
+ assert.equal(ran.exitCode, 1); assert.deepEqual(ran.stderr, [line]); assert.equal(JSON.stringify(ran.output).includes('test-kit: failed'), false);
+ const before = await runWorkflow('before', options, { capture: async () => ({ run: { id: 'before-1', state: 'partial', captures } }) });
+ assert.equal(before.output.baselineUpdated, false); assert.deepEqual(before.stderr, [line]);
+ const lazy = [{ ...captures[1], warnings: [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 2 }] }];
+ const both = await runWorkflow('run', options, { capture: async () => ({ run: { id: 'run-2', state: 'partial', captures: lazy } }), summarizeRunFeedback: async () => ({ state: 'incomplete' }) });
+ assert.match(both.stderr[0], /^Warning LAZY_IMAGES_NOT_SWEPT:/); assert.equal(both.stderr[1], line);
+ const ok = await runWorkflow('before', options, { capture: async () => { await mkdir(join(dir, 'test-kit/runs/before-2'), { recursive: true }); await writeFile(join(dir, 'test-kit/runs/before-2/run.json'), '{}'); return { run: { id: 'before-2', state: 'complete', captures: [captures[0]] } }; } });
+ assert.equal((ok.stderr ?? []).some(text => text.startsWith('test-kit: failed')), false);
+ const after = await runWorkflow('after', options, { capture: async () => ({ run: { id: 'after-1', state: 'partial', captures } }), compareRuns: async input => ({ reportPath: join(input.outputDir, 'report.json') }) });
+ assert.equal(after.exitCode, 1); assert.deepEqual(after.stderr, [line]);
+});
 test('baseline scopes and lockfile policy prevent an unrelated after run', async t => {
  const { dir, options } = await fixture(t);
  const capture = async () => ({ run: { id: 'before-1', state: 'complete' }, manifestPath: 'evidence' });

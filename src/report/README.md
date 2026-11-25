@@ -16,3 +16,5 @@ comparison verdict. Content needs measured checks before it can prove a match.
 
 The legacy screenshot adapter keeps stored cell states when there is no
 artifact map. New reports keep their artifact-specific states.
+
+`failures.js` builds the stderr lines for the failed cells of a capture (R5.16). It is pure and reads the run as untrusted data.

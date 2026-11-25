@@ -259,7 +259,10 @@ async function executeWorkflow(command, options = {}, dependencies = {}) {
     // R5.11: the same stderr line as `capture`. Stdout stays one JSON line.
     const { warningLine } = await import('../report/warnings.js');
     const line = warningLine(run);
-    const warned = line ? { stderr: [line] } : {};
+    // R5.16: the same failed-cell lines as `capture`.
+    const { failedCellLines } = await import('../report/failures.js');
+    const stderr = [...(line ? [line] : []), ...failedCellLines(run)];
+    const warned = stderr.length ? { stderr } : {};
     if (command === 'run') {
       const feedback = dependencies.summarizeRunFeedback ?? (await import('./feedback.js')).summarizeRunFeedback;
       output.feedback = await feedback(run, join(storePath, 'runs'));
