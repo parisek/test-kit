@@ -13,7 +13,7 @@ The entry point lints a project. It does not capture, compare or report. Loading
 | `peers.cjs` | no | `assertPeers()`. It resolves the required peers and throws `LINT_PEER_MISSING` for a missing one. |
 | `rules/` | yes | The five rules and the plugin list. The rule logic moved from the first consumer project. |
 
-All files are CommonJS (`.cjs`). The package declares `"type": "module"`, so a `.js` file would load as ESM. A CommonJS entry loads with `require` and with `import`. Stylelint 17 needs Node 20.19 or later.
+All files are CommonJS (`.cjs`). The package declares `"type": "module"`, so a `.js` file would load as ESM. A CommonJS entry loads with `require` and with `import`. Stylelint 17 needs Node 20.19 or later. Stylelint 18 needs Node 22.22.2, 24.15 or 26. The peer range takes both majors (R13.46, #351); the tests in CI run on 17.
 
 ## Use
 
