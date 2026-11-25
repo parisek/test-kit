@@ -22,7 +22,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readComponents } from '../styleguide/index.js';
 import { loadConfig, normalizeConfig, captureSettings, settingsHash } from '../config/index.js';
-import { recordSelection, cellSelected } from './selection.js';
+import { recordSelection, cellSelected, withoutSkippedTargets } from './selection.js';
 import { isLocalUrl, isOwnOrigin, isAllowedOriginRequest, allowedOriginFailure, allowedOriginStatusFailure, decideRequest, redirectPermitted, redirectLeavesOrigin, originBoundMessage, describeBlockedRequest, blockedRequestMessage, createDroppedLog, droppedFields, edgeStop, userAgentOption, createRunId, assertImageBounds, targetPath, ddevMatchesOrigin, ddevStatusProblem } from './helpers.js';
 import { planPackRun } from '../packs/select.js';
 import { runPagePacks } from './packs.js';
@@ -406,7 +406,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   // R4.5: the selection is checked against the full lists before any run directory or browser exists.
   // With targetSource the target list is unknown until the catalogue is read, so the check runs after that read.
   const fromCatalogue = Boolean(config.targetSource);
-  let selection = fromCatalogue ? null : recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
+  let selection = fromCatalogue ? null : withoutSkippedTargets(config, side, recordSelection(config, { targets: selectedTargets, viewports: selectedViewports }));
   if (typeof label !== 'string' || label.length > 200 || /[\x00-\x1f\x7f]/.test(label)) throw new Error('Run label must be bounded text');
   const behaviorSource = config.artifacts.includes('behavior') ? await loadBehaviorSource({ projectRoot: loaded.configDir, directory: config.behavior.source, lockfile: config.behavior.lockfile, enabled: config.behavior.enabled }) : null;
   // Verify DDEV before Playwright loads, so a stopped project starts no browser.
@@ -428,7 +428,7 @@ export async function capture({ configPath, side, label = '', runsRoot, artifact
   // The catalogue is read before any run directory exists, so a bad catalogue leaves no partial run.
   let found;
   if (config.targetSource) ({ config, found } = await readStyleguideTargets(tool, config, side));
-  if (fromCatalogue) selection = recordSelection(config, { targets: selectedTargets, viewports: selectedViewports });
+  if (fromCatalogue) selection = withoutSkippedTargets(config, side, recordSelection(config, { targets: selectedTargets, viewports: selectedViewports }));
   const at = new Date();
   const id = createRunId(at, process.pid, await gitSha(loaded.configDir));
   const root = runsRoot ? resolve(loaded.configDir, runsRoot) : loaded.runsRoot;

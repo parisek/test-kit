@@ -263,6 +263,14 @@ Component selector capture supports visual evidence and content. The content
 of a selector target is the first match of each selector, so `expectText` and
 the content checks read the component, not the whole page.
 
+### Skip a target on one side
+
+A target may set a path of `null` for one side, for example
+`"paths": { "local": "/new-page", "production": null }` for a page that does not
+exist on production yet. Capture of that side skips the target and records it
+as outside its selection. A pair with that side skips the target and counts it
+in `meta.skipped`. A target needs a path on at least one browser side.
+
 ### Selectors with more than one match
 
 A `selector` target captures the first match of each selector in document

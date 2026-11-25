@@ -47,3 +47,9 @@ test('performance CLI plan measures a remote side; production waits for consent 
   assert.throws(() => planPerfCommand(production, { side: 'live', targetIds: ['home'] }), (error) => error.code === 'PERFORMANCE_COST_CONSENT_REQUIRED');
   assert.equal(planPerfCommand(production, { side: 'live', targetIds: ['home'], consent: true }).cost.targets, 1);
 });
+
+test('performance fails for a target with a null path on its side (R5.19, #414)', () => {
+  const skipped = { ...config, targets: [{ id: 'home', kind: 'page', path: '/', paths: { other: null } }] };
+  assert.throws(() => planPerfCommand(skipped, { side: 'other', targetIds: ['home'] }), /does not run on side other/);
+  assert.equal(planPerfCommand(skipped, { side: 'local', targetIds: ['home'] }).urls[0].url, 'http://localhost:8080/');
+});

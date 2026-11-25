@@ -265,8 +265,15 @@ export function normalizeConfig(input) {
       object(target.paths, 'target.paths');
       result.paths = Object.fromEntries(Object.entries(target.paths).map(([sideId, path]) => {
         if (!Object.hasOwn(sides, sideId)) fail(`target.paths has unknown side ${sideId}`);
+        // #414 (owner decision 2026-11-17, option A): null means the target does not run on that browser side.
+        if (path === null) {
+          if (sides[sideId].kind === 'design') fail(`target.paths.${sideId} cannot be null: ${sideId} is a design side`);
+          return [sideId, null];
+        }
         return [sideId, targetPath(path, 'target.paths')];
       }));
+      const browserSides = Object.entries(sides).filter(([, side]) => side.kind !== 'design').map(([sideId]) => sideId);
+      if (browserSides.length && browserSides.every(sideId => result.paths[sideId] === null)) fail(`target ${targetId} is null on every browser side`);
     }
     // A design side holds images, not pages, so it needs no path.
     for (const [sideId, side] of Object.entries(sides)) if (side.kind !== 'design' && !result.path && !(result.paths && Object.hasOwn(result.paths, sideId))) fail(`target ${targetId} has no path for ${sideId}`);

@@ -51,6 +51,27 @@ try {
   assert.equal(filtered.report.meta.skipped, 5);
   assert.deepEqual(filtered.report.meta.scope.filter, { targets: ['target-1'], viewports: ['desktop'] });
 
+  // #414: `paths: { b: null }` skips the target on side b. The run records it as a selection, so the pair has no cell for it.
+  const nullPath = join(directory, 'null-path.json');
+  await writeFile(nullPath, JSON.stringify({
+    schemaVersion: 1,
+    sides: { a: { origin: site.origin }, b: { origin: site.origin } },
+    targets: [{ id: 'both', kind: 'page', path: '/unchanged' }, { id: 'only-a', kind: 'page', paths: { a: '/changed', b: null } }],
+    viewports: [{ id: 'desktop', width: 800, height: 600 }], artifacts: ['screenshot'], runsRoot: 'null-runs',
+  }));
+  const onA = await capture({ configPath: nullPath, side: 'a' });
+  const onB = await capture({ configPath: nullPath, side: 'b' });
+  assert.equal(onA.run.selection, undefined, 'side a runs every target');
+  assert.deepEqual(onB.run.selection, { targets: ['both'] });
+  assert.deepEqual(onB.run.captures.map(row => row.targetId), ['both']);
+  assert.equal(onB.run.state, 'complete');
+  assert.equal(onB.run.settingsHash, onA.run.settingsHash, 'a null path changes no settings hash');
+  const nullPair = await compareRuns({ runsRoot: join(directory, 'null-runs'), runA: onA.run.id, runB: onB.run.id, outputDir: join(directory, 'null-pair') });
+  assert.deepEqual(nullPair.report.entries.map(entry => entry.id), ['both']);
+  assert.equal(nullPair.report.meta.skipped, 1);
+  assert.deepEqual([summarizeReport(nullPair.report).counts.total, summarizeReport(nullPair.report).counts.incomplete], [1, 0], 'the skipped target is no failed or missing cell');
+  await assert.rejects(capture({ configPath: nullPath, side: 'b', targets: ['only-a'] }), /No selected target runs on side b/);
+
   // An unknown id fails before a run directory exists.
   await assert.rejects(capture({ configPath, side: 'a', targets: ['nope'] }), /Unknown target/);
   await assert.rejects(capture({ configPath, side: 'a', viewports: ['nope'] }), /Unknown viewport/);

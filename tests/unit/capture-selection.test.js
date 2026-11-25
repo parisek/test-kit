@@ -68,3 +68,18 @@ test('capture and diff take --target and --viewport; the lists are checked at pa
   }
   assert.throws(() => parseCommand(['summary', 'report.json', '--viewport', 'mobile']), /Unknown option/);
 });
+
+test('a null path skips a target on that side only (R5.19, #414)', async () => {
+  const { withoutSkippedTargets } = await import('../../src/capture/selection.js');
+  const base = { schemaVersion: 1, sides: { a: { origin: 'http://127.0.0.1:8080' }, b: { origin: 'http://127.0.0.1:8081' } }, viewports: [{ id: 'wide', width: 640, height: 480 }] };
+  const config = normalizeConfig({ ...base, targets: [{ id: 'both', kind: 'page', path: '/' }, { id: 'only-a', kind: 'page', paths: { a: '/new', b: null } }] });
+  assert.equal(config.targets[1].paths.b, null);
+  assert.equal(withoutSkippedTargets(config, 'a', null), null, 'side a runs every target, so no selection is recorded');
+  assert.deepEqual(withoutSkippedTargets(config, 'b', null), { targets: ['both'] });
+  assert.deepEqual(withoutSkippedTargets(config, 'b', { viewports: ['wide'] }), { viewports: ['wide'], targets: ['both'] });
+  assert.throws(() => withoutSkippedTargets(config, 'b', { targets: ['only-a'] }), /No selected target runs on side b/);
+  assert.throws(() => normalizeConfig({ ...base, targets: [{ id: 'none', kind: 'page', paths: { a: null, b: null } }] }), /null on every browser side/);
+  assert.throws(() => normalizeConfig({ ...base, targets: [{ id: 'x', kind: 'page', path: null }] }));
+  const design = { ...base, sides: { ...base.sides, d: { kind: 'design', provider: 'files', root: 'design' } } };
+  assert.throws(() => normalizeConfig({ ...design, targets: [{ id: 'x', kind: 'page', path: '/', paths: { d: null } }] }), /design side/);
+});
