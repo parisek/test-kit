@@ -78,6 +78,34 @@ An unknown noise floor is explicit. A pixel ratio is a compass, not a verdict.
 Client captures and project configuration stay local.
 
 
+## Compare two paths of one site
+
+`targets[].paths` gives a target a different path on each side. `path` and
+`paths` are alternatives: `path` holds for every side, and `paths` names a path
+per side. A side that `paths` does not name uses `path`. Use `paths` to compare a
+source with its output, for example a styleguide page with the CMS page built
+from it, or an old URL with a new one. Two sides may share one origin.
+
+```json
+{
+  "sides": {
+    "styleguide": {"origin": "https://example-site.ddev.site", "role": "reference"},
+    "cms": {"origin": "https://example-site.ddev.site"}
+  },
+  "targets": [{"id": "home", "kind": "page", "paths": {"styleguide": "/styleguide/render/page/home?canvas", "cms": "/"}}]
+}
+```
+
+```sh
+npx test-kit before --side styleguide
+npx test-kit after --side cms
+```
+
+One configuration holds both sides. The side with `"role": "reference"` first and
+the local side second give the pair kind `convergence`. Without `role`, two
+different local sides give `adhoc`. A path of `null` skips the target on that
+side (see "Skip a target on one side").
+
 ## Compare a deployed site
 
 A side may be a deployed site. Set `remote: true` on it. Its origin may be any

@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- The README shows `targets[].paths` with a two-side example: a styleguide page against the CMS page on one origin (#430).
 - A target may set `paths: { "<side>": null }`. The target then does not run on that side: `capture` records it as outside its selection, and a pair with that side skips the target instead of capturing an error page (R5.19, #414).
 - A target with a `selector` captures the `content` artifact of its scope: the first match of each selector. `expectText` and the content checks now read the component, not the whole page. Before, the capture failed with `CONTENT_CAPTURE_FAILED` (R7.9, #442). Each element of the scope counts once. `heading-outline` reads a component as a fragment: it has no h1 rule, and the outline starts at the highest heading of the component. The demo report now accepts the content change of its pricing card too.
 - An `expect-text` finding names the missing string in its message, for example `The page does not contain the expected text "Missing footer".` A string longer than 80 characters is cut with `…`. The cut does not split a surrogate pair. Before, the message was `The page does not contain an expected text.` and the string was only in the evidence (R7.8, #441). Migration: the allowlist fingerprint includes the message, so an allowlist entry for an `expect-text` finding stops matching. Record it again with `record-allowed`.
