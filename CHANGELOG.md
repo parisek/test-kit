@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- `run` takes `--artifacts LIST`, as `capture` does. The list replaces the artifacts of the config or the suite for that run only, for example `run --target home --artifacts content --checks expect-text`. It does not combine with `--suite` or `--selector`. `before` and `after` take no `--artifacts`, because a baseline must match its later comparison (R5.20, #443). Before, the run failed with `Unknown option: --artifacts`.
 - The README shows `targets[].paths` with a two-side example: a styleguide page against the CMS page on one origin (#430).
 - A target may set `paths: { "<side>": null }`. The target then does not run on that side: `capture` records it as outside its selection, and a pair with that side skips the target instead of capturing an error page (R5.19, #414).
 - A target with a `selector` captures the `content` artifact of its scope: the first match of each selector. `expectText` and the content checks now read the component, not the whole page. Before, the capture failed with `CONTENT_CAPTURE_FAILED` (R7.9, #442). Each element of the scope counts once. `heading-outline` reads a component as a fragment: it has no h1 rule, and the outline starts at the highest heading of the component. The demo report now accepts the content change of its pricing card too.

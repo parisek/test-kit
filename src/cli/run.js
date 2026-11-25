@@ -6,6 +6,7 @@ export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
+  run [--artifacts screenshot,html,status,content,behavior,layout]   Capture these artifacts for this run only. Do not combine with --suite or --selector.
   after [--allowlist FILE]   Also read the allowlist from FILE. The default is test-kit.allowlist.json beside the config.
   report [--config FILE] [--store PATH] [--run ID] [--port N|--export DIR]
   history [--config FILE] [--store PATH] [--port N|--export DIR|--publish DIR]
@@ -38,6 +39,8 @@ FLAGS.diff = [...FLAGS.diff, 'allowlist'];
 FLAGS.diff = [...FLAGS.diff, 'decisions'];
 FLAGS['record-decision'] = ['config', 'target', 'viewport', 'part', 'property', 'decision', 'reason', 'owner', 'decisions'];
 FLAGS.after = [...workflowFlags, 'allowlist'];
+// R5.20: `run` only. A baseline of `before` must match its later `after`, so the two take no `--artifacts`.
+FLAGS.run = [...workflowFlags, 'artifacts'];
 FLAGS.import = ['config', 'side', 'label', 'target', 'viewport'];
 FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
 FLAGS.history = ['config', 'store', 'port', 'export', 'publish', 'prune', 'keep', 'yes'];

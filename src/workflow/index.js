@@ -160,6 +160,8 @@ export async function runWorkflow(command, options = {}, dependencies = {}) {
 
 async function executeWorkflow(command, options = {}, dependencies = {}) {
   if (!['run', 'before', 'after', 'report'].includes(command)) throw new Error('Unknown workflow command.');
+  // R5.20: only `run` takes an artifact list. A baseline and its comparison keep the list of the configuration or the suite.
+  if (command !== 'run' && options.artifacts !== undefined) throw new Error('Only run takes --artifacts.');
   const configPath = resolve(options.config ?? 'test-kit.config.json');
   const configDir = dirname(configPath);
   const storePath = resolveStore(options);

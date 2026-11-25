@@ -90,6 +90,12 @@ test('scoped workflow options stay explicit and action-specific', () => {
   assert.throws(() => parseCommand(['run', '--checks', 'unknown']));
 });
 
+test('run takes --artifacts, before and after do not (R5.20, #443)', () => {
+  assert.equal(parseCommand(['run', '--side', 'local', '--target', 'home', '--checks', 'expect-text', '--artifacts', 'content']).options.artifacts, 'content');
+  assert.throws(() => parseCommand(['run', '--artifacts', 'pdf']), /Unknown capture artifact/);
+  for (const command of ['before', 'after']) assert.throws(() => parseCommand([command, '--artifacts', 'content']), /Unknown option/);
+});
+
 test('project performance routing keeps low-level requirements compatible', () => {
   assert.throws(() => parseCommand(['perf', '--side', 'local', '--ddev']));
   assert.equal(parseCommand(['perf', '--side', 'local', '--ddev', '--targets', 'home']).options.ddev, true);
