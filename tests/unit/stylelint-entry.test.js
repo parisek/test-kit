@@ -37,3 +37,14 @@ test('another resolution error is not a missing peer and surfaces as it is (R13.
 });
 
 await runWithPeers('Stylelint entry point (lint cases)', ['stylelint', 'stylelint-config-standard'], () => import('../lint-cases/stylelint-entry.mjs'));
+
+test('the optional Stylelint peers accept Stylelint 17 and 18 (R13.46, #351)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+  const ranges = name => pkg.peerDependencies[name].split('||').map(part => part.trim());
+  assert.deepEqual(ranges('stylelint'), ['^17.15.0', '^18.0.0']);
+  assert.deepEqual(ranges('stylelint-config-standard'), ['^40.0.0', '^41.0.0']);
+  for (const name of ['stylelint', 'stylelint-config-standard']) assert.equal(pkg.peerDependenciesMeta[name].optional, true);
+  const lock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url), 'utf8'));
+  for (const name of ['stylelint', 'stylelint-config-standard']) assert.equal(lock.packages[''].peerDependencies[name], pkg.peerDependencies[name]);
+});
