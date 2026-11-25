@@ -93,11 +93,9 @@ const targetRatio = target => {
         const findings = state.report?.findings.filter(finding => finding.targetId === target.id) ?? [];
         const screenshotFindings = findings.filter(finding => finding.artifact === 'screenshot');
         if (screenshotFindings.length) {
-            const sizeChanged = target.viewports.some(row => {
-                const size = row.artifacts?.screenshot?.diff?.size;
-                return screenshotFindings.some(finding => finding.viewportId == null || finding.viewportId === row.id)
-                    && size?.a && size?.b && (size.a.width !== size.b.width || size.a.height !== size.b.height);
-            });
+            // The same checks as the size line (R8.18): an invalid stored size gives no size label.
+            const sizeChanged = target.viewports.some(row => screenshotFindings.some(finding => finding.viewportId == null || finding.viewportId === row.id)
+                && sizeMismatch(row.artifacts?.screenshot?.diff?.size));
             return sizeChanged ? 'Size Δ' : 'Screenshot Δ';
         }
         if (findings.some(finding => finding.artifact === 'html')) return 'HTML Δ';

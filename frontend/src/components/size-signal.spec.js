@@ -51,6 +51,16 @@ describe('size signal in the viewer (#433, R8.18)', () => {
 		expect(app.get('[data-testid="cell-size"]').text()).toBe(LINE);
 		app.unmount();
 	});
+	it('gives Size Δ for a ratio of 0 only when the stored sizes are valid', async () => {
+		const data = report();
+		data.entries[0].viewports = [row('phone', 0, tall), row('laptop', 0, same)];
+		data.entries[1].viewports = [row('phone', 0, { a: { width: 0, height: 5 }, b: { width: 3, height: 5 } }), row('laptop', 0, same)];
+		data.findings = ['home', 'about'].map((id) => ({ id: `${id}-phone`, targetId: id, viewportId: 'phone', artifact: 'screenshot', layer: 'package', message: 'Screenshot dimensions differ.' }));
+		const app = await open(data);
+		await view(app, 'evidence');
+		expect(app.findAll('.target-ratio').map((node) => node.text())).toEqual(['Size Δ', 'Screenshot Δ']);
+		app.unmount();
+	});
 	it('derives the line from the sizes and ignores a stored sizeMismatch', async () => {
 		const data = report();
 		data.entries[1].viewports[0].artifacts.screenshot.diff.sizeMismatch = { axis: 'height', a: { width: 1, height: 1 }, b: { width: 1, height: 2 }, percent: 50 };
