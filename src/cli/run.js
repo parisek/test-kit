@@ -2,7 +2,7 @@ import { builtinChecks } from '../checks/index.js';
 import { parseIdList } from '../capture/selection.js';
 import { CAPTURE_ARTIFACTS } from '../config/normalize.js';
 import { PAIR_KINDS } from '../report/model.js';
-export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'record-allowed', 'record-decision', 'perf', 'run', 'before', 'after', 'report', 'history', 'import', 'note'].map(name => [name, {}]));
+export const COMMANDS = Object.fromEntries(['capture', 'diff', 'summary', 'serve', 'query', 'record-known', 'record-allowed', 'record-decision', 'perf', 'run', 'before', 'after', 'report', 'history', 'import', 'note', 'bundle'].map(name => [name, {}]));
 const HELP = `test-kit: testing and comparison tool for sites
 Usage: test-kit <command> [options]
   run|before|after [--config FILE] [--side ID] [--target ID,ID|--path PATH] [--selector CSS] [--viewport ID] [--suite all|visual|content|behavior] [--checks ID,ID] [--contracts NAME,NAME] [--store PATH] [--ddev]
@@ -21,6 +21,7 @@ Usage: test-kit <command> [options]
   record-decision REPORT --target ID --viewport ID --part ID --property P --decision implement|report-only --reason TEXT --owner TEXT [--config FILE] [--decisions FILE]
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
   serve REPORT [--port N]
+  bundle REPORT [--finding ID --output DIR] [--config FILE]   Without --finding, list the findings of the report. With it, write the evidence of one finding to DIR/ID/ for a task: finding.json, finding.md and, for a screenshot, the cropped A, B and difference images. It uploads nothing.
   note RUN [--file FILE] [--config FILE] [--store PATH]   Attach the JSON object in FILE to a stored run as server facts. Without --file, list the notes of the run.
   -h, --help     Show this help.
   -v, --version  Show the version.
@@ -46,6 +47,8 @@ FLAGS.report = ['config', 'store', 'run', 'port', 'export'];
 FLAGS.history = ['config', 'store', 'port', 'export', 'publish', 'prune', 'keep', 'yes'];
 // R12.7: `note` reads and writes the notes of one run in the store.
 FLAGS.note = ['config', 'store', 'file'];
+// R11.10, #149: `bundle` reads one report and writes one new directory. `--config` only locates the store for R12.6.
+FLAGS.bundle = ['finding', 'output', 'config'];
 function integer(value, name, min, max) {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < min || Number(value) > max) throw new Error(`${name} must be ${min}..${max}`);
   return Number(value);
@@ -66,7 +69,7 @@ export function parseCommand(argv) {
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
   }
-  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, 'record-allowed': 1, 'record-decision': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0, note: 1 }[command];
+  const expected = { capture: 0, diff: 2, summary: 1, serve: 1, query: 1, 'record-known': 1, 'record-allowed': 1, 'record-decision': 1, perf: 0, run: 0, before: 0, after: 0, report: 0, history: 0, import: 0, note: 1, bundle: 1 }[command];
   if (options.publish !== undefined && (options.export !== undefined || options.port !== undefined)) throw new Error('Use --publish alone. Do not combine it with --export or --port.');
   // R12.5: --prune deletes on request only. --keep and --yes mean nothing without it.
   if ((options.keep !== undefined || options.yes) && !options.prune) throw new Error('--keep and --yes need --prune.');
@@ -83,6 +86,7 @@ export function parseCommand(argv) {
   if (command === 'capture' && !options.side) throw new Error('capture requires --side');
   if (command === 'import' && !options.side) throw new Error('import requires --side');
   if (command === 'diff' && !options.output) throw new Error('diff requires --output');
+  if (command === 'bundle' && Boolean(options.finding) !== Boolean(options.output)) throw new Error('bundle takes --finding and --output together. Without both, it lists the findings of the report.');
   // An absolute result (lint, a11y) may sit at target scope, so --viewport is optional for it (R9.9).
   if (command === 'query' && (!options.target || (!options.viewport && !['lint', 'a11y'].includes(options.artifact)) || !['html', 'status', 'content', 'behavior', 'layout', 'lighthouse', 'lint', 'a11y'].includes(options.artifact))) throw new Error('query requires --target, --artifact html|status|content|behavior|layout|lighthouse|lint|a11y, and --viewport (optional for lint and a11y)');
   if (command === 'record-known' && (!options.config || !options.target || !options.viewport || !['screenshot', 'html', 'status', 'content'].includes(options.artifact) || !options.cause || !options.reason)) throw new Error('record-known requires config, target, viewport, artifact, cause, and reason');
@@ -259,6 +263,15 @@ export async function dispatch({ command, positions, options }, dependencies = {
   if (command === 'record-known') {
     const { recordKnown } = await import('../rules/record.js');
     return { output: await recordKnown({ reportPath: positions[0], configPath: options.config, target: options.target, viewport: options.viewport, artifact: options.artifact, cause: options.cause, reason: options.reason }), exitCode: 0 };
+  }
+  if (command === 'bundle') {
+    const { writeBundle, listFindings } = await import('../export/bundle.js');
+    if (!options.finding) return { output: await listFindings({ reportPath: positions[0] }), exitCode: 0 };
+    const { resolve, dirname } = await import('node:path');
+    const { DEFAULT_STORE, assertOutsideInputs } = await import('../config/store.js');
+    // R12.6: no output goes into `inputs/` of the default store beside the config.
+    assertOutsideInputs(resolve(options.output), [resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), DEFAULT_STORE)], '--output');
+    return { output: await writeBundle({ reportPath: positions[0], findingId: options.finding, output: options.output }), exitCode: 0 };
   }
   if (command === 'query') {
     const { queryArtifact } = await import('../query/artifact.js');

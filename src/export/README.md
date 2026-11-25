@@ -27,3 +27,5 @@ stderr lines. It copies a report with `writeReportEvidence` from `report.js`, th
 same evidence rewrite as `report --export`. The `fs` option replaces single
 `node:fs/promises` functions; tests use it to inject failures. The tests are in
 `tests/unit/export-publish.test.js`.
+
+`bundle.js` holds `writeBundle({ reportPath, findingId, output })` and `listFindings({ reportPath })` (R11.10, #149). `writeBundle` reads one report and writes one new directory `<output>/<finding id>/` with `finding.json`, `finding.md` and, for a screenshot finding, the crops `a.png`, `b.png` and `diff.png`. The pure helpers `validRegions`, `cropBox`, `markdownText` and `bundleMarkdown` need no dependency; pngjs loads only when a bundle has images. The tests are in `tests/unit/bundle.test.js`.

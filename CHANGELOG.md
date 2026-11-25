@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- `bundle REPORT --finding ID --output DIR` writes the evidence of one finding to `DIR/<ID>/` for a task: `finding.json` for an agent, `finding.md` as the task text, and for a screenshot the cropped `a.png`, `b.png` and `diff.png` around the changed regions. `bundle REPORT` alone lists the findings and their ids. It uploads nothing. Attach the files through your task tool (R11.10, #149).
 - The viewer shows the size signal of a screenshot pair (R8.18, #433). The target list adds `· Size Δ` after the ratio, and a cell of the Overview matrix and the Evidence view show one line such as `Size: A 1280×2000 px · B 1280×1340 px · height 33.0 %`. Before, a page that is a third shorter read only `1.4 %`.
 - `run` takes `--artifacts LIST`, as `capture` does. The list replaces the artifacts of the config or the suite for that run only, for example `run --target home --artifacts content --checks expect-text`. It does not combine with `--suite` or `--selector`. `before` and `after` take no `--artifacts`, because a baseline must match its later comparison (R5.20, #443). Before, the run failed with `Unknown option: --artifacts`.
 - The README shows `targets[].paths` with a two-side example: a styleguide page against the CMS page on one origin (#430).
