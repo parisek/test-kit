@@ -29,3 +29,14 @@ export function sizeMismatches(report, target) {
     (entry.viewports ?? []).map(row => ({ id: entry.id, viewport: row.id, mismatch: sizeMismatch(row.artifacts?.screenshot?.diff?.size) }))
       .filter(item => item.mismatch).map(({ id, viewport, mismatch }) => ({ id, viewport, axis: mismatch.axis, percent: mismatch.percent })));
 }
+
+// #433: one line of the viewer for a cell whose screenshots differ in size, in the record style:
+// `Size: A 1280×2000 px · B 1280×1340 px · height 33.0 %`. Returns null when there is no signal.
+// The line is derived from `diff.size` with the checks above, never from a stored value.
+export function sizeMismatchText(size) {
+  const mismatch = sizeMismatch(size);
+  if (!mismatch) return null;
+  const box = side => `${side.width}×${side.height} px`;
+  const axis = mismatch.axis === 'both' ? 'width and height' : mismatch.axis;
+  return `Size: A ${box(mismatch.a)} · B ${box(mismatch.b)} · ${axis} ${mismatch.percent.toFixed(1)} %`;
+}
