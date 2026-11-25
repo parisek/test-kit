@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sizeMismatch, sizeMismatches } from '../../src/report/size.js';
+import { sizeMismatch, sizeMismatches, sizeMismatchText } from '../../src/report/size.js';
 import { summarizeReport } from '../../src/query/summary.js';
 
 const size = (aw, ah, bw, bh) => ({ a: { width: aw, height: ah }, b: { width: bw, height: bh } });
@@ -75,4 +75,11 @@ test('compareRuns and summary surface a size change that the ratio hides (R8.18,
     stored.entries.find(entry => entry.id === 'cards').viewports[0].artifacts.screenshot.diff.size.b.height = 90;
     assert.equal(Object.hasOwn(summarizeReport(stored), 'sizeMismatches'), false);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('sizeMismatchText names both sizes, the axis and the percent, or nothing (#433)', () => {
+  assert.equal(sizeMismatchText({ a: { width: 1280, height: 2000 }, b: { width: 1280, height: 1340 } }), 'Size: A 1280×2000 px · B 1280×1340 px · height 33.0 %');
+  assert.equal(sizeMismatchText({ a: { width: 800, height: 600 }, b: { width: 1000, height: 600 } }), 'Size: A 800×600 px · B 1000×600 px · width 20.0 %');
+  assert.equal(sizeMismatchText({ a: { width: 100, height: 100 }, b: { width: 50, height: 90 } }), 'Size: A 100×100 px · B 50×90 px · width and height 50.0 %');
+  for (const size of [undefined, null, {}, { a: { width: 1, height: 1 }, b: { width: 1, height: 1 } }, { a: { width: 0, height: 1 }, b: { width: 2, height: 1 } }, { a: { width: '1', height: 1 }, b: { width: 2, height: 1 } }]) assert.equal(sizeMismatchText(size), null);
 });

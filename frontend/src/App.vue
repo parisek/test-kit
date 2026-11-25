@@ -11,6 +11,7 @@ import ReportFilters from './components/ReportFilters.vue';
 import IndexView from './components/IndexView.vue';
 import TimelineView from './components/TimelineView.vue';
 import { formatRatio } from './state/format.js';
+import { sizeMismatch } from '../../src/report/size.js';
 import { anchorFor } from './state/index-list.js';
 import { localDateTime, reportNeighbors } from './state/report-nav.js';
 import { rowClass, verdictSentence } from './state/home-model.js';
@@ -92,16 +93,18 @@ const targetRatio = target => {
         const findings = state.report?.findings.filter(finding => finding.targetId === target.id) ?? [];
         const screenshotFindings = findings.filter(finding => finding.artifact === 'screenshot');
         if (screenshotFindings.length) {
-            const sizeChanged = target.viewports.some(row => {
-                const size = row.artifacts?.screenshot?.diff?.size;
-                return screenshotFindings.some(finding => finding.viewportId == null || finding.viewportId === row.id)
-                    && size?.a && size?.b && (size.a.width !== size.b.width || size.a.height !== size.b.height);
-            });
+            // The same checks as the size line (R8.18): an invalid stored size gives no size label.
+            const sizeChanged = target.viewports.some(row => screenshotFindings.some(finding => finding.viewportId == null || finding.viewportId === row.id)
+                && sizeMismatch(row.artifacts?.screenshot?.diff?.size));
             return sizeChanged ? 'Size Δ' : 'Screenshot Δ';
         }
         if (findings.some(finding => finding.artifact === 'html')) return 'HTML Δ';
     }
-    return formatRatio(maximum) ?? '—';
+    // #433, R8.18: a cell whose screenshots differ in size adds the size label after the ratio,
+    // because the white padding of the smaller image keeps the ratio low.
+    const sized = target.viewports.some(row => sizeMismatch(row.artifacts?.screenshot?.diff?.size));
+    const shown = formatRatio(maximum) ?? '—';
+    return sized ? `${shown} · Size Δ` : shown;
 };
 const pill =
 	'inline-flex h-ui-control items-center justify-center gap-1.5 rounded-ui-pill border px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-focus';
