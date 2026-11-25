@@ -17,6 +17,7 @@ import { builtinChecks } from '../checks/index.js';
 import { droppedForRow } from '../report/dropped.js';
 import { sizeMismatch } from '../report/size.js';
 import { warningsForRow } from '../report/warnings.js';
+import { missingCellDiagnostic } from './missing.js';
 import { comparePackArtifact, PACK_ARTIFACT_KINDS } from './packs.js';
 import { validateSelection, cellSelected, recordSelection } from '../capture/selection.js';
 import { isDesignRun, designPairProblem } from '../design/compare.js';
@@ -343,7 +344,7 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				if (mismatch) row.artifacts.screenshot.diff.sizeMismatch = mismatch;
 				if (changed || ai.width !== bi.width || ai.height !== bi.height) findings.push({ id: `${target.id}-${viewport.id}`, targetId: target.id, viewportId: viewport.id, artifact: 'screenshot', layer: 'package', message: ai.width !== bi.width || ai.height !== bi.height ? 'Screenshot dimensions differ.' : 'Screenshot pixels differ.' });
 			}
-			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b, ac, bc) : ac?.error?.message ?? bc?.error?.message ?? 'Evidence is missing.';
+			} else row.diagnostic ??= row.state === 'incompatible' ? incompatibleDiagnostic(a, b, ac, bc) : ac?.error?.message ?? bc?.error?.message ?? missingCellDiagnostic({ targetId: target.id, viewportId: viewport.id, ac, bc, a, b }) ?? 'Evidence is missing.';
 			row.artifacts.screenshot.state = row.state;
 			} else { delete row.artifacts.screenshot; row.state = 'complete'; }
 			for (const artifact of ['html', 'status'].filter(kind => requested.has(kind))) {

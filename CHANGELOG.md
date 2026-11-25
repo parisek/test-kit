@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- A comparison row for a cell that one run does not hold now names the run and the cell, for example `Target news at desktop is not in run B (<run id>). Capture that side again.` Before, it said only `Evidence is missing.` (R8.19, #412).
 - `capture`, `run`, `before` and `after` print one stderr line for each failed cell: the target, the viewport, the error code, and the status and final path when the entry holds them. At most 20 lines, then `and N more` (R5.16, #416). Before, the output said only `state: "incomplete"`.
 
 ## [1.4.0] - 2026-11-17
