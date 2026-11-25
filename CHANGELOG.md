@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- `capture`, `run`, `before` and `after` print one stderr line for each failed cell: the target, the viewport, the error code, and the status and final path when the entry holds them. At most 20 lines, then `and N more` (R5.16, #416). Before, the output said only `state: "incomplete"`.
+
 ## [1.4.0] - 2026-11-17
 
 Stable release of 1.4. It holds `1.4.0-rc.1` (commit 1bc74e9) and one fix that the trial found. Read the migration note of `1.4.0-rc.1` before you update: 1.4 needs Node 22.19 or newer, and speed runs of 1.3 do not compare with new speed runs. A trial on a downstream skeleton project ran the candidate on 2026-11-17 under DDEV, with Node 26 and Playwright 1.65.0. The trial checked these steps:

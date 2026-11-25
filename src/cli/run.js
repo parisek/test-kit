@@ -190,7 +190,9 @@ export async function dispatch({ command, positions, options }, dependencies = {
     const packs = result.run.packs ? { packs: result.run.packs } : {};
     // R5.11: one stderr line when a capture stored lazy images that did not load. Stdout stays one JSON line.
     const { captureWarningLines } = await import('../report/warnings.js');
-    const lines = captureWarningLines(result.run);
+    // R5.16: one stderr line for each failed cell, at most 20.
+    const { failedCellLines } = await import('../report/failures.js');
+    const lines = [...captureWarningLines(result.run), ...failedCellLines(result.run)];
     // R5.13: the count of kept captures appears only above zero.
     const { keptCount } = await import('../capture/keep.js');
     const kept = keptCount(result.run) ? { kept: keptCount(result.run) } : {};
