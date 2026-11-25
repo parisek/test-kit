@@ -58,7 +58,7 @@ test('the report and the summary show the warning like any other code (R5.11, R5
   assert.equal(cellWarningsText(row), `A: ${CODE} (17) · B: none`);
 });
 
-test('run, before and after print the same line as capture (R5.11, R5.17)', async (t) => {
+test('run prints the same line as capture; before and after share its code path (R5.11, R5.17)', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'test-kit-matches-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'test-kit.config.json');

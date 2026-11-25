@@ -258,10 +258,13 @@ A `selector` target captures the first match of each selector in document
 order. When a selector matches more than one element, the capture stores the
 warning `SELECTOR_MULTIPLE_MATCHES` with the highest match count, and the
 command prints one stderr line (R5.17). The capture does not change. To pick
-another match, write it in the selector. `.card:nth-child(3)` or
-`.card:nth-of-type(3)` works in the capture and in the `layout` artifact.
-`.card >> nth=2` (Playwright, counted from 0) works only in the capture,
-because the `layout` artifact reads plain CSS.
+another match, write it in the selector so that it matches one element.
+`.cards > .card:nth-child(3)` (the third child of one `.cards` element) works
+in the capture and in the `layout` artifact. `:nth-child()` counts siblings,
+not matches, so check that the selector now matches one element: the warning
+goes away. `.card >> nth=2` (Playwright) takes the third match in the whole
+document, counted from 0. It works only in the capture, because the `layout`
+artifact reads plain CSS.
 
 A CSS selector list (`".a, .b"`) is one selector. It matches the elements of
 both parts, and the capture takes the first of them in document order. So a
