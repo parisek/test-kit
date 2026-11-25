@@ -31,7 +31,9 @@ test('the read takes the highest match count of the scope selectors and never fa
 
 test('the read changes nothing on the page and enters no hash (R5.17)', () => {
   const settle = readFileSync(new URL('../../src/capture/settle.js', import.meta.url), 'utf8');
-  const body = settle.slice(settle.indexOf('export async function countSelectorMatches'));
+  const start = settle.indexOf('export async function countSelectorMatches');
+  const next = settle.indexOf('\nexport ', start + 1);
+  const body = settle.slice(start, next === -1 ? undefined : next);
   assert.doesNotMatch(body, /evaluate|click|scroll|fill/);
   const capture = readFileSync(new URL('../../src/capture/index.js', import.meta.url), 'utf8');
   assert.match(capture, /matches: await countSelectorMatches\(page, target\.selector\)/);

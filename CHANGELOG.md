@@ -6,6 +6,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Added
 
+- A capture whose masks cover at least 95 % of the captured area stores the warning `MASK_COVERS_TARGET` with the number of masks, and `capture`, `run`, `before` and `after` print one stderr line for it. Before, a mask on a container gave a 0 % diff with no sign that the target checked nothing (R5.18, #411).
 - A capture with a `selector` that matches more than one element stores the warning `SELECTOR_MULTIPLE_MATCHES` with the highest match count, and `capture`, `run`, `before` and `after` print one stderr line for it. The capture still takes the first match. Before, nothing showed the other matches (R5.17, #410).
 - A comparison row for a cell that one run does not hold now names the run and the cell, for example `Target news at desktop is not in run B (<run id>). Capture that side again.` Before, it said only `Evidence is missing.` (R8.19, #412).
 - `capture`, `run`, `before` and `after` print one stderr line for each failed cell: the target, the viewport, the error code, and the status and final path when the entry holds them. At most 20 lines, then `and N more` (R5.16, #416). Before, the output said only `state: "incomplete"`.
