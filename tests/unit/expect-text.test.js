@@ -42,6 +42,18 @@ test('the finding message names the missing string, cut to 80 characters (R7.8, 
   assert.equal(cut.evidence.expected, long, 'The evidence keeps the whole string.');
 });
 
+test('the cut keeps strings of 80 characters and does not split a surrogate pair (R7.8, #441)', () => {
+  const html = '<main>Hello</main>';
+  const message = text => check.check(doc, { expectText: [text], html })[0].message;
+  assert.equal(message('y'.repeat(80)), `The page does not contain the expected text "${'y'.repeat(80)}".`);
+  assert.equal(message('y'.repeat(81)), `The page does not contain the expected text "${'y'.repeat(79)}…".`);
+  const emoji = `${'a'.repeat(78)}\u{1F600}b`;
+  assert.equal(message(emoji), `The page does not contain the expected text "${'a'.repeat(78)}…".`);
+  assert.doesNotMatch(message(emoji), /\\ud83d/i);
+  const whole = `${'a'.repeat(77)}\u{1F600}bc`;
+  assert.equal(message(whole), `The page does not contain the expected text "${'a'.repeat(77)}\u{1F600}…".`);
+});
+
 test('expect-text is unknown without configured strings or a stored body (R7.8)', () => {
   assert.equal(check.check(doc, { html: '<html></html>' })[0].evidence.state, 'unknown');
   assert.equal(check.check(doc, { expectText: [], html: '<html></html>' })[0].evidence.state, 'unknown');

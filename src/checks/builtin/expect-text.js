@@ -5,10 +5,14 @@ export const basis = 'absolute';
 export const applies = { artifacts: ['content'] };
 // R7.8: each string of `target.expectText` must occur in the stored DOM body of the page.
 // The match is exact and case-sensitive on the serialized DOM, so attribute values match as well as text.
-// #441: the message names the missing string, cut to 80 characters. JSON quoting keeps a quote inside the string clear.
+// #441: the message names the missing string, cut to 80 characters (UTF-16 code units, as `length` counts them). JSON quoting keeps a quote inside the string clear.
 export const MESSAGE_TEXT_LIMIT = 80;
 export function missingMessage(text) {
-  const shown = text.length > MESSAGE_TEXT_LIMIT ? `${text.slice(0, MESSAGE_TEXT_LIMIT - 1)}…` : text;
+  if (text.length <= MESSAGE_TEXT_LIMIT) return `The page does not contain the expected text ${JSON.stringify(text)}.`;
+  let end = MESSAGE_TEXT_LIMIT - 1;
+  // A cut must not keep the first half of a surrogate pair: JSON.stringify writes a lone half as an escape.
+  if (/[\uD800-\uDBFF]/.test(text[end - 1])) end -= 1;
+  const shown = `${text.slice(0, end)}…`;
   return `The page does not contain the expected text ${JSON.stringify(shown)}.`;
 }
 export function check(value, ctx = {}) {
