@@ -1,4 +1,4 @@
-import { settlePage, countUnloadedLazyImages, afterSweepError } from './settle.js';
+import { settlePage, countUnloadedLazyImages, countSelectorMatches, afterSweepError } from './settle.js';
 import { captureWarnings, warningFields, withWarning } from '../report/warnings.js';
 import { captureScopedScreenshot } from './scope.js';
 import { captureRecipe, settleRecipe } from '../config/settings.js';
@@ -318,7 +318,9 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     phase = 'screenshot';
     // R5.11: a target without the lazy-image sweep may hold images that never loaded. Read the count; it is no hash input.
     // A selector target counts only the images inside the selected elements.
-    const warnings = captureWarnings({ lazyImages: recipe.lazyImages, unloaded: await countUnloadedLazyImages(page, target.selector) });
+    // R5.17: a scope selector with more than one match warns. Capture takes the first match. The count is no hash input.
+    const warnings = captureWarnings({ lazyImages: recipe.lazyImages, unloaded: await countUnloadedLazyImages(page, target.selector),
+      matches: await countSelectorMatches(page, target.selector) });
     let locator;
     let size;
     if (target.selector && !Array.isArray(target.selector) && target.box !== 'content') {

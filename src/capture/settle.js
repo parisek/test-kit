@@ -121,3 +121,14 @@ export async function countUnloadedLazyImages(page, selector) {
     return Number.isSafeInteger(count) && count > 0 ? count : 0;
   } catch { return 0; } finally { for (const handle of handles) await handle.dispose().catch(() => {}); }
 }
+
+// R5.17: the highest match count of the scope selectors (a string or a list). Read only: it changes nothing on the page.
+// A page target has no scope selector and gives 0. A read that fails gives 0, so a warning never fails a capture.
+export async function countSelectorMatches(page, selector) {
+  if (selector === undefined) return 0;
+  try {
+    let most = 0;
+    for (const value of Array.isArray(selector) ? selector : [selector]) most = Math.max(most, await page.locator(value).count());
+    return Number.isSafeInteger(most) && most > 0 ? most : 0;
+  } catch { return 0; }
+}

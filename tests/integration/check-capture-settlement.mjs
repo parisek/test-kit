@@ -131,7 +131,9 @@ try {
     { id: 'one', kind: 'page', path: '/scoped', selector: '#a', settle: { selectors: [], reveal: [] } },
     { id: 'list', kind: 'page', path: '/scoped', selector: ['#a', '#b'], settle: { selectors: [], reveal: [] } },
     { id: 'overlap', kind: 'page', path: '/scoped', selector: ['#b', '#b img'], settle: { selectors: [], reveal: [] } },
-    { id: 'swept', kind: 'page', path: '/scoped', selector: '#a', settle: { selectors: [], reveal: [], lazyImages: true } }], artifacts: ['screenshot'], checks: [] };
+    { id: 'swept', kind: 'page', path: '/scoped', selector: '#a', settle: { selectors: [], reveal: [], lazyImages: true } },
+    { id: 'many', kind: 'page', path: '/scoped', selector: 'img', settle: { selectors: [], reveal: [], lazyImages: true } },
+    { id: 'picked', kind: 'page', path: '/scoped', selector: '#b img:nth-of-type(2)', settle: { selectors: [], reveal: [], lazyImages: true } }], artifacts: ['screenshot'], checks: [] };
   await writeFile(configPath, JSON.stringify(scopedConfig));
   const scoped = await capture({ configPath, side: 'local' });
   const warningsOf = id => scoped.run.captures.find(entry => entry.targetId === id).warnings;
@@ -139,8 +141,11 @@ try {
   assert.deepEqual(warningsOf('page'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 4 }], 'A page target counts every lazy image.');
   assert.deepEqual(warningsOf('one'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 1 }], 'A selector target counts only the images inside the selected element.');
   assert.deepEqual(warningsOf('list'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 3 }], 'A selector list counts the images of every selected element.');
-  assert.deepEqual(warningsOf('overlap'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 2 }], 'An image inside two matches counts once.');
+  // R5.17: `#b img` matches the two images of #b, so the overlap target also warns about the second match.
+  assert.deepEqual(warningsOf('overlap'), [{ code: 'LAZY_IMAGES_NOT_SWEPT', count: 2 }, { code: 'SELECTOR_MULTIPLE_MATCHES', count: 2 }], 'An image inside two matches counts once.');
   assert.equal(warningsOf('swept'), undefined, 'A selector target with lazyImages on stores no warning.');
+  assert.deepEqual(warningsOf('many'), [{ code: 'SELECTOR_MULTIPLE_MATCHES', count: 4 }], 'A selector with four matches stores the match count (R5.17).');
+  assert.equal(warningsOf('picked'), undefined, 'A selector that picks one match stores no warning (R5.17).');
   await writeFile(configPath, JSON.stringify(config));
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);

@@ -252,6 +252,26 @@ Use `--checks none` or `--contracts none` to disable that group for one run.
 Component selector capture supports visual evidence. Component content
 extraction remains unsupported.
 
+### Selectors with more than one match
+
+A `selector` target captures the first match of each selector in document
+order. When a selector matches more than one element, the capture stores the
+warning `SELECTOR_MULTIPLE_MATCHES` with the highest match count, and the
+command prints one stderr line (R5.17). The capture does not change. To pick
+another match, write it in the selector so that it matches one element.
+`.cards > .card:nth-child(3)` (the third child of one `.cards` element) works
+in the capture and in the `layout` artifact. `:nth-child()` counts siblings,
+not matches, so check that the selector now matches one element: the warning
+goes away. `.card >> nth=2` (Playwright) takes the third match in the whole
+document, counted from 0. It works only in the capture, because the `layout`
+artifact reads plain CSS.
+
+A CSS selector list (`".a, .b"`) is one selector. It matches the elements of
+both parts, and the capture takes the first of them in document order. So a
+list pairs elements with other markup on two sides only when each side holds
+one of the parts. When one side holds both parts, the capture takes the part
+that comes first, and the warning shows it.
+
 ### Recipe: the consent bar
 
 `templates/contracts/consent-bar.contract.js` is a sample project contract
