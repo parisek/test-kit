@@ -80,9 +80,9 @@ Client captures and project configuration stay local.
 
 ## Compare two paths of one site
 
-`targets[].paths` gives a target a different path on each side. `path` and
-`paths` are alternatives: `path` holds for every side, and `paths` names a path
-per side. A side that `paths` does not name uses `path`. Use `paths` to compare a
+`targets[].paths` gives a target a different path on each side. `path` holds
+for every side. `paths` overrides `path` for the sides that it names. A side that
+`paths` does not name uses `path`. Use `paths` to compare a
 source with its output, for example a styleguide page with the CMS page built
 from it, or an old URL with a new one. Two sides may share one origin.
 
@@ -102,7 +102,10 @@ npx test-kit after --side cms
 ```
 
 One configuration holds both sides. The side with `"role": "reference"` first and
-the local side second give the pair kind `convergence`. Without `role`, two
+the local side second give the pair kind `convergence`. Here the styleguide is
+side A, the reference that the CMS must reach. The pair kinds of the
+specification (section 3) show the styleguide as side B, after a reference site.
+In both cases side A is the reference. Without `role`, two
 different local sides give `adhoc`. A path of `null` skips the target on that
 side (see "Skip a target on one side").
 
