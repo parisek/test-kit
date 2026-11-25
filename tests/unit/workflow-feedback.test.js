@@ -80,3 +80,20 @@ test('run feedback gives expect-text the strings of the target and the stored DO
  const nobody = await summarizeRunFeedback(run, root, { persist: false });
  assert.equal(nobody.content.unknown, 1); assert.match(nobody.findings[0].message, /stored DOM body is unavailable/);
 });
+
+test('run feedback skips a cell outside the recorded selection, as for a null path (R5.19, #414)', async t => {
+ const { root, dir, run } = await fixture(t);
+ run.settings.artifacts = ['content'];
+ run.settings.checks = ['expect-text'];
+ run.settings.targets = [{ id: 'home', path: '/', expectText: ['Hello'] }, { id: 'only-a', paths: { a: '/new', b: null } }];
+ run.selection = { targets: ['home'] };
+ run.captures[0].artifacts.content.bodyPath = 'content.body.html.gz';
+ await writeFile(join(dir, 'content.body.html.gz'), gzipSync('<main>Hello</main>'));
+ const result = await summarizeRunFeedback(run, root, { persist: false });
+ assert.equal(result.content.missing, 0);
+ assert.equal(result.state, 'complete');
+ assert.equal(result.findings.some(item => item.targetId === 'only-a'), false);
+ delete run.selection;
+ const full = await summarizeRunFeedback(run, root, { persist: false });
+ assert.equal(full.content.missing, 1, 'without a selection the cell is missing evidence');
+});
