@@ -369,7 +369,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     // R5.14: the verdict on the real error, before the message is generalized. The mark stays out of run.json.
     const transient = isTransientFailure({ error, edge, blocked, unexpectedNavigation, phase, statusCode });
     return markTransient({ ...identity, state: 'failed', artifacts, statusCode, finalPath, ...droppedFields(droppedLog), error: edge ? { code: 'REMOTE_EDGE_STOP', message: `The remote edge challenges or limits the capture (${edge}). The run stops.` } : leftOrigin ? { code: 'DDEV_REDIRECT_LEFT_ORIGIN', message: originBoundMessage(leftOrigin) } : { code: unexpectedNavigation ? 'SETTLEMENT_NAVIGATION_REQUIRED' : blocked ? 'LOCAL_NAVIGATION_REQUIRED' : `CAPTURE_${phase.toUpperCase()}_FAILED`,
-      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : ['PIN_NO_MATCH', 'AFTER_SWEEP_NOT_VISIBLE'].includes(error?.code) ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } }, transient);
+      message: unexpectedNavigation ? 'A settlement action requests another page. Capture keeps one navigation.' : blocked ? blockedRequestMessage(firstBlocked) : ['PIN_NO_MATCH', 'AFTER_SWEEP_NOT_VISIBLE', 'LAZY_PAGE_GROWS'].includes(error?.code) ? error.message : `The ${phase} step fails. Check the local page and capture recipe.` } }, transient);
   } finally { clearTimeout(timer); if (context) await context.close().catch(() => {}); if (verifier) await verifier.close().catch(() => {}); }
 }
 

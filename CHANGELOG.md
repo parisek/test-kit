@@ -13,6 +13,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Fixed
 
+- A capture that fails because the page grows during the lazy-image sweep now stores the message with both heights and a hint, for example `Lazy-image page grows during settlement (3120 px to 3480 px). Set settle.lazyImages only on targets with native lazy images.` Before, the stored message said only `The settlement step fails.` (R5.9, #413).
 - `run`, `before` and `after` print every capture warning line that `capture` prints, not only the line of `LAZY_IMAGES_NOT_SWEPT` (R5.11).
 
 ## [1.4.0] - 2026-11-17

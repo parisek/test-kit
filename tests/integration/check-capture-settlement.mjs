@@ -58,7 +58,7 @@ try {
   await page.goto(`${origin}/tall`);
   await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), /height limit/);
   await page.goto(`${origin}/growing`);
-  await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), /grows during settlement/);
+  await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), { code: 'LAZY_PAGE_GROWS', message: 'Lazy-image page grows during settlement (1500 px to 2500 px). Set settle.lazyImages only on targets with native lazy images.' }, 'The message names both heights (#413).');
   assert.equal(await page.evaluate(() => scrollY), 0, 'Failure restores the initial scroll position.');
   await page.setViewportSize({ width: 500, height: 10 });
   await assert.rejects(settlePage({ page, recipe: { lazyImages: true } }), /step limit/);
@@ -167,6 +167,11 @@ try {
   assert.equal(maskedOf('unmasked'), undefined, 'A target without masks stores no warning (R5.18).');
   assert.deepEqual(maskedOf('body'), [{ code: 'MASK_COVERS_TARGET', count: 1 }], 'A mask over the whole page warns on a page target (R5.18).');
   assert.equal(maskedOf('page-hero'), undefined, 'A mask over a part of the page stores no warning on a page target (R5.18).');
+  // #413, R5.9: a stored growth failure names both heights and the setting.
+  await writeFile(configPath, JSON.stringify({ ...config, targets: [{ id: 'growing', kind: 'page', path: '/growing', settle: { selectors: [], reveal: [], lazyImages: true } }], artifacts: ['screenshot'], checks: [] }));
+  const grew = await capture({ configPath, side: 'local' });
+  assert.equal(grew.run.state, 'partial');
+  assert.deepEqual(grew.run.captures[0].error, { code: 'CAPTURE_SETTLEMENT_FAILED', message: 'Lazy-image page grows during settlement (1500 px to 2500 px). Set settle.lazyImages only on targets with native lazy images.' });
   await writeFile(configPath, JSON.stringify(config));
   const same = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'report') });
   assert.equal(same.report.entries[0].viewports[0].ratio, 0);
