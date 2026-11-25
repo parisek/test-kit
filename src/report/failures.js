@@ -6,7 +6,7 @@ export const FAILURE_LINE_LIMIT = 20;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 const CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 // A path that is safe to print: a slash, then printable ASCII without spaces, quotes or a backslash, at most 200 characters.
-const PATH = /^\/[A-Za-z0-9._~!$&'()*+,;=:@%/?#[\]-]{0,199}$/;
+const PATH = /^\/[A-Za-z0-9._~!$&()*+,;=:@%/?#[\]-]{0,199}$/;
 
 const plain = (value, pattern) => typeof value === 'string' && pattern.test(value) ? value : null;
 
@@ -17,7 +17,7 @@ function failureOf(capture) {
   if (capture.state === 'failed') return { code: plain(capture.error?.code, CODE) ?? 'UNKNOWN', artifact: null };
   if (capture.state !== 'captured' || !capture.artifacts || typeof capture.artifacts !== 'object') return null;
   for (const [kind, index] of Object.entries(capture.artifacts)) {
-    if (index?.state === 'failed') return { code: plain(index.error?.code, CODE) ?? 'UNKNOWN', artifact: plain(kind, ID) ?? 'artifact' };
+    if (index?.state === 'failed') return { code: plain(index.error?.code, CODE) ?? 'UNKNOWN', artifact: plain(kind, ID) };
   }
   return null;
 }

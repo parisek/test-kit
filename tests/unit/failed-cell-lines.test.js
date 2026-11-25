@@ -32,6 +32,8 @@ test('R5.16: untrusted values of another shape stay out of the line', () => {
   const run = { captures: [{ targetId: 'home\u001b[2J', viewportId: '../x', state: 'failed', statusCode: 99999, finalPath: '/a b\u001b[31m', error: { code: 'bad code; rm' } }] };
   assert.deepEqual(failedCellLines(run), ['test-kit: failed unknown target at unknown viewport: UNKNOWN']);
   assert.deepEqual(failedCellLines({ captures: [{ state: 'failed', finalPath: 'relative/path', error: {} }] }), ['test-kit: failed unknown target at unknown viewport: UNKNOWN']);
+  assert.deepEqual(failedCellLines({ captures: [{ targetId: 'home', viewportId: 'desktop', state: 'failed', finalPath: "/it's", error: { code: 'X' } }] }), ['test-kit: failed home at desktop: X']);
+  assert.deepEqual(failedCellLines({ captures: [{ targetId: 'home', viewportId: 'desktop', state: 'captured', artifacts: { 'bad kind': { state: 'failed', error: { code: 'X' } } } }] }), ['test-kit: failed home at desktop: X']);
 });
 
 test('R5.16: no failure, no run or a bad captures field gives no line', () => {
