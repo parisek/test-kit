@@ -68,7 +68,7 @@ test('run feedback gives expect-text the strings of the target and the stored DO
  assert.equal(result.content.unknown, 0);
  assert.equal(result.content.findings, 1);
  assert.equal(result.findings[0].checkId, 'expect-text');
- assert.equal(result.findings[0].message, 'The page does not contain an expected text.');
+ assert.equal(result.findings[0].message, 'The page does not contain the expected text "Missing footer".');
  assert.equal(result.state, 'complete');
  // A target without the key stays unknown, as in the compare path.
  run.settings.targets = [{ id: 'home', path: '/' }];

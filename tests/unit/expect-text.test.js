@@ -29,6 +29,19 @@ test('expect-text reports each missing string and passes when all occur (R7.8)',
   assert.equal(findings[0].checkId, 'expect-text'); assert.equal(findings[0].severity, 'warning'); assert.equal(findings[0].targetId, 'home');
 });
 
+test('the finding message names the missing string, cut to 80 characters (R7.8, #441)', () => {
+  const html = '<main>Hello</main>';
+  const [short] = check.check(doc, { expectText: ['Missing footer'], html });
+  assert.equal(short.message, 'The page does not contain the expected text "Missing footer".');
+  assert.deepEqual(short.evidence, { expected: 'Missing footer' });
+  const [quoted] = check.check(doc, { expectText: ['id="example-form"'], html });
+  assert.equal(quoted.message, 'The page does not contain the expected text "id=\\"example-form\\"".');
+  const long = 'x'.repeat(500);
+  const [cut] = check.check(doc, { expectText: [long], html });
+  assert.equal(cut.message, `The page does not contain the expected text "${'x'.repeat(79)}…".`);
+  assert.equal(cut.evidence.expected, long, 'The evidence keeps the whole string.');
+});
+
 test('expect-text is unknown without configured strings or a stored body (R7.8)', () => {
   assert.equal(check.check(doc, { html: '<html></html>' })[0].evidence.state, 'unknown');
   assert.equal(check.check(doc, { expectText: [], html: '<html></html>' })[0].evidence.state, 'unknown');
