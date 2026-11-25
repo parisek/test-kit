@@ -57,3 +57,13 @@ test('R5.16: capture prints the failed-cell lines on stderr; stdout stays one JS
   assert.equal(JSON.parse(out.text).state, 'partial');
   assert.match(err.text, /^test-kit: failed news at desktop: CAPTURE_NAVIGATION_FAILED \(status 500, final path \/news\)$/m);
 });
+
+test('R5.16: the final path and code follow the spec patterns exactly', () => {
+  const line = (finalPath, code) => failedCellLines({ captures: [{ targetId: 'home', viewportId: 'desktop', state: 'failed', finalPath, error: { code } }] })[0];
+  assert.equal(line('/a-b_c.d~e/f?g=h&i#j[0]@k:l;m,n+o*p(q)$r!s%20', 'X'), 'test-kit: failed home at desktop: X (final path /a-b_c.d~e/f?g=h&i#j[0]@k:l;m,n+o*p(q)$r!s%20)');
+  for (const bad of ['/x{y}', '/x<y>', '/x|y', '/x^y', '/x`y', '/' + 'a'.repeat(200)]) assert.equal(line(bad, 'X'), 'test-kit: failed home at desktop: X');
+  assert.equal(line('/' + 'a'.repeat(199), 'X').endsWith('a)'), true);
+  assert.equal(line(undefined, '_X'), 'test-kit: failed home at desktop: UNKNOWN');
+  assert.equal(line(undefined, 'A'.repeat(64)), `test-kit: failed home at desktop: ${'A'.repeat(64)}`);
+  assert.equal(line(undefined, 'A'.repeat(65)), 'test-kit: failed home at desktop: UNKNOWN');
+});
