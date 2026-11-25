@@ -101,3 +101,14 @@ test('stored link evidence retains requested query paths and conflicting measure
   const findings = builtinChecks['internal-links'].check(doc({ links: [{ path: '/item', text: '' }, { path: '/item?mode=one', text: '' }, { path: '/old', text: '' }] }), { responses });
   assert.equal(findings.length, 2); assert.ok(findings.every(item => item.evidence.state === 'unknown'));
 });
+
+test('heading-outline reads a fragment without the h1 rule, from its highest heading (R7.9, #442)', () => {
+  const check = builtinChecks['heading-outline'].check;
+  const section = doc({ headings: [{ level: 2, text: 'News' }, { level: 3, text: 'Item' }] });
+  assert.equal(check(section).length, 2, 'A page with no h1 and a start at h2 fails.');
+  assert.deepEqual(check(section, { fragment: true }), []);
+  const skipped = check(doc({ headings: [{ level: 2, text: 'News' }, { level: 4, text: 'Skip' }] }), { fragment: true });
+  assert.deepEqual(skipped.map(item => item.evidence.level), [4]);
+  assert.deepEqual(check(doc({ headings: [] }), { fragment: true }), []);
+  assert.deepEqual(check(doc({ headings: [{ level: 1, text: 'A' }, { level: 1, text: 'B' }] }), { fragment: true }), []);
+});

@@ -469,7 +469,8 @@ HTTP responses already measured for targets in the same viewport. An unmeasured
 link remains unknown. A target with a `selector` stores the content of the
 first match of each selector: the DOM body is the `outerHTML` of the matches,
 and text, headings, images and links come from the matches. Title and language
-stay those of the page. A selector without a match records failed evidence.
+stay those of the page. The heading outline of a component needs no `h1` and
+starts at its highest heading. A selector without a match records failed evidence.
 
 To rerun checks over stored runs:
 

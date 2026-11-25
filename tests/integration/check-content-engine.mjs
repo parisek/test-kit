@@ -98,6 +98,7 @@ try {
     targets: [{ id: 'news', kind: 'component', path: '/components', selector: '#news', expectText: ['Newest post', 'Footer text'] },
       { id: 'pair', kind: 'component', path: '/components', selector: ['#news', 'h2.lone'] },
       { id: 'absent', kind: 'component', path: '/components', selector: '#absent' },
+      { id: 'overlap', kind: 'component', path: '/components', selector: ['#news h2', '#news', 'section'] },
       { id: 'whole', kind: 'page', path: '/components', expectText: ['Footer text'] }],
     viewports: config.viewports, artifacts: ['content'], checks: ['expect-text', 'heading-outline'], runsRoot: 'component-runs' }));
   const ca = await capture({ configPath: componentPath, side: 'local' });
@@ -113,12 +114,18 @@ try {
   assert.equal(pair.title, 'Components'); assert.equal(pair.lang, 'en');
   assert.doesNotMatch(pair.text, /Footer text/);
   assert.deepEqual((await snapshotOf('news')).links.map(item => item.path), ['/linked']);
+  const overlap = await snapshotOf('overlap');
+  assert.deepEqual(overlap.headings.map(item => item.text), ['News'], 'A match inside another match counts once.');
+  assert.equal(overlap.links.length, 1); assert.equal(overlap.text.match(/Newest post/g).length, 1);
+  assert.equal(await bodyOf('overlap'), await bodyOf('news'), 'The body holds each element once.');
   assert.equal(cell('absent').state, 'failed'); assert.equal(cell('absent').error.code, 'CONTENT_CAPTURE_FAILED');
   assert.equal(cell('absent').bodyPath, undefined);
   assert.notEqual(cell('news').settingsHash, cell('whole').settingsHash, 'A component snapshot has its own settings hash.');
-  const scoped = await compareRuns({ runsRoot: join(directory, 'component-runs'), runA: ca.run.id, runB: cb.run.id, outputDir: join(directory, 'component-report'), contentChecks: ['expect-text'] });
+  const scoped = await compareRuns({ runsRoot: join(directory, 'component-runs'), runA: ca.run.id, runB: cb.run.id, outputDir: join(directory, 'component-report'), contentChecks: ['expect-text', 'heading-outline'] });
   const missing = scoped.report.findings.filter(item => item.checkId === 'expect-text').map(item => [item.targetId, item.message]);
   assert.deepEqual(missing, [['news', 'The page does not contain the expected text "Footer text".']], 'The footer is outside the component; the page target finds it.');
+  const outline = scoped.report.findings.filter(item => item.checkId === 'heading-outline').map(item => item.targetId);
+  assert.deepEqual(outline, ['whole', 'whole'], 'A component needs no h1. The page without an h1 fails.');
   console.log('Content capture, stored checks, bounded query, local sidecars, and capture-free rerun pass.');
 } finally {
   await viewer?.close(); site.closeAllConnections(); await new Promise(resolve => site.close(resolve)); await rm(directory, { recursive: true, force: true });

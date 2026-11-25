@@ -239,9 +239,8 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       let bodyFile;
       try {
         // #442: a selector target stores the content of the first match of each selector (R5.17). The body joins their outerHTML.
-        const scope = target.selector ?? null;
-        const snapshot = await extractContentSnapshot(page, scope);
-        const roots = scope === null ? null : await scopeElements(page, scope);
+        const roots = target.selector ? await scopeElements(page, target.selector) : null;
+        const snapshot = await extractContentSnapshot(page, roots);
         const body = await page.evaluate(roots => {
           const html = roots === null ? document.documentElement.outerHTML : roots.map(node => node.outerHTML).join('\n');
           if (html.length > 2 * 1024 * 1024) throw new Error('DOM body exceeds its limit.');

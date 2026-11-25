@@ -41,7 +41,7 @@ export async function summarizeRunFeedback(run, runsRoot, { maxFindings = 20, pe
         if (run.settings.checks.includes('expect-text') && typeof index.bodyPath === 'string' && index.bodyPath.endsWith('.body.html.gz')) {
           try { html = gunzipSync(await readSidecar(runDir, index.bodyPath), { maxOutputLength: 2 * 1024 * 1024 }).toString('utf8'); } catch { html = undefined; }
         }
-        const findings = runContentChecks(snapshot, run.settings.checks, { ...scope, expectedLanguage: run.settings.content?.expectedLanguage, expectText: target.expectText, html, responses: storedResponses(run, viewport.id) });
+        const findings = runContentChecks(snapshot, run.settings.checks, { ...scope, expectedLanguage: run.settings.content?.expectedLanguage, expectText: target.expectText, fragment: Boolean(target.selector), html, responses: storedResponses(run, viewport.id) });
         result.content.checksExecuted += run.settings.checks.length;
         for (const finding of findings) {
           result.content.findings++;
