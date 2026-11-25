@@ -290,6 +290,11 @@ use `name`, `detect`, and `run`. Select them with `behavior.enabled` or
 empty list selects no behavior contract. Unknown and duplicate names fail.
 A skipped contract or empty selection is not evidence of a passed assertion.
 Use `--checks none` or `--contracts none` to disable that group for one run.
+`run --artifacts LIST` captures that list for one run and leaves the config as
+it is, for example `run --target home --artifacts content --checks expect-text`.
+It replaces the list of the suite, so do not combine it with `--suite` or
+`--selector`. `before` and `after` take no `--artifacts`: a baseline and its
+comparison use the same list, from the config or the suite.
 Component selector capture supports visual evidence and content. The content
 of a selector target is the first match of each selector, so `expectText` and
 the content checks read the component, not the whole page.

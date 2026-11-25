@@ -27,6 +27,23 @@ test('suite all uses the normalized default artifacts when the config has no art
  assert.equal(selectConfig({ ...bare, artifacts: ['screenshot', 'status'] }, {}).artifacts.join(), 'screenshot,status');
  assert.throws(() => selectConfig(bare, { suite: 'nope' }), /Unknown suite/);
 });
+test('--artifacts replaces the artifact list of the suite for one run (R5.20, #443)', () => {
+ assert.equal(selectConfig(config, { artifacts: 'content,status' }).artifacts.join(), 'content,status');
+ assert.equal(selectConfig(config, { artifacts: 'content', checks: 'expect-text' }).checks.join(), 'expect-text');
+ assert.equal(config.artifacts.join(), 'screenshot');
+ assert.throws(() => selectConfig(config, { artifacts: 'screenshot', checks: 'expect-text' }), /content artifact/);
+ assert.throws(() => selectConfig(config, { artifacts: 'content', suite: 'visual' }), /without --suite and --selector/);
+ assert.throws(() => selectConfig(config, { artifacts: 'content', target: 'home', selector: '#header' }), /without --suite and --selector/);
+ assert.throws(() => selectConfig(config, { artifacts: 'content,content' }), /Invalid artifact selection/);
+ assert.throws(() => selectConfig(config, { artifacts: 'behavior' }), /Configure behavior/);
+});
+test('run captures the --artifacts list, and before and after refuse it (R5.20)', async t => {
+ const { options } = await fixture(t); let captured;
+ const result = await runWorkflow('run', { ...options, artifacts: 'content,status' }, { capture: async input => { captured = JSON.parse(await readFile(input.configPath)).artifacts; return { run: { id: 'run-1', state: 'complete' }, manifestPath: 'evidence' }; }, summarizeRunFeedback: async () => ({ state: 'match' }) });
+ assert.equal(result.exitCode, 0); assert.deepEqual(captured, ['content', 'status']);
+ assert.equal(JSON.parse(await readFile(options.config)).artifacts.join(), 'screenshot');
+ for (const command of ['before', 'after']) await assert.rejects(runWorkflow(command, { ...options, artifacts: 'content' }, { capture: () => assert.fail('No capture') }), /Only run takes --artifacts/);
+});
 test('DDEV rejects remote origins and store rejects traversal', () => {
  assert.equal(loopbackOrigin({ raw: { services: { web: { host_http_url: 'http://127.0.0.1:1234' } } } }), 'http://127.0.0.1:1234');
  assert.throws(() => loopbackOrigin({ raw: { services: { web: { host_http_url: 'https://example.test' } } } }));

@@ -6,6 +6,8 @@ import { parseIdList as ids } from '../capture/selection.js';
 
 export function selectConfig(input, options = {}) {
   const config = structuredClone(input);
+  // R5.20: `--artifacts` replaces the list of the suite for one `run`. It does not combine with a suite or a selector.
+  if (options.artifacts !== undefined && (options.suite !== undefined || options.selector !== undefined)) throw new Error('Use --artifacts without --suite and --selector.');
   const suite = options.suite ?? (options.selector ? 'visual' : 'all');
   const suites = { all: input.artifacts ?? DEFAULT_ARTIFACTS, visual: ['screenshot', 'status'], content: ['content', 'status'], behavior: ['behavior', 'status'] };
   if (!suites[suite]) throw new Error('Unknown suite. Use all, visual, content, or behavior.');
@@ -35,7 +37,7 @@ export function selectConfig(input, options = {}) {
     if (selected.some(id => !input.viewports.some(viewport => viewport.id === id))) throw new Error('Unknown viewport.');
     config.viewports = input.viewports.filter(viewport => selected.includes(viewport.id));
   }
-  config.artifacts = [...suites[suite]];
+  config.artifacts = options.artifacts !== undefined ? ids(options.artifacts, 'artifact') : [...suites[suite]];
   if (options.checks) {
     if (!config.artifacts.includes('content')) throw new Error('Checks require the content artifact.');
     config.checks = options.checks === 'none' ? [] : ids(options.checks, 'check');
@@ -45,7 +47,7 @@ export function selectConfig(input, options = {}) {
   if (options.contracts && !config.artifacts.includes('behavior')) throw new Error('Contracts require the behavior artifact.');
   if (!config.artifacts.includes('behavior')) delete config.behavior;
   else {
-    if (!config.behavior) throw new Error('Configure behavior before selecting this suite.');
+    if (!config.behavior) throw new Error('Configure behavior before selecting the behavior suite or artifact.');
     if (config.behavior.projects) config.behavior.projects = Object.fromEntries(Object.entries(config.behavior.projects).filter(([id]) => config.viewports.some(viewport => viewport.id === id)));
     if (options.contracts) config.behavior.enabled = options.contracts === 'none' ? [] : validateContractSelection(options.contracts.split(','));
   }
