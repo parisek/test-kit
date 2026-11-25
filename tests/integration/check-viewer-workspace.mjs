@@ -11,7 +11,7 @@ const directory = await mkdtemp(join(tmpdir(), 'test-kit-workspace-'));
 let server, browser;
 try {
   const demo = await buildDemo({ outputRoot: directory });
-  assert.deepEqual(demo.summary.counts, { unexplained: 4, explained: 1, match: 0, incomplete: 3, oracle: 0, unclassified: 0, total: 5 });
+  assert.deepEqual(demo.summary.counts, { unexplained: 4, explained: 1, match: 0, incomplete: 1, oracle: 0, unclassified: 0, total: 5 });
   server = await serve({ reportPath: demo.reportPath });
   browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });

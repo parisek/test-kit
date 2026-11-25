@@ -6,12 +6,14 @@ export const applies = { artifacts: ['content'] };
 export function check(value, ctx = {}) {
   const doc = snapshot(value), findings = omitted(doc, ctx, id, 'headings');
   const h1 = doc.headings.filter(item => item.level === 1), count = h1.length, hiddenCount = h1.filter(item => item.hidden).length;
-  if (count !== 1 && !(count === 0 && doc.omitted.headings)) {
+  // R7.9: the content of a selector target is a fragment of a page. It needs no h1, and its outline starts at its highest heading.
+  const fragment = ctx.fragment === true;
+  if (!fragment && count !== 1 && !(count === 0 && doc.omitted.headings)) {
     findings.push(hiddenCount
       ? finding(ctx, id, `The page must have one h1 heading. ${hiddenCount} of ${count} h1 headings are hidden.`, { count, hiddenCount, hidden: true })
       : finding(ctx, id, 'The page must have one h1 heading.', { count }));
   }
-  let previous = 0;
+  let previous = fragment && doc.headings.length ? Math.min(...doc.headings.map(item => item.level)) - 1 : 0;
   doc.headings.forEach((item, index) => {
     if (item.level > previous + 1) {
       findings.push(item.hidden

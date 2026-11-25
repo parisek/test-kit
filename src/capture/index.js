@@ -5,7 +5,7 @@ import { captureScopedScreenshot } from './scope.js';
 import { captureRecipe, settleRecipe } from '../config/settings.js';
 import { runBehavior, loadBehaviorSource, BEHAVIOR_VERSION } from '../behavior/index.js';
 import { gzipSync } from 'node:zlib';
-import { extractContentSnapshot } from '../content/extract.js';
+import { extractContentSnapshot, scopeElements } from '../content/extract.js';
 import { contentSettings, layoutSettings } from '../config/settings.js';
 import { extractLayoutSnapshot } from '../layout/extract.js';
 import { partsForSide } from '../layout/declaration.js';
@@ -238,13 +238,14 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       let contentFile;
       let bodyFile;
       try {
-        if (target.selector) throw new Error('Component content scope is not supported.');
-        const snapshot = await extractContentSnapshot(page);
-        const body = await page.evaluate(() => {
-          const html = document.documentElement.outerHTML;
+        // #442: a selector target stores the content of the first match of each selector (R5.17). The body joins their outerHTML.
+        const roots = target.selector ? await scopeElements(page, target.selector) : null;
+        const snapshot = await extractContentSnapshot(page, roots);
+        const body = await page.evaluate(roots => {
+          const html = roots === null ? document.documentElement.outerHTML : roots.map(node => node.outerHTML).join('\n');
           if (html.length > 2 * 1024 * 1024) throw new Error('DOM body exceeds its limit.');
           return html;
-        });
+        }, roots);
         const bodyBytes = Buffer.from(body);
         if (bodyBytes.length > 2 * 1024 * 1024) throw new Error('DOM body exceeds its limit.');
         const bytes = Buffer.from(JSON.stringify(snapshot));
@@ -263,7 +264,7 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
       } catch {
         if (contentFile) await unlink(contentFile).catch(() => {});
         if (bodyFile) await unlink(bodyFile).catch(() => {});
-        artifacts.content = { ...index, state: 'failed', error: { code: 'CONTENT_CAPTURE_FAILED', message: target.selector ? 'Component content scope is not supported. Select a page target.' : 'Content snapshot is unavailable or exceeds its limit.' } };
+        artifacts.content = { ...index, state: 'failed', error: { code: 'CONTENT_CAPTURE_FAILED', message: target.selector ? 'Component content is unavailable: a selector matches no element, or the content exceeds its limit.' : 'Content snapshot is unavailable or exceeds its limit.' } };
       }
     }
     // R13.51: the selected page packs run on this page. With a screenshot they run after it, so they cannot change its pixels.

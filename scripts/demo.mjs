@@ -32,7 +32,7 @@ export async function buildDemo({ outputRoot } = {}) {
     const b = await capture({ configPath, side: 'after', label: 'After update' });
     if ([a.run, b.run].some(run => run.captures.some(row => row.state !== 'captured' || ['html', 'status'].some(kind => row.artifacts?.[kind]?.state !== 'captured') || (!config.targets.find(target => target.id === row.targetId)?.selector && row.artifacts?.content?.state !== 'captured')))) throw new Error('Demo capture is incomplete.');
     const raw = await compareRuns({ runsRoot: join(root, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(root, 'raw-report'), kind: 'adhoc' });
-    for (const finding of raw.report.findings.filter(finding => finding.targetId === 'card' && ['screenshot', 'html'].includes(finding.artifact))) {
+    for (const finding of raw.report.findings.filter(finding => finding.targetId === 'card' && ['screenshot', 'html', 'content'].includes(finding.artifact))) {
       await recordKnown({ reportPath: raw.reportPath, configPath, target: finding.targetId, viewport: finding.viewportId,
         artifact: finding.artifact, cause: 'planned-price-change', reason: 'The local fixture changes the plan price from 29 to 39. This is an explicit demo acceptance.' });
     }

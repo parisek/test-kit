@@ -44,12 +44,15 @@ export async function compareContentArtifact({ a, b, ac, bc, runsRoot, output, t
   if (result.state === 'complete' && snapshots.every(Boolean)) {
     const checks = policy(b).checks;
     // R7.8: the expected strings come from the target in run B, as the selected checks do. Only `expect-text` reads the DOM body.
-    const expectText = b.settings.targets.find(target => target.id === targetId)?.expectText;
+    const target = b.settings.targets.find(item => item.id === targetId);
+    const expectText = target?.expectText;
+    // R7.9: a selector target holds a fragment. The heading outline of a fragment has no h1 rule.
+    const fragment = Boolean(target?.selector);
     const html = async (index, run) => {
       if (!checks.includes('expect-text') || typeof index.bodyPath !== 'string' || !index.bodyPath.endsWith('.body.html.gz')) return undefined;
       try { return gunzipSync(await readSidecar(join(runsRoot, run.id), index.bodyPath), { maxOutputLength: 2 * 1024 * 1024 }).toString('utf8'); } catch { return undefined; }
     };
-    const detail = compareContentSnapshots(...snapshots, { checks, expectedLanguage: policy(b).expectedLanguage, expectText,
+    const detail = compareContentSnapshots(...snapshots, { checks, expectedLanguage: policy(b).expectedLanguage, expectText, fragment,
       htmlA: await html(indexes[0], a), htmlB: await html(indexes[1], b),
       targetId, viewportId, sideA: a.side, sideB: b.side, responsesA: responses(a, viewportId), responsesB: responses(b, viewportId) });
     const src = `diff/content/${targetId}/${viewportId}.json`;

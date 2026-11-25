@@ -13,7 +13,7 @@ export function compareContentSnapshots(before, after, options = {}) {
   const a = validateContentSnapshot(before), b = validateContentSnapshot(after);
   const ids = options.checks ?? [];
   runContentChecks(a, ids, options);
-  const context = { targetId: options.targetId, viewportId: options.viewportId, expectedLanguage: options.expectedLanguage, expectText: options.expectText, sideA: options.sideA, sideB: options.sideB };
+  const context = { targetId: options.targetId, viewportId: options.viewportId, expectedLanguage: options.expectedLanguage, expectText: options.expectText, fragment: options.fragment === true, sideA: options.sideA, sideB: options.sideB };
   const checks = ids.map(id => ({ id, title: builtinChecks[id].title,
     a: side(id === 'text-difference' ? [] : builtinChecks[id].check(a, { ...context, responses: options.responsesA, html: options.htmlA })),
     b: side(builtinChecks[id].check(b, { ...context, responses: options.responsesB, html: options.htmlB, before: a })) }));

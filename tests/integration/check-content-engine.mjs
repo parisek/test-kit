@@ -18,7 +18,8 @@ const site = createServer((request, response) => {
   navigations++;
   const broken = request.url === '/linked' && variant === 'after';
   response.writeHead(broken ? 404 : 200, { 'Content-Type': 'text/html; charset=utf-8' });
-  if (request.url === '/linked') response.end('<!doctype html><html lang="en"><title>Linked page</title><body><h1>Linked page</h1></body></html>');
+  if (request.url === '/components') response.end('<!doctype html><html lang="en"><title>Components</title><body><section id="news"><h2>News</h2><p>Newest post</p><a href="/linked">Linked page</a></section><h2 class="lone">Lone heading</h2><footer><p>Footer text</p></footer></body></html>');
+  else if (request.url === '/linked') response.end('<!doctype html><html lang="en"><title>Linked page</title><body><h1>Linked page</h1></body></html>');
   else response.end(variant === 'before'
     ? '<!doctype html><html lang="en"><title>Example site</title><body><h1>Example site</h1><p>Before text</p><a href="/linked">Linked page</a></body></html>'
     : '<!doctype html><html lang="fr"><title> </title><body><nav hidden><h3>Hidden menu</h3></nav><h2>Example site</h2><h4>Skipped heading</h4><p>After text</p><img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E"><a href="/linked">Linked page</a><a href="/unmeasured">Unknown link</a></body></html>');
@@ -91,6 +92,43 @@ try {
   await writeFile(contentPath, gzipSync(Buffer.alloc(2 * 1024 * 1024 + 1, 32)));
   const oversized = await compareRuns({ runsRoot: join(directory, 'runs'), runA: a.run.id, runB: b.run.id, outputDir: join(directory, 'oversized') });
   assert.equal(oversized.report.entries[0].viewports[0].artifacts.content.state, 'failed', 'Compressed snapshots cannot bypass the expanded size limit.');
+  // R7.9 (#442): a selector target stores the content of its scope, and expect-text reads the component only.
+  const componentPath = join(directory, 'component.json');
+  await writeFile(componentPath, JSON.stringify({ schemaVersion: 1, sides: config.sides,
+    targets: [{ id: 'news', kind: 'component', path: '/components', selector: '#news', expectText: ['Newest post', 'Footer text'] },
+      { id: 'pair', kind: 'component', path: '/components', selector: ['#news', 'h2.lone'] },
+      { id: 'absent', kind: 'component', path: '/components', selector: '#absent' },
+      { id: 'overlap', kind: 'component', path: '/components', selector: ['#news h2', '#news', 'section'] },
+      { id: 'same', kind: 'component', path: '/components', selector: ['#news', 'section'] },
+      { id: 'whole', kind: 'page', path: '/components', expectText: ['Footer text'] }],
+    viewports: config.viewports, artifacts: ['content'], checks: ['expect-text', 'heading-outline'], runsRoot: 'component-runs' }));
+  const ca = await capture({ configPath: componentPath, side: 'local' });
+  const cb = await capture({ configPath: componentPath, side: 'local' });
+  const cell = id => cb.run.captures.find(item => item.targetId === id).artifacts.content;
+  const bodyOf = async id => gunzipSync(await readFile(join(cb.runDir, cell(id).bodyPath))).toString('utf8');
+  const snapshotOf = async id => JSON.parse(gunzipSync(await readFile(join(cb.runDir, cell(id).path))));
+  assert.equal(cell('news').state, 'captured');
+  assert.equal(await bodyOf('news'), '<section id="news"><h2>News</h2><p>Newest post</p><a href="/linked">Linked page</a></section>');
+  assert.equal(await bodyOf('pair'), '<section id="news"><h2>News</h2><p>Newest post</p><a href="/linked">Linked page</a></section>\n<h2 class="lone">Lone heading</h2>');
+  const pair = await snapshotOf('pair');
+  assert.deepEqual(pair.headings.map(item => item.text), ['News', 'Lone heading'], 'A match that is itself a heading counts.');
+  assert.equal(pair.title, 'Components'); assert.equal(pair.lang, 'en');
+  assert.doesNotMatch(pair.text, /Footer text/);
+  assert.deepEqual((await snapshotOf('news')).links.map(item => item.path), ['/linked']);
+  const overlap = await snapshotOf('overlap');
+  assert.deepEqual(overlap.headings.map(item => item.text), ['News'], 'A match inside another match counts once.');
+  assert.equal(overlap.links.length, 1); assert.equal(overlap.text.match(/Newest post/g).length, 1);
+  assert.equal(await bodyOf('overlap'), await bodyOf('news'), 'The body holds each element once.');
+  assert.equal(cell('same').state, 'captured', 'Two selectors with one match keep that match once.');
+  assert.equal(await bodyOf('same'), await bodyOf('news'));
+  assert.equal(cell('absent').state, 'failed'); assert.equal(cell('absent').error.code, 'CONTENT_CAPTURE_FAILED');
+  assert.equal(cell('absent').bodyPath, undefined);
+  assert.notEqual(cell('news').settingsHash, cell('whole').settingsHash, 'A component snapshot has its own settings hash.');
+  const scoped = await compareRuns({ runsRoot: join(directory, 'component-runs'), runA: ca.run.id, runB: cb.run.id, outputDir: join(directory, 'component-report'), contentChecks: ['expect-text', 'heading-outline'] });
+  const missing = scoped.report.findings.filter(item => item.checkId === 'expect-text').map(item => [item.targetId, item.message]);
+  assert.deepEqual(missing, [['news', 'The page does not contain the expected text "Footer text".']], 'The footer is outside the component; the page target finds it.');
+  const outline = scoped.report.findings.filter(item => item.checkId === 'heading-outline').map(item => item.targetId);
+  assert.deepEqual(outline, ['whole', 'whole'], 'A component needs no h1. The page without an h1 fails.');
   console.log('Content capture, stored checks, bounded query, local sidecars, and capture-free rerun pass.');
 } finally {
   await viewer?.close(); site.closeAllConnections(); await new Promise(resolve => site.close(resolve)); await rm(directory, { recursive: true, force: true });

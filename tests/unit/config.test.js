@@ -278,3 +278,13 @@ test('target.expectStatus takes one HTTP status code and enters no capture setti
   assert.deepEqual(captureSettings(normalizeConfig(withStatus), 'local'), captureSettings(normalizeConfig(base), 'local'));
   for (const bad of [99, 600, 404.5, '404', null, [404]]) assert.throws(() => normalizeConfig({ ...base, targets: [{ ...base.targets[0], expectStatus: bad }] }), /expectStatus/, String(bad));
 });
+
+test('the content settings of a selector target bind the scope; a page target keeps its hash (R7.9, #442)', async () => {
+  const { contentSettings } = await import('../../src/config/settings.js');
+  const config = normalizeConfig({ schemaVersion: 1, sides: { local: { origin: 'http://127.0.0.1:8080' } }, viewports: [{ id: 'wide', width: 640, height: 480 }],
+    targets: [{ id: 'home', kind: 'page', path: '/' }, { id: 'news', kind: 'component', path: '/', selector: '#news' }, { id: 'pair', kind: 'component', path: '/', selector: ['#news', '#footer'] }] });
+  const [home, news, pair] = config.targets;
+  assert.equal(Object.hasOwn(contentSettings(config, 'local', home), 'scope'), false);
+  assert.equal(contentSettings(config, 'local', news).scope, '#news');
+  assert.deepEqual(contentSettings(config, 'local', pair).scope, ['#news', '#footer']);
+});
