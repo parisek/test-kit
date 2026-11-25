@@ -4,13 +4,13 @@ export function afterSweepError(selector) {
   return Object.assign(new Error(`The afterSweep selector ${JSON.stringify(selector)} matches no visible element after the lazy-image sweep. Fix settle.afterSweep or the page.`), { code: 'AFTER_SWEEP_NOT_VISIBLE' });
 }
 
-// #413, R5.9: the growth failure of the sweep, with both heights. The page script throws a plain message, so the
-// capture rebuilds it here from two integers: no page text reaches the stored message.
-const GROWS = /Lazy-image page grows during settlement \((\d{1,9}) px to (\d{1,9}) px\)/;
-export function lazyGrowthError(error) {
-  const match = GROWS.exec(String(error?.message ?? ''));
-  if (!match) return error;
-  return Object.assign(new Error(`Lazy-image page grows during settlement (${Number(match[1])} px to ${Number(match[2])} px). Set settle.lazyImages only on targets with native lazy images.`), { code: 'LAZY_PAGE_GROWS' });
+// #413, R5.9: the growth failure of the sweep, with both heights. The page script returns the two heights as a
+// structured result, never as error text, so no page exception can pose as a growth failure. The capture checks
+// that both are safe integers and builds the message here: no page text reaches the stored message.
+export function lazyGrowthError(result) {
+  const heights = result?.grew;
+  if (!Array.isArray(heights) || heights.length !== 2 || !heights.every(value => Number.isSafeInteger(value) && value >= 0)) return null;
+  return Object.assign(new Error(`Lazy-image page grows during settlement (${heights[0]} px to ${heights[1]} px). Set settle.lazyImages only on targets with native lazy images.`), { code: 'LAZY_PAGE_GROWS' });
 }
 
 // Settlement uses the existing capture context and does not navigate (R4.2).
@@ -52,18 +52,20 @@ export async function settlePage({ page, recipe, active = () => true, progress =
   }
   check();
   if (!recipe.lazyImages) return;
-  try { await page.evaluate(async () => {
+  const swept = await page.evaluate(async () => {
     const initial = { x: scrollX, y: scrollY };
     const maxHeight = 30000, maxSteps = 50;
     const pause = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     // `behavior: 'instant'` ignores a `scroll-behavior: smooth` of the page, so each scroll lands before the next step (#353).
     const scroll = (left, top) => scrollTo({ left, top, behavior: 'instant' });
+    // A local class: page code cannot make an instance, so only this script can signal growth.
+    class Grown { constructor(from, to) { this.from = from; this.to = to; } }
     try {
       const initialHeight = document.documentElement.scrollHeight;
       if (initialHeight > maxHeight) throw new Error('Lazy-image page exceeds the settlement height limit.');
       if (innerHeight <= 0 || Math.ceil(initialHeight / innerHeight) + 1 > maxSteps) throw new Error('Lazy-image page exceeds the settlement step limit.');
       // #413: the message names both heights, so a person sees how much the page grew. The heights are numbers, never page text.
-      const grown = () => { const height = document.documentElement.scrollHeight; if (height > initialHeight) throw new Error(`Lazy-image page grows during settlement (${initialHeight} px to ${height} px).`); };
+      const grown = () => { const height = document.documentElement.scrollHeight; if (height > initialHeight) throw new Grown(initialHeight, height); };
       for (let step = 0, y = 0; ; step++, y += innerHeight) {
         grown();
         if (y > initialHeight) break;
@@ -89,8 +91,14 @@ export async function settlePage({ page, recipe, active = () => true, progress =
       await document.fonts.ready;
       await pause();
       grown();
+      return null;
+    } catch (error) {
+      if (error instanceof Grown) return { grew: [error.from, error.to] };
+      throw error;
     } finally { scroll(initial.x, initial.y); }
-  }); } catch (error) { throw lazyGrowthError(error); }
+  });
+  const growth = lazyGrowthError(swept);
+  if (growth) throw growth;
   check();
   // R5.15: after the restore, wait for the state the page returns to on its own time (a debounced scroll listener, a timer).
   if ((recipe.afterSweep ?? []).length > 20) throw new Error('Capture settlement accepts at most 20 afterSweep selectors.');
