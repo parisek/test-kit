@@ -27,9 +27,9 @@ test('compareRuns names the run that lacks a renamed target (R8.19, #412)', { sk
   const dir = await mkdtemp(join(tmpdir(), 'test-kit-missing-'));
   try {
     const png = () => { const image = new PNG({ width: 20, height: 10 }); image.data.fill(255); return PNG.sync.write(image); };
-    const fake = async (id, targetIds) => {
+    const fake = async (id, targetIds, artifacts) => {
       const config = normalizeConfig({ schemaVersion: 1, sides: { local: { origin: 'http://localhost:8080' } },
-        targets: targetIds.map((target) => ({ id: target, kind: 'page', path: `/${target}` })), viewports: [{ id: 'desktop', width: 20, height: 10 }], runsRoot: 'runs' });
+        targets: targetIds.map((target) => ({ id: target, kind: 'page', path: `/${target}` })), viewports: [{ id: 'desktop', width: 20, height: 10 }], runsRoot: 'runs', ...(artifacts ? { artifacts } : {}) });
       const runDir = join(dir, 'runs', id);
       const captures = [];
       for (const row of config.targets) {
@@ -49,5 +49,13 @@ test('compareRuns names the run that lacks a renamed target (R8.19, #412)', { sk
     assert.equal(cell('blog').diagnostic, `Target blog at desktop is not in run A (${A.id}). Capture that side again.`);
     assert.equal(cell('home').diagnostic, undefined);
     assert.equal(cell('news').state, 'missing');
+    // A pair without the screenshot artifact gets the same diagnostic.
+    await fake('2026-11-17T11-00-00-000Z-1-cccccc1', ['home', 'news'], ['status']);
+    await fake('2026-11-17T11-00-00-000Z-1-dddddd1', ['home', 'blog'], ['status']);
+    const statusOnly = (await compareRuns({ runsRoot: join(dir, 'runs'), runA: '2026-11-17T11-00-00-000Z-1-cccccc1', runB: '2026-11-17T11-00-00-000Z-1-dddddd1', outputDir: join(dir, 'report2') })).report;
+    const news = statusOnly.entries.find((entry) => entry.id === 'news').viewports[0];
+    assert.equal(news.state, 'missing');
+    assert.equal(news.diagnostic, 'Target news at desktop is not in run B (2026-11-17T11-00-00-000Z-1-dddddd1). Capture that side again.');
+    assert.equal(Object.hasOwn(statusOnly.entries.find((entry) => entry.id === 'home').viewports[0], 'diagnostic'), false);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

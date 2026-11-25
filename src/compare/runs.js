@@ -416,6 +416,11 @@ export async function compareRuns({ runsRoot, runA: aId, runB: bId, outputDir, k
 				row.state = 'failed';
 				row.diagnostic ??= ac?.error?.message ?? bc?.error?.message ?? 'Capture fails.';
 			}
+			// R8.19: a pair without screenshots names the run that lacks the cell too.
+			if (row.state === 'missing' && row.diagnostic === undefined) {
+				const missing = missingCellDiagnostic({ targetId: target.id, viewportId: viewport.id, ac, bc, a, b });
+				if (missing) row.diagnostic = missing;
+			}
 			rows.push(row);
 		}
 		entries.push({ id: target.id, kind: target.kind, title: target.title, path: target.path ?? '/', viewports: rows, artifacts: {} });
