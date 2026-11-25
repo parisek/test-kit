@@ -259,8 +259,9 @@ use `name`, `detect`, and `run`. Select them with `behavior.enabled` or
 empty list selects no behavior contract. Unknown and duplicate names fail.
 A skipped contract or empty selection is not evidence of a passed assertion.
 Use `--checks none` or `--contracts none` to disable that group for one run.
-Component selector capture supports visual evidence. Component content
-extraction remains unsupported.
+Component selector capture supports visual evidence and content. The content
+of a selector target is the first match of each selector, so `expectText` and
+the content checks read the component, not the whole page.
 
 ### Selectors with more than one match
 
@@ -465,8 +466,10 @@ the language check. There are no default checks.
 Capture stores bounded, gzip-compressed extracted fields and the settled DOM body locally.
 Comparison reads the snapshot. It performs no crawl. Internal links use only
 HTTP responses already measured for targets in the same viewport. An unmeasured
-link remains unknown. Component-scoped content capture is not supported yet.
-It records failed evidence instead of using the whole page as a component.
+link remains unknown. A target with a `selector` stores the content of the
+first match of each selector: the DOM body is the `outerHTML` of the matches,
+and text, headings, images and links come from the matches. Title and language
+stay those of the page. A selector without a match records failed evidence.
 
 To rerun checks over stored runs:
 

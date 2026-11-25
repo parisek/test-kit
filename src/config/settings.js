@@ -39,7 +39,8 @@ export function responseSettings(config, kind) {
 
 export function contentSettings(config, side, target) {
   const { masks, ...settle } = settleRecipe(config, side, target);
-  return { mode: 'settled-dom', extractorVersion: '1.1.0', viewports: config.viewports, settle, maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
+  // #442: a selector target binds its scope, so a component snapshot never compares with a page snapshot. A page target keeps its hash.
+  return { mode: 'settled-dom', extractorVersion: '1.1.0', viewports: config.viewports, settle, ...(target?.selector ? { scope: target.selector } : {}), maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
 }
 
 // R6.14: the layout read binds the settled page like the content snapshot, with the masks left out.
