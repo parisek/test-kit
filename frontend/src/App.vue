@@ -15,12 +15,23 @@ import { sizeMismatch } from '../../src/report/size.js';
 import { anchorFor } from './state/index-list.js';
 import { localDateTime, reportNeighbors } from './state/report-nav.js';
 import { rowClass, verdictSentence } from './state/home-model.js';
+import LiveView from './components/LiveView.vue';
+import { isLiveHash } from './state/live-link.js';
 
 const { state, summary, filteredTargets, dispatch, loadSource, start, openReport, applyHash } = useViewer();
 // The decision actions of a finding build a link to the open report.
 provide('reportId', computed(() => state.reportId));
 // R10.14: Back, Forward and an edited hash apply the link.
-const onHashChange = () => applyHash();
+// R10.17: the Live page has its own hash form. Every other hash is a deep link.
+const live = ref(isLiveHash(location.hash));
+const onHashChange = () => { live.value = isLiveHash(location.hash); applyHash(); };
+// The breadcrumb of the Live page returns to the Home, or to the Overview of an adjacent report.
+const liveBack = computed(() => (state.index ? { label: 'Comparisons' } : state.report ? { label: `${state.report.meta.title ?? 'Comparison'}: Overview` } : { label: 'Viewer' }));
+async function leaveLive() {
+	history.pushState(history.state, '', location.pathname + location.search);
+	live.value = false;
+	await applyHash('');
+}
 const source = ref('report.json');
 const sidebar = ref(null);
 const indexView = ref(null);
@@ -63,7 +74,7 @@ const component = computed(
 	() => ({ overview: MatrixView, evidence: TargetDetail, findings: FindingsView, info: TimelineView })[state.view],
 );
 // The target list is a panel inside the Evidence view only (DESIGN.md "Layout").
-const targetPanel = computed(() => Boolean(state.report) && state.view === 'evidence');
+const targetPanel = computed(() => Boolean(state.report) && state.view === 'evidence' && !live.value);
 // Tabs: arrow keys move between them (WAI-ARIA tabs pattern).
 function tabKey(event) {
 	const order = Object.keys(views);
@@ -241,12 +252,14 @@ onUnmounted(() => {
                 <p v-if="!targetPanel" class="header-brand"><span class="header-mark" aria-hidden="true">tk</span><strong>test kit</strong></p>
                 <button v-if="targetPanel" id="sidebar-toggle" aria-label="Targets" ref="toggle" :class="[pill, idle]" :aria-expanded="!state.sidebarHidden" aria-controls="sidebar" @click="dispatch('sidebar')"><span aria-hidden="true">☰</span><span class="target-toggle-label">Targets</span></button>
                 <div class="toolbar-end">
+                    <a href="#live" class="live-link" :class="[pill, live ? active : idle]" :aria-current="live ? 'page' : undefined" @click="live = true">Live</a>
                     <button id="theme" :aria-label="state.theme === 'dark' ? 'Light theme' : 'Dark theme'" :class="[pill, idle]" :aria-pressed="state.theme === 'dark'" @click="dispatch('theme')"><span aria-hidden="true">{{ state.theme === 'dark' ? '☀' : '◐' }}</span><span class="theme-label">{{ state.theme === 'dark' ? 'Light theme' : 'Dark theme' }}</span></button>
                 </div>
             </header>
-            <p id="notice" :class="state.report && !state.loading && state.notice.startsWith('Loaded') ? 'sr-only' : 'viewer-notice'" role="status" aria-live="polite">{{ state.notice }}</p>
-            <main id="content" class="viewer-content" :aria-busy="state.loading">
-                <template v-if="state.report">
+            <p v-if="!live" id="notice" :class="state.report && !state.loading && state.notice.startsWith('Loaded') ? 'sr-only' : 'viewer-notice'" role="status" aria-live="polite">{{ state.notice }}</p>
+            <main id="content" class="viewer-content" :class="{ 'viewer-content-live': live }" :aria-busy="state.loading">
+                <LiveView v-if="live" :back="liveBack" @back="leaveLive" />
+                <template v-else-if="state.report">
                     <nav v-if="state.index || state.view === 'evidence'" class="breadcrumb" aria-label="Breadcrumb"><ol>
                         <li v-if="state.index"><a href="#" @click.prevent="back">Comparisons</a></li>
                         <li v-if="state.view === 'evidence'"><a href="#" @click.prevent="dispatch('view', 'overview')">{{ state.report.meta.title ?? 'Comparison' }}: Overview</a></li>

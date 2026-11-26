@@ -1,3 +1,4 @@
+import { isLiveHash } from './live-link.js';
 import { comparisonDetail } from '../../../src/artifacts/schema.js';
 import { computed, markRaw, readonly, shallowReactive } from 'vue';
 import { adaptReport } from '../../../src/report/model.js';
@@ -363,6 +364,8 @@ export function useViewer(options = {}) {
 	let booting = false;
 	async function applyHash(hash = browser?.location?.hash ?? '') {
 		if (booting) return;
+		// R10.14: a `#live` hash is the Live page of R10.17. The report state stays as it is.
+		if (isLiveHash(hash)) return;
 		// With an index, a hash that is not a deep link (#main) changes nothing.
 		if (state.index && !parseDeepLink(hash) && hash.replace(/^#/, '') !== '') return;
 		// A newer hash change cancels a report load in flight, also when the new hash
