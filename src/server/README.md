@@ -1,6 +1,8 @@
 # src/server
 
-`serve({reportPath, port, host})` starts a read-only loopback report server.
+`serve({reportPath, port, host, live})` starts a read-only loopback report server.
+With `live` (a loaded config), it also starts the live proxies of `live.js`, one for each side with an origin (R10.18).
+`live-rules.js` holds the pure rules: refusals, forwarded headers, response headers, the script and `/live.json`.
 It returns `server`, `origin`, and asynchronous `close`. The default port is
 assigned by the operating system. The default host is `127.0.0.1`.
 

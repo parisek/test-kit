@@ -35,6 +35,17 @@ Only GET and HEAD are supported. Response sidecars have a 2 MiB size limit.
 Other served files have an 80,000,000 byte size limit.
 Stop the command after review. Client evidence stays local.
 
+### Live proxy
+
+`test-kit serve <report.json> --live [--config FILE]` also starts one loopback proxy for each side with an `origin` (R10.18). It prints `{ url, live }`: `live` maps each side to its proxy origin. The config defaults to `test-kit.config.json`. The Live page of the viewer (R10.17) shows the pages through these proxies.
+
+- Open the viewer at the printed `127.0.0.1` address. Under `--live`, `localhost` gets 400.
+- A proxy answers GET and HEAD only. It sends no cookie and no `Authorization`, and it drops `Set-Cookie`. A page that needs a login does not work.
+- A proxy refuses a request from another web site and a service worker.
+- A local side accepts any certificate, as its capture does. A remote side verifies it.
+- An HTML page gets one script for the scroll position. A compressed HTML body passes unchanged and gets no script.
+- A proxy writes no file. Its pages are not evidence.
+
 
 ## Compare a subset
 

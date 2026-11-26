@@ -4,13 +4,16 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { adaptReport } from '../report/model.js';
 import { boundedRead, reportFiles, readReportFile } from './files.js';
+import { crossSiteRefused, hostMatches, liveIndex } from './live-rules.js';
 
 const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
 
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
 
-export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
+// `live` is a loaded config (R10.18). Without it, `serve` is as before.
+export async function serve({ reportPath, port = 0, host = '127.0.0.1', live = null }) {
 	if (!['127.0.0.1', '::1', 'localhost'].includes(host)) throw new Error('The report server must bind to loopback.');
+	if (live && host !== '127.0.0.1') throw new Error('The live proxy needs the host 127.0.0.1.');
 	if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid server port.');
 	const reportFile = await realpath(reportPath);
 	const reportRoot = dirname(reportFile);
@@ -23,11 +26,17 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 		['/style.css', [packageRoot, 'viewer/style.css', 'text/css']],
 		['/favicon.svg', [packageRoot, 'viewer/favicon.svg', 'image/svg+xml']],
 	]);
+	let liveState = null;
 	const server = http.createServer(async (req, res) => {
-		res.setHeader('Content-Security-Policy', CSP);
+		res.setHeader('Content-Security-Policy', liveState ? `${CSP}; frame-src ${Object.values(liveState.origins).join(' ') || "'none'"}` : CSP);
 		res.setHeader('X-Content-Type-Options', 'nosniff');
 		res.setHeader('Cache-Control', 'no-store');
 		const fail = (code) => { res.statusCode = code; res.end(); };
+		// R10.18 item 3: with `--live`, a foreign Host and a cross-site request are refused. A top-level navigation passes.
+		if (live) {
+			if (!hostMatches(req.headers, server.address().port)) { fail(400); return; }
+			if (crossSiteRefused(req.headers, { allowNavigation: true })) { fail(403); return; }
+		}
 		if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); fail(405); return; }
 		try {
 			const raw = req.url ?? '';
@@ -37,6 +46,11 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 			if (path === '/report.json') {
 				res.setHeader('Content-Type', 'application/json'); res.setHeader('Content-Length', reportBytes.length);
 				res.end(req.method === 'HEAD' ? undefined : reportBytes); return;
+			}
+			if (path === '/live.json') {
+				if (!liveState) { fail(404); return; }
+				res.setHeader('Content-Type', 'application/json'); res.setHeader('Content-Length', liveState.index.length);
+				res.end(req.method === 'HEAD' ? undefined : liveState.index); return;
 			}
 			let route = routes.get(path);
 			const descriptor = files.get(path.slice(1));
@@ -51,5 +65,14 @@ export async function serve({ reportPath, port = 0, host = '127.0.0.1' }) {
 	});
 	await new Promise((accept, reject) => { server.once('error', reject); server.listen(port, host, accept); });
 	const address = server.address();
-	return { server, origin: `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`, close: () => new Promise((accept, reject) => server.close((error) => error ? reject(error) : accept())) };
+	const origin = `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`;
+	const closeServer = () => new Promise((accept, reject) => server.close((error) => error ? reject(error) : accept()));
+	if (!live) return { server, origin, close: closeServer };
+	let proxies;
+	try {
+		const { startLiveProxies } = await import('./live.js');
+		proxies = await startLiveProxies(live, { viewerOrigin: origin });
+	} catch (error) { await closeServer(); throw error; }
+	liveState = { origins: proxies.origins, index: Buffer.from(JSON.stringify(liveIndex(live, proxies.origins))) };
+	return { server, origin, live: proxies.origins, close: async () => { await proxies.close(); await closeServer(); } };
 }
