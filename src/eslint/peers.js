@@ -4,7 +4,7 @@
 
 export const REQUIRED = [
   { name: '@eslint/js', install: 'npm i -D eslint @eslint/js' },
-  { name: 'eslint-plugin-import', install: 'npm i -D eslint-plugin-import' },
+  { name: 'eslint-plugin-import-x', install: 'npm i -D eslint-plugin-import-x' },
 ];
 
 export class LintPeerError extends Error {
@@ -73,7 +73,7 @@ export async function loadPeers(importer = (name) => import(name)) {
 
   return {
     js: loaded['@eslint/js'],
-    importPlugin: loaded['eslint-plugin-import'],
+    importPlugin: loaded['eslint-plugin-import-x'],
     globals,
     tseslint,
     vue: vue && vueParser ? vue : null,

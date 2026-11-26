@@ -67,3 +67,15 @@ The check covers known advisories on the day above. It does not cover a future o
 - The work is two pull requests: the ESLint entry, then the Stylelint entry. The project switch to the thin import waits for the skeleton adoption issue (#21) and stays in the project (R13.43).
 - Rule logic moves from the first consumer project. No client name, URL or path moves with it (R12.4). Project documentation links in rule messages are removed. Rule identifiers and `messageIds` stay (R13.50).
 - Fixtures are rewritten with `example-site` style names where needed.
+
+## Amendment, 2026-11-26: eslint-plugin-import-x (#437)
+
+The risk above came true. `eslint-plugin-import` 2.32.0 is still the latest release and accepts `eslint` up to `^9`, so ESLint 10 does not install with it (Dependabot #404 failed with `ERESOLVE`). The owner chose on 2026-11-26 to replace it with `eslint-plugin-import-x` (#437).
+
+- The required peer is `eslint-plugin-import-x` `^4.18.1`. 4.18.1 is from 2026-11-09. It accepts `eslint` `^8.57.0 || ^9.0.0 || ^10.0.0`. Its peers `@typescript-eslint/utils` and `eslint-import-resolver-node` are optional. The source is `un-ts/eslint-plugin-import-x`.
+- The config registers it under the namespace `import`. The rule ids `import/no-duplicates` and `import/no-self-import` and disable comments that name them keep working.
+- The `eslint` and `@eslint/js` ranges widen to `^9.39.5 || ^10.0.0`. The dev pins stay on 9.39.5.
+- `npm audit` on 2026-11-26 shows no advisory for `eslint-plugin-import-x` or its dependencies. The 7 moderate entries are the same as on `main` (`typescript-eslint` and `minimatch`). OSV and the GitHub advisory API were not reachable from the session.
+- `eslint-plugin-import-x` depends on `unrs-resolver`, whose `postinstall` script runs `napi-postinstall unrs-resolver <version> check`. npm installs the platform binary as an optional dependency. The tests passed after `npm ci --ignore-scripts` in the session, so the script is not needed for the rules.
+
+Rejected: dropping the two import rules (the owner chose to keep them), and staying on ESLint 9 (a project on ESLint 10 could not install the package).
