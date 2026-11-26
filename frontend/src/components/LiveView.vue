@@ -118,7 +118,7 @@ onMounted(async () => {
 	try {
 		const response = await fetch(new URL('live.json', location.href), { credentials: 'same-origin', cache: 'no-store', redirect: 'error' });
 		if (!response.ok || !/^application\/json\b/.test(response.headers.get('content-type') ?? '')) throw new Error('no live.json');
-		index.value = readLiveIndex(await response.json());
+		index.value = readLiveIndex(await response.json(), { viewerOrigin: location.origin });
 		if (!index.value?.usable) throw new Error('unusable');
 		readHash();
 		write({ replace: true });

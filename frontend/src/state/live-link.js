@@ -55,11 +55,16 @@ function validPath(value) {
 const size = (value) => Number.isSafeInteger(value) && value > 0 && value <= MAX_SIZE;
 
 // Checks /live.json (R10.18 item 9). Each id passes `validId`; an entry that fails is dropped.
-// A side origin must be `http://127.0.0.1:<port>` (R10.17 item 4).
-export function readLiveIndex(input) {
+// A side origin must be `http://127.0.0.1:<port>` (R10.17 item 4). It must differ from the viewer
+// origin and from every other side, because each proxy is an origin of its own (R10.18 item 2).
+// A side that breaks this is dropped, also the first side with a repeated origin.
+export function readLiveIndex(input, { viewerOrigin = null } = {}) {
 	if (!input || typeof input !== 'object') return null;
 	const list = (value) => (Array.isArray(value) ? value.slice(0, 500) : []);
-	const sides = list(input.sides).filter((side) => side && validId(side.id) && typeof side.origin === 'string' && PROXY_ORIGIN.test(side.origin) && Number(PROXY_ORIGIN.exec(side.origin)[1]) <= 65535)
+	const valid = list(input.sides).filter((side) => side && validId(side.id) && typeof side.origin === 'string' && PROXY_ORIGIN.test(side.origin) && Number(PROXY_ORIGIN.exec(side.origin)[1]) <= 65535);
+	const count = new Map();
+	for (const side of valid) count.set(side.origin, (count.get(side.origin) ?? 0) + 1);
+	const sides = valid.filter((side) => side.origin !== viewerOrigin && count.get(side.origin) === 1)
 		.map((side) => ({ id: side.id, origin: side.origin }));
 	const sideIds = new Set(sides.map((side) => side.id));
 	const targets = list(input.targets).filter((target) => target && validId(target.id) && target.paths && typeof target.paths === 'object')
