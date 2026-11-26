@@ -9,14 +9,16 @@ import { runWithPeers } from '../helpers/lint-peers.js';
 
 const stubs = { js: { configs: { recommended: {} } }, importPlugin: {} };
 
-test('the ESLint peers accept ESLint 9 and 10, and eslint-plugin-import-x replaces eslint-plugin-import (R13.46, #437)', async () => {
+test('the ESLint peers accept ESLint 9 and 10, and eslint-plugin-import-x joins eslint-plugin-import (R13.46, #437)', async () => {
   const { readFile } = await import('node:fs/promises');
   const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
   const ranges = name => pkg.peerDependencies[name].split('||').map(part => part.trim());
   for (const name of ['eslint', '@eslint/js']) assert.deepEqual(ranges(name), ['^9.39.5', '^10.0.0'], name);
   assert.deepEqual(ranges('eslint-plugin-import-x'), ['^4.18.1']);
-  assert.equal(pkg.peerDependenciesMeta['eslint-plugin-import-x'].optional, true);
-  for (const key of ['peerDependencies', 'peerDependenciesMeta', 'devDependencies']) assert.equal(Object.hasOwn(pkg[key], 'eslint-plugin-import'), false, key);
+  // eslint-plugin-import stays an accepted peer in 1.x (freeze rule, docs/seam.md). CI tests with import-x.
+  assert.deepEqual(ranges('eslint-plugin-import'), ['^2.32.0']);
+  for (const name of ['eslint-plugin-import-x', 'eslint-plugin-import']) assert.equal(pkg.peerDependenciesMeta[name].optional, true, name);
+  assert.equal(Object.hasOwn(pkg.devDependencies, 'eslint-plugin-import'), false);
   const lock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url), 'utf8'));
   assert.deepEqual(lock.packages[''].peerDependencies, pkg.peerDependencies);
 });
@@ -71,7 +73,19 @@ test('loadPeers: required peers throw LINT_PEER_MISSING, enhancements warn (R13.
     assert.match(error.message, /"@eslint\/js".*npm i -D eslint @eslint\/js/);
     return true;
   });
-  await assert.rejects(loadPeers(importer(['eslint-plugin-import-x'])), { code: 'LINT_PEER_MISSING', peer: 'eslint-plugin-import-x' });
+  // One of the two import plugins is required. eslint-plugin-import-x wins; eslint-plugin-import of 1.4 still works (#437).
+  const both = ['eslint-plugin-import-x', 'eslint-plugin-import'];
+  await assert.rejects(loadPeers(importer(both)), (error) => {
+    assert.equal(error.code, 'LINT_PEER_MISSING');
+    assert.equal(error.peer, 'eslint-plugin-import-x');
+    assert.match(error.message, /npm i -D eslint-plugin-import-x/);
+    return true;
+  });
+  const x = { default: { name: 'import-x' } }, legacy = { default: { name: 'import' } };
+  assert.equal((await loadPeers(importer([], { 'eslint-plugin-import-x': x, 'eslint-plugin-import': legacy }))).importPlugin, x.default);
+  const old = await loadPeers(importer(['eslint-plugin-import-x'], { 'eslint-plugin-import': legacy }));
+  assert.equal(old.importPlugin, legacy.default);
+  assert.deepEqual(old.warnings, []);
 
   const all = await loadPeers(importer());
   assert.deepEqual(all.warnings, []);

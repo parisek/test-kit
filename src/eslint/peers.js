@@ -4,8 +4,12 @@
 
 export const REQUIRED = [
   { name: '@eslint/js', install: 'npm i -D eslint @eslint/js' },
-  { name: 'eslint-plugin-import-x', install: 'npm i -D eslint-plugin-import-x' },
 ];
+
+// The import rules need one of two plugins (#437). `eslint-plugin-import-x` comes first: it supports
+// ESLint 10. `eslint-plugin-import` stays accepted in 1.x, so a project of 1.4 keeps its lint config.
+export const IMPORT_PLUGINS = ['eslint-plugin-import-x', 'eslint-plugin-import'];
+const IMPORT_INSTALL = 'npm i -D eslint-plugin-import-x';
 
 export class LintPeerError extends Error {
   constructor(peer, install) {
@@ -43,6 +47,12 @@ export async function loadPeers(importer = (name) => import(name)) {
     if (!value) throw new LintPeerError(name, install);
     loaded[name] = value;
   }
+  let importPlugin = null;
+  for (const name of IMPORT_PLUGINS) {
+    importPlugin = await load(importer, name);
+    if (importPlugin) break;
+  }
+  if (!importPlugin) throw new LintPeerError(IMPORT_PLUGINS[0], IMPORT_INSTALL);
 
   const globals = await load(importer, 'globals');
   if (!globals) {
@@ -73,7 +83,7 @@ export async function loadPeers(importer = (name) => import(name)) {
 
   return {
     js: loaded['@eslint/js'],
-    importPlugin: loaded['eslint-plugin-import-x'],
+    importPlugin,
     globals,
     tseslint,
     vue: vue && vueParser ? vue : null,
