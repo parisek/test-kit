@@ -20,13 +20,13 @@ Usage: test-kit <command> [options]
   record-allowed REPORT --target ID --check ID [--viewport ID] [--fingerprint HASH] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--config FILE] [--allowlist FILE]
   record-decision REPORT --target ID --viewport ID --part ID --property P --decision implement|report-only --reason TEXT --owner TEXT [--config FILE] [--decisions FILE]
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
-  serve REPORT [--port N]
+  serve REPORT [--port N] [--live [--config FILE]]   With --live, start one loopback proxy for each side with an origin, for the Live page.
   bundle REPORT [--finding ID --output DIR] [--config FILE]   Without --finding, list the findings of the report. With it, write the evidence of one finding to DIR/ID/ for a task: finding.json, finding.md and, for a screenshot, the cropped A, B and difference images. It uploads nothing.
   note RUN [--file FILE] [--config FILE] [--store PATH]   Attach the JSON object in FILE to a stored run as server facts. Without --file, list the notes of the run.
   -h, --help     Show this help.
   -v, --version  Show the version.
 `;
-const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts', 'packs'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'],
+const FLAGS = { perf: ['ddev', 'store', 'path', 'config', 'side', 'targets', 'label', 'runs', 'form-factor', 'throttling', 'budget', 'consent', 'allow-high-load', 'fail-on-budget'], capture: ['config', 'side', 'label', 'artifacts', 'packs'], diff: ['config', 'output', 'kind', 'checks', 'fail-on-budget'], summary: ['max-targets', 'filter', 'target'], serve: ['port', 'live', 'config'], query: ['target', 'viewport', 'artifact', 'max-lines'], 'record-known': ['config', 'target', 'viewport', 'artifact', 'cause', 'reason'],
   'record-allowed': ['config', 'target', 'check', 'viewport', 'fingerprint', 'reason', 'owner', 'expires', 'allowlist'] };
 const workflowFlags = ['config', 'side', 'target', 'path', 'selector', 'viewport', 'suite', 'checks', 'contracts', 'label', 'store', 'ddev'];
 for (const name of ['run', 'before', 'after']) FLAGS[name] = workflowFlags;
@@ -64,7 +64,7 @@ export function parseCommand(argv) {
     const name = argument.slice(2);
     if (!argument.startsWith('--') || !FLAGS[command].includes(name)) throw new Error(`Unknown option: ${argument}`);
     if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: ${argument}`);
-    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs', 'keep-existing', 'prune', 'yes'].includes(name)) { options[name] = true; continue; }
+    if (['consent', 'allow-high-load', 'fail-on-budget', 'ddev', 'packs', 'keep-existing', 'prune', 'yes', 'live'].includes(name)) { options[name] = true; continue; }
     const value = args[++index];
     if (value == null || value.startsWith('--') || value === '') throw new Error(`Missing value: ${argument}`);
     options[name] = value;
@@ -283,8 +283,15 @@ export async function dispatch({ command, positions, options }, dependencies = {
     return { output: await queryArtifact(positions[0], { target: options.target, viewport: options.viewport, artifact: options.artifact, maxLines: options.maxLines }), exitCode: 0 };
   }
   const { serve } = await import('../server/serve.js');
-  const result = await serve({ reportPath: positions[0], port: options.port ?? 0 });
-  return { output: { url: result.origin }, exitCode: 0 };
+  // R10.18: `--live` loads and validates the config as `capture` does. `--config` alone changes nothing.
+  if (options.config !== undefined && !options.live) throw new Error('--config needs --live');
+  let live = null;
+  if (options.live) {
+    const { loadConfig } = await import('../config/index.js');
+    live = (await loadConfig(options.config ?? 'test-kit.config.json')).config;
+  }
+  const result = await serve({ reportPath: positions[0], port: options.port ?? 0, live });
+  return { output: live ? { url: result.origin, live: result.live } : { url: result.origin }, exitCode: 0 };
 }
 const STORE_COMMANDS = ['run', 'before', 'after', 'report', 'history', 'note'];
 const RUNSROOT_COMMANDS = ['capture', 'import', 'diff'];
