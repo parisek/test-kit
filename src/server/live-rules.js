@@ -104,14 +104,38 @@ export function injectScript(body) {
   // Only the part before the first `<body` or `<script` counts, so a `<head>` string inside a script does not.
   const stop = text.search(/<(?:body|script)[\s>]/i);
   const start = stop === -1 ? text : text.slice(0, stop);
-  const at = endOf(/<head(?:\s[^>]*)?>/i, start) ?? endOf(/<html(?:\s[^>]*)?>/i, start)
-    ?? endOf(/^(?:\xef\xbb\xbf)?(?:\s|<!--[\s\S]*?-->)*<!doctype[^>]*>/i, text) ?? (text.startsWith('\xef\xbb\xbf') ? 3 : 0);
+  const lower = start.toLowerCase();
+  const at = tagEnd(lower, 'head') ?? tagEnd(lower, 'html')
+    ?? doctypeEnd(text) ?? (text.startsWith('\xef\xbb\xbf') ? 3 : 0);
   return Buffer.concat([body.subarray(0, at), tag, body.subarray(at)]);
 }
 
-function endOf(pattern, text) {
-  const match = pattern.exec(text);
-  return match ? match.index + match[0].length : null;
+// A linear scan, not a regular expression: a side body is untrusted, and a backtracking
+// pattern over leading comments can block the event loop of `serve`.
+function doctypeEnd(text) {
+  let at = text.startsWith('\xef\xbb\xbf') ? 3 : 0;
+  for (;;) {
+    while (at < text.length && /\s/.test(text[at])) at++;
+    if (!text.startsWith('<!--', at)) break;
+    const close = text.indexOf('-->', at + 4);
+    if (close === -1) return null;
+    at = close + 3;
+  }
+  if (text.slice(at, at + 9).toLowerCase() !== '<!doctype') return null;
+  const end = text.indexOf('>', at);
+  return end === -1 ? null : end + 1;
+}
+
+// The end of the first opening tag `<name>` or `<name ...>`, in linear time.
+function tagEnd(lower, name) {
+  const open = `<${name}`;
+  for (let at = lower.indexOf(open); at !== -1; at = lower.indexOf(open, at + 1)) {
+    const next = lower[at + open.length];
+    if (next !== '>' && !/\s/.test(next ?? '')) continue;
+    const end = lower.indexOf('>', at);
+    return end === -1 ? null : end + 1;
+  }
+  return null;
 }
 
 // R10.18 item 6: the scroll script. The viewer origin is the only target and the only accepted sender.

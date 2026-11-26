@@ -77,6 +77,14 @@ test('the script goes after the head tag, or first', () => {
   assert.equal(injectScript(Buffer.from('<!doctype html>\n<body>x')).toString(), `<!doctype html>${tag}\n<body>x`);
   assert.equal(injectScript(Buffer.from('<!DOCTYPE html><html><body><script>var s="<head>"</script>')).toString(), `<!DOCTYPE html><html>${tag}<body><script>var s="<head>"</script>`);
   assert.equal(injectScript(Buffer.from('<!-- c --><!DOCTYPE html><p>x')).toString(), `<!-- c --><!DOCTYPE html>${tag}<p>x`);
+  const comments = Buffer.from('<!-- a -->\n'.repeat(5000) + '<p>x');
+  const started = performance.now();
+  assert.equal(injectScript(comments).toString(), `${tag}${comments}`);
+  assert.ok(performance.now() - started < 500, 'many leading comments do not block the event loop');
+  const open = Buffer.from('<head '.repeat(500_000));
+  const startedOpen = performance.now();
+  assert.equal(injectScript(open).length, open.length + tag.length);
+  assert.ok(performance.now() - startedOpen < 500, 'many unclosed tags do not block the event loop');
   const bom = Buffer.from([0xef, 0xbb, 0xbf]);
   assert.deepEqual(injectScript(Buffer.concat([bom, Buffer.from('<p>x')])), Buffer.concat([bom, Buffer.from(`${tag}<p>x`)]));
   assert.deepEqual(injectScript(Buffer.concat([bom, Buffer.from('<!DOCTYPE html><p>x')])), Buffer.concat([bom, Buffer.from(`<!DOCTYPE html>${tag}<p>x`)]));
