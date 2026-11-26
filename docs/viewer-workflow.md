@@ -45,10 +45,14 @@ flowchart TD
   L[Live link] --> LIVE
   HOME -->|header: Live| LIVE
   OV -->|header: Live| LIVE
+  FD -->|header: Live| LIVE
+  RI -->|header: Live| LIVE
+  EV -->|header: Live| LIVE
   LIVE[Live: one target, two sides, one viewport] -->|change target, side, viewport, layout, zoom| LIVE
-  LIVE -->|swap: space bar| LIVE
-  LIVE -->|copy: Measure this view| DEC
+  LIVE -->|swap: space bar or button| LIVE
+  LIVE -->|copy: Measure this view| MEAS[Measurement command]
   LIVE -->|breadcrumb| HOME
+  LIVE -->|breadcrumb in a viewer copy| OV
 ```
 
 ## Rules for every path
@@ -92,13 +96,14 @@ The developer rebuilds a page and wants to click through the reference and the n
 
 | Part | Rule |
 | --- | --- |
-| Pickers | Target, side A, side B, viewport. The lists come from the config through `/live.json`. A design side is not offered. A target with a `null` path on a picked side is not offered. |
-| Layout | `swap` (default): one frame. The space bar and a button swap the sides. The scroll position carries over as a ratio of the page height. `side-by-side`: two frames. |
-| Scale | Each frame lays out at the viewport width and height in CSS px, then scales down as a whole. Side by side, one factor for both. The factor shows next to the viewport: `desktop · 1440 px at 46 %`. Zoom: fit (default), 50 %, 75 %, 100 %. |
-| State | The hash `#live/<target>/<side A>/<side B>/<viewport>?layout=&zoom=&show=` holds it. A swap adds no history entry. Any other change adds one. |
-| Measure this view | Copies `test-kit before ... && test-kit after ...` for exactly the shown cell. It runs nothing. A server route follows later as its own Tier 3 change. |
+| Pickers | Target, side A, side B, viewport. The lists come from the config through `/live.json`. The viewer checks each id and drops an entry that fails. A design side is not offered. A target with a `null` path on a picked side is not offered. |
+| Layout | `swap` (default): one frame. The space bar and a button swap the sides. The space bar swaps only when the focus is not in a form control and not in a frame. The scroll position carries over as a ratio of the page height. `side-by-side`: two frames. |
+| Scale | Each frame lays out at the viewport width and height in CSS px, then scales down as a whole. Side by side, one factor for both. The factor shows next to the viewport: `desktop · 1440 px at 46 %`. Zoom: fit (default), 50 %, 75 %, 100 %. The Live page uses the full window width, not the content column (`DESIGN.md`, Layout). |
+| Frames | Each frame is sandboxed with no top navigation. Its `src` is the proxy origin from `/live.json` (`http://127.0.0.1:<port>` only) plus the target path. This is the one URL attribute that leaves the page origin. |
+| State | The hash `#live/<target>/<side A>/<side B>/<viewport>?layout=&zoom=&show=` holds it. An omitted side B is the first side that is not side A. A swap replaces the current history entry. Any other change adds one. |
+| Measure this view | Copies `test-kit before ... && test-kit after ...` for exactly the shown cell. The button says that `before` replaces the stored baseline of that selection. It runs nothing. A server route follows later as its own Tier 3 change. |
 | Without the proxy | No frame. The page shows `test-kit serve REPORT --live`. |
-| Security | Each side has its own proxy origin, apart from the viewer. The viewer accepts a scroll message only from the origin and the window of that frame. |
+| Security | Each side has its own proxy origin, apart from the viewer. The proxy refuses a foreign `Host`, a cross-site request, a method other than GET and HEAD, and a service worker (R10.18). The viewer accepts a scroll message only from the origin and the window of that frame. |
 
 The Live page shows no class and no verdict. It is a look, not evidence (V3). The copied command makes the measurement.
 

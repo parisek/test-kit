@@ -141,7 +141,7 @@ One system sans for text. One system mono for records: identifiers, times, paths
 
 ## Layout
 
-A single content column, 1040px maximum, centered. The home and the report use the same header and the same column. There is no permanent side panel on the home. On a report, the page offers four views as tabs. The target list is a panel inside the Evidence view only.
+A single content column, 1040px maximum, centered. The home and the report use the same header and the same column. There is no permanent side panel on the home. The Live page (R10.17) is the one exception to the column: its frames use the full window width. On a report, the page offers four views as tabs. The target list is a panel inside the Evidence view only.
 
 On the Evidence view the run summary is one line: the verdict sentence and the counts as text. A "Run details" disclosure opens the run cards, the counts and the warnings. The Overview keeps the full summary. The owner set this rule on 2026-10-24 (#204).
 

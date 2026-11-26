@@ -44,7 +44,7 @@ node bin/cli.js --help     # the command line
 ## Rules
 
 - **Pure logic stays pure.** Classification, scope of rules, adapters and guards have no DOM and no file system. They run in `node --test` (R4.4).
-- **Report data is untrusted.** Text goes in as text nodes. A URL attribute stays on the page origin. A value that reaches a shell must be a plain relative path. The prototype `js/safe.js` shows the guards.
+- **Report data is untrusted.** Text goes in as text nodes. A URL attribute stays on the page origin. The one exception is the `src` of a Live frame: `http://127.0.0.1:<port>` from `/live.json` plus a path (R10.17). A value that reaches a shell must be a plain relative path. The prototype `js/safe.js` shows the guards.
 - **Additive.** A new artifact or check is a new file. It does not change the core. Nothing new runs by default (G3, R5.1).
 - **No client data.** This repository is public. No client name, URL or screenshot in code, tests, fixtures, commit messages, issues or pull requests (R12.4). Use `example-site`.
 - **Measure before you claim.** A number in a document is measured, or it says it is an estimate.
