@@ -166,5 +166,13 @@ test('bundle refuses an --output inside inputs/ of the default store before it r
       await assert.rejects(dispatch({ command: 'bundle', positions: [join(dir, 'missing.json')], options: { finding: 'x', output, config } }), /--output must not be inside inputs\//, output);
     }
     await assert.rejects(readdir(join(dir, 'test-kit')), { code: 'ENOENT' });
+    // A link to inputs/ does not hide it.
+    const { symlink } = await import('node:fs/promises');
+    await mkdir(join(dir, 'test-kit', 'inputs'), { recursive: true });
+    await symlink(join(dir, 'test-kit', 'inputs'), join(dir, 'link'));
+    for (const output of [join(dir, 'link'), join(dir, 'link', 'new', 'bundles')]) {
+      await assert.rejects(dispatch({ command: 'bundle', positions: [join(dir, 'missing.json')], options: { finding: 'x', output, config } }), /--output must not be inside inputs\//, output);
+    }
+    assert.deepEqual(await readdir(join(dir, 'test-kit', 'inputs')), []);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

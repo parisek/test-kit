@@ -269,8 +269,13 @@ export async function dispatch({ command, positions, options }, dependencies = {
     if (!options.finding) return { output: await listFindings({ reportPath: positions[0] }), exitCode: 0 };
     const { resolve, dirname } = await import('node:path');
     const { DEFAULT_STORE, assertOutsideInputs } = await import('../config/store.js');
-    // R12.6: no output goes into `inputs/` of the default store beside the config.
-    assertOutsideInputs(resolve(options.output), [resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), DEFAULT_STORE)], '--output');
+    const { realpath } = await import('node:fs/promises');
+    // The real path of the nearest existing folder, plus the rest: a link in the path cannot hide inputs/.
+    const real = async path => { try { return await realpath(path); } catch { const parent = dirname(path); return parent === path ? path : resolve(await real(parent), path.slice(parent.length).replace(/^[\\/]/, '')); } };
+    // R12.6: no output goes into `inputs/` of the default store beside the config, also through a link.
+    const store = resolve(dirname(resolve(options.config ?? 'test-kit.config.json')), DEFAULT_STORE);
+    assertOutsideInputs(resolve(options.output), [store, await real(store)], '--output');
+    assertOutsideInputs(await real(resolve(options.output)), [store, await real(store)], '--output');
     return { output: await writeBundle({ reportPath: positions[0], findingId: options.finding, output: options.output }), exitCode: 0 };
   }
   if (command === 'query') {
