@@ -75,6 +75,8 @@ test('the script goes after the head tag, or first', () => {
   assert.equal(injectScript(Buffer.from('<header>x</header>')).toString(), `${tag}<header>x</header>`);
   assert.equal(injectScript(Buffer.from('<!DOCTYPE html><html lang="cs"><body>x')).toString(), `<!DOCTYPE html><html lang="cs">${tag}<body>x`);
   assert.equal(injectScript(Buffer.from('<!doctype html>\n<body>x')).toString(), `<!doctype html>${tag}\n<body>x`);
+  assert.equal(injectScript(Buffer.from('<!DOCTYPE html><html><body><script>var s="<head>"</script>')).toString(), `<!DOCTYPE html><html>${tag}<body><script>var s="<head>"</script>`);
+  assert.equal(injectScript(Buffer.from('<!-- c --><!DOCTYPE html><p>x')).toString(), `<!-- c --><!DOCTYPE html>${tag}<p>x`);
   const bom = Buffer.from([0xef, 0xbb, 0xbf]);
   assert.deepEqual(injectScript(Buffer.concat([bom, Buffer.from('<p>x')])), Buffer.concat([bom, Buffer.from(`${tag}<p>x`)]));
   assert.deepEqual(injectScript(Buffer.concat([bom, Buffer.from('<!DOCTYPE html><p>x')])), Buffer.concat([bom, Buffer.from(`<!DOCTYPE html>${tag}<p>x`)]));

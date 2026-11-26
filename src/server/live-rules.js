@@ -101,8 +101,11 @@ export function plainBody(headers) {
 export function injectScript(body) {
   const tag = Buffer.from(`<script src="${LIVE_SCRIPT_PATH}"></script>`);
   const text = body.toString('latin1');
-  const at = endOf(/<head(?:\s[^>]*)?>/i, text) ?? endOf(/<html(?:\s[^>]*)?>/i, text)
-    ?? endOf(/^(?:\xef\xbb\xbf)?\s*<!doctype[^>]*>/i, text) ?? (text.startsWith('\xef\xbb\xbf') ? 3 : 0);
+  // Only the part before the first `<body` or `<script` counts, so a `<head>` string inside a script does not.
+  const stop = text.search(/<(?:body|script)[\s>]/i);
+  const start = stop === -1 ? text : text.slice(0, stop);
+  const at = endOf(/<head(?:\s[^>]*)?>/i, start) ?? endOf(/<html(?:\s[^>]*)?>/i, start)
+    ?? endOf(/^(?:\xef\xbb\xbf)?(?:\s|<!--[\s\S]*?-->)*<!doctype[^>]*>/i, text) ?? (text.startsWith('\xef\xbb\xbf') ? 3 : 0);
   return Buffer.concat([body.subarray(0, at), tag, body.subarray(at)]);
 }
 
