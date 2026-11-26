@@ -330,7 +330,7 @@ details.scope-details > summary { cursor: pointer; }
 .live-box { position: relative; overflow: hidden; border: 1px solid var(--ui-border); background: var(--ui-surface); }
 .live-frame { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: #fff; }
 .live-measure { border-top: 1px solid var(--ui-border); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; font-size: 0.8125rem; }
-.live-measure h2 { font-size: 0.9375rem; font-weight: 650; }
+.live-measure h2 { font-size: 1.125rem; font-weight: 600; }
 .live-measure pre, .live-missing pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.75rem; padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: 5px; background: var(--ui-toolbar); }
-.live-missing { display: flex; flex-direction: column; gap: 8px; font-size: 0.875rem; }
+.live-missing { display: flex; flex-direction: column; gap: 8px; font-size: 0.9375rem; }
 .live-copied { font-size: 0.75rem; color: var(--ui-muted); }

@@ -30,6 +30,7 @@ test('a proxy refuses a foreign host, a cross-site request, other methods, a bad
   assert.equal(check({ headers: { 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'iframe' } }), null);
   assert.equal(check({ headers: { 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' } }), 403, 'a script of the other side cannot read this side');
   assert.equal(check({ headers: { 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'no-cors', 'sec-fetch-dest': 'script' } }), 403);
+  assert.equal(check({ headers: { 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'no-cors', 'sec-fetch-dest': 'iframe' } }), 403, 'only a navigation passes');
   assert.equal(check({ headers: { 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' } }), null);
   assert.equal(check({ method: 'POST' }), 405);
   assert.equal(check({ url: '//evil.example/' }), 400);
