@@ -27,6 +27,9 @@ export function crossSiteRefused(headers, { allowNavigation = false } = {}) {
 export function proxyRefusal({ method, url, headers }, { port, sideOrigin }) {
   if (!hostMatches(headers, port)) return 400;
   if (crossSiteRefused(headers)) return 403;
+  // R10.18 item 2: another proxy and the viewer are same-site. From them, only a frame or page load passes,
+  // so the script of one side cannot fetch the other side through its proxy.
+  if (headers['sec-fetch-site'] === 'same-site' && !(headers['sec-fetch-mode'] === 'navigate' && ['iframe', 'document'].includes(headers['sec-fetch-dest']))) return 403;
   if (!['GET', 'HEAD'].includes(method)) return 405;
   if (badTarget(url)) return 400;
   let resolved;
@@ -47,7 +50,7 @@ export function forwardHeaders(headers, { sideOrigin, userAgent }) {
 
 // Hop-by-hop headers (RFC 9110, section 7.6.1) and the headers that R10.18 item 5 drops.
 const DROPPED = new Set(['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade', 'te', 'trailer',
-  'set-cookie', 'service-worker-allowed', 'x-frame-options', 'alt-svc', 'strict-transport-security']);
+  'set-cookie', 'service-worker-allowed', 'x-frame-options', 'alt-svc', 'strict-transport-security', 'clear-site-data']);
 
 function withoutFrameAncestors(policy) {
   return policy.split(',').map(part => part.split(';').map(item => item.trim()).filter(item => item && !/^frame-ancestors(\s|$)/i.test(item)).join('; ')).filter(Boolean).join(', ');
@@ -67,7 +70,8 @@ export function responseHeaders(raw, { sideOrigin, proxyOrigin, viewerOrigin, re
   const policies = { 'content-security-policy': [], 'content-security-policy-report-only': [] };
   for (const [key, value] of Object.entries(raw)) {
     const name = key.toLowerCase();
-    if (DROPPED.has(name) || value === undefined) continue;
+    // CORS headers of the side would let another loopback origin read the response (R10.18 item 2).
+    if (DROPPED.has(name) || name.startsWith('access-control-') || value === undefined) continue;
     if (Object.hasOwn(policies, name)) { policies[name].push(...[value].flat()); continue; }
     if (html && name === 'content-length') continue;
     result[name] = name === 'location' ? rewriteLocation(String(value), { sideOrigin, proxyOrigin, requestUrl }) : value;

@@ -319,7 +319,7 @@ details.scope-details > summary { cursor: pointer; }
 .live-pickers { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
 .live-pickers label { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--ui-muted); min-width: 0; }
 .live-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 0.8125rem; }
-.live-bar kbd { font-size: 0.6875rem; opacity: .75; }
+.live-bar kbd { font-size: 0.75rem; opacity: .75; }
 .live-scale { font-variant-numeric: tabular-nums; }
 .live-note { font-size: 0.8125rem; color: var(--ui-muted); }
 .live-stage { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; overflow-x: auto; }

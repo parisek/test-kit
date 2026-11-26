@@ -27,7 +27,10 @@ test('a proxy refuses a foreign host, a cross-site request, other methods, a bad
   assert.equal(check({ headers: { host: 'rebind.example:5000' } }), 400);
   assert.equal(check({ headers: { 'sec-fetch-site': 'cross-site' } }), 403);
   assert.equal(check({ headers: { 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' } }), 403);
-  assert.equal(check({ headers: { 'sec-fetch-site': 'same-site' } }), null);
+  assert.equal(check({ headers: { 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'iframe' } }), null);
+  assert.equal(check({ headers: { 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' } }), 403, 'a script of the other side cannot read this side');
+  assert.equal(check({ headers: { 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'no-cors', 'sec-fetch-dest': 'script' } }), 403);
+  assert.equal(check({ headers: { 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' } }), null);
   assert.equal(check({ method: 'POST' }), 405);
   assert.equal(check({ url: '//evil.example/' }), 400);
   assert.equal(check({ url: 'http://evil.example/' }), 400);
@@ -58,9 +61,9 @@ test('the response drops cookies and frame blocks and allows only the viewer as 
   const headers = responseHeaders({
     'set-cookie': ['a=1'], 'service-worker-allowed': '/', 'x-frame-options': 'DENY', 'transfer-encoding': 'chunked',
     'content-security-policy': "default-src 'self'; frame-ancestors 'none'", 'content-security-policy-report-only': 'frame-ancestors https://x.example',
-    'content-length': '10', 'content-type': 'text/html',
+    'content-length': '10', 'content-type': 'text/html', 'access-control-allow-origin': '*', 'Access-Control-Allow-Credentials': 'true', 'clear-site-data': '"*"',
   }, { sideOrigin: SIDE, proxyOrigin: 'http://127.0.0.1:7000', viewerOrigin: 'http://127.0.0.1:6000', requestUrl: '/', html: true, clearStorage: true });
-  for (const name of ['set-cookie', 'service-worker-allowed', 'x-frame-options', 'transfer-encoding', 'content-length', 'content-security-policy-report-only']) assert.equal(Object.hasOwn(headers, name), false, name);
+  for (const name of ['set-cookie', 'service-worker-allowed', 'x-frame-options', 'transfer-encoding', 'content-length', 'content-security-policy-report-only', 'access-control-allow-origin', 'access-control-allow-credentials']) assert.equal(Object.hasOwn(headers, name), false, name);
   assert.deepEqual(headers['content-security-policy'], ["default-src 'self'", 'frame-ancestors http://127.0.0.1:6000']);
   assert.equal(headers['clear-site-data'], '"storage"');
   const plain = responseHeaders({ 'content-length': '5' }, { sideOrigin: SIDE, proxyOrigin: 'p', viewerOrigin: 'v', requestUrl: '/', html: false, clearStorage: false });
