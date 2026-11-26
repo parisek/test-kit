@@ -30,8 +30,9 @@ The tool measures and reports. It does not gate and does not fix (N1, N4). A mis
 ## Capabilities and Constraints
 
 - One result, two readers: the viewer and the query interface use the same classification code (R11.6).
-- Report data is untrusted. Text goes in as text. A URL attribute stays on the page origin.
+- Report data is untrusted. Text goes in as text. A URL attribute stays on the page origin. The one exception is the `src` of a Live frame: `http://127.0.0.1:<port>` from `/live.json` plus a path (R10.17).
 - Decisions a developer makes on a finding: fix it; mark it as a known difference with a cause and a reason (the `record-known` command exists; recording must stay a command, R5.3, R11.5); pass it on with a link or an evidence bundle (issue #149). "Noise or unstable" copies a command that captures the finding again. It stores nothing (owner decision, 2026-10-22). A noise floor is measured per pair (R8.3).
+- A live look before a measurement: the Live page shows one target on two sides as live pages through a local proxy that runs only with `serve --live` (R10.17, R10.18, owner decisions on #445, 2026-11-26). It is not evidence. Its "Measure this view" copies the commands that make the measurement.
 - A deep link to a finding with its view state is wanted: report, target, viewport, artifact and mode. It does not exist today. The URL holds only `#r-<id>`.
 - Terms in use. Classes (R8.12): match, explained, unexplained, oracle. A scope with an incomplete artifact has no class (`null`) and the summary counts it as unclassified and as incomplete (the counts overlap). Incomplete is a measurement state, not a class. Also: baseline (A) and compared run (B); noise floor; known difference.
 
