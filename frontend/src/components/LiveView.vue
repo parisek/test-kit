@@ -10,6 +10,7 @@ const props = defineProps({ back: Object });
 const emit = defineEmits(['back']);
 const index = ref(null);
 const failed = ref(false);
+const unusable = ref(false);
 const choice = reactive({ targetId: null, sideA: null, sideB: null, viewportId: null, layout: 'swap', zoom: 'fit', show: 'a' });
 const notice = ref(null);
 const stage = ref(null);
@@ -119,7 +120,8 @@ onMounted(async () => {
 		const response = await fetch(new URL('live.json', location.href), { credentials: 'same-origin', cache: 'no-store', redirect: 'error' });
 		if (!response.ok || !/^application\/json\b/.test(response.headers.get('content-type') ?? '')) throw new Error('no live.json');
 		index.value = readLiveIndex(await response.json(), { viewerOrigin: location.origin });
-		if (!index.value?.usable) throw new Error('unusable');
+		if (!index.value) throw new Error('no live.json');
+		if (!index.value.usable) unusable.value = true;
 		readHash();
 		write({ replace: true });
 	} catch {
@@ -160,6 +162,7 @@ const select = 'min-w-0 rounded border border-ui-control-border bg-ui-surface px
 			<p>The live proxy does not run for this viewer. Start the report server with the live proxy:</p>
 			<pre><code>test-kit serve REPORT --live</code></pre>
 		</div>
+		<p v-else-if="unusable" class="viewer-notice" role="status">The live proxy runs, but it lists fewer than two usable sides, or no target or viewport. The Live page needs two sides.</p>
 		<template v-else-if="index?.usable">
 			<p v-if="notice" class="viewer-notice" role="status">{{ notice }}</p>
 			<form class="live-pickers" @submit.prevent>

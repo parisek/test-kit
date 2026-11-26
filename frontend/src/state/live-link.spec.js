@@ -54,6 +54,8 @@ describe('/live.json is untrusted (R10.17 items 1 and 4)', () => {
 		const [a, b, c] = raw.sides;
 		const read = readLiveIndex({ sides: [a, b, c, { id: 'twin', origin: b.origin }], targets: raw.targets, viewports: raw.viewports }, { viewerOrigin: a.origin });
 		expect(read.sides.map((s) => s.id)).toEqual([c.id]);
+		const same = readLiveIndex({ sides: [a, b, c, { id: c.id, origin: 'http://127.0.0.1:4999' }], targets: raw.targets, viewports: raw.viewports });
+		expect(same.sides.map((s) => s.id)).toEqual([a.id, b.id]);
 		expect(read.usable).toBe(false);
 	});
 	it('is not usable with fewer than two sides', () => {

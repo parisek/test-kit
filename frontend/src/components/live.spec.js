@@ -49,11 +49,18 @@ describe('the Live page (R10.17)', () => {
 		await flushPromises();
 		const [a, b] = wrapper.findAll('iframe').map((frame) => frame.element);
 		const posted = vi.spyOn(b.contentWindow, 'postMessage');
-		window.dispatchEvent(new MessageEvent('message', { origin: 'http://127.0.0.1:4102', source: a.contentWindow, data: { type: 'test-kit/live-scroll', ratio: 0.9 } }));
-		window.dispatchEvent(new MessageEvent('message', { origin: 'http://127.0.0.1:4101', source: a.contentWindow, data: { type: 'test-kit/live-scroll', ratio: 0.4 } }));
-		window.dispatchEvent(new MessageEvent('message', { origin: 'http://127.0.0.1:4101', source: a.contentWindow, data: { type: 'test-kit/live-scroll', ratio: 7 } }));
-		await wrapper.find('.live-bar button').trigger('click');
-		expect(posted).toHaveBeenCalledWith({ type: 'test-kit/live-scroll-to', ratio: 0.4 }, 'http://127.0.0.1:4102');
+		const button = () => wrapper.find('.live-bar button');
+		const send = (origin, source, ratio) => window.dispatchEvent(new MessageEvent('message', { origin, source, data: { type: 'test-kit/live-scroll', ratio } }));
+		const swapToB = async () => { await button().trigger('click'); const last = posted.mock.lastCall; await button().trigger('click'); return last; };
+		// A wrong origin from the window of frame A, and the origin of A from the window of frame B: both are ignored.
+		send('http://127.0.0.1:4102', a.contentWindow, 0.9);
+		send('http://127.0.0.1:4101', b.contentWindow, 0.8);
+		expect(await swapToB()).toEqual([{ type: 'test-kit/live-scroll-to', ratio: 0 }, 'http://127.0.0.1:4102']);
+		// A ratio outside 0 to 1 is ignored too.
+		send('http://127.0.0.1:4101', a.contentWindow, 7);
+		expect(await swapToB()).toEqual([{ type: 'test-kit/live-scroll-to', ratio: 0 }, 'http://127.0.0.1:4102']);
+		send('http://127.0.0.1:4101', a.contentWindow, 0.4);
+		expect(await swapToB()).toEqual([{ type: 'test-kit/live-scroll-to', ratio: 0.4 }, 'http://127.0.0.1:4102']);
 		wrapper.unmount();
 	});
 
@@ -84,7 +91,7 @@ describe('the Live page (R10.17)', () => {
 		const wrapper = mount(LiveView, { attachTo: document.body });
 		await flushPromises();
 		expect(wrapper.find('iframe').exists()).toBe(false);
-		expect(wrapper.text()).toContain('test-kit serve REPORT --live');
+		expect(wrapper.text()).toContain('fewer than two usable sides');
 		wrapper.unmount();
 	});
 });
