@@ -6,7 +6,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  badTarget, crossSiteRefused, forwardHeaders, injectScript, liveIndex, liveScript, proxyRefusal, responseHeaders, rewriteLocation, LIVE_SCRIPT_PATH,
+  badTarget, crossSiteRefused, forwardHeaders, injectScript, isHtmlPage, liveIndex, liveScript, proxyRefusal, responseHeaders, rewriteLocation, LIVE_SCRIPT_PATH,
 } from '../../src/server/live-rules.js';
 import { startLiveProxies } from '../../src/server/live.js';
 import { serve } from '../../src/server/serve.js';
@@ -73,6 +73,18 @@ test('the script goes after the head tag, or first', () => {
   assert.equal(injectScript(Buffer.from('<html><HEAD lang="cs"><title>t</title>')).toString(), `<html><HEAD lang="cs">${tag}<title>t</title>`);
   assert.equal(injectScript(Buffer.from('<p>x</p>')).toString(), `${tag}<p>x</p>`);
   assert.equal(injectScript(Buffer.from('<header>x</header>')).toString(), `${tag}<header>x</header>`);
+  assert.equal(injectScript(Buffer.from('<!DOCTYPE html><html lang="cs"><body>x')).toString(), `<!DOCTYPE html><html lang="cs">${tag}<body>x`);
+  assert.equal(injectScript(Buffer.from('<!doctype html>\n<body>x')).toString(), `<!doctype html>${tag}\n<body>x`);
+  const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+  assert.deepEqual(injectScript(Buffer.concat([bom, Buffer.from('<p>x')])), Buffer.concat([bom, Buffer.from(`${tag}<p>x`)]));
+  assert.deepEqual(injectScript(Buffer.concat([bom, Buffer.from('<!DOCTYPE html><p>x')])), Buffer.concat([bom, Buffer.from(`<!DOCTYPE html>${tag}<p>x`)]));
+});
+
+test('a status without a body is not an HTML page', () => {
+  for (const code of [101, 204, 304]) assert.equal(isHtmlPage(code, { 'content-type': 'text/html' }), false, String(code));
+  assert.equal(isHtmlPage(200, { 'content-type': 'text/html; charset=utf-8' }), true);
+  assert.equal(isHtmlPage(404, { 'content-type': 'text/html' }), true);
+  assert.equal(isHtmlPage(200, { 'content-type': 'text/plain' }), false);
 });
 
 test('the scroll script names the viewer origin as target and sender, and checks the ratio', () => {
@@ -161,6 +173,78 @@ test('a proxy forwards to its side, adds the script once per HTML page and clear
     assert.equal((await get(proxy, '/', { 'service-worker': 'script' })).status, 403);
     assert.equal((await get(proxy, '/', {}, 'POST')).status, 405);
     assert.equal(seen.length, count, 'a refused request never reaches the side');
+  } finally {
+    await live.close();
+    side.close();
+  }
+});
+
+test('the limits hold: a large HTML page gives 502, a long stream is cut, a slow side gives 504', async () => {
+  const side = await listen((req, res) => {
+    if (req.url === '/big') { res.writeHead(200, { 'content-type': 'text/html' }); res.end('x'.repeat(2000)); return; }
+    if (req.url === '/stream') { res.writeHead(200, { 'content-type': 'application/octet-stream' }); res.end(Buffer.alloc(5000)); return; }
+    if (req.url === '/slow-body') { res.writeHead(200, { 'content-type': 'text/html' }); res.write('<p>'); return; }
+    if (req.url === '/video') { res.writeHead(200, { 'content-type': 'video/mp4' }); res.write('a'); setTimeout(() => res.end('b'), 300); return; }
+    // '/hang' never answers.
+  });
+  const live = await startLiveProxies({ sides: { a: { origin: `http://127.0.0.1:${side.address().port}` } } }, { viewerOrigin: 'http://127.0.0.1:6000', limits: { html: 1000, stream: 1000, timeoutMs: 150 } });
+  try {
+    const proxy = live.origins.a;
+    const big = await get(proxy, '/big');
+    assert.equal(big.status, 502);
+    assert.equal(big.body, 'HTML_TOO_LARGE');
+    await assert.rejects(get(proxy, '/stream'), 'a cut stream ends the connection');
+    assert.equal((await get(proxy, '/hang')).status, 504);
+    assert.equal((await get(proxy, '/slow-body')).status, 504);
+    const video = await get(proxy, '/video');
+    assert.equal(video.status, 200);
+    assert.equal(video.body, 'ab', 'a streamed body may take longer than the header limit');
+  } finally {
+    await live.close();
+    side.closeAllConnections();
+    side.close();
+  }
+});
+
+test('a client abort ends the side request and the proxy keeps working', async () => {
+  let aborted;
+  const gone = new Promise((accept) => { aborted = accept; });
+  const side = await listen((req, res) => {
+    if (req.url === '/ok') { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok'); return; }
+    req.socket.on('close', aborted);
+  });
+  const live = await startLiveProxies({ sides: { a: { origin: `http://127.0.0.1:${side.address().port}` } } }, { viewerOrigin: 'http://127.0.0.1:6000' });
+  try {
+    const url = new URL('/wait', live.origins.a);
+    const request = http.request(url, { headers: { host: url.host } });
+    request.on('error', () => {});
+    request.end();
+    await new Promise((accept) => setTimeout(accept, 100));
+    request.destroy();
+    await gone;
+    assert.equal((await get(live.origins.a, '/ok')).body, 'ok');
+  } finally {
+    await live.close();
+    side.close();
+  }
+});
+
+test('a bodiless HTML response gets no script and does not spend the storage clear; a compressed page spends it', async () => {
+  const side = await listen((req, res) => {
+    if (req.url === '/empty') { res.writeHead(204, { 'content-type': 'text/html' }); res.end(); return; }
+    if (req.url === '/zip') { res.writeHead(200, { 'content-type': 'text/html', 'content-encoding': 'gzip' }); res.end('raw'); return; }
+    res.writeHead(200, { 'content-type': 'text/html' }); res.end('<p>x</p>');
+  });
+  const live = await startLiveProxies({ sides: { a: { origin: `http://127.0.0.1:${side.address().port}` } } }, { viewerOrigin: 'http://127.0.0.1:6000' });
+  try {
+    const empty = await get(live.origins.a, '/empty');
+    assert.equal(empty.status, 204);
+    assert.equal(empty.headers['content-length'], undefined);
+    assert.equal(empty.headers['clear-site-data'], undefined);
+    const zip = await get(live.origins.a, '/zip');
+    assert.equal(zip.body, 'raw');
+    assert.equal(zip.headers['clear-site-data'], '"storage"');
+    assert.equal((await get(live.origins.a, '/')).headers['clear-site-data'], undefined);
   } finally {
     await live.close();
     side.close();

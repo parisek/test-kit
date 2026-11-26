@@ -3,8 +3,8 @@
 import http from 'node:http';
 import https from 'node:https';
 import {
-  HTML_LIMIT, LIVE_SCRIPT_PATH, REQUEST_TIMEOUT_MS, STREAM_LIMIT,
-  forwardHeaders, injectScript, isHtml, liveScript, plainBody, proxyRefusal, responseHeaders,
+  LIMITS, LIVE_SCRIPT_PATH,
+  forwardHeaders, injectScript, isHtmlPage, liveScript, plainBody, proxyRefusal, responseHeaders,
 } from './live-rules.js';
 
 const OWN_CSP = "default-src 'none'; frame-ancestors 'none'";
@@ -15,7 +15,7 @@ function plain(res, code, text = '') {
   res.end(text);
 }
 
-function handler({ side, sideOrigin, viewerOrigin, state }) {
+function handler({ side, sideOrigin, viewerOrigin, state, limits }) {
   const script = Buffer.from(liveScript(viewerOrigin));
   const client = sideOrigin.startsWith('https:') ? https : http;
   return (req, res) => {
@@ -33,20 +33,24 @@ function handler({ side, sideOrigin, viewerOrigin, state }) {
       // R10.18 item 7: a side without `remote: true` accepts any certificate, as its capture does (R3.9).
       rejectUnauthorized: side.remote === true,
     });
-    const timer = setTimeout(() => { upstream.destroy(); plain(res, 504, 'TIMEOUT'); }, REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => { upstream.destroy(); plain(res, 504, 'TIMEOUT'); }, limits.timeoutMs);
     const done = () => clearTimeout(timer);
     res.on('close', () => { done(); upstream.destroy(); });
     upstream.on('error', (error) => { done(); plain(res, 502, String(error.code ?? 'UPSTREAM_ERROR')); });
     upstream.on('response', (incoming) => {
-      const html = req.method === 'GET' && isHtml(incoming.headers) && plainBody(incoming.headers);
-      const clearStorage = html && !state.cleared;
+      const page = req.method === 'GET' && isHtmlPage(incoming.statusCode, incoming.headers);
+      const html = page && plainBody(incoming.headers);
+      const clearStorage = page && !state.cleared;
       const headers = responseHeaders(incoming.headers, { sideOrigin, proxyOrigin: state.origin, viewerOrigin, requestUrl: req.url, html, clearStorage });
       if (!html) {
+        // A streamed body has its headers now: the 30 s limit (504) ends here, so a long video plays on.
+        done();
+        if (clearStorage) state.cleared = true;
         res.writeHead(incoming.statusCode, headers);
         let bytes = 0;
         incoming.on('data', (chunk) => {
           bytes += chunk.length;
-          if (bytes > STREAM_LIMIT) { done(); incoming.destroy(); res.destroy(); return; }
+          if (bytes > limits.stream) { done(); incoming.destroy(); res.destroy(); return; }
           if (!res.write(chunk)) { incoming.pause(); res.once('drain', () => incoming.resume()); }
         });
         incoming.on('end', () => { done(); res.end(); });
@@ -57,7 +61,7 @@ function handler({ side, sideOrigin, viewerOrigin, state }) {
       let bytes = 0;
       incoming.on('data', (chunk) => {
         bytes += chunk.length;
-        if (bytes > HTML_LIMIT) { done(); incoming.destroy(); plain(res, 502, 'HTML_TOO_LARGE'); return; }
+        if (bytes > limits.html) { done(); incoming.destroy(); plain(res, 502, 'HTML_TOO_LARGE'); return; }
         chunks.push(chunk);
       });
       incoming.on('error', (error) => { done(); plain(res, 502, String(error.code ?? 'UPSTREAM_ERROR')); });
@@ -75,14 +79,15 @@ function handler({ side, sideOrigin, viewerOrigin, state }) {
 }
 
 // Starts one proxy for each side with an origin. Returns `{ origins, close }`.
-export async function startLiveProxies(config, { viewerOrigin }) {
+// `limits` exists for tests only; `serve` always uses the limits of R10.18 item 8.
+export async function startLiveProxies(config, { viewerOrigin, limits = LIMITS }) {
   const servers = [];
   const origins = {};
   try {
     for (const [id, side] of Object.entries(config.sides)) {
       if (side.kind === 'design' || typeof side.origin !== 'string') continue;
       const state = { port: 0, origin: '', cleared: false };
-      const server = http.createServer(handler({ side, sideOrigin: side.origin, viewerOrigin, state }));
+      const server = http.createServer(handler({ side, sideOrigin: side.origin, viewerOrigin, state, limits }));
       await new Promise((accept, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', accept); });
       state.port = server.address().port;
       state.origin = `http://127.0.0.1:${state.port}`;

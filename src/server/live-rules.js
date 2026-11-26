@@ -4,6 +4,7 @@ export const LIVE_SCRIPT_PATH = '/__test-kit/live.js';
 export const HTML_LIMIT = 16 * 1024 * 1024;
 export const STREAM_LIMIT = 64 * 1024 * 1024;
 export const REQUEST_TIMEOUT_MS = 30_000;
+export const LIMITS = Object.freeze({ html: HTML_LIMIT, stream: STREAM_LIMIT, timeoutMs: REQUEST_TIMEOUT_MS });
 
 // R10.18 item 3: the request target, as `serve` checks it.
 export function badTarget(raw) {
@@ -75,11 +76,15 @@ export function responseHeaders(raw, { sideOrigin, proxyOrigin, viewerOrigin, re
     const kept = values.map(withoutFrameAncestors).filter(Boolean);
     if (name === 'content-security-policy' || kept.length) result[name] = [...kept, `frame-ancestors ${viewerOrigin}`];
   }
-  if (html && clearStorage) result['clear-site-data'] = '"storage"';
+  if (clearStorage) result['clear-site-data'] = '"storage"';
   return result;
 }
 
-// R10.18 item 6: only an HTML body that the proxy can read gets the script.
+// R10.18 items 5 and 6: an HTML page. A status without a body (1xx, 204, 304) is not one.
+export function isHtmlPage(statusCode, headers) {
+  return !(statusCode < 200 || statusCode === 204 || statusCode === 304) && isHtml(headers);
+}
+
 export function isHtml(headers) {
   const type = String(headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
   return type === 'text/html' || type === 'application/xhtml+xml';
@@ -90,13 +95,20 @@ export function plainBody(headers) {
   return encoding === '' || encoding === 'identity';
 }
 
-// R10.18 item 6: one script element after the opening `<head>` tag, else at the start.
+// R10.18 item 6: one script element after the opening `<head>` tag. Without one, after the `<html>` tag,
+// else after the doctype, else after a byte order mark. The doctype stays first, so the page keeps
+// its rendering mode.
 export function injectScript(body) {
   const tag = Buffer.from(`<script src="${LIVE_SCRIPT_PATH}"></script>`);
   const text = body.toString('latin1');
-  const match = /<head(?:\s[^>]*)?>/i.exec(text);
-  const at = match ? match.index + match[0].length : 0;
+  const at = endOf(/<head(?:\s[^>]*)?>/i, text) ?? endOf(/<html(?:\s[^>]*)?>/i, text)
+    ?? endOf(/^(?:\xef\xbb\xbf)?\s*<!doctype[^>]*>/i, text) ?? (text.startsWith('\xef\xbb\xbf') ? 3 : 0);
   return Buffer.concat([body.subarray(0, at), tag, body.subarray(at)]);
+}
+
+function endOf(pattern, text) {
+  const match = pattern.exec(text);
+  return match ? match.index + match[0].length : null;
 }
 
 // R10.18 item 6: the scroll script. The viewer origin is the only target and the only accepted sender.
