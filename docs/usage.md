@@ -43,6 +43,7 @@ Stop the command after review. Client evidence stays local.
 - A proxy answers GET and HEAD only. It sends no cookie and no `Authorization`, and it drops `Set-Cookie`. A page that needs a login does not work.
 - A proxy refuses a request from another web site and a service worker.
 - A local side accepts any certificate, as its capture does. A remote side verifies it.
+- Known risk (#465): the page and its third-party scripts run on a `127.0.0.1` origin. Local dev servers (for example Vite) and other services on `127.0.0.1` trust that origin, and the page shares their cookies. Use `--live` only with pages that you trust, and stop local dev servers that you do not need. A fix is planned for 1.5.1.
 - An HTML page gets one script for the scroll position. A compressed HTML body passes unchanged and gets no script.
 - A proxy writes no file. Its pages are not evidence.
 
