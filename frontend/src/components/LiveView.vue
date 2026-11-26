@@ -178,7 +178,7 @@ const select = 'min-w-0 rounded border border-ui-control-border bg-ui-surface px
 				<p v-if="choice.layout === 'swap'" class="live-showing">Showing side {{ choice.show === 'a' ? 'A' : 'B' }}: {{ choice.show === 'a' ? choice.sideA : choice.sideB }}</p>
 				<button v-if="choice.layout === 'swap'" type="button" :class="[pill, idle]" @click="swap">Swap sides <kbd>Space</kbd></button>
 			</div>
-			<p v-if="scrollBlocked" class="live-note">The page blocks the scroll script, so a swap does not carry the scroll position.</p>
+			<p v-if="scrollBlocked" class="live-note">The page does not answer the scroll script (its policy blocks it, or it left the side), so a swap does not carry the scroll position.</p>
 			<p v-if="!targets.length" class="live-note">No target has a path on both picked sides.</p>
 			<div ref="stage" class="live-stage" :data-layout="choice.layout">
 				<figure v-for="side in ['a', 'b']" :key="side" class="live-pane" :hidden="choice.layout === 'swap' && choice.show !== side">

@@ -68,6 +68,8 @@ test('the response drops cookies and frame blocks and allows only the viewer as 
   assert.equal(headers['clear-site-data'], '"storage"');
   const plain = responseHeaders({ 'content-length': '5' }, { sideOrigin: SIDE, proxyOrigin: 'p', viewerOrigin: 'v', requestUrl: '/', html: false, clearStorage: false });
   assert.equal(plain['content-length'], '5');
+  const later = responseHeaders({ 'clear-site-data': '"cookies"', 'content-type': 'text/html' }, { sideOrigin: SIDE, proxyOrigin: 'p', viewerOrigin: 'v', requestUrl: '/', html: true, clearStorage: false });
+  assert.equal(Object.hasOwn(later, 'clear-site-data'), false, 'the Clear-Site-Data of the side never passes');
   assert.deepEqual(plain['content-security-policy'], ['frame-ancestors v']);
 });
 
