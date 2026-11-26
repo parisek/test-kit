@@ -16,6 +16,7 @@ Status: design authority for issue #148. The specification adopts the decided ru
 2. **Report link.** A link to one comparison opens its Overview.
 3. **Directory root.** The publish directory opens the Home (history of comparisons).
 4. **Viewer with no data.** The viewer loads the adjacent `report.json` first. It reads `index.json` only when `report.json` is missing: HTTP 404, or HTTP 2xx with an HTML body (R10.10, R10.13). When both are missing, it shows an empty state, "Open a report", with the source form of R10.10. This is the only place that asks for a file or a URL. A viewer copy with an adjacent `report.json` (a `report --export` directory) opens that report directly and has no Home.
+5. **Live link.** A link with the hash `#live/...` opens the Live page with the same target, sides, viewport, layout and zoom as the sender (R10.17). The frames show only when the viewer runs under `serve --live` (R10.18). Otherwise the page shows the command that starts it.
 
 ## Map
 
@@ -40,6 +41,14 @@ flowchart TD
   RI -->|breadcrumb| HOME
   EV -->|breadcrumb: Overview| OV
   OV -->|older or newer| OV
+
+  L[Live link] --> LIVE
+  HOME -->|header: Live| LIVE
+  OV -->|header: Live| LIVE
+  LIVE[Live: one target, two sides, one viewport] -->|change target, side, viewport, layout, zoom| LIVE
+  LIVE -->|swap: space bar| LIVE
+  LIVE -->|copy: Measure this view| DEC
+  LIVE -->|breadcrumb| HOME
 ```
 
 ## Rules for every path
@@ -47,6 +56,7 @@ flowchart TD
 - One way home: the breadcrumb, always first in the content column. A viewer copy with an adjacent `report.json` has no Home item.
 - One way sideways: older and newer comparison, in time order.
 - One way up: from Evidence, the breadcrumb returns to the Overview.
+- From Live, the breadcrumb returns to the Home, or to the Overview in a viewer copy with an adjacent `report.json`.
 - Browser Back steps through views. A view change adds a history entry.
 - The app never changes the active view without saying why.
 
@@ -74,6 +84,24 @@ Each part is percent-encoded. In an export with an adjacent `report.json` the `r
 - A missing or empty part takes the first valid value for its position. The report id must pass `validId`. The viewer matches target, viewport and finding ids against the open report, so the reserved target id `@project` is valid. A present but unknown part shows a message and opens the Overview of that report. A finding id selects the first finding with that id in report order (report data is untrusted).
 - The hash stays under the page origin. It never carries a URL.
 
+## Live page (R10.17, R10.18)
+
+Owner decisions on #445, 2026-11-26: 1A, 2A, 3A. Issue #444 holds the plan.
+
+The developer rebuilds a page and wants to click through the reference and the new site. The Live page shows one target of the config on two sides at one viewport, as live pages. It replaces a hand-written page with two frames that a project kept beside the config.
+
+| Part | Rule |
+| --- | --- |
+| Pickers | Target, side A, side B, viewport. The lists come from the config through `/live.json`. A design side is not offered. A target with a `null` path on a picked side is not offered. |
+| Layout | `swap` (default): one frame. The space bar and a button swap the sides. The scroll position carries over as a ratio of the page height. `side-by-side`: two frames. |
+| Scale | Each frame lays out at the viewport width and height in CSS px, then scales down as a whole. Side by side, one factor for both. The factor shows next to the viewport: `desktop · 1440 px at 46 %`. Zoom: fit (default), 50 %, 75 %, 100 %. |
+| State | The hash `#live/<target>/<side A>/<side B>/<viewport>?layout=&zoom=&show=` holds it. A swap adds no history entry. Any other change adds one. |
+| Measure this view | Copies `test-kit before ... && test-kit after ...` for exactly the shown cell. It runs nothing. A server route follows later as its own Tier 3 change. |
+| Without the proxy | No frame. The page shows `test-kit serve REPORT --live`. |
+| Security | Each side has its own proxy origin, apart from the viewer. The viewer accepts a scroll message only from the origin and the window of that frame. |
+
+The Live page shows no class and no verdict. It is a look, not evidence (V3). The copied command makes the measurement.
+
 ## Decided points
 
 The owner decided these on 2026-10-22:
@@ -86,4 +114,5 @@ The owner decided these on 2026-10-22:
 - A report whose runs list `noFixture` components adds one sentence to the same header line: "Not compared: 3 components have no fixture." The list sits in "Run details" (in the closed "Scope details" disclosure on the other views). A report without `noFixture` shows nothing new. The count equals `summary` (owner decision of 2026-11-05, #290).
 - The Checks list shows the allowlist entries of the target beside the overrides, with the check, the status, the reason, the owner, the expiry and a short fingerprint (ADR 0004, section 7, point 3). An unexplained absolute finding gets a fifth decision action, "Allowlist entry", after "Known difference": it copies the `record-allowed` command and records nothing. A finding that is not absolute still shows four actions (owner decision of 2026-11-06, #331).
 - A report whose rows hold capture warnings (`row.warnings`, R5.11) adds one last sentence to the same header line: "Capture warnings: LAZY_IMAGES_NOT_SWEPT in 3 cells (12 in all)." Each cell, in the Overview matrix and on Evidence, shows one line with the detail: "A: LAZY_IMAGES_NOT_SWEPT (7) · B: none". A report without a valid warning shows nothing new. The counts equal `captureWarnings` of `summary`. The viewer adds no badge, no filter and no verdict from a warning (owner decision of 2026-11-06, #329).
+- The Live page and its hash form `#live/...` (owner decisions on #445, 2026-11-26: frames on their own proxy origin, the proxy only with `serve --live`, and "Measure this view" copies a command; R10.17, R10.18).
 - Any future change to the adopted view set or the deep link grammar needs a new owner decision and a specification change.
