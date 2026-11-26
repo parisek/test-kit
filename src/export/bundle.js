@@ -29,20 +29,29 @@ export function validRegions(regions, canvas) {
 }
 
 // The crop of a screenshot finding: the union of its regions plus a margin, inside the canvas.
-// Without a region it is the whole canvas. A crop is at most CROP_LIMIT px on each axis; a larger
-// one keeps its top-left corner and sets `truncated`. Pure (R4.4).
+// Without a region it is the whole canvas. A crop is at most CROP_LIMIT px on each axis. On an axis
+// where the union is larger, the crop is centered on the largest region (by area), inside the canvas,
+// and sets `truncated` (owner decision on #461, 2026-11-26). Pure (R4.4).
 export function cropBox(regions, canvas) {
-  let box;
-  if (!regions.length) box = { x: 0, y: 0, width: canvas.width, height: canvas.height };
-  else {
-    const left = Math.max(0, Math.min(...regions.map(r => r.x)) - CROP_MARGIN);
-    const top = Math.max(0, Math.min(...regions.map(r => r.y)) - CROP_MARGIN);
-    const right = Math.min(canvas.width, Math.max(...regions.map(r => r.x + r.width)) + CROP_MARGIN);
-    const bottom = Math.min(canvas.height, Math.max(...regions.map(r => r.y + r.height)) + CROP_MARGIN);
-    box = { x: left, y: top, width: right - left, height: bottom - top };
+  if (!regions.length) {
+    const truncated = canvas.width > CROP_LIMIT || canvas.height > CROP_LIMIT;
+    return { x: 0, y: 0, width: Math.min(canvas.width, CROP_LIMIT), height: Math.min(canvas.height, CROP_LIMIT), ...(truncated ? { truncated: true } : {}) };
   }
-  const truncated = box.width > CROP_LIMIT || box.height > CROP_LIMIT;
-  return { ...box, width: Math.min(box.width, CROP_LIMIT), height: Math.min(box.height, CROP_LIMIT), ...(truncated ? { truncated: true } : {}) };
+  const left = Math.max(0, Math.min(...regions.map(r => r.x)) - CROP_MARGIN);
+  const top = Math.max(0, Math.min(...regions.map(r => r.y)) - CROP_MARGIN);
+  const right = Math.min(canvas.width, Math.max(...regions.map(r => r.x + r.width)) + CROP_MARGIN);
+  const bottom = Math.min(canvas.height, Math.max(...regions.map(r => r.y + r.height)) + CROP_MARGIN);
+  // The first region with the largest area: a stable choice for equal areas.
+  const largest = regions.reduce((best, r) => (r.width * r.height > best.width * best.height ? r : best));
+  const axis = (start, end, size, from, length) => {
+    if (end - start <= CROP_LIMIT) return [start, end - start];
+    const center = from + Math.floor(length / 2);
+    return [Math.min(Math.max(0, center - CROP_LIMIT / 2), size - CROP_LIMIT), CROP_LIMIT];
+  };
+  const [x, width] = axis(left, right, canvas.width, largest.x, largest.width);
+  const [y, height] = axis(top, bottom, canvas.height, largest.y, largest.height);
+  const truncated = right - left > CROP_LIMIT || bottom - top > CROP_LIMIT;
+  return { x, y, width, height, ...(truncated ? { truncated: true } : {}) };
 }
 
 // Text for a Markdown task. A value from the report is plain text: control characters become

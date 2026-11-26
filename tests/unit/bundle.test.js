@@ -19,9 +19,16 @@ test('cropBox takes the union of the regions plus a margin, inside the canvas an
     { x: 100 - CROP_MARGIN, y: 200 - CROP_MARGIN, width: 55 + 2 * CROP_MARGIN, height: 50 + 2 * CROP_MARGIN });
   assert.deepEqual(cropBox([{ x: 5, y: 5, width: 10, height: 10 }], { width: 20, height: 20 }), { x: 0, y: 0, width: 20, height: 20 });
   assert.deepEqual(cropBox([], { width: 3000, height: 9000 }), { x: 0, y: 0, width: CROP_LIMIT, height: CROP_LIMIT, truncated: true });
-  // A union larger than the limit keeps its top-left corner (R11.10).
-  assert.deepEqual(cropBox([{ x: 100, y: 100, width: 10, height: 10 }, { x: 5000, y: 50, width: 10, height: 10 }], { width: 6000, height: 6000 }),
-    { x: 76, y: 26, width: CROP_LIMIT, height: 108, truncated: true });
+  // A union larger than the limit is centered on the largest region, on that axis only (R11.10).
+  assert.deepEqual(cropBox([{ x: 100, y: 100, width: 10, height: 10 }, { x: 5000, y: 50, width: 20, height: 10 }], { width: 10000, height: 6000 }),
+    { x: 5010 - CROP_LIMIT / 2, y: 26, width: CROP_LIMIT, height: 108, truncated: true });
+  // The case of the review: regions in two far corners of a 3000 × 4000 page. The crop holds the larger one.
+  const far = [{ x: 2950, y: 10, width: 40, height: 40 }, { x: 5, y: 3500, width: 10, height: 10 }];
+  const box = cropBox(far, { width: 3000, height: 4000 });
+  assert.deepEqual(box, { x: 600, y: 0, width: CROP_LIMIT, height: CROP_LIMIT, truncated: true });
+  assert.ok(box.x <= 2950 && 2990 <= box.x + box.width && box.y <= 10 && 50 <= box.y + box.height, 'the largest region is inside the crop');
+  // Near the edge, the crop stays inside the canvas.
+  assert.deepEqual(cropBox([{ x: 0, y: 0, width: 5, height: 5 }, { x: 0, y: 5000, width: 1, height: 1 }], { width: 100, height: 6000 }), { x: 0, y: 0, width: 5 + CROP_MARGIN, height: CROP_LIMIT, truncated: true });
 });
 
 // A PNG of `chunks`, each [type, data]. The CRC is not checked here, so it is zero.
