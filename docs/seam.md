@@ -139,6 +139,7 @@ The package ships no command aliases and no alias file. In R4.1, R4.3 and R13.7 
 | `report` | none (`--config`, `--store`, `--run`, `--port` or `--export`) | Experimental | Same reason as `run`. |
 | `history` | none (`--config`, `--store`, `--port`, `--export`, `--publish` or `--prune`) | Experimental | Same reason as `run`. `--prune [--keep N] [--yes]` is new (R12.5, #161): the owner approved this flag on a frozen command on 2026-11-06. It removes runs only with `--yes`, and nothing runs by default. |
 | `note` | `RUN` (`--file`, `--config`, `--store`) | Experimental, Tier 3 | R12.7. A new command in 1.4 (#381). With `--file` it adds one note (a free JSON object of at most 256 KiB) as `runs/<RUN>/notes/<NNN>.json`. Without it, it lists the notes. A note changes no evidence and no verdict. |
+| `bundle` | `REPORT` (`--finding` with `--output`, `--config`) | Experimental, Tier 3 | R11.10. A new command in 1.5 (#149). Without `--finding` it lists the findings of the report. With it, it writes `DIR/<finding id>/` with `finding.json`, `finding.md` and, for a screenshot, the cropped `a.png`, `b.png` and `diff.png`. It uploads nothing and changes no report. |
 
 Other command facts:
 

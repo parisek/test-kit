@@ -411,6 +411,17 @@ test-kit history --prune --keep 5 --yes  # remove the rest
 
 The command orders runs by the time in their `run.json`, not by file time. A run stays when a report names it (A or B of a pair, a single-run subject, a run in the report run list), when the workflow state holds it as a baseline, or when its time or side is unreadable. The store index does not protect a run. The command does not read a published `index.json`: a published directory holds its own copies. It works only on a store with the `.test-kit-viewer` marker, refuses links in the store path and in `runs/`, and removes only `runs/<id>/`. It stops at the first failed removal and leaves the later runs. Stdout is one JSON line with `removed`, `failed`, `kept` and `skipped`. After a removal it refreshes the store viewer.
 
+### Attach a finding to a task
+
+`bundle` writes the evidence of one finding to a new directory, so a person or an agent can attach it to an issue or a task (R11.10, #149). It uploads nothing.
+
+```sh
+test-kit bundle test-kit/reports/<run>/report.json                                  # list the findings and their ids
+test-kit bundle test-kit/reports/<run>/report.json --finding home-desktop --output bundles   # write one bundle
+```
+
+`bundles/home-desktop/` then holds `finding.json` for an agent, `finding.md` as the task text, and for a screenshot `a.png`, `b.png` and `diff.png`, cut around the changed regions. A bundle of a client project is client data: attach it only in a private task tool.
+
 ### Attach server facts to a run
 
 `note` attaches facts that do not come from a page to a stored run: versions before and after an update, database updates, the error-log high-water mark, a backup point (R12.7, #381). The facts are one JSON object of at most 256 KiB, with no schema.
