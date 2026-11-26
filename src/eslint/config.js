@@ -27,6 +27,8 @@ export function buildConfig({ js, importPlugin, globals = null, tseslint = null,
         sourceType: 'module',
         globals: { ...(globals?.browser ?? {}) },
       },
+      // eslint-plugin-import-x under the namespace `import`: the rule ids `import/...` stay, so a
+      // project config or a disable comment that names them keeps working (#437).
       plugins: { import: importPlugin, portadesign },
       rules: {
         'no-unused-vars': ['error', UNUSED],

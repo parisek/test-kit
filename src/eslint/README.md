@@ -28,16 +28,18 @@ export default [
 ];
 ```
 
-Install the peers. In `package.json` every one is marked `"optional": true` in `peerDependenciesMeta`. That flag is for the package manager only: it stops `npm` from installing or warning about a peer that a screenshot-only project never needs. It does not make a peer optional for this entry point. `@eslint/js` and `eslint-plugin-import` are required here, and the import fails at runtime without them (see "Missing peers").
+Install the peers. In `package.json` every one is marked `"optional": true` in `peerDependenciesMeta`. That flag is for the package manager only: it stops `npm` from installing or warning about a peer that a screenshot-only project never needs. It does not make a peer optional for this entry point. `@eslint/js` and an import plugin (`eslint-plugin-import-x`, or `eslint-plugin-import` of 1.4) are required here, and the import fails at runtime without them (see "Missing peers").
 
 ```bash
-npm i -D eslint @eslint/js eslint-plugin-import                                           # required
+npm i -D eslint @eslint/js eslint-plugin-import-x                                         # required
 npm i -D globals typescript-eslint typescript eslint-plugin-vue vue-eslint-parser   # enhancements
 ```
 
 ## Rules
 
 The names and the `portadesign` namespace are frozen (R13.40). A `// eslint-disable-next-line portadesign/<rule>` comment works.
+
+The config also turns on `import/no-duplicates` and `import/no-self-import`. Since 1.5 they come from `eslint-plugin-import-x` when it is installed, and from `eslint-plugin-import` otherwise. Both are registered under the namespace `import`, so the rule ids and the disable comments of 1.4 keep working. ESLint 10 needs `eslint-plugin-import-x` (#437).
 
 | Rule | Level | Reports |
 | --- | --- | --- |
@@ -52,7 +54,7 @@ The rule files keep the source style of the project they came from (tabs and dou
 
 | Peer | Missing means |
 | --- | --- |
-| `@eslint/js`, `eslint-plugin-import` | The import throws `LintPeerError` with the code `LINT_PEER_MISSING`. The message names the package and the install command. |
+| `@eslint/js`, or both `eslint-plugin-import-x` and `eslint-plugin-import` | The import throws `LintPeerError` with the code `LINT_PEER_MISSING`. The message names the package and the install command. |
 | `globals` | A warning. The browser and Node global lists are dropped, and `no-undef` is off. |
 | `typescript-eslint` | A warning. TypeScript files and script blocks with `lang="ts"` are not linted. |
 | `eslint-plugin-vue` or `vue-eslint-parser` | A warning. Vue files are not linted. Both are needed. |

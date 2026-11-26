@@ -9,7 +9,7 @@ import { ESLint } from 'eslint';
 import entry, { plugin } from '../../src/eslint/index.js';
 import { buildConfig } from '../../src/eslint/config.js';
 import js from '@eslint/js';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 
 const run = promisify(execFile);
 const root = path.resolve(import.meta.dirname, '../..');
@@ -61,6 +61,15 @@ test('portadesign rules report through the entry point', async () => {
   ]);
 });
 
+test('the import rules of eslint-plugin-import-x keep the ids import/... (#437)', async () => {
+  const dup = await lint('import { a } from "./x.js";\nimport { b } from "./x.js";\nexport { a, b };\n', 'src/a.js');
+  assert.deepEqual(ids(dup), ['import/no-duplicates', 'import/no-duplicates']);
+  const self = await lint('import { a } from "./config.js";\nexport { a };\n', 'src/eslint/config.js');
+  assert.deepEqual(ids(self), ['import/no-self-import']);
+  // A disable comment that names the old id still works.
+  assert.deepEqual(ids(await lint('// eslint-disable-next-line import/no-self-import\nimport { a } from "./config.js";\nexport { a };\n', 'src/eslint/config.js')), []);
+});
+
 test('a project block after the entry point overrides rules, options and globals (R13.40)', async () => {
   const code = 'import gsap from "gsap";\nexport { gsap };\nthrow new Error("x");\n';
   const off = await lint(code, 'src/a.js', [
@@ -101,7 +110,7 @@ test('TypeScript and Vue files lint with their parsers', async () => {
 
 test('buildConfig drops the TypeScript, Vue and globals blocks when their peers are absent (R13.47)', async () => {
   const config = buildConfig({ js, importPlugin });
-  assert.deepEqual(config.map((b) => b.name).filter(Boolean), ['test-kit/eslint/base']);
+  assert.deepEqual(config.map((b) => b.name).filter((name) => name?.startsWith('test-kit/')), ['test-kit/eslint/base']);
   assert.deepEqual(config[1].languageOptions.globals, {});
   assert.equal(config[1].rules['no-undef'], 'off');
   const eslint = new ESLint({ cwd: root, overrideConfigFile: true, overrideConfig: config });

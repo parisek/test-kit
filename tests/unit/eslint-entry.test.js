@@ -9,6 +9,20 @@ import { runWithPeers } from '../helpers/lint-peers.js';
 
 const stubs = { js: { configs: { recommended: {} } }, importPlugin: {} };
 
+test('the ESLint peers accept ESLint 9 and 10, and eslint-plugin-import-x joins eslint-plugin-import (R13.46, #437)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+  const ranges = name => pkg.peerDependencies[name].split('||').map(part => part.trim());
+  for (const name of ['eslint', '@eslint/js']) assert.deepEqual(ranges(name), ['^9.39.5', '^10.0.0'], name);
+  assert.deepEqual(ranges('eslint-plugin-import-x'), ['^4.18.1']);
+  // eslint-plugin-import stays an accepted peer in 1.x (freeze rule, docs/seam.md). CI tests with import-x.
+  assert.deepEqual(ranges('eslint-plugin-import'), ['^2.32.0']);
+  for (const name of ['eslint-plugin-import-x', 'eslint-plugin-import']) assert.equal(pkg.peerDependenciesMeta[name].optional, true, name);
+  assert.equal(Object.hasOwn(pkg.devDependencies, 'eslint-plugin-import'), false);
+  const lock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url), 'utf8'));
+  assert.deepEqual(lock.packages[''].peerDependencies, pkg.peerDependencies);
+});
+
 test('every rule keeps its messageIds, and no message holds a link (R13.50)', () => {
   const expected = {
     'no-deprecated-dependency': ['deprecated'],
@@ -41,7 +55,7 @@ test('buildConfig adds the globals, TypeScript and Vue blocks only when their pe
 });
 
 test('loadPeers: required peers throw LINT_PEER_MISSING, enhancements warn (R13.47)', async () => {
-  const present = { '@eslint/js': { default: { configs: {} } }, 'eslint-plugin-import': { default: {} } };
+  const present = { '@eslint/js': { default: { configs: {} } }, 'eslint-plugin-import-x': { default: {} } };
   const importer = (missing = [], extra = {}) => async (name) => {
     if (missing.includes(name)) {
       const error = new Error(`Cannot find package '${name}' imported from /p/x.js`);
@@ -59,7 +73,19 @@ test('loadPeers: required peers throw LINT_PEER_MISSING, enhancements warn (R13.
     assert.match(error.message, /"@eslint\/js".*npm i -D eslint @eslint\/js/);
     return true;
   });
-  await assert.rejects(loadPeers(importer(['eslint-plugin-import'])), { code: 'LINT_PEER_MISSING', peer: 'eslint-plugin-import' });
+  // One of the two import plugins is required. eslint-plugin-import-x wins; eslint-plugin-import of 1.4 still works (#437).
+  const both = ['eslint-plugin-import-x', 'eslint-plugin-import'];
+  await assert.rejects(loadPeers(importer(both)), (error) => {
+    assert.equal(error.code, 'LINT_PEER_MISSING');
+    assert.equal(error.peer, 'eslint-plugin-import-x');
+    assert.match(error.message, /npm i -D eslint-plugin-import-x/);
+    return true;
+  });
+  const x = { default: { name: 'import-x' } }, legacy = { default: { name: 'import' } };
+  assert.equal((await loadPeers(importer([], { 'eslint-plugin-import-x': x, 'eslint-plugin-import': legacy }))).importPlugin, x.default);
+  const old = await loadPeers(importer(['eslint-plugin-import-x'], { 'eslint-plugin-import': legacy }));
+  assert.equal(old.importPlugin, legacy.default);
+  assert.deepEqual(old.warnings, []);
 
   const all = await loadPeers(importer());
   assert.deepEqual(all.warnings, []);
@@ -92,4 +118,4 @@ test('loadPeers rethrows an error that is not "this package is missing"', async 
   assert.equal(isMissing(null, 'globals'), false);
 });
 
-await runWithPeers('ESLint entry point (lint cases)', ['eslint', '@eslint/js', 'eslint-plugin-import', 'typescript-eslint', 'eslint-plugin-vue', 'vue-eslint-parser', 'globals'], () => import('../lint-cases/eslint-entry.mjs'));
+await runWithPeers('ESLint entry point (lint cases)', ['eslint', '@eslint/js', 'eslint-plugin-import-x', 'typescript-eslint', 'eslint-plugin-vue', 'vue-eslint-parser', 'globals'], () => import('../lint-cases/eslint-entry.mjs'));

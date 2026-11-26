@@ -67,3 +67,15 @@ The check covers known advisories on the day above. It does not cover a future o
 - The work is two pull requests: the ESLint entry, then the Stylelint entry. The project switch to the thin import waits for the skeleton adoption issue (#21) and stays in the project (R13.43).
 - Rule logic moves from the first consumer project. No client name, URL or path moves with it (R12.4). Project documentation links in rule messages are removed. Rule identifiers and `messageIds` stay (R13.50).
 - Fixtures are rewritten with `example-site` style names where needed.
+
+## Amendment, 2026-11-26: eslint-plugin-import-x (#437)
+
+The risk above came true. `eslint-plugin-import` 2.32.0 is still the latest release and accepts `eslint` up to `^9`, so ESLint 10 does not install with it (Dependabot #404 failed with `ERESOLVE`). The owner chose on 2026-11-26 to move to `eslint-plugin-import-x` (#437), and then to accept both plugins in 1.x, so the change breaks no project of 1.4 (freeze rule, `docs/seam.md`).
+
+- The entry point needs `eslint-plugin-import-x` `^4.18.1` or `eslint-plugin-import` `^2.32.0`, and loads `eslint-plugin-import-x` first. Without both, it throws `LINT_PEER_MISSING` with the install command of `eslint-plugin-import-x`. `eslint-plugin-import` can leave the peers in a major version. The dev pin is `eslint-plugin-import-x` 4.18.1. 4.18.1 is from 2026-11-09. It accepts `eslint` `^8.57.0 || ^9.0.0 || ^10.0.0`. Its peers `@typescript-eslint/utils` and `eslint-import-resolver-node` are optional. The source is `un-ts/eslint-plugin-import-x`.
+- The config registers either plugin under the namespace `import`. The rule ids `import/no-duplicates` and `import/no-self-import` and disable comments that name them keep working.
+- The `eslint` and `@eslint/js` ranges widen to `^9.39.5 || ^10.0.0`. The dev pins stay on 9.39.5.
+- `npm audit` on 2026-11-26 shows no advisory for `eslint-plugin-import-x` or its dependencies. The 7 moderate entries are the same as on `main` (`typescript-eslint` and `minimatch`). OSV and the GitHub advisory API were not reachable from the session.
+- `eslint-plugin-import-x` depends on `unrs-resolver` `^1.9.2`. The locked 1.13.0 has no install script, and the lockfile has no `hasInstallScript` entry for the new tree. Versions up to 1.11.1 have a `postinstall` script (`napi-postinstall ... check`), and the range still allows them in a project. npm installs the platform binary as an optional dependency.
+
+Rejected: dropping the two import rules (the owner chose to keep them), staying on ESLint 9 (a project on ESLint 10 could not install the package), and a plain replacement in 1.5 (a project of 1.4 without `eslint-plugin-import-x` would get `LINT_PEER_MISSING` after a minor update; the owner chose to accept both plugins).

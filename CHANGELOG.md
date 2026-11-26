@@ -20,6 +20,7 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ### Changed
 
+- The ESLint entry point accepts ESLint 10 (`eslint` and `@eslint/js` `^9.39.5 || ^10.0.0`) and the import plugin `eslint-plugin-import-x` `^4.18.1`. It loads `eslint-plugin-import-x` when it is installed and `eslint-plugin-import` otherwise, so a project of 1.4 keeps working. The rule ids `import/no-duplicates` and `import/no-self-import` stay (R13.46, R13.47, #437). To move to ESLint 10: `npm i -D eslint-plugin-import-x`, then `npm rm eslint-plugin-import`, because `eslint-plugin-import` 2.32.0 does not install with ESLint 10.
 - The optional Stylelint peers accept the next major: `stylelint` `^17.15.0 || ^18.0.0` and `stylelint-config-standard` `^40.0.0 || ^41.0.0` (R13.46, #351). Before, a project on Stylelint 18 failed `npm install` with `ERESOLVE`, also when it used only the CLI. The `overrides` workaround in a project can go. The `portadesign` rules passed their tests on Stylelint 18.1.0 by hand. CI still runs them on 17.16.0. Stylelint 18 needs Node 22.22.2, 24.15 or 26: a project on an earlier Node 22 keeps Stylelint 17.
 
 ### Fixed
