@@ -25,7 +25,8 @@ export function verdictSentence(summary) {
 	const worse = summary.unexplained + summary.explained + summary.oracle > 0;
 	if (worse && summary.unclassified > 0) parts.push(`${plural(summary.unclassified, 'page is', 'pages are')} not measured`);
 	if (summary.incomplete > 0) parts.push(`${plural(summary.incomplete, 'page is', 'pages are')} incomplete`);
-	return parts.join('. ');
+	// One part is a headline and takes no full stop. Two or more parts are sentences, and each ends with one.
+	return parts.length > 1 ? `${parts.join('. ')}.` : parts[0];
 }
 
 function classSentence(summary) {
