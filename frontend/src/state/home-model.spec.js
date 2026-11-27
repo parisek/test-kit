@@ -52,13 +52,13 @@ describe('row class and verdict sentence', () => {
 		expect(verdictSentence(summary({ match: 2, unexplained: 1 }))).toBe('1 page differs without an explanation');
 		expect(verdictSentence(summary({ unexplained: 2 }))).toBe('2 pages differ without an explanation');
 		expect(verdictSentence(summary({ match: 2, explained: 1 }))).toBe('1 page has only known differences');
-		expect(verdictSentence(summary({ match: 2, unclassified: 1, incomplete: 1 }))).toBe('1 page is not measured. 1 page is incomplete');
+		expect(verdictSentence(summary({ match: 2, unclassified: 1, incomplete: 1 }))).toBe('1 page is not measured. 1 page is incomplete.');
 		// Incomplete overlaps the classes: it never reads as "Nothing changed".
-		expect(verdictSentence(summary({ match: 2, incomplete: 1 }))).toBe('No difference found. 1 page is incomplete');
-		expect(verdictSentence(summary({ unexplained: 1, match: 1, incomplete: 2 }))).toBe('1 page differs without an explanation. 2 pages are incomplete');
+		expect(verdictSentence(summary({ match: 2, incomplete: 1 }))).toBe('No difference found. 1 page is incomplete.');
+		expect(verdictSentence(summary({ unexplained: 1, match: 1, incomplete: 2 }))).toBe('1 page differs without an explanation. 2 pages are incomplete.');
 		expect(verdictSentence(summary({ oracle: 2 }))).toBe('2 pages need a check by a person');
 		expect(verdictSentence(summary({ match: 3, oracle: 1 }))).toBe('1 page needs a check by a person');
-		expect(verdictSentence(summary({ explained: 1, unclassified: 1 }))).toBe('1 page has only known differences. 1 page is not measured');
+		expect(verdictSentence(summary({ explained: 1, unclassified: 1 }))).toBe('1 page has only known differences. 1 page is not measured.');
 		expect(verdictSentence(summary())).toBe('No pages');
 		expect(verdictSentence(null)).toBe('Not measured');
 	});

@@ -41,7 +41,7 @@ describe('Home', () => {
 	it('opens with the latest comparison: verdict in words, counts, incomplete as a state', async () => {
 		const view = mount(IndexView, { props: { index } });
 		const card = view.find('.latest-card');
-		expect(card.text()).toContain('1 page differs without an explanation. 1 page is incomplete');
+		expect(card.text()).toContain('1 page differs without an explanation. 1 page is incomplete.');
 		expect(card.find('time').attributes('title')).toBe('2026-10-03T09:00:00.000Z');
 		const counts = card.findAll('.verdict-count').map((item) => [item.attributes('data-verdict'), item.text()]);
 		expect(counts).toEqual([['match', '2match'], ['zero', '0explained'], ['unexplained', '1unexplained'], ['incomplete', '1incomplete (state)']]);
