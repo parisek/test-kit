@@ -20,7 +20,7 @@ Usage: test-kit <command> [options]
   record-allowed REPORT --target ID --check ID [--viewport ID] [--fingerprint HASH] --reason TEXT --owner TEXT [--expires YYYY-MM-DD] [--config FILE] [--allowlist FILE]
   record-decision REPORT --target ID --viewport ID --part ID --property P --decision implement|report-only --reason TEXT --owner TEXT [--config FILE] [--decisions FILE]
   perf --side ID [--targets ID,ID|--path PATH] [--ddev] [--store PATH] [--config FILE] [--runs 3..5] [--form-factor desktop|mobile] [--throttling simulated|devtools|provided] [--budget METRIC=VALUE] [--consent] [--allow-high-load] [--fail-on-budget]
-  serve REPORT [--port N] [--live [--config FILE]]   With --live, start one loopback proxy for each side with an origin, for the Live page.
+  serve REPORT [--port N] [--live [--config FILE]]   With --live, start one loopback proxy for each side with an origin, for the Live page. Its pages run on a 127.0.0.1 origin that local services trust: use it only with pages you trust (#465).
   bundle REPORT [--finding ID --output DIR] [--config FILE]   Without --finding, list the findings of the report. With it, write the evidence of one finding to DIR/ID/ for a task: finding.json, finding.md and, for a screenshot, the cropped A, B and difference images. It uploads nothing.
   note RUN [--file FILE] [--config FILE] [--store PATH]   Attach the JSON object in FILE to a stored run as server facts. Without --file, list the notes of the run.
   -h, --help     Show this help.

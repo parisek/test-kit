@@ -223,3 +223,25 @@ describe('App hashchange (R10.14)', () => {
 		window.location.hash = '';
 	});
 });
+
+describe('App and the Live page (R10.17 item 6)', () => {
+	afterEach(() => history.replaceState(null, '', '/'));
+	it('offers Live in the header, opens it from a #live hash with the Home in the breadcrumb, and leaves the Home alone', async () => {
+		history.replaceState(null, '', '/#live');
+		const live = { sides: [{ id: 'a', origin: 'http://127.0.0.1:4101' }, { id: 'b', origin: 'http://127.0.0.1:4102' }], targets: [{ id: 'home', paths: { a: '/', b: '/' } }], viewports: [{ id: 'desktop', width: 1440, height: 900 }] };
+		vi.stubGlobal('fetch', vi.fn(async (url) => (String(url).endsWith('index.json') ? respond(200, JSON.stringify(index)) : String(url).endsWith('live.json') ? respond(200, JSON.stringify(live)) : respond(404, 'Not found'))));
+		const app = mount(App, { attachTo: document.body });
+		await flushPromises();
+		await flushPromises();
+		expect(app.find('a.live-link').attributes('href')).toBe('#live');
+		expect(app.find('h1').text()).toBe('Live');
+		expect(app.find('.breadcrumb a').text()).toBe('Comparisons');
+		expect(app.findAll('iframe')).toHaveLength(2);
+		expect(app.find('#notice').exists()).toBe(false);
+		await app.find('.breadcrumb a').trigger('click');
+		await flushPromises();
+		expect(app.find('h1').text()).toBe('Comparisons');
+		expect(location.hash).toBe('');
+		app.unmount();
+	});
+});

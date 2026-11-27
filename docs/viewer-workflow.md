@@ -103,7 +103,7 @@ The developer rebuilds a page and wants to click through the reference and the n
 | State | The hash `#live/<target>/<side A>/<side B>/<viewport>?layout=&zoom=&show=` holds it. An omitted side B is the first side that is not side A. A swap replaces the current history entry. Any other change adds one. |
 | Measure this view | Copies `test-kit before ... && test-kit after ...` for exactly the shown cell. The button says that `before` replaces the stored baseline of that selection. It runs nothing. A server route follows later as its own Tier 3 change. |
 | Without the proxy | No frame. The page shows `test-kit serve REPORT --live`. |
-| Security | Each side has its own proxy origin, apart from the viewer. The proxy refuses a foreign `Host`, a cross-site request, a method other than GET and HEAD, and a service worker (R10.18). The viewer accepts a scroll message only from the origin and the window of that frame. |
+| Security | Each side has its own proxy origin, apart from the viewer. The proxy refuses a foreign `Host`, a cross-site request, a method other than GET and HEAD, a service worker, and a `same-site` request that is not a frame or page load. It drops the `Access-Control-*` and `Clear-Site-Data` headers of the side (R10.18). The viewer drops a side on its own origin or on a shared origin. The viewer accepts a scroll message only from the origin and the window of that frame. |
 
 The Live page shows no class and no verdict. It is a look, not evidence (V3). The copied command makes the measurement.
 
