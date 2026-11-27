@@ -166,12 +166,12 @@ const select = 'min-w-0 rounded border border-ui-control-border bg-ui-surface px
 		<template v-else-if="index?.usable">
 			<p v-if="notice" class="viewer-notice" role="status">{{ notice }}</p>
 			<form class="live-pickers" @submit.prevent>
-				<label>Target <select :class="select" :value="choice.targetId" @change="change('targetId', $event.target.value)"><option v-for="target in targets" :key="target.id" :value="target.id">{{ target.id }}</option></select></label>
-				<label>Side A <select :class="select" :value="choice.sideA" @change="change('sideA', $event.target.value)"><option v-for="side in index.sides" :key="side.id" :value="side.id">{{ side.id }}</option></select></label>
-				<label>Side B <select :class="select" :value="choice.sideB" @change="change('sideB', $event.target.value)"><option v-for="side in index.sides" :key="side.id" :value="side.id">{{ side.id }}</option></select></label>
-				<label>Viewport <select :class="select" :value="choice.viewportId" @change="change('viewportId', $event.target.value)"><option v-for="entry in index.viewports" :key="entry.id" :value="entry.id">{{ entry.id }}</option></select></label>
-				<label>Layout <select :class="select" :value="choice.layout" @change="change('layout', $event.target.value)"><option v-for="layout in LAYOUTS" :key="layout" :value="layout">{{ layout }}</option></select></label>
-				<label>Zoom <select :class="select" :value="choice.zoom" @change="change('zoom', $event.target.value)"><option v-for="zoom in ZOOMS" :key="zoom" :value="zoom">{{ zoom === 'fit' ? 'fit' : zoom + ' %' }}</option></select></label>
+				<label>Target <span class="filter-select"><select :class="select" :value="choice.targetId" @change="change('targetId', $event.target.value)"><option v-for="target in targets" :key="target.id" :value="target.id">{{ target.id }}</option></select></span></label>
+				<label>Side A <span class="filter-select"><select :class="select" :value="choice.sideA" @change="change('sideA', $event.target.value)"><option v-for="side in index.sides" :key="side.id" :value="side.id">{{ side.id }}</option></select></span></label>
+				<label>Side B <span class="filter-select"><select :class="select" :value="choice.sideB" @change="change('sideB', $event.target.value)"><option v-for="side in index.sides" :key="side.id" :value="side.id">{{ side.id }}</option></select></span></label>
+				<label>Viewport <span class="filter-select"><select :class="select" :value="choice.viewportId" @change="change('viewportId', $event.target.value)"><option v-for="entry in index.viewports" :key="entry.id" :value="entry.id">{{ entry.id }}</option></select></span></label>
+				<label>Layout <span class="filter-select"><select :class="select" :value="choice.layout" @change="change('layout', $event.target.value)"><option v-for="layout in LAYOUTS" :key="layout" :value="layout">{{ layout }}</option></select></span></label>
+				<label>Zoom <span class="filter-select"><select :class="select" :value="choice.zoom" @change="change('zoom', $event.target.value)"><option v-for="zoom in ZOOMS" :key="zoom" :value="zoom">{{ zoom === 'fit' ? 'fit' : zoom + ' %' }}</option></select></span></label>
 			</form>
 			<div class="live-bar">
 				<p v-if="viewport" class="live-scale">{{ viewport.id }} · {{ viewport.width }} px at {{ percent }} %</p>
