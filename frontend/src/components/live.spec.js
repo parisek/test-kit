@@ -28,6 +28,16 @@ describe('the Live page (R10.17)', () => {
 		wrapper.unmount();
 	});
 
+	it('draws each picker arrow inside the field, like the report filters', async () => {
+		vi.stubGlobal('fetch', respond(index));
+		const wrapper = mount(LiveView, { attachTo: document.body });
+		await flushPromises();
+		const selects = wrapper.findAll('.live-pickers select');
+		expect(selects).toHaveLength(6);
+		for (const select of selects) expect(select.element.parentElement.classList.contains('filter-select')).toBe(true);
+		wrapper.unmount();
+	});
+
 	it('swaps with the space bar, replaces the history entry, and ignores the key in a form control', async () => {
 		vi.stubGlobal('fetch', respond(index));
 		const wrapper = mount(LiveView, { attachTo: document.body });
