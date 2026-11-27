@@ -4,6 +4,15 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-27
+
+Stable release of 1.5. It holds `1.5.0-rc.1` (commit d2f0799) and two viewer fixes. The tag `v1.5.0-rc.1` was not pushed, so no install from the candidate tag and no downstream trial is recorded for this release. Unit tests, viewer tests and CI cover the changes. Read the known risk of `1.5.0-rc.1` before you use `serve --live`: a proxied page runs on a `127.0.0.1` origin that local dev servers trust (#465, fix planned for 1.5.1).
+
+### Fixed
+
+- The pickers of the Live page keep their arrow inside the field, as the report filters do (R10.17, #470).
+- Viewer polish from the design review #471 (#472): the incomplete count sits beside the class counts, a verdict sentence of two or more parts ends with a full stop, a status dot on the selected sidebar row uses the light verdict color, the header controls keep their gap below 860px, and a decision command uses the command box of the Live page.
+
 ## [1.5.0-rc.1] - 2026-11-27
 
 First release candidate for 1.5.0. It is not a stable release. `package.json` says `1.5.0`, so `--version` prints `1.5.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. New in 1.5: the Live page with `serve REPORT --live`, `bundle` for the evidence of one finding, and the size signal of a screenshot pair. Nothing new runs by default (R5.1). Known risk: under `serve --live` a proxied page and its third-party scripts run on a `127.0.0.1` origin that local dev servers and the cookies of host `127.0.0.1` trust. Use `--live` only with pages that you trust; the fix is planned for 1.5.1 (#465). The release security review (full audit, `docs/process.md` section 6) passed with no critical and no high finding; the medium finding is #465 in milestone 1.5.1, and the low finding was fixed before this candidate.
