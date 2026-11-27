@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+## [1.5.0-rc.1] - 2026-11-27
+
+First release candidate for 1.5.0. It is not a stable release. `package.json` says `1.5.0`, so `--version` prints `1.5.0` for this candidate too; `npm ls @parisek/test-kit` shows the commit. New in 1.5: the Live page with `serve REPORT --live`, `bundle` for the evidence of one finding, and the size signal of a screenshot pair. Nothing new runs by default (R5.1). Known risk: under `serve --live` a proxied page and its third-party scripts run on a `127.0.0.1` origin that local dev servers and the cookies of host `127.0.0.1` trust. Use `--live` only with pages that you trust; the fix is planned for 1.5.1 (#465). The release security review (full audit, `docs/process.md` section 6) passed with no critical and no high finding; the medium finding is #465 in milestone 1.5.1, and the low finding was fixed before this candidate.
+
 ### Added
 
 - `serve REPORT --live [--config FILE]` starts one loopback proxy for each side with an origin, for the Live page (R10.18, #444). Each proxy is its own origin. It refuses a foreign `Host`, a request from another web site, a method other than GET and HEAD, and a service worker. It sends no cookie and no `Authorization`, and it adds one scroll script to an HTML page. `serve` prints `{ url, live }`. Without `--live`, `serve` is as before. The Live page itself follows. Known risk: the proxied page runs on a `127.0.0.1` origin that local dev servers trust; use `--live` only with pages that you trust (#465, fix planned for 1.5.1).
