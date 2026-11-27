@@ -95,10 +95,13 @@ function open(row, event) {
                 <h2 id="strip-title" class="small-heading">Verdict history, oldest first</h2>
                 <ol class="strip-dots">
                     <li v-for="row in strip.dots" :key="row.id" :title="row.createdAt ?? undefined">
-                        <span class="verdict-dot" :data-verdict="dot(row)" aria-hidden="true"></span>
-                        <span class="record">{{ shortDateTime(row.createdAt) }}</span>
-                        <span>{{ word(row) }}</span>
-                        <span v-if="!row.available" class="row-unavailable">unavailable</span>
+                        <!-- #391: a dot opens its comparison, as its row does. An unavailable one stays text. -->
+                        <component :is="row.available ? 'a' : 'span'" class="strip-item" :href="row.available ? anchorFor(row.id) : undefined" @click="row.available && open(row, $event)">
+                            <span class="verdict-dot" :data-verdict="dot(row)" aria-hidden="true"></span>
+                            <span class="record">{{ shortDateTime(row.createdAt) }}</span>
+                            <span>{{ word(row) }}</span>
+                            <span v-if="!row.available" class="row-unavailable">unavailable</span>
+                        </component>
                     </li>
                 </ol>
                 <p v-if="strip.omitted" class="home-meta">{{ plural(strip.omitted, 'older comparison is', 'older comparisons are') }} not shown.</p>
