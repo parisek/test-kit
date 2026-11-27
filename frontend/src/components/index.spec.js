@@ -67,6 +67,8 @@ describe('Home', () => {
 		expect(items[1].attributes('href')).toBe('#r-example-a');
 		expect(items[3].attributes('href')).toBe('#r-example-c');
 		expect(items[2].attributes('href')).toBeUndefined();
+		// The ISO time is the title of the link itself, so two dots in one minute differ (DESIGN.md: the ISO time stays in a title).
+		expect(items[3].attributes('title')).toBe('2026-10-03T09:00:00.000Z');
 		await items[3].trigger('click');
 		expect(view.emitted('open')).toEqual([['example-c']]);
 		// A modified click keeps the browser default (a new tab), so the view emits nothing.
