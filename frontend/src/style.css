@@ -103,11 +103,7 @@
 .summary-metrics { display: flex; gap: 12px 0; border-top: 1px solid var(--ui-border); margin-top: 20px; padding-top: 16px; flex-wrap: wrap; }
 .summary-metric { flex: 1 0 auto; min-width: max-content; padding: 0 15px; border-left: 1px solid var(--ui-border); }
 .summary-metric:first-child { border-left: 0; padding-left: 0; }
-/* The measurement state stands apart from the class counts (DESIGN.md "Counts"). */
-/* DESIGN.md "Counts": a rule separates the measurement state, and the incomplete count sits beside the classes. */
-.summary-metric.summary-state { margin-left: 15px; }
-/* Below 550px the three class counts fill the row, so the state takes its own row under a rule. */
-@media (max-width: 550px) { .summary-metric.summary-state { flex-basis: 100%; margin-left: 0; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--ui-border); } }
+/* DESIGN.md "Counts": the incomplete count sits beside the classes, and its left border is the rule that separates it. It wraps by content (DESIGN.md "Layout": no breakpoint rule). */
 .summary-metric.summary-state span { text-transform: none; }
 .summary-metric strong { font-size: 30px; line-height: 1.2; font-weight: 650; letter-spacing: -1px; display: block; font-variant-numeric: tabular-nums; }
 .summary-metric span { display: block; color: var(--ui-muted); font-size: 0.75rem; text-transform: capitalize; margin-top: 4px; }
@@ -341,6 +337,8 @@ details.scope-details > summary { cursor: pointer; }
 .live-frame { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: #fff; }
 .live-measure { border-top: 1px solid var(--ui-border); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; font-size: 0.8125rem; }
 .live-measure h2 { font-size: 1.125rem; font-weight: 600; }
-.live-measure pre, .live-missing pre, .decision-text { max-width: 100%; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.75rem; padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: 5px; background: var(--ui-toolbar); }
+.live-measure pre, .live-missing pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.75rem; padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: 5px; background: var(--ui-toolbar); }
+/* A decision command takes the same command box (DESIGN.md "Allowlist entry action"), but it stays on one line and scrolls inside the box. */
+.decision-text { padding: 8px 10px; border: 1px solid var(--ui-border); border-radius: 5px; background: var(--ui-toolbar); }
 .live-missing { display: flex; flex-direction: column; gap: 8px; font-size: 0.9375rem; }
 .live-copied { font-size: 0.75rem; color: var(--ui-muted); }
