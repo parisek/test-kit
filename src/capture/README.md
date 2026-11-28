@@ -113,8 +113,10 @@ transient (R5.14).
 `hide` (R5.21) is a list of at most 50 selectors. `hideStyle` in `hide.js`
 builds one `visibility: hidden !important` rule for each selector, and the
 screenshot passes it as the Playwright `style` option. The configuration
-refuses `{`, `}`, `;`, `@`, `/*` and `*/` in a selector, so one selector cannot
-end its rule or start another. A descendant with its own `visibility: visible`
+refuses `{`, `}`, `;`, `@`, `/*` and `*/` in a selector, an open bracket,
+parenthesis or quote, and a trailing backslash (`hideSelectorProblem`). All
+rules share one style sheet, so one selector cannot end its rule, start
+another, or swallow the later rules. A descendant with its own `visibility: visible`
 still paints. The
 content and layout settings leave `hide` out, like the masks.
 

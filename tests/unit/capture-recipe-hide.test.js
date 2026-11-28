@@ -41,12 +41,14 @@ test('hide refuses a brace, more than 50 selectors, a long or empty selector and
   assert.throws(() => config([{ id: 'home', settle: { hide: ['a { color: red } b'] } }]), /hide selector must not hold \{, \}, ;, @, \/\* or \*\//);
   assert.throws(() => config([{ id: 'home', settle: { hide: ['a}'] } }]), /must not hold/);
   for (const value of ['a; b', '@media print', 'a /* x', 'a */ b']) assert.throws(() => config([{ id: 'home', settle: { hide: [value] } }]), /must not hold/, value);
+  // An open bracket, parenthesis or quote swallows every later rule of the shared style sheet (measured in Chromium).
+  for (const value of ['#a[', '#a[x="', "#a[x='y]", '#b:not(', '#b:not(.x]', 'a)', 'a]', 'a\\']) assert.throws(() => config([{ id: 'home', settle: { hide: [value] } }]), /hide selector must/, value);
   assert.throws(() => config([{ id: 'home', settle: { hide: Array.from({ length: 51 }, (_, i) => `.x${i}`) } }]));
   assert.throws(() => config([{ id: 'home', settle: { hide: ['.' + 'a'.repeat(1000)] } }]));
   assert.throws(() => config([{ id: 'home', settle: { hide: [''] } }]));
   assert.throws(() => config([{ id: 'home', settle: { hide: '.skip-link' } }]));
   assert.doesNotThrow(() => config([{ id: 'home', settle: { hide: Array.from({ length: 50 }, (_, i) => `.x${i}`) } }]));
-  assert.doesNotThrow(() => config([{ id: 'home', settle: { hide: ['a.skip-link, .toast:not(.open)', '[data-x="\\7d"]'] } }]));
+  assert.doesNotThrow(() => config([{ id: 'home', settle: { hide: ['a.skip-link, .toast:not(.open)', '[data-x="\\7d"]', '[data-x="a]("]', '.a\\[b', ':is(.a, [x=")"])'] } }]));
 });
 
 test('the content and layout settings leave hide out, like the masks (R5.21, R6.14)', () => {
@@ -68,6 +70,6 @@ test('hideStyle gives one visibility rule for each selector and refuses a rule b
   assert.equal(hideStyle([]), '');
   assert.equal(hideStyle(undefined), '');
   assert.throws(() => hideStyle(['a } body { display: none']), /Invalid hide selector/);
-  for (const value of ['a; b', '@import x', 'a /* x', 'x */']) assert.throws(() => hideStyle([value]), /Invalid hide selector/, value);
+  for (const value of ['a; b', '@import x', 'a /* x', 'x */', '#a[', '#b:not(', '#a[x="']) assert.throws(() => hideStyle([value]), /Invalid hide selector/, value);
   assert.throws(() => hideStyle([42]), /Invalid hide selector/);
 });

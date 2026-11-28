@@ -4,6 +4,7 @@ import { normalizeRules, normalizeKnown } from '../rules/model.js';
 import { BUILTIN_PACK_IDS } from '../packs/ids.js';
 import { DEFAULT_MOUNT, MAX_COMPONENTS, validMount } from '../styleguide/index.js';
 import { ALLOW_ORIGIN_TYPES } from '../capture/helpers.js';
+import { hideSelectorProblem } from '../capture/hide.js';
 import { designPathProblem, designRootProblem } from '../design/paths.js';
 import { fileKeyProblem, nodeIdProblem } from '../design/figma-ids.js';
 import { artboardRefProblem } from '../design/claude-design-refs.js';
@@ -117,10 +118,11 @@ export function normalizeSettlement(value, name = 'settle', partial = false) {
   if (Object.hasOwn(source, 'pin')) result.pin = list(source.pin, `${name}.pin`, 20).map(value => text(value, `${name}.pin selector`, 2048));
   // R5.15: plain selectors that capture waits for after the lazy-image sweep restores the scroll. `[]` clears an inherited list.
   if (Object.hasOwn(source, 'afterSweep')) result.afterSweep = list(source.afterSweep, `${name}.afterSweep`, 20).map(value => text(value, `${name}.afterSweep selector`, 2048));
-  // R5.21: plain selectors that the screenshot hides with `visibility: hidden`. A brace, a semicolon, an at sign or a comment mark could end the rule or start another, so it fails.
+  // R5.21: plain selectors that the screenshot hides with `visibility: hidden`. A value that could end its rule, start another or leave a bracket or a quote open fails (hide.js).
   if (Object.hasOwn(source, 'hide')) result.hide = list(source.hide, `${name}.hide`, 50).map((value) => {
     text(value, `${name}.hide selector`, 1000);
-    if (/[{};@]|\/\*|\*\//.test(value)) fail(`${name}.hide selector must not hold {, }, ;, @, /* or */`);
+    const problem = hideSelectorProblem(value);
+    if (problem) fail(`${name}.hide selector ${problem}`);
     return value;
   });
   return result;
