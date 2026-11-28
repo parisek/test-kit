@@ -235,6 +235,8 @@ Some headers return to their top state on their own time, for example by a debou
 
 `settle.masks` paints a box over each match of each selector before the screenshot. Mask the media element (`#hero video`), not a container that holds the content (`#hero`). A mask on a container hides the text and the buttons too, and the diff is then 0 % for a reason that is not a match. When the masks cover at least 95 % of the captured area, the capture stores the warning `MASK_COVERS_TARGET` and the command prints one stderr line (R5.18). The capture does not change.
 
+`settle.hide` hides each match of each selector in the screenshot only, with `visibility: hidden` (R5.21). Use it for an element that no visitor sees but that an element screenshot paints, for example an element with `position: fixed`, such as a skip link, over a component taller than the viewport. A mask would paint a box there, so the region would still differ. A hidden element keeps its space. A descendant that sets `visibility: visible` itself still paints, so name it too. A selector must not hold `{`, `}`, `;`, `@`, `/*` or `*/`, and must close each bracket, parenthesis and quote. A selector with no match hides nothing. The key is off by default, and a change of `hide` makes only that target `incompatible`.
+
 ## Sticky and fixed headers
 
 The lazy-image sweep scrolls the page, so a header that changes its state on scroll can keep the scrolled state in the screenshot. Use `settle.afterSweep` (above) when the header returns to its top state on its own time, and `settle.pin` when it stays fixed or sticky.
