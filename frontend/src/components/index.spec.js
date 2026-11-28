@@ -60,6 +60,21 @@ describe('Home', () => {
 		expect(dots[2]).toContain('unavailable');
 		expect(dots[3]).toContain('unexplained');
 	});
+	it('opens a comparison from its history dot, and keeps an unavailable dot as text (#391)', async () => {
+		const view = mount(IndexView, { props: { index } });
+		const items = view.findAll('.strip-dots li .strip-item');
+		expect(items.map((item) => item.element.tagName)).toEqual(['A', 'A', 'SPAN', 'A']);
+		expect(items[1].attributes('href')).toBe('#r-example-a');
+		expect(items[3].attributes('href')).toBe('#r-example-c');
+		expect(items[2].attributes('href')).toBeUndefined();
+		// The ISO time is the title of the link itself, so two dots in one minute differ (DESIGN.md: the ISO time stays in a title).
+		expect(items[3].attributes('title')).toBe('2026-10-03T09:00:00.000Z');
+		await items[3].trigger('click');
+		expect(view.emitted('open')).toEqual([['example-c']]);
+		// A modified click keeps the browser default (a new tab), so the view emits nothing.
+		await items[1].trigger('click', { metaKey: true });
+		expect(view.emitted('open')).toEqual([['example-c']]);
+	});
 	it('groups rows by day and shows the change within one scope, the incomplete state and a new settings hash', () => {
 		const view = mount(IndexView, { props: { index } });
 		const groups = view.findAll('.home-day');

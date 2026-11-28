@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Fixed
+
+- Viewer Home: each dot of the verdict history opens its comparison, like its row (R10.3, #391). A dot of an unavailable comparison stays text.
+
 ## [1.5.0] - 2026-11-27
 
 Stable release of 1.5. It holds `1.5.0-rc.1` (commit d2f0799) and two viewer fixes. The tag `v1.5.0-rc.1` was not pushed, so no install from the candidate tag and no downstream trial is recorded for this release. Unit tests, viewer tests and CI cover the changes. Read the known risk of `1.5.0-rc.1` before you use `serve --live`: a proxied page runs on a `127.0.0.1` origin that local dev servers trust (#465, fix planned for 1.5.1).
