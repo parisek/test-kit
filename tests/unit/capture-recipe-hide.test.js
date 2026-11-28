@@ -38,8 +38,9 @@ test('hide merges like other settle keys: arrays replace, [] clears, the side ov
 });
 
 test('hide refuses a brace, more than 50 selectors, a long or empty selector and a non-list (R5.21)', () => {
-  assert.throws(() => config([{ id: 'home', settle: { hide: ['a { color: red } b'] } }]), /hide selector must not hold \{ or \}/);
+  assert.throws(() => config([{ id: 'home', settle: { hide: ['a { color: red } b'] } }]), /hide selector must not hold \{, \}, ;, @, \/\* or \*\//);
   assert.throws(() => config([{ id: 'home', settle: { hide: ['a}'] } }]), /must not hold/);
+  for (const value of ['a; b', '@media print', 'a /* x', 'a */ b']) assert.throws(() => config([{ id: 'home', settle: { hide: [value] } }]), /must not hold/, value);
   assert.throws(() => config([{ id: 'home', settle: { hide: Array.from({ length: 51 }, (_, i) => `.x${i}`) } }]));
   assert.throws(() => config([{ id: 'home', settle: { hide: ['.' + 'a'.repeat(1000)] } }]));
   assert.throws(() => config([{ id: 'home', settle: { hide: [''] } }]));
@@ -62,10 +63,11 @@ test('an entry with no settle hash does not match a recipe with a non-empty hide
   assert.equal(settlementMatches({ targetId: 'home' }, cleared, 'local', targetOf(cleared, 'home')), true);
 });
 
-test('hideStyle gives one visibility rule for each selector and refuses a brace (R5.21, R4.4)', () => {
+test('hideStyle gives one visibility rule for each selector and refuses a rule break (R5.21, R4.4)', () => {
   assert.equal(hideStyle(['.skip-link', 'a, b']), '.skip-link { visibility: hidden !important; }\na, b { visibility: hidden !important; }');
   assert.equal(hideStyle([]), '');
   assert.equal(hideStyle(undefined), '');
   assert.throws(() => hideStyle(['a } body { display: none']), /Invalid hide selector/);
+  for (const value of ['a; b', '@import x', 'a /* x', 'x */']) assert.throws(() => hideStyle([value]), /Invalid hide selector/, value);
   assert.throws(() => hideStyle([42]), /Invalid hide selector/);
 });
