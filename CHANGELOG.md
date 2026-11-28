@@ -4,6 +4,10 @@ Versions follow semver. Each release uses an immutable git tag.
 
 ## [Unreleased]
 
+### Added
+
+- `settle.hide`: a list of at most 50 selectors that the screenshot hides with `visibility: hidden` (R5.21, #440). Use it for an off-screen fixed element that an element screenshot paints. It is off by default, and a change makes only that target `incompatible`.
+
 ### Fixed
 
 - Viewer Home: each dot of the verdict history opens its comparison, like its row (R10.3, #391). A dot of an unavailable comparison stays text.

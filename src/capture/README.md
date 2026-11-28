@@ -110,6 +110,12 @@ message.
 capture deadline during the wait gives the same failure. The failure is not
 transient (R5.14).
 
+`hide` (R5.21) is a list of at most 50 selectors. `hideStyle` in `hide.js`
+builds one `visibility: hidden !important` rule for each selector, and the
+screenshot passes it as the Playwright `style` option. The configuration
+refuses a brace in a selector, so one selector cannot end its rule. The
+content and layout settings leave `hide` out, like the masks.
+
 A recipe can set `reveal` to at most 20 `{action, selector}` steps. Actions
 are `click`, `hover`, and `focus`. They run before wait selectors. A reveal
 cannot navigate another page, open a popup, or submit a request.

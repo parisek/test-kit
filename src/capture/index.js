@@ -1,5 +1,6 @@
 import { settlePage, countUnloadedLazyImages, countSelectorMatches, readMaskCover, afterSweepError } from './settle.js';
 import { masksCoveringTarget } from './mask-cover.js';
+import { hideStyle } from './hide.js';
 import { captureWarnings, warningFields, withWarning } from '../report/warnings.js';
 import { captureScopedScreenshot } from './scope.js';
 import { captureRecipe, settleRecipe } from '../config/settings.js';
@@ -341,7 +342,9 @@ async function captureOne(browser, config, side, target, viewport, runDir, prove
     if (size) assertImageBounds(size.width, size.height, viewport.deviceScaleFactor);
     await mkdir(dirname(file), { recursive: true });
     const options = { path: file, type: 'png', timeout: config.screenshot.timeoutMs,
-      animations: recipe.disableMotion ? 'disabled' : 'allow', mask: recipe.masks.map(selector => page.locator(selector)) };
+      animations: recipe.disableMotion ? 'disabled' : 'allow', mask: recipe.masks.map(selector => page.locator(selector)),
+      // R5.21: the screenshot hides the matches of `hide`. Playwright applies the style for the screenshot only.
+      ...(recipe.hide?.length ? { style: hideStyle(recipe.hide) } : {}) };
     const bytes = target.selector && !locator
       ? (await captureScopedScreenshot({ page, selector: target.selector, box: target.box ?? 'border', options })).bytes
       : locator ? await locator.screenshot(options) : await page.screenshot({ ...options, fullPage: config.screenshot.fullPage });

@@ -38,14 +38,15 @@ export function responseSettings(config, kind) {
 }
 
 export function contentSettings(config, side, target) {
-  const { masks, ...settle } = settleRecipe(config, side, target);
+  // R5.21: `hide` changes only the screenshot, like the masks.
+  const { masks, hide, ...settle } = settleRecipe(config, side, target);
   // #442: a selector target binds its scope, so a component snapshot never compares with a page snapshot. A page target keeps its hash.
   return { mode: 'settled-dom', extractorVersion: '1.1.0', viewports: config.viewports, settle, ...(target?.selector ? { scope: target.selector } : {}), maxItems: 1000, maxText: 100000, maxBytes: 2 * 1024 * 1024 };
 }
 
-// R6.14: the layout read binds the settled page like the content snapshot, with the masks left out.
+// R6.14: the layout read binds the settled page like the content snapshot, with the masks and `hide` (R5.21) left out.
 export function layoutSettings(config, side, target, version) {
-  const { masks, ...settle } = settleRecipe(config, side, target);
+  const { masks, hide, ...settle } = settleRecipe(config, side, target);
   return { mode: 'computed-style', version, viewports: config.viewports, settle, maxParts: 50, maxRepeat: 50, maxTokens: 2000, maxBytes: 2 * 1024 * 1024 };
 }
 
@@ -103,5 +104,5 @@ export function settlementMatches(capture, config, side, target) {
   const recipe = settleRecipe(config, side, target);
   if (capture.settleHash !== undefined) return capture.settleHash === settingsHash(recipe);
   return target?.settle === undefined && !Object.hasOwn(target?.settleBySide ?? {}, side)
-    && !(recipe.reveal?.length > 0) && recipe.lazyImages !== true && !(recipe.pin?.length > 0) && !(recipe.afterSweep?.length > 0);
+    && !(recipe.reveal?.length > 0) && recipe.lazyImages !== true && !(recipe.pin?.length > 0) && !(recipe.afterSweep?.length > 0) && !(recipe.hide?.length > 0);
 }

@@ -99,7 +99,7 @@ function targetPath(value, name) {
   return value;
 }
 export function normalizeSettlement(value, name = 'settle', partial = false) {
-  const source = object(value, name, ['waitMs', 'selectors', 'disableMotion', 'masks', 'reveal', 'lazyImages', 'pin', 'afterSweep']);
+  const source = object(value, name, ['waitMs', 'selectors', 'disableMotion', 'masks', 'reveal', 'lazyImages', 'pin', 'afterSweep', 'hide']);
   const result = {};
   for (const key of ['waitMs', 'selectors', 'disableMotion', 'masks']) {
     if (partial && !Object.hasOwn(source, key)) continue;
@@ -117,6 +117,12 @@ export function normalizeSettlement(value, name = 'settle', partial = false) {
   if (Object.hasOwn(source, 'pin')) result.pin = list(source.pin, `${name}.pin`, 20).map(value => text(value, `${name}.pin selector`, 2048));
   // R5.15: plain selectors that capture waits for after the lazy-image sweep restores the scroll. `[]` clears an inherited list.
   if (Object.hasOwn(source, 'afterSweep')) result.afterSweep = list(source.afterSweep, `${name}.afterSweep`, 20).map(value => text(value, `${name}.afterSweep selector`, 2048));
+  // R5.21: plain selectors that the screenshot hides with `visibility: hidden`. A brace would end the rule, so it fails.
+  if (Object.hasOwn(source, 'hide')) result.hide = list(source.hide, `${name}.hide`, 50).map((value) => {
+    text(value, `${name}.hide selector`, 1000);
+    if (/[{}]/.test(value)) fail(`${name}.hide selector must not hold { or }`);
+    return value;
+  });
   return result;
 }
 
